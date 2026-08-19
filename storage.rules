@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Mismo criterio que firestore.rules: el dueño del inventario, o cualquier
+    // persona en su lista de miembros (equipo compartido), puede leer/escribir
+    // las fotos de sus recibos. firestore.exists() consulta la misma subcolección
+    // users/{ownerUid}/members/{memberId} que ya usan las reglas de Firestore —
+    // no hay una segunda fuente de verdad para quién pertenece a qué equipo.
+    match /users/{ownerUid}/receipts/{allPaths=**} {
+      allow read, write: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+      );
+    }
+  }
+}

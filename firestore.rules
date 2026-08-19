@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada quien lee/escribe sus propios datos (users/{uid}/...) — y ahora también
+    // puede leer/escribir los datos de OTRO uid si está en su lista de miembros
+    // (users/{uid}/members/{miUid} existe). Esto es lo que permite compartir un
+    // inventario entre varias cuentas sin que nadie de afuera pueda entrar.
+    //
+    // A propósito se lista cada subcolección real (en vez de un solo
+    // users/{uid}/{document=**} que las cubra todas de una) para que esta regla
+    // NUNCA alcance a users/{uid}/members/{memberId}, más abajo. Firestore combina
+    // con OR las reglas que matchean un mismo camino — no "la más específica gana" —
+    // así que un wildcard de acá arriba haría inútil cualquier restricción puesta en
+    // la regla de members: antes, CUALQUIER miembro del equipo podía borrar o editar
+    // la membresía de OTRO miembro (ej. sacarlo del equipo) aunque la regla de más
+    // abajo intentaba impedirlo explícitamente.
+    match /users/{uid}/inventory/{document=**} {
+      allow read, create, update, delete: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+    }
+    match /users/{uid}/purchases/{document=**} {
+      allow read, create, update, delete: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+    }
+    match /users/{uid}/receipts/{document=**} {
+      allow read, create, update, delete: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+    }
+    match /users/{uid}/meta/{document=**} {
+      allow read, create, update, delete: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+    }
+    match /users/{uid}/activity/{document=**} {
+      allow read, create, update, delete: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+    }
+
+    // El documento de membresía de cada persona lo controla ELLA MISMA (para poder
+    // unirse o irse) — el dueño también puede leerlos y borrarlos (para sacar a
+    // alguien del equipo), pero NINGÚN miembro puede tocar la membresía de otro.
+    match /users/{uid}/members/{memberId} {
+      allow read: if request.auth != null && (request.auth.uid == uid || request.auth.uid == memberId);
+      allow create, update: if request.auth != null && request.auth.uid == memberId;
+      allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == memberId);
+    }
+
+    // inviteCodes es la única forma de que alguien, sabiendo un código, encuentre a
+    // qué uid pertenece para poder unirse. La lectura queda abierta a CUALQUIERA,
+    // sin sesión iniciada — a propósito: alguien que recién recibió un código de
+    // invitación (flujo de nombre+PIN) todavía no tiene cuenta en ese momento, así
+    // que exigir sesión acá bloquearía ese flujo por completo. No es un problema de
+    // privacidad real: hace falta saber el código exacto (1 en ~1000 millones de
+    // combinaciones) para leer algo, y de todos modos solo expone a qué cuenta
+    // pertenece — no da acceso a ningún dato del inventario por sí solo. Crear o
+    // borrar un código sigue requiriendo ser el dueño de esa cuenta.
+    match /inviteCodes/{code} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /feedback/{id} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if false;
+    }
+
+    // Reportes automáticos de errores del cliente (ver reportClientError() en
+    // index.html) — mismo criterio que feedback: cualquier cuenta logueada puede
+    // crear el suyo, nadie puede leer/editar/borrar por acá (el dueño los revisa
+    // directo desde la consola de Firebase, con permisos de administrador, no a
+    // través de la app).
+    match /errorLogs/{id} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if false;
+    }
+  }
+}

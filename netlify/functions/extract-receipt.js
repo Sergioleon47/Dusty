@@ -1,0 +1,274 @@
+// netlify/functions/extract-receipt.js
+//
+// Esta función corre en el servidor de Netlify, no en el navegador del usuario.
+// Por eso la ANTHROPIC_API_KEY puede vivir aquí de forma segura: nunca se manda
+// al cliente, solo el resultado ya procesado (el JSON del recibo).
+//
+// El navegador le manda la foto en base64 (+ opcionalmente los nombres de su
+// inventario actual) -> esta función se lo pasa a Claude con visión -> Claude
+// devuelve el JSON del recibo, ya con nombres limpios y emparejados contra el
+// inventario -> esta función se lo regresa al navegador.
+
+function buildPrompt(inventoryNames, caseTrackedNames, multi) {
+  const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
+  const hasCaseTracked = Array.isArray(caseTrackedNames) && caseTrackedNames.length > 0;
+
+  return `Eres un sistema experto en extraer datos de facturas de restaurante (Sysco, US Foods, Cintas, proveedores locales de produce, etc).
+
+Analiza la(s) imagen(es) de esta factura y extrae la información en JSON puro (sin markdown, sin backticks, sin texto extra antes o después).
+
+${multi ? `MUY IMPORTANTE — ESTA IMAGEN PUEDE CONTENER VARIOS RECIBOS DISTINTOS:
+La foto puede mostrar UNO o VARIOS recibos separados, puestos uno al lado del otro (por ejemplo varios tickets chicos apoyados sobre una mesa). Tu tarea es identificar cuántos recibos DISTINTOS hay y devolver uno por cada uno, cada uno con su propio proveedor, fecha, total y lista de productos.
+
+Cómo distinguir recibos separados: son hojas o tickets físicamente distintos, normalmente con su propio encabezado (nombre del negocio), su propia fecha y su propio total. NO separes en varios recibos lo que en realidad es un solo recibo largo, ni lo que son dos páginas del mismo documento (mismo negocio, misma fecha, la numeración de productos continúa). Si dudás si son uno o dos, devolvelo como UNO SOLO — es mucho peor partir un recibo en dos que dejar dos juntos.
+
+Si un recibo de la foto quedó cortado, muy borroso o ilegible, NO lo inventes: omitilo de la respuesta.` : `Si recibes más de una imagen, son páginas consecutivas de UNA SOLA factura (por ejemplo página 1 y página 2 del mismo recibo, en ese orden). Combina los productos de todas las páginas en una sola lista "items", sin duplicar información — el encabezado (proveedor, fecha) suele repetirse en cada página, úsalo solo una vez.`}
+
+REGLAS IMPORTANTES:
+- Si un precio está tachado y hay uno escrito a mano al lado, usa el escrito a mano (es la corrección final), no el original tachado.
+- Ignora líneas de "GROUP TOTAL", subtotales de sección, encabezados de categoría (FROZEN, PRODUCE, DRY, etc), cargos de flete/fuel surcharge, e impuestos — esas NO son productos individuales.
+- "total_price" es el precio EXTENDIDO de esa línea (cantidad x precio unitario), no el precio unitario solo.
+- Si no puedes leer un campo con confianza razonable, usa tu mejor estimación pero marca "confidence" como "baja".
+- Los números son siempre números (usa punto decimal), nunca strings.
+- La fecha va en formato YYYY-MM-DD. Si no la puedes determinar, usa null.
+
+SOBRE "raw_name" Y "clean_name":
+- "raw_name": copia exacta de la descripción tal como aparece impresa en el recibo (con abreviaturas, códigos de proveedor, mayúsculas, etc — sin traducir ni limpiar nada).
+- "clean_name": tu mejor interpretación de qué producto es en realidad, escrito como un nombre de producto claro y natural, SIEMPRE EN INGLÉS aunque el recibo esté en español o mezclado (esto es una regla fija del negocio: los nombres de producto en el sistema siempre quedan en inglés). Interpretá abreviaturas y códigos de proveedor con tu conocimiento general — por ejemplo "SYS CLS CHICKEN TNDR FRTR ORIG FL" es "Chicken Tenders", "PAN ROUND ALUMINUM 9\" 500 CT" es "Aluminum Pan (9 in)", "MILK WHOLE 4/1 GL" es "Whole Milk". No copies códigos de artículo ni números de catálogo en el nombre limpio.
+
+SOBRE "quantity" Y "unit" (tamaño de paquete):
+- Muchas facturas de mayorista venden por CAJA/CASE, pero cada caja contiene varias unidades más chicas (ej: "6/10 LB" = 6 piezas de 10 lb cada una; "40 LB DRY" = una caja de 40 lb en total; "4/1 GL" = 4 galones de 1 galón cada uno).
+- "quantity" tiene que ser la cantidad TOTAL real en la unidad base más útil para costear (libras, galones, unidades individuales, etc — NO la cantidad de cajas), calculada multiplicando cantidad de cajas × tamaño de cada caja cuando el tamaño de empaque esté indicado en la descripción.
+- "unit" es esa unidad base en inglés, corta y simple: "lb", "oz", "gal", "unidad" (usá "unidad" para conteo de piezas sueltas sin peso, ej. servilletas, tortillas, bolsas).
+- Si no podés determinar el tamaño de paquete con confianza, usá la cantidad de cajas/cases tal cual viene impresa, unidad "unidad", y marcá "confidence" como "media" o "baja" para esa línea (mejor esto que inventar un tamaño de paquete).
+${hasCaseTracked ? `- EXCEPCIÓN: estos productos el usuario eligió llevarlos por caja, no por unidad suelta — para estos NO desarmes el tamaño de paquete, "quantity" tiene que ser la cantidad de cajas tal cual viene impresa en la factura y "unit" tiene que ser "caja":
+${caseTrackedNames.map(n => `  - ${n}`).join('\n')}
+  (esto aplica solo cuando "matched_inventory_name" sea exactamente uno de estos nombres — para cualquier otro producto, seguí la regla normal de arriba)` : ''}
+
+${hasInventory ? `SOBRE "matched_inventory_name" (emparejar con el inventario existente):
+Esta es la lista de ingredientes que el usuario ya tiene cargados en su inventario:
+${inventoryNames.map(n => `- ${n}`).join('\n')}
+
+Para cada producto de la factura, fijate si corresponde a alguno de esos ingredientes ya existentes (aunque la descripción de la factura esté abreviada o en otro idioma — usá tu criterio, no comparación literal de texto). Si corresponde, poné en "matched_inventory_name" el nombre EXACTO tal cual aparece en esa lista (copiado letra por letra). Si es un producto distinto que no está en la lista, poné "matched_inventory_name": null.` : `No hay inventario cargado todavía, así que "matched_inventory_name" va a ser null para todos los productos.`}
+
+SOBRE "duplicate_of" (líneas repetidas del mismo producto NUEVO dentro de esta misma factura):
+A veces una factura describe el mismo producto en más de una línea (ej. una línea por caja y otra por el reempaque en unidades sueltas, o una columna que se leyó dos veces). Si detectás que dos o más líneas de ESTA factura son en realidad el mismo producto — y ese producto NO tiene "matched_inventory_name" (es nuevo, no está en el inventario existente) — dejá "duplicate_of": null en la PRIMERA aparición, y en las siguientes apariciones poné "duplicate_of" con el índice (empezando en 0) de esa primera línea dentro de este mismo array "items". Si un producto ya tiene "matched_inventory_name" (ya existe en el inventario), nunca uses "duplicate_of" para él — dejalo en null, aunque aparezca más de una vez. Si no estás seguro de que sean el mismo producto, dejá "duplicate_of": null (mejor dos líneas separadas que combinar mal dos productos distintos).
+
+Devuelve exactamente este formato:
+
+${multi ? `{
+  "receipts": [
+    {
+      "supplier": "string",
+      "date": "YYYY-MM-DD o null",
+      "invoice_total": number o null,
+      "items": [ ...mismo formato de item que se describe abajo... ]
+    }
+  ]
+}
+
+("receipts" siempre es un array, incluso si en la foto hay un solo recibo. El campo
+"duplicate_of" de un item se refiere al índice dentro del array "items" DE SU PROPIO
+recibo, nunca a items de otro recibo de la misma foto.)
+
+Formato de cada item:
+{
+  "raw_name": "string",
+  "clean_name": "string (en inglés)",
+  "matched_inventory_name": "string exacto de la lista, o null",
+  "quantity": number,
+  "unit": "string (lb, oz, gal, unidad, caja, etc)",
+  "total_price": number,
+  "confidence": "alta" | "media" | "baja",
+  "duplicate_of": number o null
+}` : `{
+  "supplier": "string",
+  "date": "YYYY-MM-DD o null",
+  "invoice_total": number o null,
+  "items": [
+    {
+      "raw_name": "string",
+      "clean_name": "string (en inglés)",
+      "matched_inventory_name": "string exacto de la lista, o null",
+      "quantity": number,
+      "unit": "string (lb, oz, gal, unidad, caja, etc)",
+      "total_price": number,
+      "confidence": "alta" | "media" | "baja",
+      "duplicate_of": number o null
+    }
+  ]
+}`}`;
+}
+
+// Esta función es una URL pública — cualquiera que la encuentre podría mandarle
+// pedidos directo (sin pasar por la app) y gastar la ANTHROPIC_API_KEY de Sergio.
+// Como freno básico (no es seguridad perfecta, un ataque decidido puede falsificar
+// el header Origin, pero corta el abuso casual/bots), solo se acepta si el pedido
+// viene realmente del sitio de PATRON o de una vista previa/desarrollo local.
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/([a-z0-9-]+\.)?patronsc\.netlify\.app$/i,
+  /^http:\/\/localhost(:\d+)?$/i,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/i
+];
+function isAllowedOrigin(event) {
+  const origin = event.headers.origin || event.headers.Origin || '';
+  const referer = event.headers.referer || event.headers.Referer || '';
+  const check = (val) => ALLOWED_ORIGIN_PATTERNS.some(re => re.test(val.replace(/\/$/, '')));
+  if (origin) return check(origin);
+  if (referer) { try { return check(new URL(referer).origin); } catch (e) { return false; } }
+  return false;
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
+  }
+
+  if (!isAllowedOrigin(event)) {
+    return { statusCode: 403, body: JSON.stringify({ error: 'Origen no permitido' }) };
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'Falta configurar ANTHROPIC_API_KEY en Netlify' }) };
+  }
+
+  // Acepta tanto el formato nuevo ("images": [{base64, mediaType}, ...], una o
+  // varias páginas) como el formato viejo de una sola imagen, por compatibilidad.
+  // "inventoryNames" es opcional: nombres de los ingredientes que el usuario ya
+  // tiene cargados, para que Claude pueda emparejar los productos de la factura
+  // contra el inventario real en vez de que el cliente compare texto literal.
+  // "multi" (opcional): si viene en true, la foto puede contener VARIOS recibos
+  // distintos y la respuesta trae un array "receipts" en vez de un solo recibo. Sin
+  // ese campo se comporta exactamente como siempre, así que las versiones viejas de
+  // la app (o un cliente que no lo mande) siguen funcionando igual.
+  let images, inventoryNames, caseTrackedNames, multi = false;
+  try {
+    const parsed = JSON.parse(event.body || '{}');
+    if (Array.isArray(parsed.images) && parsed.images.length > 0) {
+      images = parsed.images;
+    } else if (parsed.imageBase64) {
+      images = [{ base64: parsed.imageBase64, mediaType: parsed.mediaType || 'image/jpeg' }];
+    }
+    if (Array.isArray(parsed.inventoryNames)) {
+      inventoryNames = parsed.inventoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
+    }
+    if (Array.isArray(parsed.caseTrackedNames)) {
+      caseTrackedNames = parsed.caseTrackedNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
+    }
+    multi = parsed.multi === true;
+  } catch (e) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido' }) };
+  }
+
+  if (!images || images.length === 0) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen' }) };
+  }
+  if (images.length > 5) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Máximo 5 páginas por recibo' }) };
+  }
+
+  const imageContentBlocks = images.map(img => ({
+    type: 'image',
+    source: { type: 'base64', media_type: img.mediaType || 'image/jpeg', data: img.base64 }
+  }));
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        // Con varios recibos en una misma foto la respuesta puede ser bastante más larga
+        // (cada recibo trae su propio encabezado y su propia lista), así que necesita más
+        // margen. La app manda una foto por pedido en ese modo, así que cada llamada sigue
+        // siendo de un tamaño parecido a la de siempre — no se acumula todo en una.
+        max_tokens: multi ? 10000 : 6000,
+        // Este modelo piensa "puertas adentro" antes de responder por defecto, y ese
+        // pensamiento le resta del mismo límite de tokens que la respuesta final. Con
+        // un recibo largo (30+ productos) el pensamiento solo puede agotar los 3000
+        // tokens que había antes, dejando la respuesta real vacía — confirmado con un
+        // recibo real que fallaba así. Se desactiva explícitamente porque esta tarea
+        // es lectura + extracción directa, no necesita razonamiento en varios pasos.
+        thinking: { type: 'disabled' },
+        messages: [
+          {
+            role: 'user',
+            content: [
+              ...imageContentBlocks,
+              { type: 'text', text: buildPrompt(inventoryNames, caseTrackedNames, multi) }
+            ]
+          }
+        ]
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del lector de recibos' }) };
+    }
+
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if (!textBlock || !textBlock.text) {
+      // Si esto vuelve a pasar, "stop_reason" dice por qué: "max_tokens" significa
+      // que el recibo es tan largo que ni con el límite subido y el pensamiento
+      // desactivado alcanzó — en ese caso hay que subir max_tokens de nuevo.
+      return { statusCode: 502, body: JSON.stringify({
+        error: 'El lector de recibos no devolvió texto',
+        stopReason: data.stop_reason || null
+      }) };
+    }
+
+    let receiptData;
+    try {
+      const clean = textBlock.text.replace(/```json|```/g, '').trim();
+      receiptData = JSON.parse(clean);
+    } catch (e) {
+      // Antes esto se rendía apenas el texto no era JSON puro. En la práctica, a veces
+      // el modelo agrega alguna palabra suelta antes o después del JSON (aunque se le
+      // pidió que no lo haga) — como segundo intento, se recorta todo lo que esté antes
+      // del primer "{" y después del último "}" y se prueba de nuevo antes de rendirse.
+      try {
+        const start = textBlock.text.indexOf('{');
+        const end = textBlock.text.lastIndexOf('}');
+        if (start === -1 || end === -1 || end <= start) throw e;
+        receiptData = JSON.parse(textBlock.text.slice(start, end + 1));
+      } catch (e2) {
+        return { statusCode: 502, body: JSON.stringify({
+          error: 'No se pudo interpretar la respuesta del lector de recibos',
+          stopReason: data.stop_reason || null,
+          debugPreview: textBlock.text.slice(0, 300)
+        }) };
+      }
+    }
+
+    /* En modo "varios recibos" se normaliza la respuesta antes de devolverla, para que el
+       cliente reciba siempre un array "receipts" y no tenga que adivinar la forma. El
+       modelo puede contestar de tres maneras razonables aunque se le pidió una sola:
+       el array pedido, un recibo suelto (cuando en la foto había uno), o un array pelado.
+       Las tres se aceptan acá en vez de fallar por una diferencia de forma. */
+    if (multi) {
+      let list;
+      if (Array.isArray(receiptData && receiptData.receipts)) list = receiptData.receipts;
+      else if (Array.isArray(receiptData)) list = receiptData;
+      else if (receiptData && Array.isArray(receiptData.items)) list = [receiptData];
+      else list = [];
+      list = list.filter(r => r && Array.isArray(r.items) && r.items.length > 0);
+      if (list.length === 0) {
+        return { statusCode: 502, body: JSON.stringify({
+          error: 'El lector de recibos no encontró ningún recibo legible en esta foto',
+          stopReason: data.stop_reason || null
+        }) };
+      }
+      return { statusCode: 200, body: JSON.stringify({ receipts: list }) };
+    }
+
+    return { statusCode: 200, body: JSON.stringify(receiptData) };
+  } catch (err) {
+    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno' }) };
+  }
+};
