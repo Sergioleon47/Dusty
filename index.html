@@ -491,6 +491,15 @@
 
 <script src="patron-core.js"></script>
 <script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/sw.js').catch(err=>{
+      console.error('[PATRON] service worker registration failed:', err);
+    });
+  });
+}
+</script>
+<script>
 /* ================= ESTADO INICIAL ================= */
 // Antes estos dos arrays traían 7 productos y 6 compras de ejemplo (pollo, camarones,
 // mozzarella, etc.) — útil para probar la app durante el desarrollo, pero loadState()
