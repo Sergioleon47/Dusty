@@ -1523,6 +1523,8 @@ const I18N = {
     err_no_text:'No se detectó texto en la imagen — intenta con una foto más clara y bien iluminada',
     err_generic_receipt:'Ocurrió un error leyendo el recibo',
     err_function_not_found:'No se pudo conectar con el lector de recibos — revisa que la función esté publicada en Netlify (netlify/functions/extract-receipt.js) y que tenga la API key de Anthropic configurada.',
+    err_scan_auth_required:'Iniciá sesión de nuevo para escanear recibos.',
+    err_scan_quota_exceeded:'Llegaste al límite de escaneos de tu plan este mes. Esperá al próximo mes o subí de plan para seguir escaneando.',
     fallback_no_product_name:'Producto sin nombre', fallback_scanned:'Escaneado', fallback_unspecified:'Sin especificar',
     storage_full_warning:'⚠ No se pudo guardar este cambio — el almacenamiento del navegador está lleno. Anda a la pestaña Recibos, abrí un recibo viejo que ya no necesites y tocá "Eliminar" para liberar espacio (las fotos son lo que más ocupa). Después volvé a intentar el cambio.',
     unit_unidad:'unidad', unit_caja:'caja',
@@ -1699,6 +1701,8 @@ const I18N = {
     err_no_text:'No text detected in the image — try a clearer, better-lit photo',
     err_generic_receipt:'Something went wrong reading the receipt',
     err_function_not_found:"Couldn't connect to the receipt reader — check that the function is published on Netlify (netlify/functions/extract-receipt.js) and has the Anthropic API key configured.",
+    err_scan_auth_required:'Sign in again to scan receipts.',
+    err_scan_quota_exceeded:"You've reached your plan's scan limit for this month. Wait until next month or upgrade your plan to keep scanning.",
     fallback_no_product_name:'Unnamed product', fallback_scanned:'Scanned', fallback_unspecified:'Unspecified',
     storage_full_warning:'⚠ This change could not be saved — your browser storage is full. Go to the Receipts tab, open an old receipt you no longer need, and tap "Delete" to free up space (photos take up the most room). Then try the change again.',
     unit_unidad:'unit', unit_caja:'case',
@@ -3884,14 +3888,29 @@ async function buildImagesForReading(){
    documento y devuelve un recibo; con multi=true se leen como una mesa con varios recibos
    apoyados y devuelve {receipts:[...]}. Los errores salen ya traducidos. */
 async function callReceiptReader(images, multi){
+  // openScanModal() ya exige haber iniciado sesión antes de llegar acá, pero eso solo
+  // vive en el navegador — el servidor no tenía forma de saber quién pedía el escaneo
+  // ni de aplicarle un cupo por plan. Mandamos el ID token de Firebase (prueba
+  // verificable de identidad, no un uid suelto que cualquiera podría inventar) más la
+  // cuenta "dueña" del inventario (syncUid(): la propia si sos el dueño, o la del
+  // equipo si te uniste a uno) para que el cupo se cuente sobre la cuenta correcta.
+  if(!currentUser){ throw new Error(t('err_scan_auth_required')); }
+  let idToken;
+  try{
+    idToken = await currentUser.getIdToken();
+  }catch(tokenErr){
+    throw new Error(t('err_scan_auth_required'));
+  }
+
   let response;
   try{
     response = await fetch('/.netlify/functions/extract-receipt', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
       body: JSON.stringify({
         images: images,
         multi: multi===true ? true : undefined,
+        ownerUid: syncUid(),
         // Le mandamos los nombres de tu inventario actual para que Claude empareje cada
         // producto de la factura contra lo que ya tenés cargado usando su propio criterio
         // (entiende abreviaturas y códigos de proveedor), en vez de que el navegador
@@ -3913,6 +3932,9 @@ async function callReceiptReader(images, multi){
     // La función de Netlify no devolvió JSON — lo más probable es que no esté publicada
     // todavía (o esté mal ubicada) y el pedido cayó en una página de error genérica.
     throw new Error(t('err_function_not_found'));
+  }
+  if(response.status===429 && parsed.quotaExceeded){
+    throw new Error(t('err_scan_quota_exceeded'));
   }
   if(!response.ok || parsed.error){
     throw new Error(parsed.error || t('err_generic_receipt'));

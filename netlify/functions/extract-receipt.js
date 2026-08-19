@@ -8,6 +8,95 @@
 // inventario actual) -> esta función se lo pasa a Claude con visión -> Claude
 // devuelve el JSON del recibo, ya con nombres limpios y emparejados contra el
 // inventario -> esta función se lo regresa al navegador.
+//
+// CUPO POR PLAN: cada escaneo cuesta plata real (la llamada a Claude), así que
+// antes de gastarla verificamos quién pide el escaneo (el ID token de Firebase
+// que manda el navegador, no un uid suelto que cualquiera podría inventar) y
+// cuánto lleva usado ese mes la cuenta "dueña" del inventario contra el límite
+// de su plan. El contador se guarda en Firestore (users/{uid}/meta/billing) y
+// se suma DESPUÉS de que Claude responde, por la cantidad de recibos que
+// realmente salieron — no por foto ni por llamada a la API. Así, subir una
+// sola foto con 3 recibos (modo "multi") cuenta como 3, no como 1: si contáramos
+// por llamada, agrupar varios recibos en una foto sería una forma gratis de
+// esquivar el cupo.
+const admin = require('firebase-admin');
+
+function getFirebaseApp() {
+  if (admin.apps.length) return admin.apps[0];
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!raw) throw new Error('Falta configurar FIREBASE_SERVICE_ACCOUNT_KEY en Netlify');
+  const serviceAccount = JSON.parse(raw);
+  return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+}
+
+const PLAN_SCAN_LIMITS = { starter: 30, pro: 60, negocio: 120, equipo: 300 };
+// Cuentas sin "plan" asignado a mano todavía en Firestore (no hay cobro real
+// implementado aún) caen acá — un tope razonable en vez de ilimitado, para no
+// dejar la puerta abierta mientras se decide/cobra el plan de cada quien.
+const DEFAULT_SCAN_LIMIT = 60;
+
+function currentBillingPeriod() {
+  const d = new Date();
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
+
+async function verifyCaller(event) {
+  const header = event.headers.authorization || event.headers.Authorization || '';
+  const idToken = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!idToken) return null;
+  try {
+    getFirebaseApp();
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    return decoded.uid;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Mismo criterio que firestore.rules: el dueño de la cuenta, o alguien que
+// figure como miembro de su equipo (users/{ownerUid}/members/{callerUid}).
+async function callerCanUseAccount(callerUid, ownerUid) {
+  if (callerUid === ownerUid) return true;
+  const db = admin.firestore();
+  const memberDoc = await db.doc(`users/${ownerUid}/members/${callerUid}`).get();
+  return memberDoc.exists;
+}
+
+async function checkScanQuota(ownerUid) {
+  const db = admin.firestore();
+  const ref = db.doc(`users/${ownerUid}/meta/billing`);
+  const period = currentBillingPeriod();
+  const snap = await ref.get();
+  const data = snap.exists ? snap.data() : {};
+  const limit = (data.plan && PLAN_SCAN_LIMITS[data.plan]) || DEFAULT_SCAN_LIMIT;
+  const used = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
+  return { allowed: used < limit, limit, used, period };
+}
+
+// Se llama recién después de que Claude ya contestó bien — receiptsCount es la
+// cantidad real de recibos devueltos (1 en modo normal, receipts.length en modo
+// "varios recibos en una foto"). Si esto falla no tumbamos el pedido: el
+// usuario ya recibió su recibo y ya se gastó la plata en la llamada a Claude,
+// perder el conteo de UN escaneo no vale la pena comparado con mostrarle un
+// error después de que todo salió bien.
+async function recordScanUsage(ownerUid, receiptsCount, period) {
+  try {
+    const db = admin.firestore();
+    const ref = db.doc(`users/${ownerUid}/meta/billing`);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? snap.data() : {};
+      const prevUsed = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
+      tx.set(ref, {
+        scansUsed: prevUsed + receiptsCount,
+        scansPeriod: period,
+        plan: data.plan || null
+      }, { merge: true });
+    });
+  } catch (e) {
+    console.error('[PATRON] no se pudo registrar el uso de escaneo:', e);
+  }
+}
 
 function buildPrompt(inventoryNames, caseTrackedNames, multi) {
   const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
@@ -132,6 +221,16 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'Falta configurar ANTHROPIC_API_KEY en Netlify' }) };
   }
 
+  // El navegador ya exige haber iniciado sesión antes de llegar a esta función
+  // (ver openScanModal() en index.html), pero eso solo vive del lado del cliente.
+  // Acá verificamos el ID token de Firebase que mandó -> es la única forma real
+  // de saber quién es, porque un uid suelto en el body cualquiera lo podría
+  // escribir a mano.
+  const callerUid = await verifyCaller(event);
+  if (!callerUid) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Iniciá sesión para escanear recibos' }) };
+  }
+
   // Acepta tanto el formato nuevo ("images": [{base64, mediaType}, ...], una o
   // varias páginas) como el formato viejo de una sola imagen, por compatibilidad.
   // "inventoryNames" es opcional: nombres de los ingredientes que el usuario ya
@@ -141,7 +240,10 @@ exports.handler = async (event) => {
   // distintos y la respuesta trae un array "receipts" en vez de un solo recibo. Sin
   // ese campo se comporta exactamente como siempre, así que las versiones viejas de
   // la app (o un cliente que no lo mande) siguen funcionando igual.
-  let images, inventoryNames, caseTrackedNames, multi = false;
+  // "ownerUid": la cuenta dueña del inventario contra la que se cuenta el cupo —
+  // la propia si el que escanea es el dueño, o la del equipo si se unió a uno
+  // (ver syncUid() en index.html).
+  let images, inventoryNames, caseTrackedNames, multi = false, ownerUid;
   try {
     const parsed = JSON.parse(event.body || '{}');
     if (Array.isArray(parsed.images) && parsed.images.length > 0) {
@@ -156,12 +258,27 @@ exports.handler = async (event) => {
       caseTrackedNames = parsed.caseTrackedNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
     }
     multi = parsed.multi === true;
+    ownerUid = typeof parsed.ownerUid === 'string' && parsed.ownerUid ? parsed.ownerUid : callerUid;
   } catch (e) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido' }) };
   }
 
   if (!images || images.length === 0) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen' }) };
+  }
+
+  try {
+    const hasAccess = await callerCanUseAccount(callerUid, ownerUid);
+    if (!hasAccess) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
+    }
+    const quota = await checkScanQuota(ownerUid);
+    if (!quota.allowed) {
+      return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
+    }
+  } catch (e) {
+    console.error('[PATRON] error verificando cupo de escaneo:', e);
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo' }) };
   }
   if (images.length > 5) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Máximo 5 páginas por recibo' }) };
@@ -264,9 +381,13 @@ exports.handler = async (event) => {
           stopReason: data.stop_reason || null
         }) };
       }
+      // Se cuenta 1 por cada recibo que realmente salió de la foto, no 1 por foto —
+      // si no, subir varios recibos juntos en una sola imagen sería gratis.
+      await recordScanUsage(ownerUid, list.length, currentBillingPeriod());
       return { statusCode: 200, body: JSON.stringify({ receipts: list }) };
     }
 
+    await recordScanUsage(ownerUid, 1, currentBillingPeriod());
     return { statusCode: 200, body: JSON.stringify(receiptData) };
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno' }) };
