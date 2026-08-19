@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PATRON — Eliminar cuenta</title>
+<meta name="theme-color" content="#128C7E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23128C7E'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F0F2F5; --panel:#FFFFFF; --ink:#1C1E21; --ink-soft:#45474B; --line:#DDDFE2;
+    --navy:#128C7E; --basil:#25D366; --navy-wash:#E1F3F0; --tomato:#E5484D; --tomato-soft:#FCE7E7;
+    --radius:14px; --shadow:0 1px 2px rgba(18,45,40,0.07), 0 8px 24px rgba(18,45,40,0.09);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, #2FE070 0%, #128C7E 52%, var(--bg) 86%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
+  #app{max-width:480px;margin:0 auto;padding:28px 24px 80px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:38px;height:38px;border-radius:10px;background:linear-gradient(145deg,var(--navy),var(--basil));display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:22px;box-shadow:var(--shadow);}
+  .brand-name{font-size:18px;font-weight:700;}
+  .lang-toggle{width:36px;height:36px;border-radius:50%;border:none;background:var(--navy-wash);color:var(--navy);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;}
+  .card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:26px;}
+  .card h1{font-size:19px;margin:0 0 6px;color:var(--tomato);}
+  .card .sub{font-size:13px;color:var(--ink-soft);line-height:1.55;margin:0 0 20px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+  .field input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-family:'Inter';background:#FAFAF9;}
+  .field input:focus{outline:2px solid var(--navy);border-color:var(--navy);background:#fff;}
+  .btn{width:100%;border:none;border-radius:10px;padding:12px 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter';margin-top:4px;}
+  .btn-primary{background:var(--navy);color:#fff;}
+  .btn-danger{background:var(--tomato);color:#fff;}
+  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-google{display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .divider{text-align:center;color:var(--ink-soft);font-size:11.5px;margin:14px 0;}
+  .error-box{background:var(--tomato-soft);color:#B23A48;font-size:13px;font-weight:600;padding:10px 12px;border-radius:9px;margin-bottom:14px;}
+  .success-box{background:#E5F9EA;color:#1C7A3E;font-size:13.5px;font-weight:600;padding:14px;border-radius:9px;text-align:center;}
+  .warn-list{font-size:13px;color:var(--ink-soft);line-height:1.6;margin:0 0 18px;padding-left:20px;}
+  .signed-as{font-size:13px;color:var(--ink-soft);margin-bottom:16px;}
+  .signed-as strong{color:var(--ink);}
+  .back-link{display:inline-block;margin-top:20px;font-size:13px;color:var(--ink-soft);text-decoration:none;}
+  .back-link:hover{text-decoration:underline;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">P</div>
+      <div class="brand-name">ATRON</div>
+    </div>
+    <button class="lang-toggle" id="btn-lang">EN</button>
+  </div>
+
+  <div class="card">
+    <h1 data-t="title">Eliminar mi cuenta</h1>
+    <p class="sub" data-t="sub">Esta página funciona sin tener la app instalada. Iniciá sesión con tu cuenta de PATRON para eliminarla de forma permanente.</p>
+
+    <div id="error-box" class="error-box hidden"></div>
+
+    <!-- Paso 1: iniciar sesión -->
+    <div id="step-signin">
+      <button type="button" class="btn btn-google" id="btn-google">
+        <svg viewBox="0 0 48 48" width="18" height="18"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h11.8c-.5 2.7-2.1 5-4.4 6.6v5.4h7.1c4.2-3.9 6.6-9.6 6.6-16.5z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.4c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.6C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.2c-.4-1.3-.7-2.7-.7-4.2s.2-2.9.7-4.2v-5.6H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8z"/><path fill="#EA4335" d="M24 10.7c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C34.9 4.2 30 2 24 2 15.4 2 7.9 6.9 4.3 14.2l7.3 5.6c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>
+        <span data-t="google">Continuar con Google</span>
+      </button>
+      <div class="divider" data-t="or">o</div>
+      <div class="field"><label data-t="email">Email</label><input id="inp-email" type="email" autocomplete="email"></div>
+      <div class="field"><label data-t="password">Contraseña</label><input id="inp-password" type="password" autocomplete="current-password"></div>
+      <button type="button" class="btn btn-primary" id="btn-signin" data-t="signin">Iniciar sesión</button>
+    </div>
+
+    <!-- Paso 2: confirmar borrado -->
+    <div id="step-confirm" class="hidden">
+      <p class="signed-as"><span data-t="signedas">Sesión iniciada como</span> <strong id="signed-email"></strong></p>
+      <ul class="warn-list" data-t="warnlist">
+        <li>Se borra tu inventario, compras, recibos y fotos para siempre.</li>
+        <li>Si compartís tu inventario con un equipo, esas personas van a perder el acceso.</li>
+        <li>Esta acción no se puede deshacer.</li>
+      </ul>
+      <button type="button" class="btn btn-danger" id="btn-delete" data-t="delete">Sí, eliminar mi cuenta para siempre</button>
+      <button type="button" class="btn btn-ghost" id="btn-cancel" data-t="cancel" style="margin-top:8px;">Cancelar</button>
+    </div>
+
+    <!-- Éxito -->
+    <div id="step-done" class="hidden">
+      <div class="success-box" data-t="done">Tu cuenta fue eliminada. Ya podés cerrar esta página.</div>
+    </div>
+
+    <a class="back-link" href="index.html">← <span data-t="back">Volver a PATRON</span></a>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script>
+  var TEXT = {
+    es: {
+      title:'Eliminar mi cuenta', sub:'Esta página funciona sin tener la app instalada. Iniciá sesión con tu cuenta de PATRON para eliminarla de forma permanente.',
+      google:'Continuar con Google', or:'o', email:'Email', password:'Contraseña', signin:'Iniciar sesión',
+      signedas:'Sesión iniciada como', warnlist:['Se borra tu inventario, compras, recibos y fotos para siempre.','Si compartís tu inventario con un equipo, esas personas van a perder el acceso.','Esta acción no se puede deshacer.'],
+      delete:'Sí, eliminar mi cuenta para siempre', cancel:'Cancelar',
+      done:'Tu cuenta fue eliminada. Ya podés cerrar esta página.', back:'Volver a PATRON',
+      needBoth:'Completá el email y la contraseña.', wrongPassword:'Email o contraseña incorrectos.', genericError:'Algo salió mal. Probá de nuevo.',
+      deleting:'Eliminando…'
+    },
+    en: {
+      title:'Delete my account', sub:"This page works without having the app installed. Sign in with your PATRON account to delete it permanently.",
+      google:'Continue with Google', or:'or', email:'Email', password:'Password', signin:'Sign in',
+      signedas:'Signed in as', warnlist:['Your inventory, purchases, receipts, and photos are permanently deleted.','If you share your inventory with a team, those people will lose access.','This action cannot be undone.'],
+      delete:'Yes, permanently delete my account', cancel:'Cancel',
+      done:'Your account has been deleted. You can close this page now.', back:'Back to PATRON',
+      needBoth:'Fill in both email and password.', wrongPassword:'Wrong email or password.', genericError:'Something went wrong. Try again.',
+      deleting:'Deleting…'
+    }
+  };
+  var lang = (localStorage.getItem('platocost_lang')) || (navigator.language && navigator.language.toLowerCase().startsWith('en') ? 'en' : 'es');
+  function applyLang(l){
+    lang = l;
+    document.documentElement.lang = l;
+    var t = TEXT[l];
+    document.querySelectorAll('[data-t]').forEach(function(el){
+      var key = el.getAttribute('data-t');
+      if(key==='warnlist'){
+        el.innerHTML = t.warnlist.map(function(li){ return '<li>'+li+'</li>'; }).join('');
+      } else if(t[key] !== undefined){
+        el.textContent = t[key];
+      }
+    });
+    document.getElementById('btn-lang').textContent = l==='es' ? 'EN' : 'ES';
+    try{ localStorage.setItem('platocost_lang', l); }catch(e){}
+  }
+  document.getElementById('btn-lang').onclick = function(){ applyLang(lang==='es' ? 'en' : 'es'); };
+
+  var firebaseConfig = {
+    apiKey: "AIzaSyC0nZzkr-k43_SIYQnr7vpYyaraTcZUupY",
+    authDomain: "patron-inventory.firebaseapp.com",
+    projectId: "patron-inventory",
+    storageBucket: "patron-inventory.firebasestorage.app",
+    messagingSenderId: "496327327860",
+    appId: "1:496327327860:web:50af127dcaa332d0cd1121"
+  };
+  firebase.initializeApp(firebaseConfig);
+
+  var errorBox = document.getElementById('error-box');
+  var stepSignin = document.getElementById('step-signin');
+  var stepConfirm = document.getElementById('step-confirm');
+  var stepDone = document.getElementById('step-done');
+  var currentUser = null;
+
+  function showError(msg){ errorBox.textContent = msg; errorBox.classList.remove('hidden'); }
+  function clearError(){ errorBox.classList.add('hidden'); errorBox.textContent=''; }
+
+  function goToConfirmStep(user){
+    currentUser = user;
+    document.getElementById('signed-email').textContent = user.email || user.displayName || '';
+    stepSignin.classList.add('hidden');
+    stepConfirm.classList.remove('hidden');
+    clearError();
+  }
+
+  document.getElementById('btn-signin').onclick = function(){
+    var email = document.getElementById('inp-email').value.trim();
+    var password = document.getElementById('inp-password').value;
+    if(!email || !password){ showError(TEXT[lang].needBoth); return; }
+    clearError();
+    firebase.auth().signInWithEmailAndPassword(email, password).then(function(cred){
+      goToConfirmStep(cred.user);
+    }).catch(function(err){
+      var wrongCodes = ['auth/wrong-password','auth/user-not-found','auth/invalid-credential'];
+      showError(wrongCodes.indexOf(err.code)!==-1 ? TEXT[lang].wrongPassword : TEXT[lang].genericError);
+    });
+  };
+
+  document.getElementById('btn-google').onclick = function(){
+    clearError();
+    firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(function(cred){
+      goToConfirmStep(cred.user);
+    }).catch(function(err){
+      if(err && err.code==='auth/popup-closed-by-user') return;
+      showError(TEXT[lang].genericError);
+    });
+  };
+
+  document.getElementById('btn-cancel').onclick = function(){
+    firebase.auth().signOut().catch(function(){});
+    currentUser = null;
+    stepConfirm.classList.add('hidden');
+    stepSignin.classList.remove('hidden');
+    document.getElementById('inp-password').value = '';
+    clearError();
+  };
+
+  document.getElementById('btn-delete').onclick = function(){
+    if(!currentUser) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = TEXT[lang].deleting;
+    clearError();
+    // Se acaba de iniciar sesión en esta misma página -> ya cuenta como sesión
+    // "reciente" para Firebase, no hace falta un paso de reautenticación aparte
+    // como en el modal de adentro de la app (ahí la sesión puede ser vieja).
+    currentUser.getIdToken(true).then(function(idToken){
+      return fetch('/.netlify/functions/delete-account', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
+        body: JSON.stringify({})
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return {}; }).then(function(body){
+        if(!res.ok || body.error) throw new Error(body.error || TEXT[lang].genericError);
+        return firebase.auth().signOut().catch(function(){});
+      });
+    }).then(function(){
+      stepConfirm.classList.add('hidden');
+      stepDone.classList.remove('hidden');
+    }).catch(function(err){
+      btn.disabled = false;
+      btn.textContent = TEXT[lang].delete;
+      showError((err && err.message) || TEXT[lang].genericError);
+    });
+  };
+
+  applyLang(lang);
+</script>
+</body>
+</html>

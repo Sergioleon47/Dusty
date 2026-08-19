@@ -1585,6 +1585,7 @@ const I18N = {
     delete_account_continue_btn:'Continuar', delete_account_confirm_btn:'Sí, eliminar mi cuenta',
     delete_account_google_reauth_btn:'Confirmar con Google',
     delete_account_success:'Tu cuenta fue eliminada.',
+    privacy_policy_link:'Política de privacidad',
     welcome_title:'Bienvenido a PATRON', welcome_sub:'Así funciona, en 3 pasos:',
     welcome_step1_title:'Escaneá un recibo', welcome_step1_sub:'Sacale una foto y la app lee los productos y precios sola.',
     welcome_step2_title:'Tu inventario se actualiza solo', welcome_step2_sub:'Sabés en todo momento cuánto tenés de cada producto y cuánto vale.',
@@ -1772,6 +1773,7 @@ const I18N = {
     delete_account_continue_btn:'Continue', delete_account_confirm_btn:'Yes, delete my account',
     delete_account_google_reauth_btn:'Confirm with Google',
     delete_account_success:'Your account has been deleted.',
+    privacy_policy_link:'Privacy policy',
     welcome_title:'Welcome to PATRON', welcome_sub:'Here\'s how it works, in 3 steps:',
     welcome_step1_title:'Scan a receipt', welcome_step1_sub:'Take a photo and the app reads the products and prices on its own.',
     welcome_step2_title:'Your inventory updates itself', welcome_step2_sub:'Always know how much you have of each product and what it\'s worth.',
@@ -3165,6 +3167,10 @@ function alertSettingsModal(){
         <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:#EBC2B8;">${t('delete_account_btn')}</button>
       </div>
       ` : ''}
+
+      <div style="text-align:center;margin-top:6px;">
+        <a href="privacy.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--ink-soft);">${t('privacy_policy_link')}</a>
+      </div>
 
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>

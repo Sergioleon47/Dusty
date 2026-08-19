@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PATRON — Privacidad</title>
+<meta name="theme-color" content="#128C7E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23128C7E'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F0F2F5; --panel:#FFFFFF; --ink:#1C1E21; --ink-soft:#45474B; --line:#DDDFE2;
+    --navy:#128C7E; --basil:#25D366; --navy-wash:#E1F3F0;
+    --radius:14px; --shadow:0 1px 2px rgba(18,45,40,0.07), 0 8px 24px rgba(18,45,40,0.09);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, #2FE070 0%, #128C7E 52%, var(--bg) 86%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
+  #app{max-width:760px;margin:0 auto;padding:28px 24px 80px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:38px;height:38px;border-radius:10px;background:linear-gradient(145deg,var(--navy),var(--basil));display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:22px;box-shadow:var(--shadow);}
+  .brand-name{font-size:18px;font-weight:700;}
+  .lang-toggle{width:36px;height:36px;border-radius:50%;border:none;background:var(--navy-wash);color:var(--navy);font-size:11px;font-weight:700;cursor:pointer;}
+  .card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:28px 26px;}
+  .card h1{font-size:22px;margin:0 0 4px;}
+  .updated{font-size:12.5px;color:var(--ink-soft);margin:0 0 24px;}
+  .card h2{font-size:15px;margin:26px 0 8px;color:var(--navy);}
+  .card h2:first-of-type{margin-top:0;}
+  .card p, .card li{font-size:14px;line-height:1.65;color:var(--ink);}
+  .card ul{margin:6px 0;padding-left:20px;}
+  .card a{color:var(--navy);font-weight:600;}
+  .contact-box{background:var(--navy-wash);border-radius:10px;padding:14px 16px;margin-top:24px;font-size:13.5px;}
+  .back-link{display:inline-block;margin-top:20px;font-size:13px;color:var(--ink-soft);text-decoration:none;}
+  .back-link:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">P</div>
+      <div class="brand-name">ATRON</div>
+    </div>
+    <button class="lang-toggle" id="btn-lang" title="Switch language">EN</button>
+  </div>
+
+  <div class="card">
+    <div data-lang="es">
+      <h1>Política de privacidad</h1>
+      <p class="updated">Última actualización: agosto de 2026</p>
+
+      <h2>Qué datos guardamos</h2>
+      <p>PATRON es una app de inventario para negocios que compran y revenden. Para que funcione, guardamos:</p>
+      <ul>
+        <li><strong>Datos de tu cuenta</strong>: email (o nombre + PIN si te uniste a un inventario compartido sin email).</li>
+        <li><strong>Tu inventario</strong>: nombres de productos, costos, cantidades, proveedores.</li>
+        <li><strong>Fotos de recibos</strong> que escaneás o subís, y los datos que se extraen de ellas (proveedor, fecha, productos, precios).</li>
+        <li><strong>Actividad del equipo</strong>: si compartís tu inventario, quién cambió qué y cuándo (para que el equipo tenga trazabilidad).</li>
+        <li><strong>Mensajes que nos mandás</strong> a propósito, como reportes de un problema.</li>
+        <li><strong>Datos técnicos básicos</strong> para poder arreglar errores (tipo de navegador, y un registro del error mismo) si algo se rompe.</li>
+      </ul>
+      <p>Nunca guardamos contraseñas en texto plano — eso lo maneja Firebase Authentication, no nosotros.</p>
+
+      <h2>Con quién se comparte</h2>
+      <p>No vendemos tus datos a nadie. Se comparten solo con los servicios que hacen funcionar la app:</p>
+      <ul>
+        <li><strong>Firebase (Google)</strong>: guarda tu cuenta, tu inventario y las fotos de tus recibos.</li>
+        <li><strong>Anthropic (Claude)</strong>: cuando escaneás un recibo, la foto se le manda para leer los productos y precios — no se usa para entrenar sus modelos, solo para procesar ese pedido.</li>
+        <li><strong>Netlify</strong>: aloja la app y procesa los pedidos al servidor.</li>
+      </ul>
+
+      <h2>Cuánto tiempo lo guardamos</h2>
+      <p>Tus datos quedan guardados mientras tengas la cuenta activa. Podés borrar un producto o un recibo individual en cualquier momento desde la app, o exportar una copia completa de tus datos (⚙️ Configuración → Exportar respaldo).</p>
+
+      <h2>Borrar tu cuenta</h2>
+      <p>Podés eliminar tu cuenta y todos tus datos (inventario, compras, recibos, fotos) para siempre, en cualquier momento — es irreversible. Dos formas de hacerlo:</p>
+      <ul>
+        <li>Desde adentro de la app: ⚙️ Configuración → Eliminar cuenta.</li>
+        <li>Sin abrir la app: <a href="delete-account.html">esta página</a>, iniciando sesión con tu cuenta.</li>
+      </ul>
+
+      <h2>Menores de edad</h2>
+      <p>PATRON es una herramienta de negocio, no está pensada para menores de 13 años, y no la ofrecemos a sabiendas a ese público.</p>
+
+      <h2>Cambios a esta política</h2>
+      <p>Si algo cambia de forma importante en cómo manejamos tus datos, lo vamos a reflejar acá con una nueva fecha de actualización.</p>
+
+      <div class="contact-box">¿Preguntas sobre tus datos? Escribinos a <a href="mailto:sergioleon47@hotmail.com">sergioleon47@hotmail.com</a>.</div>
+    </div>
+
+    <div data-lang="en" style="display:none;">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: August 2026</p>
+
+      <h2>What we store</h2>
+      <p>PATRON is an inventory app for businesses that buy and resell. To work, we store:</p>
+      <ul>
+        <li><strong>Your account info</strong>: email (or a name + PIN if you joined a shared inventory without an email).</li>
+        <li><strong>Your inventory</strong>: product names, costs, quantities, suppliers.</li>
+        <li><strong>Receipt photos</strong> you scan or upload, and the data extracted from them (supplier, date, products, prices).</li>
+        <li><strong>Team activity</strong>: if you share your inventory, who changed what and when (for team traceability).</li>
+        <li><strong>Messages you send us</strong> on purpose, like issue reports.</li>
+        <li><strong>Basic technical data</strong> needed to fix bugs (browser type, and a record of the error itself) if something breaks.</li>
+      </ul>
+      <p>We never store passwords in plain text — that's handled by Firebase Authentication, not by us.</p>
+
+      <h2>Who we share it with</h2>
+      <p>We don't sell your data to anyone. It's only shared with the services that make the app work:</p>
+      <ul>
+        <li><strong>Firebase (Google)</strong>: stores your account, inventory, and receipt photos.</li>
+        <li><strong>Anthropic (Claude)</strong>: when you scan a receipt, the photo is sent to it to read the products and prices — it's not used to train their models, only to process that request.</li>
+        <li><strong>Netlify</strong>: hosts the app and processes server requests.</li>
+      </ul>
+
+      <h2>How long we keep it</h2>
+      <p>Your data stays stored while your account is active. You can delete an individual product or receipt at any time from the app, or export a full copy of your data (⚙️ Settings → Export backup).</p>
+
+      <h2>Deleting your account</h2>
+      <p>You can permanently delete your account and all your data (inventory, purchases, receipts, photos) at any time — it's irreversible. Two ways to do it:</p>
+      <ul>
+        <li>From inside the app: ⚙️ Settings → Delete account.</li>
+        <li>Without opening the app: <a href="delete-account.html">this page</a>, by signing in with your account.</li>
+      </ul>
+
+      <h2>Children's privacy</h2>
+      <p>PATRON is a business tool, not intended for anyone under 13, and we don't knowingly offer it to that audience.</p>
+
+      <h2>Changes to this policy</h2>
+      <p>If anything changes meaningfully in how we handle your data, we'll reflect it here with a new update date.</p>
+
+      <div class="contact-box">Questions about your data? Email us at <a href="mailto:sergioleon47@hotmail.com">sergioleon47@hotmail.com</a>.</div>
+    </div>
+
+    <a class="back-link" href="index.html">← <span data-back-es>Volver a PATRON</span><span data-back-en style="display:none;">Back to PATRON</span></a>
+  </div>
+</div>
+<script>
+  var lang = (localStorage.getItem('platocost_lang')) || (navigator.language && navigator.language.toLowerCase().startsWith('en') ? 'en' : 'es');
+  function applyLang(l){
+    lang = l;
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-lang]').forEach(function(el){ el.style.display = (el.getAttribute('data-lang')===l) ? '' : 'none'; });
+    document.querySelector('[data-back-es]').style.display = l==='es' ? '' : 'none';
+    document.querySelector('[data-back-en]').style.display = l==='en' ? '' : 'none';
+    document.getElementById('btn-lang').textContent = l==='es' ? 'EN' : 'ES';
+    try{ localStorage.setItem('platocost_lang', l); }catch(e){}
+  }
+  document.getElementById('btn-lang').onclick = function(){ applyLang(lang==='es' ? 'en' : 'es'); };
+  applyLang(lang);
+</script>
+</body>
+</html>
