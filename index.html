@@ -251,9 +251,13 @@
     0%, 100%{box-shadow:inset 0 0 0 2px rgba(229,72,77,0.3); background:rgba(229,72,77,0.05);}
     50%{box-shadow:inset 0 0 0 2px rgba(229,72,77,0.85); background:rgba(229,72,77,0.14);}
   }
-  .stock-row-static.cc-due-blink{animation:cc-due-pulse 1.6s ease-in-out infinite;border-radius:10px;}
+  /* La animación va en .stock-row (el hijo), no en .stock-row-static (el padre):
+     .stock-row tiene su propio background:var(--panel) opaco que, al pintarse
+     encima, tapaba por completo el parpadeo del padre — la animación corría (se
+     podía confirmar por getComputedStyle) pero nunca se veía en pantalla. */
+  .stock-row-static.cc-due-blink .stock-row{animation:cc-due-pulse 1.6s ease-in-out infinite;border-radius:10px;}
   @media (prefers-reduced-motion: reduce){
-    .stock-row-static.cc-due-blink{animation:none;box-shadow:inset 0 0 0 2px rgba(229,72,77,0.5);background:rgba(229,72,77,0.08);}
+    .stock-row-static.cc-due-blink .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(229,72,77,0.5);background:rgba(229,72,77,0.08);}
   }
 
   /* Tarjetas de recibos (grid con foto de portada), pestaña Recibos */
