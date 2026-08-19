@@ -211,7 +211,11 @@
   .stock-row-static:last-child{border-bottom:none;}
   .stock-row-x-btn{width:26px;height:26px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:12px;line-height:1;padding:0;transition:background .15s ease,color .15s ease,transform .1s ease;}
   .stock-row-x-btn:active{transform:scale(0.88);background:var(--tomato-soft);color:var(--tomato-ink);}
-  .stock-row{display:flex;align-items:center;gap:16px;padding:16px 0;background:var(--panel);position:relative;}
+  /* padding horizontal (no solo vertical) — sin esto, el ícono/nombre/botones quedan
+     pegados exactamente al mismo borde donde .cc-due-blink dibuja su anillo rojo
+     (ver más abajo), así que el botón de editar terminaba tapado a medias por esa
+     línea en vez de tener aire respecto a ella. */
+  .stock-row{display:flex;align-items:center;gap:16px;padding:16px 10px;background:var(--panel);position:relative;}
   .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;}
   .stock-icon-ring svg{width:30px;height:30px;display:block;filter:drop-shadow(0 1px 1.5px rgba(28,30,33,0.18));}
   .stock-icon-ring img{width:100%;height:100%;object-fit:cover;display:block;}
