@@ -3734,7 +3734,7 @@ function scanModal(){
             <div class="mi-fields">
               <select data-scan-match="${idx}" style="flex:2;">
                 <option value="__new__" ${item.matchedIngId==='__new__'?'selected':''}>${t('opt_add_new_ing')}</option>
-                ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)}</option>`).join('')}
+                ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})</option>`).join('')}
               </select>
               <input data-scan-qty="${idx}" type="number" step="0.01" value="${item.qty}" style="flex:1;border:${confBorder};" placeholder="${t('ph_qty_short')}">
               <input data-scan-price="${idx}" type="number" step="0.01" value="${item.totalPrice}" style="flex:1;" placeholder="${t('ph_price_short')}">
@@ -4165,12 +4165,39 @@ function applyParsedReceiptToScanState(parsed){
         const existing = inventory.find(ing=> nameLower.includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(nameLower));
         matchedId = existing ? existing.id : '__new__';
       }
+      const itemUnit = it.unit || 'unidad';
+      // Un producto puede empezar a comprarse en una unidad distinta con el tiempo
+      // (antes por lb, ahora por caja) sin dejar de ser "el mismo producto" para
+      // Claude/el alias/la búsqueda por texto — los tres métodos de arriba matchean
+      // por NOMBRE, nunca miran la unidad. Si lo que encontraron está en una unidad
+      // distinta a la de este recibo, no lo reusamos tal cual (eso mezclaría o
+      // pisaría esa otra modalidad, como pasaba antes) — buscamos si ya existe una
+      // fila hermana con el mismo nombre en la unidad correcta, y si no existe,
+      // dejamos que se cree como producto nuevo (newIngName abajo hace que esa fila
+      // nueva se llame igual que la original, para que quede claro que es el mismo
+      // producto en otra presentación: "Cebolla roja (lb)" y "Cebolla roja (caja)").
+      let newIngName = null;
+      if(matchedId && matchedId!=='__new__'){
+        const candidate = inventory.find(ing=>ing.id===matchedId);
+        if(candidate && candidate.unit!==itemUnit){
+          const sibling = inventory.find(ing=> ing.id!==candidate.id
+            && ing.name.toLowerCase().trim()===candidate.name.toLowerCase().trim()
+            && ing.unit===itemUnit);
+          if(sibling){
+            matchedId = sibling.id;
+          } else {
+            matchedId = '__new__';
+            newIngName = candidate.name;
+          }
+        }
+      }
       return {
         rawName: displayName,
         qty: typeof it.quantity==='number' ? it.quantity : parseFloat(it.quantity)||0,
         totalPrice: typeof it.total_price==='number' ? it.total_price : parseFloat(it.total_price)||0,
-        unit: it.unit || 'unidad',
+        unit: itemUnit,
         matchedIngId: matchedId,
+        newIngName: newIngName,
         // "confidence" tal cual la reporta Claude (alta/media/baja) para distinguir en
         // la pantalla de confirmación qué tan segura está cada línea. qtyVerified se
         // mantiene como antes (solo baja cuenta como "no verificado") para no tocar el
@@ -4203,7 +4230,13 @@ function applyScanResults(){
     let ingId = item.matchedIngId;
     let ingName = '';
     if(ingId==='__new__'){
-      const newIng = {id:uid('i'), name:item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty};
+      // newIngName viene seteado cuando esta fila "nueva" en realidad es una modalidad
+      // distinta de un producto que YA existe en otra unidad (ver
+      // applyParsedReceiptToScanState) — en ese caso usamos el nombre del producto
+      // original, no el texto crudo de esta línea del recibo, para que ambas filas
+      // se lean como "el mismo producto, unidad distinta" (ej. "Cebolla roja" en lb
+      // y en caja) y no como dos productos sin relación aparente.
+      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty};
       if(currentUser){ newIng.lastEditedBy = currentUserLabel(); newIng.lastEditedAt = new Date().toISOString(); }
       inventory.push(newIng);
       ingId = newIng.id;
