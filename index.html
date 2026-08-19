@@ -28,13 +28,38 @@
        botón de enviar) para lo positivo/saludable — todo en tonos de verde reconocibles. */
     --navy:#128C7E; --navy-soft:#15A28F; --tomato:#E5484D; --saffron:#F5A623; --basil:#25D366;
     --basil-soft:#E5F9EA; --tomato-soft:#FCE7E7; --saffron-soft:#FDF0DA; --navy-wash:#E1F3F0;
-    --radius:14px; --shadow:0 1px 2px rgba(28,30,33,0.08), 0 8px 24px rgba(28,30,33,0.08);
+    --radius:14px;
     --stock-ok:#25D366; --stock-warn:#F5A623; --stock-crit:#E5484D;
+    /* Variantes hover/press calculadas con color-mix() en vez de hex sueltos
+       repetidos por todo el archivo (var(--saffron-press), var(--tomato-ink), var(--basil-ink)...) — un solo lugar
+       para ajustar "cuánto se oscurece al tocar" en toda la app. */
+    --navy-press:color-mix(in oklch, var(--navy), black 18%);
+    --saffron-press:color-mix(in oklch, var(--saffron), black 20%);
+    --tomato-press:color-mix(in oklch, var(--tomato), black 18%);
+    --basil-press:color-mix(in oklch, var(--basil), black 18%);
+    --tomato-ink:color-mix(in oklch, var(--tomato), black 32%);
+    --saffron-ink:color-mix(in oklch, var(--saffron), black 38%);
+    --basil-ink:color-mix(in oklch, var(--basil), black 38%);
+    --navy-ink:color-mix(in oklch, var(--navy), black 20%);
+    --focus-ring:color-mix(in oklch, var(--navy), transparent 55%);
+    /* Sombras con un tinte muy leve de marca en vez de negro puro — se sienten
+       "diseñadas" en vez de una sombra CSS por defecto, sin llegar a notarse como
+       color. Tres niveles de elevación: pills/botones chicos, tarjetas, modales. */
+    --shadow-sm:0 1px 2px rgba(18,45,40,0.10);
+    --shadow:0 1px 2px rgba(18,45,40,0.07), 0 8px 24px rgba(18,45,40,0.09);
+    --shadow-lg:0 12px 20px rgba(18,45,40,0.10), 0 24px 64px rgba(18,45,40,0.20);
+    --ease-spring:cubic-bezier(0.16,1,0.3,1);
+    --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
   *{box-sizing:border-box;}
   html{touch-action:manipulation;}
-  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, #25D366 0%, #128C7E 55%, var(--bg) 85%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
+  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, #2FE070 0%, #128C7E 52%, var(--bg) 86%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
+  /* Foco de teclado consistente en toda la app (accesibilidad + look pulido) —
+     antes solo los inputs de formulario tenían anillo de foco definido. */
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{
+    outline:2px solid var(--focus-ring);outline-offset:2px;
+  }
   /* touch-action:pan-y en TODA la app (no solo en el área de las pestañas) — el
      gesto de deslizar entre pestañas ahora agarra el dedo empiece donde empiece
      (barra de arriba, tarjetas, barra de abajo), no solo el área en blanco del
@@ -89,7 +114,7 @@
      el propio), se muestra de quién es — antes solo se veía adentro del panel de
      equipo, había que tocar el ícono de la nube para acordarte de qué cuenta estás
      mirando. */
-  .account-owner-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#1F7A3D;background:var(--basil-soft);border-radius:20px;padding:2px 10px 2px 8px;margin-top:3px;}
+  .account-owner-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--basil-ink);background:var(--basil-soft);border-radius:20px;padding:2px 10px 2px 8px;margin-top:3px;}
   .account-owner-pill svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
 
   /* Antes estos botones eran grises y solo se coloreaban con :hover — en el celular
@@ -102,7 +127,7 @@
   .lang-toggle:active{transform:scale(0.9);filter:brightness(0.96);}
   #btn-export-data, #btn-import-data, #btn-lang-toggle{background:var(--navy-wash);color:var(--navy);}
   #btn-feedback{background:var(--tomato-soft);color:var(--tomato);}
-  #btn-alert-settings{background:var(--saffron-soft);color:#B9770E;}
+  #btn-alert-settings{background:var(--saffron-soft);color:var(--saffron-ink);}
   #btn-cloud-sync.synced{color:var(--basil);background:var(--basil-soft);}
   #btn-cloud-sync.loading{opacity:0.5;pointer-events:none;}
   #btn-cloud-sync.loading svg{animation:spin .8s linear infinite;}
@@ -148,11 +173,11 @@
   .section-head h2{font-size:18px;margin:0;}
   .section-head p{font-size:13px;color:var(--ink-soft);margin:2px 0 0;}
 
-  .btn{border:none;border-radius:10px;padding:10px 16px;font-weight:600;font-size:13.5px;cursor:pointer;transition:transform .25s ease, opacity .3s ease, background .3s ease;font-family:'Inter';}
-  .btn:active{transform:scale(0.97);}
+  .btn{border:none;border-radius:10px;padding:10px 16px;font-weight:600;font-size:13.5px;cursor:pointer;transition:transform .2s var(--ease-soft), filter .2s var(--ease-soft), opacity .3s ease, background .3s ease;font-family:'Inter';}
+  .btn:active{transform:scale(0.97);filter:brightness(0.96);}
   .btn:disabled{opacity:.5;cursor:not-allowed;}
   .btn-primary{background:var(--saffron);color:var(--ink);}
-  .btn-primary:hover{background:#DE9114;}
+  .btn-primary:hover{background:var(--saffron-press);}
   .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
   .btn-ghost:hover{border-color:var(--navy);}
   .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px;}
@@ -165,7 +190,7 @@
   .inv-header-actions{display:flex;gap:6px;flex-wrap:nowrap;align-items:stretch;}
   .inv-row-btn{position:relative;flex:1;min-width:0;text-align:center;white-space:normal;line-height:1.2;padding:9px 6px;font-size:12.5px;}
 
-  .alert-banner{background:var(--tomato-soft);border:1px solid #F2C6C8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:#B02A2F;font-size:13.5px;font-weight:600;}
+  .alert-banner{background:var(--tomato-soft);border:1px solid #F2C6C8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:var(--tomato-ink);font-size:13.5px;font-weight:600;}
   .alert-banner .count{background:var(--tomato);color:#fff;border-radius:20px;padding:2px 9px;font-size:12px;}
 
   .mono-cell{font-family:'IBM Plex Mono';}
@@ -185,7 +210,7 @@
   .stock-row-static{border-bottom:1px solid var(--line);}
   .stock-row-static:last-child{border-bottom:none;}
   .stock-row-x-btn{width:26px;height:26px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:12px;line-height:1;padding:0;transition:background .15s ease,color .15s ease,transform .1s ease;}
-  .stock-row-x-btn:active{transform:scale(0.88);background:var(--tomato-soft);color:#B02A2F;}
+  .stock-row-x-btn:active{transform:scale(0.88);background:var(--tomato-soft);color:var(--tomato-ink);}
   .stock-row{display:flex;align-items:center;gap:16px;padding:16px 0;background:var(--panel);position:relative;}
   .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;}
   .stock-icon-ring svg{width:30px;height:30px;display:block;filter:drop-shadow(0 1px 1.5px rgba(28,30,33,0.18));}
@@ -285,7 +310,7 @@
      escalar parejo desde el centro — se siente como que el cuadrito se abre hacia
      abajo (piensa en un ajuste rápido, o el modal de configuración), consistente en
      todas las ventanas emergentes de la app, sean grandes o chicas. */
-  .modal{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,0.25);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .65s cubic-bezier(0.16,1,0.3,1);}
+  .modal{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .65s var(--ease-spring);}
   @keyframes overlayFadeIn{ from{opacity:0;} to{opacity:1;} }
   @keyframes modalPopIn{
     from{opacity:0;transform:scaleY(0.82) scaleX(0.96) translateY(-10px);}
@@ -300,8 +325,8 @@
      lados (verde marca, verde brillante, ámbar, rojo), agrupados por lo que
      representan: informativo, positivo/compartir, alerta, o reportar un problema. */
   .modal h3.navy{color:var(--navy);}
-  .modal h3.basil{color:#1F7A3D;}
-  .modal h3.saffron{color:#B9770E;}
+  .modal h3.basil{color:var(--basil-ink);}
+  .modal h3.saffron{color:var(--saffron-ink);}
   .modal h3.tomato{color:var(--tomato);}
 
   /* Fila del historial de actividad — quién, qué y cuándo, una línea liviana por
@@ -330,7 +355,7 @@
   .modal-actions{display:flex;gap:10px;margin-top:20px;}
   .modal-actions .btn{flex:1;}
   .helper-note{font-size:11.5px;color:var(--ink-soft);margin-top:-8px;margin-bottom:14px;}
-  .status-pill-success{display:inline-flex;align-items:center;gap:6px;background:var(--basil-soft);color:#1F7A3D;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:20px;margin-bottom:18px;}
+  .status-pill-success{display:inline-flex;align-items:center;gap:6px;background:var(--basil-soft);color:var(--basil-ink);font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:20px;margin-bottom:18px;}
   .settings-card{background:#F7F7F5;border-radius:12px;padding:16px;margin-bottom:14px;}
   .settings-card .helper-note{margin-top:8px;}
 
@@ -377,16 +402,16 @@
   .drop-zone:hover{border-color:var(--tomato);}
   .drop-zone .dz-icon{font-size:28px;margin-bottom:6px;}
   .receipt-preview{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);}
-  .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:#8A5A1F;margin-bottom:14px;}
-  .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:#8A5A1F;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+  .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:var(--saffron-ink);margin-bottom:14px;}
+  .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
-  .scan-error{background:var(--tomato-soft);color:#B02A2F;padding:12px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;}
+  .scan-error{background:var(--tomato-soft);color:var(--tomato-ink);padding:12px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;}
   /* Control tipo segmentado (estilo iOS) para elegir si las fotos son páginas de un
      mismo recibo o recibos distintos. */
   .scan-mode{display:flex;background:#EFEFEA;border-radius:10px;padding:3px;gap:3px;margin-bottom:12px;}
   .scan-mode button{flex:1;border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-soft);padding:8px 6px;border-radius:8px;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease;line-height:1.25;}
   .scan-mode button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.12);}
-  .scan-queue-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--navy-wash);color:#0E6B60;border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:700;margin-bottom:12px;}
+  .scan-queue-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--navy-wash);color:var(--navy-ink);border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:700;margin-bottom:12px;}
   .scan-queue-bar .dots{display:flex;gap:4px;}
   .scan-queue-bar .dots i{width:6px;height:6px;border-radius:50%;background:#9CCFC8;display:block;}
   .scan-queue-bar .dots i.done{background:var(--navy);}
@@ -2741,7 +2766,7 @@ function priceHistoryModal(){
     const first = points[0].unitPrice, last = points[points.length-1].unitPrice;
     const changePct = first>0 ? ((last-first)/first)*100 : 0;
     const up = changePct>3, down = changePct<-3;
-    const color = up?'#B02A2F':down?'var(--basil)':'var(--ink-soft)';
+    const color = up?'var(--tomato-ink)':down?'var(--basil)':'var(--ink-soft)';
     const bg = up?'var(--tomato-soft)':down?'var(--basil-soft)':'#FAFAF7';
     const arrow = up?'▲':down?'▼':'→';
     const phrase = (up||down)
@@ -3557,10 +3582,10 @@ function scanModal(){
 
       ${scanState==='matched' ? `
         ${scanExtracted.length>0 && (scanExtracted.filter(i=>!i.qtyVerified).length/scanExtracted.length) > 0.4 ? `
-        <div class="scan-error" style="background:var(--saffron-soft);color:#8A5A1F;">⚠ ${t('scan_low_confidence_hint')}</div>
+        <div class="scan-error" style="background:var(--saffron-soft);color:var(--saffron-ink);">⚠ ${t('scan_low_confidence_hint')}</div>
         ` : ''}
         ${scanDuplicateOf ? `
-        <div class="scan-error" style="background:var(--saffron-soft);color:#8A5A1F;">
+        <div class="scan-error" style="background:var(--saffron-soft);color:var(--saffron-ink);">
           ⚠ ${uiLang==='en'
             ? `A receipt from <strong>${escapeHtml(scanDuplicateOf.supplier)||'this supplier'}</strong> already exists on ${scanDuplicateOf.date} for a similar total (${money(scanDuplicateOf.total)}). This could be the same receipt scanned twice.`
             : `Ya existe un recibo de <strong>${escapeHtml(scanDuplicateOf.supplier)||'este proveedor'}</strong> el ${scanDuplicateOf.date} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.`}
@@ -3591,7 +3616,7 @@ function scanModal(){
           const sentence = uiLang==='en'
             ? `<strong>${label}</strong> went up in price on this receipt vs. your current cost — review the details below before confirming`
             : `<strong>${label}</strong> subió de precio en este recibo vs. tu costo actual — revisa los detalles abajo antes de confirmar`;
-          return `<div class="scan-error" style="background:var(--tomato-soft);color:#B02A2F;">▲ ${sentence}</div>`;
+          return `<div class="scan-error" style="background:var(--tomato-soft);color:var(--tomato-ink);">▲ ${sentence}</div>`;
         })()}
 
         <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:6px 0 8px;">${t('lbl_detected_products')}</label>
