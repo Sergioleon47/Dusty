@@ -1344,7 +1344,15 @@ let scanBatchFailedPhotos = 0; // fotos del lote que no se pudieron leer, para a
    siempre quedan en inglés, para que el emparejamiento con el texto del OCR de
    recibos no se confunda entre idiomas. */
 let uiLang = 'es';
-try{ uiLang = localStorage.getItem('platocost_lang') || 'es'; }catch(e){}
+try{
+  const savedLang = localStorage.getItem('platocost_lang');
+  // Sin preferencia guardada todavía (primera visita): arrancamos con una mejor
+  // adivinanza que el navegador/celular del usuario ya sabe (navigator.language),
+  // en vez de asumir español siempre — igual se lo confirmamos explícitamente en
+  // el modal de bienvenida (ver welcomeModal()), esto es solo el estado inicial
+  // mientras carga esa pantalla.
+  uiLang = savedLang || (navigator.language && navigator.language.toLowerCase().startsWith('en') ? 'en' : 'es');
+}catch(e){}
 function setLang(l){
   uiLang = l;
   try{ localStorage.setItem('platocost_lang', l); }catch(e){}
@@ -3067,6 +3075,16 @@ function welcomeModal(){
   return `
   <div class="overlay" id="welcome-overlay">
     <div class="modal">
+      <!-- Elegir idioma es lo primero que ve un usuario nuevo, antes de leer nada
+           más — arrancamos con una adivinanza (navigator.language, ver arriba en
+           la carga de uiLang) pero se lo confirmamos acá en vez de asumirlo
+           calladamente. Los nombres de los idiomas van fijos en su propio idioma
+           (nunca "Inglés"/"Spanish" traducidos) porque alguien que no lee el
+           idioma activo todavía tiene que poder reconocer el suyo igual. -->
+      <div style="display:flex;gap:8px;margin-bottom:18px;">
+        <button type="button" data-choose-lang="es" class="btn ${uiLang==='es'?'btn-primary':'btn-ghost'}" style="flex:1;">Español</button>
+        <button type="button" data-choose-lang="en" class="btn ${uiLang==='en'?'btn-primary':'btn-ghost'}" style="flex:1;">English</button>
+      </div>
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin:16px 0;">
@@ -4813,6 +4831,9 @@ function attachEvents(){
     welcomeOverlay.addEventListener('mousedown',(e)=>{ if(e.target===welcomeOverlay) closeWelcomeModal(); });
     const closeWelcomeBtn = document.getElementById('btn-close-welcome');
     if(closeWelcomeBtn) closeWelcomeBtn.onclick = closeWelcomeModal;
+    document.querySelectorAll('[data-choose-lang]').forEach(btn=>{
+      btn.onclick = ()=> setLang(btn.dataset.chooseLang);
+    });
   }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
