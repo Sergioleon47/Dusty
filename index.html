@@ -1521,6 +1521,7 @@ const I18N = {
     scan_qty_review:'Confianza media en esta lectura — conviene revisarla',
     price_alerts_title:'Cambios de precio recientes',
     price_unit_mismatch:'unidad distinta', price_unit_mismatch_hint:'Las últimas dos compras de este producto se registraron en unidades distintas (ej. libras vs. cajas), así que no se puede comparar el precio de forma confiable.',
+    price_implausible:'revisar precio', price_implausible_hint:'Este cambio es demasiado grande para ser un precio real (probablemente una cantidad o un precio mal leído en algún recibo viejo) — abrí el historial de precios de este producto para encontrar y corregir la compra con el dato raro.',
     ph_excluded_units:'{n} compra(s) en otra unidad no se incluyen acá, para no comparar precios que no son compatibles.',
     opt_add_new_ing:'➕ Agregar como producto nuevo', ph_qty_short:'Cant.', ph_price_short:'Precio',
     scan_no_products_left:'No quedan productos por confirmar. El lector de texto no es perfecto — si no detectó algo, agrégalo a mano.',
@@ -1699,6 +1700,7 @@ const I18N = {
     scan_qty_review:'Medium confidence on this reading — worth double-checking',
     price_alerts_title:'Recent price changes',
     price_unit_mismatch:'unit changed', price_unit_mismatch_hint:"The last two purchases of this product were logged in different units (e.g. pounds vs. cases), so the price can't be compared reliably.",
+    price_implausible:'check price', price_implausible_hint:"This change is too large to be a real price (probably a misread quantity or price on an old receipt) — open this product's price history to find and fix the purchase with the odd number.",
     ph_excluded_units:"{n} purchase(s) in a different unit aren't included here, to avoid comparing prices that aren't compatible.",
     opt_add_new_ing:'➕ Add as new product', ph_qty_short:'Qty.', ph_price_short:'Price',
     scan_no_products_left:"No products left to confirm. The text reader isn't perfect — if it missed something, add it by hand.",
@@ -1852,6 +1854,13 @@ function importData(file){
 function priceChangeBadge(pct){
   if(pct===null) return '';
   if(pct==='unit-mismatch') return `<span style="color:var(--ink-soft);font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_unit_mismatch_hint')}">⚠ ${t('price_unit_mismatch')}</span>`;
+  // Un precio de proveedor real casi nunca salta más de ~300% de una compra a la
+  // siguiente — cuando lastPriceChangePct() da eso, es mucho más probable que sea
+  // una cantidad o un precio mal leído en algún recibo viejo (una coma decimal
+  // corrida, un "1" leído donde decía "100") que un cambio de precio de verdad.
+  // Mostrar "14141%" como si fuera un hecho es peor que no mostrar nada: se marca
+  // como algo para revisar a mano en vez de repetir un número que casi seguro está mal.
+  if(Math.abs(pct)>300) return `<span style="color:#8C6D1F;font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_implausible_hint')}">⚠ ${t('price_implausible')}</span>`;
   const up = pct>0.5, down = pct<-0.5;
   const color = up?'var(--tomato)':down?'var(--basil)':'var(--ink-soft)';
   const arrow = up?'▲':down?'▼':'→';
