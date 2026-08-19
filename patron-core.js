@@ -94,12 +94,33 @@ function profitMarginPct(costPerUnit, salePrice){
   return ((sale-cost)/sale)*100;
 }
 
+/* JSON.stringify(x) por sí solo NO sirve para comparar "¿cambió de verdad?": el orden
+   de las propiedades importa para stringify aunque el contenido sea idéntico, y
+   Firestore no garantiza devolver los campos de un doc en el mismo orden en que se
+   escribieron (googlear "firestore field order data()" confirma que reordena). Cada
+   vez que llega un snapshot de recibos/inventario/compras al reconectar, esto hacía
+   que un objeto con los mismos datos pero propiedades en otro orden se viera como
+   "distinto" -> se reemplazaba el array entero y se redibujaba TODO #app de cero
+   (fotos incluidas) sin que hubiera cambiado nada real. Eso es lo que se sentía como
+   que el calendario de recibos "tiembla" o que un recibo de una fecha puntual
+   desaparecía un instante al refrescar: no se perdía el dato, se perdía (por un
+   instante, a veces más si se repetía con cada listener) su lugar en un redibujado
+   que nunca debió pasar. Ordenar las claves antes de comparar arregla esto para
+   objetos y arrays anidados también (fotos de recibos, items aplicados, etc). */
+function stableStringify(x){
+  if(x===null || typeof x!=='object') return JSON.stringify(x);
+  if(Array.isArray(x)) return '['+x.map(stableStringify).join(',')+']';
+  const keys = Object.keys(x).sort();
+  return '{'+keys.map(k=>JSON.stringify(k)+':'+stableStringify(x[k])).join(',')+'}';
+}
+function sameJSON(a, b){ return stableStringify(a)===stableStringify(b); }
+
 // Solo se ejecuta bajo Node (para los tests) — en el navegador "module" no existe,
 // así que esto no hace nada ahí y las funciones quedan como globales normales.
 if(typeof module!=='undefined' && module.exports){
   module.exports = {
     money, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
-    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES
+    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON
   };
 }

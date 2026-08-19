@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const {
   money, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
   receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
-  profitMarginPct
+  profitMarginPct, sameJSON
 } = require('./patron-core.js');
 
 test('money formatea números y cae en $0.00 si no es un número', () => {
@@ -121,4 +121,25 @@ test('lastPriceChangePct: ignora compras de otros productos', () => {
     {ingId:'i1', qty:5, unit:'lb', totalPrice:25, date:'2026-08-01'}
   ];
   assert.equal(lastPriceChangePct('i1', purchases), 25);
+});
+
+test('sameJSON: mismos datos en otro orden de propiedades -> igual, no "distinto"', () => {
+  // Este es el bug real: Firestore no garantiza devolver los campos de un doc en el
+  // mismo orden en que se guardaron (típicamente los reordena). Un recibo recién
+  // escaneado localmente (id primero) contra el mismo recibo tal como vuelve de
+  // Firestore (orden distinto) debía compararse como IGUAL -- antes, con un
+  // JSON.stringify plano, se veía como "distinto" y disparaba un reemplazo +
+  // redibujado completo innecesario cada vez que se reconectaba a la nube.
+  const local = {id:'r1', images:[{base64:'a'}], supplier:'X', date:'2026-08-19', total:50};
+  const fromFirestore = {date:'2026-08-19', id:'r1', supplier:'X', total:50, images:[{base64:'a'}]};
+  assert.equal(sameJSON(local, fromFirestore), true);
+  assert.equal(sameJSON([local], [fromFirestore]), true);
+});
+
+test('sameJSON: detecta diferencias reales de contenido, sin importar el orden', () => {
+  const a = {id:'r1', total:50, images:[{base64:'a'}]};
+  const b = {total:47, id:'r1', images:[{base64:'a'}]}; // total realmente cambió
+  assert.equal(sameJSON(a, b), false);
+  assert.equal(sameJSON({a:1}, {a:1,b:2}), false); // falta una propiedad
+  assert.equal(sameJSON([1,2,3], [1,3,2]), false); // el orden SÍ importa dentro de un array
 });

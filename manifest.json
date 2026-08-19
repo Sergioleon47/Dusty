@@ -1,0 +1,16 @@
+{
+  "name": "PATRON",
+  "short_name": "PATRON",
+  "description": "Escaneá recibos, mantené tu inventario al día y detectá cambios de precio automáticamente.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F0F2F5",
+  "theme_color": "#128C7E",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

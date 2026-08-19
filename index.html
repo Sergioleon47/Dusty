@@ -2,11 +2,21 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>PATRON — Inventario</title>
 <meta name="description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically. For restaurants, stores, and any business that buys and resells.">
 <meta name="theme-color" content="#128C7E">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23128C7E'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<!-- "Agregar a inicio" saca la barra de Safari/Chrome y, con ella, el gesto de
+     "volver atrás" del sistema desde el borde de la pantalla — el que competía con
+     deslizar entre pestañas en un celular real (ver attachViewSwipeHandlers). Sin
+     esto la app solo puede ser, como mucho, un sitio con forma de app; con esto pasa
+     a abrirse standalone, sin chrome del navegador. -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PATRON">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://patronsc.netlify.app/">
 <meta property="og:title" content="PATRON — Inventory">
@@ -68,7 +78,7 @@
      dispare el menú de copiar/compartir de iOS a mitad de gesto — eso competía con
      el swipe y era una causa real de que a veces no arrancara. Los campos de texto
      (input/textarea) igual se pueden seleccionar y editar normal, esto no los toca. */
-  #app{max-width:1180px;margin:0 auto;padding:28px 24px 100px;touch-action:pan-y;-webkit-touch-callout:none;user-select:none;}
+  #app{max-width:1180px;margin:0 auto;padding:calc(28px + env(safe-area-inset-top)) 24px 100px;touch-action:pan-y;-webkit-touch-callout:none;user-select:none;}
   #app input, #app textarea, #app select{-webkit-user-select:text;user-select:text;}
 
   /* Las 3 pestañas (dashboard/inventario/recibos) viven SIEMPRE las 3 en el DOM,
@@ -190,15 +200,17 @@
   .inv-header-actions{display:flex;gap:6px;flex-wrap:nowrap;align-items:stretch;}
   .inv-row-btn{position:relative;flex:1;min-width:0;text-align:center;white-space:normal;line-height:1.2;padding:9px 6px;font-size:12.5px;}
 
-  .alert-banner{background:var(--tomato-soft);border:1px solid #F2C6C8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:var(--tomato-ink);font-size:13.5px;font-weight:600;}
+  .alert-banner{background:var(--tomato-soft);border:1px solid #F2C6C8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:var(--tomato-ink);font-size:13.5px;font-weight:600;transition:transform .12s ease;}
+  #cc-banner:active{transform:scale(0.98);}
   .alert-banner .count{background:var(--tomato);color:#fff;border-radius:20px;padding:2px 9px;font-size:12px;}
 
   .mono-cell{font-family:'IBM Plex Mono';}
 
   .price-updated{display:inline-block;background:var(--basil-soft);color:var(--basil);font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px;}
 
-  .link-btn{background:none;border:none;color:var(--navy);font-weight:600;font-size:12.5px;cursor:pointer;padding:4px 6px;}
+  .link-btn{background:none;border:none;color:var(--navy);font-weight:600;font-size:12.5px;cursor:pointer;padding:4px 6px;transition:opacity .15s ease;}
   .link-btn:hover{text-decoration:underline;}
+  .link-btn:active{opacity:.5;}
 
 
   /* STOCK ANALYTICS CARD */
@@ -216,7 +228,8 @@
      (ver más abajo), así que el botón de editar terminaba tapado a medias por esa
      línea en vez de tener aire respecto a ella. */
   .stock-row{display:flex;align-items:center;gap:16px;padding:16px 10px;background:var(--panel);position:relative;}
-  .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;}
+  .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;transition:transform .12s ease;}
+  .stock-icon-ring[data-photo-item]:active{transform:scale(0.9);}
   .stock-icon-ring svg{width:30px;height:30px;display:block;filter:drop-shadow(0 1px 1.5px rgba(28,30,33,0.18));}
   .stock-icon-ring img{width:100%;height:100%;object-fit:cover;display:block;}
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
@@ -248,8 +261,9 @@
   .stock-summary-label{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
   .stock-summary-value{font-size:20px;font-weight:700;color:var(--stock-crit);font-family:'Space Grotesk';margin-top:2px;}
   .stock-summary-right{text-align:right;}
-  .stock-suggest-btn{background:var(--stock-ok);color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;margin-top:4px;cursor:pointer;}
+  .stock-suggest-btn{background:var(--stock-ok);color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;margin-top:4px;cursor:pointer;transition:transform .15s ease,filter .15s ease;}
   .stock-suggest-btn:hover{opacity:.9;}
+  .stock-suggest-btn:active{transform:scale(0.96);filter:brightness(0.94);}
   .cc-due-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--tomato);border:2px solid var(--panel);}
   /* Resalta con un parpadeo rojo claro los productos que le tocan en la tanda actual
      de conteo cíclico — igual en Dashboard e Inventario. Antes esto era solo un borde
@@ -268,10 +282,18 @@
   @media (prefers-reduced-motion: reduce){
     .stock-row-static.cc-due-blink .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(229,72,77,0.5);background:rgba(229,72,77,0.08);}
   }
+  /* Igual que cc-due-blink pero disparado a mano al tocar "Alertas críticas" — dos
+     pulsos y se apaga solo (ver btn-critical-alerts en attachEvents), en vez de
+     quedar prendido todo el tiempo como cc-due-blink. */
+  .stock-row-static.crit-flash .stock-row{animation:cc-due-pulse 1.2s ease-in-out 2;border-radius:10px;}
+  @media (prefers-reduced-motion: reduce){
+    .stock-row-static.crit-flash .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(229,72,77,0.5);background:rgba(229,72,77,0.08);}
+  }
 
   /* Tarjetas de recibos (grid con foto de portada), pestaña Recibos */
   .dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
-  .dish-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;}
+  .dish-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;transition:transform .12s ease;}
+  .dish-card:active{transform:scale(0.98);}
 
   .cal-widget{background:var(--panel);border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow);padding:20px;margin-bottom:16px;}
   .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
@@ -308,12 +330,14 @@
   }
   .cal-day img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
   .cal-day-num{position:relative;font-size:13px;font-weight:600;color:var(--ink-soft);}
-  .cal-day-receipt-icon{position:relative;font-size:20px;}
+  .cal-day-receipt-icon{position:relative;display:flex;color:var(--saffron-ink);}
   .cal-day.has-receipt{cursor:pointer;transition:transform .2s ease;}
   .cal-day.has-receipt:hover{transform:scale(1.06);}
+  .cal-day.has-receipt:active{transform:scale(0.94);}
   .cal-day-badge{position:absolute;top:2px;right:2px;background:var(--tomato);color:#fff;font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:8px;}
-  .day-receipt-row{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px;cursor:pointer;transition:background .2s ease;}
+  .day-receipt-row{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px;cursor:pointer;transition:background .2s ease,transform .12s ease;}
   .day-receipt-row:hover{background:#E7E9EC;}
+  .day-receipt-row:active{transform:scale(0.98);background:#E7E9EC;}
   .day-receipt-thumb{width:40px;height:40px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;}
   .day-receipt-thumb img{width:100%;height:100%;object-fit:cover;}
 
@@ -374,10 +398,13 @@
 
   .ing-list-mini{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:180px;overflow-y:auto;}
   .ing-list-mini-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 10px;background:#FAFAF7;border-radius:8px;}
-  .remove-x{background:none;border:none;color:var(--tomato);cursor:pointer;font-size:15px;padding:0 4px;}
+  .remove-x{background:none;border:none;color:var(--tomato);cursor:pointer;font-size:15px;padding:0 4px;transition:transform .12s ease,opacity .12s ease;}
+  .remove-x:active{transform:scale(0.85);opacity:.6;}
+  [data-remove-scan-page]{transition:transform .12s ease;}
+  [data-remove-scan-page]:active{transform:scale(0.85);}
 
   .empty-state{text-align:center;padding:50px 20px;color:var(--ink-soft);}
-  .empty-state .em-icon{font-size:34px;margin-bottom:10px;}
+  .empty-state .em-icon-badge{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
 
   /* DASHBOARD — primeros pasos (inventario todavía vacío). Mismo degradé navy→basil
      que .brand-mark/.scan-fab-mini (para que se sienta parte de la misma marca, no un
@@ -390,10 +417,11 @@
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 5px, transparent 5px 10px),
       linear-gradient(145deg,var(--navy),var(--basil));
-    display:flex;align-items:center;justify-content:center;font-size:30px;
+    display:flex;align-items:center;justify-content:center;color:#fff;
     box-shadow:0 6px 18px rgba(18,140,126,0.35);
     animation:dash-empty-breathe 2.6s ease-in-out infinite;
   }
+  .dash-empty-badge svg{stroke-width:1.6;}
   .dash-empty-card h3{margin:0 0 6px;font-size:17px;}
   .dash-empty-card p{margin:0 auto 20px;font-size:13.5px;color:var(--ink-soft);max-width:320px;line-height:1.5;}
   .dash-empty-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
@@ -411,9 +439,10 @@
   }
 
   /* RECEIPT SCAN */
-  .drop-zone{border:2px dashed #F0C2C2;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:var(--tomato-soft);margin-bottom:16px;}
+  .drop-zone{border:2px dashed #F0C2C2;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:var(--tomato-soft);margin-bottom:16px;transition:transform .12s ease,border-color .15s ease;}
   .drop-zone:hover{border-color:var(--tomato);}
-  .drop-zone .dz-icon{font-size:28px;margin-bottom:6px;}
+  .drop-zone:active{transform:scale(0.98);border-color:var(--tomato);}
+  .drop-zone .dz-icon{display:flex;justify-content:center;color:var(--tomato);margin-bottom:6px;}
   .receipt-preview{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);}
   .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:var(--saffron-ink);margin-bottom:14px;}
   .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
@@ -422,8 +451,9 @@
   /* Control tipo segmentado (estilo iOS) para elegir si las fotos son páginas de un
      mismo recibo o recibos distintos. */
   .scan-mode{display:flex;background:#EFEFEA;border-radius:10px;padding:3px;gap:3px;margin-bottom:12px;}
-  .scan-mode button{flex:1;border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-soft);padding:8px 6px;border-radius:8px;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease;line-height:1.25;}
+  .scan-mode button{flex:1;border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-soft);padding:8px 6px;border-radius:8px;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease,transform .12s ease;line-height:1.25;}
   .scan-mode button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.12);}
+  .scan-mode button:active{transform:scale(0.95);}
   .scan-queue-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--navy-wash);color:var(--navy-ink);border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:700;margin-bottom:12px;}
   .scan-queue-bar .dots{display:flex;gap:4px;}
   .scan-queue-bar .dots i{width:6px;height:6px;border-radius:50%;background:#9CCFC8;display:block;}
@@ -437,7 +467,7 @@
   .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:#fff;}
 
   @media (max-width:720px){
-    #app{padding:16px 14px 90px;}
+    #app{padding:calc(16px + env(safe-area-inset-top)) 14px 90px;}
     .topbar{margin-bottom:16px;row-gap:10px;}
     .mi-fields{flex-direction:column;}
     .field-row{flex-wrap:wrap;}
@@ -513,6 +543,12 @@ let showAuthModal=false, authMode='signin', authError='', authContextNote='', au
 // (esa misma persona volviendo a entrar después, en cualquier dispositivo).
 let authName='', authPin='', authPinConfirm='', authJoinCode='';
 let showFeedbackModal=false, feedbackMessage='', feedbackSubmitting=false, feedbackSent=false;
+// Borrado de cuenta: 2 pasos en el mismo modal ('confirm' -> 'reauth'), en vez de
+// dos overlays separados — Firebase exige sesión "reciente" antes de dejar borrar
+// una cuenta (currentUser.delete() falla con auth/requires-recent-login si no),
+// así que reautenticar es un paso obligatorio, no opcional, y conviene que se
+// sienta parte del mismo flujo en vez de un modal aparte que aparece de sorpresa.
+let showDeleteAccountModal=false, deleteAccountStep='confirm', deleteAccountPassword='', deleteAccountError='', deleteAccountLoading=false;
 let showPriceHistoryModal=false, priceHistoryIngId=null;
 let showMonthlySpendModal=false;
 let editingItem=null;
@@ -926,6 +962,21 @@ function onCloudSyncWriteFailed(err){
    (hasPendingWrites) y cualquier snapshot que llegue mientras hay un cambio local
    recién hecho todavía subiéndose (cloudSyncDirty) — sin esto, un cambio remoto
    podría pisar un cambio local que todavía no terminó de sincronizarse. */
+/* Firestore entrega el snapshot inicial DOS veces al reconectar (recargar la página,
+   volver de segundo plano, etc.): una desde el caché local casi al instante, otra
+   desde el servidor un rato después — aunque los datos sean exactamente los mismos.
+   El debounce de scheduleCloudTriggeredRender() junta redibujados que llegan pegados
+   en el tiempo, pero el viaje de ida y vuelta al servidor casi siempre tarda más que
+   esa ventana, así que las dos llegadas terminan disparando dos redibujados
+   completos igual — cada uno reconstruye TODO #app de cero, fotos incluidas (ver
+   nota en render()). Eso es lo que se siente como que el calendario de recibos
+   "tiembla" o las fotos desaparecen y vuelven al refrescar: no cambió nada, pero se
+   redibuja como si hubiera cambiado. Comparar contra lo que ya está en pantalla
+   evita el redibujado (y el parpadeo) cuando en verdad no hay nada nuevo.
+   sameJSON ahora vive en patron-core.js (ordena las claves antes de comparar —
+   Firestore no garantiza devolver los campos de un doc en el mismo orden en que se
+   escribieron, así que un JSON.stringify ingenuo daba "distinto" con los mismos datos
+   y disparaba este redibujado igual). */
 function applyRemoteInventorySnapshot(snapshot){
   if(snapshot.metadata.hasPendingWrites || cloudSyncDirty) return;
   // Este es el primer dato de inventario que de verdad vino de Firestore desde que
@@ -938,16 +989,22 @@ function applyRemoteInventorySnapshot(snapshot){
   // Último resguardo: si por cualquier motivo un producto marcado como borrado todavía
   // llega en este snapshot (por ejemplo, el reconcile de arriba no había terminado de
   // borrarlo en la nube todavía), nunca se vuelve a mostrar localmente.
-  inventory = snapshot.docs.map(d=>d.data()).filter(i=>!deletedInventoryIds.includes(i.id));
-  saveState(); scheduleCloudTriggeredRender();
+  const nextInventory = snapshot.docs.map(d=>d.data()).filter(i=>!deletedInventoryIds.includes(i.id));
+  if(!sameJSON(nextInventory, inventory)){
+    inventory = nextInventory;
+    saveState(); scheduleCloudTriggeredRender();
+  }
   applyingRemoteSnapshot = false;
 }
 function applyRemotePurchasesSnapshot(snapshot){
   if(snapshot.metadata.hasPendingWrites || cloudSyncDirty) return;
   applyingRemoteSnapshot = true;
   lastKnownRemotePurchaseIds = snapshot.docs.map(d=>d.id);
-  purchases = snapshot.docs.map(d=>d.data());
-  saveState(); scheduleCloudTriggeredRender();
+  const nextPurchases = snapshot.docs.map(d=>d.data());
+  if(!sameJSON(nextPurchases, purchases)){
+    purchases = nextPurchases;
+    saveState(); scheduleCloudTriggeredRender();
+  }
   applyingRemoteSnapshot = false;
 }
 function applyRemoteReceiptsSnapshot(snapshot){
@@ -955,7 +1012,7 @@ function applyRemoteReceiptsSnapshot(snapshot){
   applyingRemoteSnapshot = true;
   lastKnownRemoteReceiptIds = snapshot.docs.map(d=>d.id);
   const oldReceipts = receipts;
-  receipts = snapshot.docs.map(d=>{
+  const nextReceipts = snapshot.docs.map(d=>{
     const remote = d.data();
     // Si este dispositivo ya tiene las fotos de este recibo en base64 (las
     // escaneó él mismo), las conserva — es instantáneo y no depende de la red.
@@ -966,13 +1023,29 @@ function applyRemoteReceiptsSnapshot(snapshot){
     remote.images = (local && local.images && local.images.length>0) ? local.images : (remote.images || []);
     return remote;
   });
-  saveState(); scheduleCloudTriggeredRender();
+  if(!sameJSON(nextReceipts, oldReceipts)){
+    receipts = nextReceipts;
+    saveState(); scheduleCloudTriggeredRender();
+  }
   applyingRemoteSnapshot = false;
 }
 function applyRemoteMetaSnapshot(doc){
   if(doc.metadata.hasPendingWrites || cloudSyncDirty || !doc.exists) return;
+  // Mismo problema que ya se arregló en los otros 3 listeners (inventario/compras/
+  // recibos) pero se había quedado afuera acá: el doc de "meta" también llega DOS
+  // veces al reconectar (caché, después servidor) aunque no haya cambiado nada real.
+  // En el celular esto pasa mucho más seguido que en una computadora — el sistema
+  // operativo corta la conexión de Firestore apenas la app pasa a segundo plano
+  // (cambiar de app, apagar la pantalla), así que CADA vez que se vuelve a esta app
+  // se dispara una reconexión con sus dos entregas. Sin este chequeo, ese redibujado
+  // de más reconstruía #app entero (fotos del calendario de recibos incluidas) cada
+  // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
+  // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
+  const incomingMeta = doc.data();
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName};
+  if(sameJSON(incomingMeta, currentMeta)) return;
   applyingRemoteSnapshot = true;
-  applyStateData(doc.data());
+  applyStateData(incomingMeta);
   saveState(); scheduleCloudTriggeredRender();
   applyingRemoteSnapshot = false;
 }
@@ -1442,7 +1515,7 @@ const I18N = {
     business_name_title:'Nombre del negocio', business_name_label:'Nombre', business_name_placeholder:'Ej. Pedro\'s',
     business_name_helper:'Si lo completás, reemplaza el título "Inventario" en esta cuenta. Dejalo vacío para no cambiar nada. Solo afecta a esta cuenta, nunca a otras.',
     alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
-    btn_save:'Guardar', btn_alert_settings:'⚙️ Configuración',
+    btn_save:'Guardar', btn_alert_settings:'Configuración',
     btn_feedback:'Reportar un problema',
     cloud_sync_signed_out:'Iniciar sesión para sincronizar en la nube',
     cloud_sync_signed_in:'Sincronizado como {email} — toca para compartir o cerrar sesión',
@@ -1505,6 +1578,13 @@ const I18N = {
     feedback_placeholder:'Ej. Al escanear un recibo de 3 páginas, la última no se leyó bien...',
     feedback_send:'Enviar', feedback_sent:'¡Gracias! Ya recibimos tu mensaje.',
     feedback_error:'No se pudo enviar — revisá tu conexión y probá de nuevo.',
+    delete_account_btn:'Eliminar cuenta', delete_account_title:'Eliminar cuenta',
+    delete_account_warning:'Esto borra tu inventario, compras, recibos y fotos para siempre — no se puede deshacer.',
+    delete_account_warning_team:'Sos dueño/a de un inventario compartido — {n} persona(s) más van a perder el acceso.',
+    delete_account_reauth_sub:'Por seguridad, confirmá que sos vos antes de borrar la cuenta.',
+    delete_account_continue_btn:'Continuar', delete_account_confirm_btn:'Sí, eliminar mi cuenta',
+    delete_account_google_reauth_btn:'Confirmar con Google',
+    delete_account_success:'Tu cuenta fue eliminada.',
     welcome_title:'Bienvenido a PATRON', welcome_sub:'Así funciona, en 3 pasos:',
     welcome_step1_title:'Escaneá un recibo', welcome_step1_sub:'Sacale una foto y la app lee los productos y precios sola.',
     welcome_step2_title:'Tu inventario se actualiza solo', welcome_step2_sub:'Sabés en todo momento cuánto tenés de cada producto y cuánto vale.',
@@ -1551,7 +1631,7 @@ const I18N = {
     price_unit_mismatch:'unidad distinta', price_unit_mismatch_hint:'Las últimas dos compras de este producto se registraron en unidades distintas (ej. libras vs. cajas), así que no se puede comparar el precio de forma confiable.',
     price_implausible:'revisar precio', price_implausible_hint:'Este cambio es demasiado grande para ser un precio real (probablemente una cantidad o un precio mal leído en algún recibo viejo) — abrí el historial de precios de este producto para encontrar y corregir la compra con el dato raro.',
     ph_excluded_units:'{n} compra(s) en otra unidad no se incluyen acá, para no comparar precios que no son compatibles.',
-    opt_add_new_ing:'➕ Agregar como producto nuevo', ph_qty_short:'Cant.', ph_price_short:'Precio',
+    opt_add_new_ing:'+ Agregar como producto nuevo', ph_qty_short:'Cant.', ph_price_short:'Precio',
     scan_no_products_left:'No quedan productos por confirmar. El lector de texto no es perfecto — si no detectó algo, agrégalo a mano.',
     btn_add_product_manually:'+ Agregar producto a mano', btn_confirm_apply:'Confirmar y actualizar inventario',
     btn_retry_scan:'Intentar de nuevo',
@@ -1622,7 +1702,7 @@ const I18N = {
     business_name_title:'Business name', business_name_label:'Name', business_name_placeholder:"E.g. Pedro's",
     business_name_helper:'If you fill this in, it replaces the "Inventory" title on this account. Leave it blank to change nothing. Only affects this account, never others.',
     alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
-    btn_save:'Save', btn_alert_settings:'⚙️ Settings',
+    btn_save:'Save', btn_alert_settings:'Settings',
     btn_feedback:'Report an issue',
     cloud_sync_signed_out:'Sign in to sync to the cloud',
     cloud_sync_signed_in:'Synced as {email} — tap to share or sign out',
@@ -1685,6 +1765,13 @@ const I18N = {
     feedback_placeholder:"E.g. When scanning a 3-page receipt, the last page didn't read correctly...",
     feedback_send:'Send', feedback_sent:"Thanks! We got your message.",
     feedback_error:"Couldn't send it — check your connection and try again.",
+    delete_account_btn:'Delete account', delete_account_title:'Delete account',
+    delete_account_warning:"This permanently deletes your inventory, purchases, receipts, and photos — this can't be undone.",
+    delete_account_warning_team:"You own a shared inventory — {n} other person/people will lose access.",
+    delete_account_reauth_sub:"For your security, confirm it's really you before deleting the account.",
+    delete_account_continue_btn:'Continue', delete_account_confirm_btn:'Yes, delete my account',
+    delete_account_google_reauth_btn:'Confirm with Google',
+    delete_account_success:'Your account has been deleted.',
     welcome_title:'Welcome to PATRON', welcome_sub:'Here\'s how it works, in 3 steps:',
     welcome_step1_title:'Scan a receipt', welcome_step1_sub:'Take a photo and the app reads the products and prices on its own.',
     welcome_step2_title:'Your inventory updates itself', welcome_step2_sub:'Always know how much you have of each product and what it\'s worth.',
@@ -1731,7 +1818,7 @@ const I18N = {
     price_unit_mismatch:'unit changed', price_unit_mismatch_hint:"The last two purchases of this product were logged in different units (e.g. pounds vs. cases), so the price can't be compared reliably.",
     price_implausible:'check price', price_implausible_hint:"This change is too large to be a real price (probably a misread quantity or price on an old receipt) — open this product's price history to find and fix the purchase with the odd number.",
     ph_excluded_units:"{n} purchase(s) in a different unit aren't included here, to avoid comparing prices that aren't compatible.",
-    opt_add_new_ing:'➕ Add as new product', ph_qty_short:'Qty.', ph_price_short:'Price',
+    opt_add_new_ing:'+ Add as new product', ph_qty_short:'Qty.', ph_price_short:'Price',
     scan_no_products_left:"No products left to confirm. The text reader isn't perfect — if it missed something, add it by hand.",
     btn_add_product_manually:'+ Add product by hand', btn_confirm_apply:'Confirm and update inventory',
     btn_retry_scan:'Try again',
@@ -1913,9 +2000,9 @@ function priceAlertsCard(){
   <div class="stock-card">
     <h3 class="stock-card-title">${t('price_alerts_title')}</h3>
     ${alerts.map(a=>`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);">
+      <div data-history-item="${a.ing.id}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
         <span style="font-size:13px;color:var(--ink);">${escapeHtml(a.ing.name)}</span>
-        ${priceChangeBadge(a.pct)}
+        <span style="display:flex;align-items:center;gap:4px;">${priceChangeBadge(a.pct)}<span style="color:var(--ink-soft);font-size:12px;">›</span></span>
       </div>
     `).join('')}
   </div>`;
@@ -2004,6 +2091,7 @@ function renderApp(){
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
+    ${showDeleteAccountModal ? deleteAccountModal() : ''}
     ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
     ${showCycleCountModal ? cycleCountModal() : ''}
     ${showWelcomeModal ? welcomeModal() : ''}
@@ -2120,6 +2208,28 @@ function bottomNav(){
       </button>
     `).join('')}
   </div>`;
+}
+
+/* ---------- ICONOS DE LÍNEA (reemplazan emoji sueltos como "ícono de UI") ---------
+   Antes varios estados vacíos/insignias usaban un emoji (📦 🧾 ☁️ 📷 🔔 🕘) como si
+   fuera un ícono — se ve distinto en cada sistema operativo/navegador y desentona
+   con el resto de la app, que ya usa un lenguaje visual propio y consistente de
+   íconos de línea (el gear de ajustes, la nube de sincronizar, el lápiz de editar,
+   los de la barra inferior). Este set junta esos mismos trazos en un solo lugar
+   para poder reusarlos como badge en vez de texto plano. */
+const LINE_ICONS = {
+  box: `<path d="M12.89 1.45l8 4A2 2 0 0 1 22 7.24v9.53a2 2 0 0 1-1.11 1.79l-8 4a2 2 0 0 1-1.79 0l-8-4a2 2 0 0 1-1.1-1.8V7.24a2 2 0 0 1 1.11-1.79l8-4a2 2 0 0 1 1.78 0z"/><polyline points="2.32 6.16 12 11 21.68 6.16"/><line x1="12" y1="22.76" x2="12" y2="11"/>`,
+  receipt: `<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>`,
+  cloud: `<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>`,
+  camera: `<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>`,
+  bell: `<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>`,
+  clock: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`,
+  printer: `<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>`,
+  share: `<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>`,
+};
+function lineIcon(name, size){
+  const s = size||18;
+  return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${LINE_ICONS[name]||LINE_ICONS.box}</svg>`;
 }
 
 /* ---------- DASHBOARD ---------- */
@@ -2371,6 +2481,42 @@ function stockRowsData(){
    arrastre por fila activo ahí, el dedo casi siempre caía sobre una fila y competía
    con el cambio de pestaña. Borrar un producto se hace con la x chica de cada fila
    (deleteStockItem), disponible tanto acá como en Inventario. */
+/* Anillo (donut) de salud del inventario: de un vistazo, qué porción está OK vs.
+   necesita atención — sin tener que leer fila por fila. Solo cuenta productos con
+   datos suficientes para juzgarlos (status !=='none', ver stockRowsData) — un
+   inventario recién cargado, todavía sin compras registradas, no se ve "crítico"
+   por falta de datos. R=15.915 y circunferencia≈100 es el truco clásico de donut en
+   SVG (viewBox 0 0 36 36): cada segmento mide su propio % directo en unidades de
+   dasharray, sin tener que convertir a grados. */
+function stockHealthRing(rows){
+  const graded = rows.filter(r=>r.status!=='none');
+  const total = graded.length;
+  if(total===0) return '';
+  const counts = {ok:0, warn:0, crit:0};
+  graded.forEach(r=>counts[r.status]++);
+  const R = 15.915, CIRC = 2*Math.PI*R;
+  let offset = 0;
+  const segments = [
+    {n:counts.crit, color:'var(--stock-crit)'},
+    {n:counts.warn, color:'var(--stock-warn)'},
+    {n:counts.ok, color:'var(--stock-ok)'},
+  ].filter(s=>s.n>0).map(s=>{
+    const len = (s.n/total)*CIRC;
+    const circle = `<circle cx="18" cy="18" r="${R}" fill="none" stroke="${s.color}" stroke-width="4" stroke-dasharray="${len.toFixed(2)} ${(CIRC-len).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
+    offset += len;
+    return circle;
+  }).join('');
+  const okPct = Math.round((counts.ok/total)*100);
+  const ringTitle = uiLang==='en' ? `${okPct}% of your inventory is at a healthy stock level` : `${okPct}% de tu inventario está en un nivel de stock saludable`;
+  return `
+  <div style="position:relative;width:46px;height:46px;flex-shrink:0;" title="${ringTitle}">
+    <svg viewBox="0 0 36 36" style="width:100%;height:100%;transform:rotate(-90deg);">
+      <circle cx="18" cy="18" r="${R}" fill="none" stroke="var(--bg)" stroke-width="4"/>
+      ${segments}
+    </svg>
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Space Grotesk';color:var(--ink);">${okPct}%</div>
+  </div>`;
+}
 function stockAnalyticsCard(){
   if(inventory.length===0) return '';
   const rows = stockRowsData();
@@ -2378,9 +2524,12 @@ function stockAnalyticsCard(){
   const ccDueIds = cycleCountDueIds();
   return `
   <div class="stock-card">
-    <h3 class="stock-card-title">${t('stock_status_title')}</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
+      ${stockHealthRing(rows)}
+    </div>
     ${rows.map(r=>`
-      <div class="stock-row-static ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-ing-id="${r.ing.id}">
+      <div class="stock-row-static ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-ing-id="${r.ing.id}" data-status="${r.status}">
         <div class="stock-row">
           <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
           <div class="stock-main">
@@ -2398,7 +2547,7 @@ function stockAnalyticsCard(){
       </div>
     `).join('')}
     <div class="stock-summary">
-      <div>
+      <div id="btn-critical-alerts" ${criticalCount>0?'style="cursor:pointer;"':''}>
         <div class="stock-summary-label">${t('stock_critical_alerts')}</div>
         <div class="stock-summary-value">${criticalCount}</div>
       </div>
@@ -2433,7 +2582,7 @@ function dashboardView(){
     </div>
   </div>
 
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('☁️',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
   ${priceAlertsCard()}
   ${stockAnalyticsCard()}
   `;
@@ -2444,7 +2593,7 @@ function dashboardView(){
 function dashboardEmptyState(){
   return `
   <div class="dash-empty-card">
-    <div class="dash-empty-badge">📦</div>
+    <div class="dash-empty-badge">${lineIcon('box',30)}</div>
     <h3>${t('dash_empty_title')}</h3>
     <p>${t('dash_empty_sub')}</p>
     <div class="dash-empty-actions">
@@ -2494,7 +2643,7 @@ function inventarioView(){
       ? `${t('cc_filtered_note')} <button type="button" id="btn-show-full-inventory" class="link-btn" style="padding:0;">${t('cc_show_all_link')}</button>`
       : `<button type="button" id="btn-show-pending-only" class="link-btn" style="padding:0;">${t('cc_show_pending_link')}</button>`}
   </div>` : ''}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('☁️',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')) : `
   <div class="stock-card" style="padding-bottom:6px;">
     ${rows.map(r=>{
       const i = r.ing;
@@ -2633,7 +2782,7 @@ function receiptCalendarWidget(){
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${isToday?'today':''} ${isBlink?'blink':''}" ${clickAttr} ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:''}>
         ${cover ? `<img src="${receiptImageSrc(cover)}" alt="">`
-          : r ? `<span class="cal-day-receipt-icon">🧾</span>`
+          : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
           : `<span class="cal-day-num">${day}</span>`}
         ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
       </div>
@@ -2671,7 +2820,7 @@ function dayReceiptsModal(){
           return `
           <div class="day-receipt-row" data-view-receipt="${r.id}">
             <div class="day-receipt-thumb">
-              ${cover ? `<img src="${receiptImageSrc(cover)}" alt="">` : `<span>🧾</span>`}
+              ${cover ? `<img src="${receiptImageSrc(cover)}" alt="">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:13.5px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -2719,7 +2868,7 @@ function recibosView(){
   </div>
   ${receiptCalendarWidget()}
   ${receipts.length>0 ? `<div class="field" style="max-width:340px;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div>` : ''}
-  ${receipts.length===0 ? emptyState('🧾',t('empty_receipts_title'),'',true) :
+  ${receipts.length===0 ? emptyState('receipt',t('empty_receipts_title'),'',true) :
     (sorted.length===0 ? `<div class="helper-note" style="margin:4px 0 0;">${t('rec_no_matches')}</div>` :
     groups.map(g=>`
       <div class="section-head" style="margin-top:22px;margin-bottom:10px;">
@@ -2752,6 +2901,10 @@ function recibosView(){
 function openPriceHistoryModal(ingId){ priceHistoryIngId = ingId; showPriceHistoryModal = true; render(); }
 function closePriceHistoryModal(){ showPriceHistoryModal = false; priceHistoryIngId = null; render(); }
 
+// id incremental para el <linearGradient> del área del gráfico — un id fijo se
+// repetiría si el navegador llegara a tener más de un <svg> de este chart en el DOM
+// a la vez (no pasa hoy, pero cuesta cero evitarlo de raíz).
+let __chartGradientSeq = 0;
 function priceHistoryChart(points){
   const W = 560, H = 180, padL = 52, padR = 16, padT = 16, padB = 16;
   const innerW = W - padL - padR, innerH = H - padT - padB;
@@ -2785,8 +2938,21 @@ function priceHistoryChart(points){
   const lastX = xFor(points.length-1), lastY = yFor(last);
   const endLabel = `<text x="${lastX.toFixed(1)}" y="${(lastY-10).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(last)}</text>`;
 
+  // Área bajo la línea con degradado hacia transparente — el mismo dato de siempre,
+  // pero se lee de un vistazo como un gráfico "de verdad" en vez de una línea pelada.
+  const gradId = 'ph-grad-'+(__chartGradientSeq++);
+  const baseline = (padT+innerH).toFixed(1);
+  const areaPoints = `${xFor(0).toFixed(1)},${baseline} ${linePoints} ${xFor(points.length-1).toFixed(1)},${baseline}`;
+
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    <defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${trendColor}" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="${trendColor}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
     ${gridLines}
+    <polygon points="${areaPoints}" fill="url(#${gradId})"/>
     <polyline points="${linePoints}" fill="none" stroke="${trendColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     ${markers}
     ${endLabel}
@@ -2901,15 +3067,19 @@ function monthlySpendChart(monthsAsc, currentMonthKey){
       <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(val)}</text>`;
   }).join('');
 
+  // El mes actual se destaca con el mismo degradé navy→basil de la marca (brand-mark,
+  // el ícono de escanear, el badge del dashboard vacío) en vez de un azul plano —
+  // así el ojo va directo al mes que importa sin perder la comparación con el resto.
+  const barGradId = 'ms-grad-'+(__chartGradientSeq++);
   const bars = monthsAsc.map((m,i)=>{
     const spend = spends[i];
     const barH = max>0 ? (spend/max)*innerH : 0;
     const x = padL + i*slot + (slot-barW)/2;
     const y = padT + innerH - barH;
     const isCurrent = m===currentMonthKey;
-    const color = isCurrent ? 'var(--navy)' : '#B7C4CC';
+    const fill = isCurrent ? `url(#${barGradId})` : '#B7C4CC';
     return `
-      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH,2).toFixed(1)}" rx="4" fill="${color}">
+      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH,2).toFixed(1)}" rx="4" fill="${fill}">
         <title>${escapeHtml(monthLabel(m, uiLang))} · ${money(spend)}</title>
       </rect>
       <text x="${(x+barW/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(spend)}</text>
@@ -2918,6 +3088,12 @@ function monthlySpendChart(monthsAsc, currentMonthKey){
   }).join('');
 
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    <defs>
+      <linearGradient id="${barGradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--basil)"/>
+        <stop offset="100%" stop-color="var(--navy)"/>
+      </linearGradient>
+    </defs>
     ${gridLines}
     ${bars}
   </svg>`;
@@ -2984,10 +3160,123 @@ function alertSettingsModal(){
         <div class="helper-note" style="margin-top:10px;margin-bottom:0;">${t('backup_section_hint')}</div>
       </div>
 
+      ${currentUser ? `
+      <div class="settings-card">
+        <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:#EBC2B8;">${t('delete_account_btn')}</button>
+      </div>
+      ` : ''}
+
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-alert-settings">${t('btn_save')}</button>
       </div>
+    </div>
+  </div>`;
+}
+
+/* ================= MODAL: ELIMINAR CUENTA ================= */
+function openDeleteAccountModal(){
+  deleteAccountStep='confirm'; deleteAccountPassword=''; deleteAccountError=''; deleteAccountLoading=false;
+  showDeleteAccountModal=true; render();
+}
+function closeDeleteAccountModal(){ showDeleteAccountModal=false; render(); }
+
+// Firebase exige una sesión "reciente" antes de dejar borrar una cuenta
+// (reauthenticateWith* falla con auth/requires-recent-login si no) — se rama por
+// proveedor real: 'password' cubre tanto una cuenta normal de email/contraseña
+// como las cuentas sintéticas de nombre+PIN del modo equipo (teamPinEmail()), que
+// también son 'password' por debajo. 'google.com' reusa el mismo patrón
+// popup-con-fallback-a-redirect que ya usa signInWithGoogle().
+async function performAccountDeletion(){
+  if(!currentUser) return;
+  deleteAccountLoading = true; deleteAccountError=''; render();
+  try{
+    const provider = (currentUser.providerData[0] && currentUser.providerData[0].providerId) || 'password';
+    if(provider==='google.com'){
+      try{
+        await currentUser.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+      }catch(err){
+        const popupFailed = err && (err.code==='auth/popup-blocked' || err.code==='auth/operation-not-supported-in-this-environment' || err.code==='auth/cancelled-popup-request');
+        if(popupFailed){
+          // El popup no se pudo abrir — se reintenta con redirect, pero a
+          // diferencia del popup, esto recarga la página entera. No hay forma
+          // liviana de "retomar el borrado solo" después de volver de un
+          // redirect sin sumar bastante más estado — en la práctica alcanza con
+          // que, al volver, la sesión ya cuenta como reciente y un segundo toque
+          // en "Eliminar cuenta" complete el resto sin pedir reautenticar de nuevo.
+          await currentUser.reauthenticateWithRedirect(new firebase.auth.GoogleAuthProvider());
+          return;
+        }
+        throw err;
+      }
+    } else {
+      if(!deleteAccountPassword){ deleteAccountError=t('auth_err_need_both'); deleteAccountLoading=false; render(); return; }
+      const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, deleteAccountPassword);
+      await currentUser.reauthenticateWithCredential(cred);
+    }
+
+    // getIdToken(true) fuerza un token fresco — el que ya estaba en memoria puede
+    // ser de antes de reautenticar, y el servidor (delete-account.js) exige uno
+    // válido para saber a qué cuenta borrar.
+    const idToken = await currentUser.getIdToken(true);
+    const response = await fetch('/.netlify/functions/delete-account', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
+      body: JSON.stringify({})
+    });
+    const parsed = await response.json().catch(()=>({}));
+    if(!response.ok || parsed.error){ throw new Error(parsed.error || t('auth_err_generic')); }
+
+    // La cuenta ya no existe del lado del servidor — se limpia todo localmente
+    // (listeners, estado en memoria, localStorage) y se cierra sesión, en vez de
+    // esperar a que onAuthStateChanged se entere solo de una cuenta que ya no está.
+    detachFirestoreListeners();
+    detachTeamListener();
+    stopPresenceHeartbeat();
+    try{ await firebase.auth().signOut(); }catch(e){}
+    inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; aliasMap={};
+    joinedOwnerUid=null; joinedOwnerEmail=''; lastSyncedUid=null;
+    try{
+      localStorage.removeItem('patron_had_session');
+      localStorage.removeItem(STORAGE_KEY);
+    }catch(e){}
+    showDeleteAccountModal=false; deleteAccountLoading=false;
+    alert(t('delete_account_success'));
+    render();
+  }catch(err){
+    deleteAccountLoading=false;
+    if(err && err.code==='auth/popup-closed-by-user'){ render(); return; } // cerró el popup, no es un error real
+    if(err && (err.code==='auth/wrong-password' || err.code==='auth/invalid-credential')) deleteAccountError=t('auth_err_wrong_password');
+    else { console.error('[PATRON] account deletion failed:', err); deleteAccountError = (err && err.message) || t('auth_err_generic'); }
+    render();
+  }
+}
+
+function deleteAccountModal(){
+  const isOwner = teamMembers.length>0 && !joinedOwnerUid;
+  const isGoogle = !!(currentUser && currentUser.providerData[0] && currentUser.providerData[0].providerId==='google.com');
+  return `
+  <div class="overlay" id="delete-account-overlay">
+    <div class="modal">
+      <h3 class="tomato">${t('delete_account_title')}</h3>
+      ${deleteAccountStep==='confirm' ? `
+        <div class="sub">${t('delete_account_warning')}</div>
+        ${isOwner ? `<div class="scan-error" style="margin-top:-6px;">⚠ ${t('delete_account_warning_team').replace('{n}', teamMembers.length)}</div>` : ''}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="btn-cancel-delete-account">${t('btn_cancel')}</button>
+          <button class="btn btn-primary" id="btn-continue-delete-account" style="background:var(--tomato);color:#fff;">${t('delete_account_continue_btn')}</button>
+        </div>
+      ` : `
+        <div class="sub">${t('delete_account_reauth_sub')}</div>
+        ${deleteAccountError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(deleteAccountError)}</div>` : ''}
+        ${isGoogle ? '' : `
+        <div class="field"><label>${t('auth_password')}</label><input id="delete-account-password" type="password" value="${escapeHtml(deleteAccountPassword)}" placeholder="••••••••" autocomplete="current-password"></div>
+        `}
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="btn-cancel-delete-account">${t('btn_cancel')}</button>
+          <button class="btn btn-primary" id="btn-confirm-delete-account" style="background:var(--tomato);color:#fff;" ${deleteAccountLoading?'disabled':''}>${deleteAccountLoading ? t('auth_loading') : (isGoogle ? t('delete_account_google_reauth_btn') : t('delete_account_confirm_btn'))}</button>
+        </div>
+      `}
     </div>
   </div>`;
 }
@@ -3091,16 +3380,16 @@ function receiptDetailModal(){
       `).join('')}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-delete-receipt" style="color:var(--tomato);border-color:#EBC2B8;">${t('btn_delete')}</button>
-        <button class="btn btn-ghost" id="btn-print-receipt">🖨️ ${t('btn_print')}</button>
-        <button class="btn btn-ghost" id="btn-share-receipt">📤 ${t('btn_share')}</button>
+        <button class="btn btn-ghost btn-icon" id="btn-print-receipt">${lineIcon('printer',15)} ${t('btn_print')}</button>
+        <button class="btn btn-ghost btn-icon" id="btn-share-receipt">${lineIcon('share',15)} ${t('btn_share')}</button>
         <button class="btn btn-primary" id="btn-close-receipt-detail">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;
 }
 
-function emptyState(icon,title,sub,compact){
-  return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon">${icon}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}</div>`;
+function emptyState(iconName,title,sub,compact){
+  return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}</div>`;
 }
 
 /* ================= MODAL: BIENVENIDA (primera vez que se abre la app) ================= */
@@ -3127,15 +3416,15 @@ function welcomeModal(){
       <div class="sub">${t('welcome_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin:16px 0;">
         <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="font-size:22px;">📷</span>
+          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--tomato-soft);color:var(--tomato);display:flex;align-items:center;justify-content:center;">${lineIcon('camera',18)}</span>
           <div><strong>${t('welcome_step1_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step1_sub')}</div></div>
         </div>
         <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="font-size:22px;">📦</span>
+          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--navy-wash);color:var(--navy);display:flex;align-items:center;justify-content:center;">${lineIcon('box',18)}</span>
           <div><strong>${t('welcome_step2_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step2_sub')}</div></div>
         </div>
         <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="font-size:22px;">🔔</span>
+          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--saffron-soft);color:var(--saffron-ink);display:flex;align-items:center;justify-content:center;">${lineIcon('bell',18)}</span>
           <div><strong>${t('welcome_step3_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step3_sub')}</div></div>
         </div>
       </div>
@@ -3558,7 +3847,7 @@ function activityModal(){
       <h3 class="navy">${t('activity_modal_title')}</h3>
       ${activityLog.length===0 ? `
         <div class="empty-state" style="padding:30px 10px;">
-          <div class="em-icon">🕘</div>
+          <div class="em-icon-badge">${lineIcon('clock',28)}</div>
           <div>${t('activity_empty')}</div>
         </div>
       ` : activityLog.map(a=>`
@@ -3609,7 +3898,7 @@ function scanModal(){
 
       ${scanState==='idle' && scanImages.length===0 ? `
         <div class="drop-zone" id="drop-zone">
-          <div class="dz-icon">📷</div>
+          <div class="dz-icon">${lineIcon('camera',26)}</div>
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
       ` : ''}
@@ -4480,11 +4769,21 @@ function removeInventoryItem(id){
   if(deletedItem) logActivity('item_deleted', deletedItem.name);
 }
 
-function deleteStockItem(id){
+function deleteStockItem(id, triggerEl){
   const item = inventory.find(i=>i.id===id);
   if(!item) return;
   if(!confirm(t('confirm_delete_item').replace('{name}', item.name))) return;
-  const wrap = document.querySelector('.stock-row-static[data-ing-id="'+id+'"]');
+  // La misma fila (mismo data-ing-id) aparece dos veces en el DOM a la vez: una en
+  // la tarjeta de stock del Dashboard y otra en Inventario (las 3 pestañas viven
+  // siempre las 3 en el DOM, ver la nota junto a .view-track). Antes esto buscaba
+  // con un querySelector global, que siempre devuelve la PRIMERA coincidencia del
+  // documento — la del Dashboard, sin importar desde qué pestaña se borró — así que
+  // al borrar desde Inventario la animación de colapso corría sobre la copia
+  // invisible del Dashboard y la fila que el usuario tenía delante desaparecía de
+  // golpe al terminar de redibujar, sin ninguna animación. Partiendo del botón que
+  // realmente se tocó (triggerEl) y subiendo al contenedor más cercano, se anima
+  // siempre la fila correcta sin importar la pestaña.
+  const wrap = triggerEl ? triggerEl.closest('.stock-row-static') : document.querySelector('.stock-row-static[data-ing-id="'+id+'"]');
   const finish = ()=>{ removeInventoryItem(id); render(); };
   if(!wrap){ finish(); return; }
   const h = wrap.getBoundingClientRect().height;
@@ -4800,7 +5099,7 @@ function makeKeyboardClickable(el){
 }
 function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
-  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-day-receipts], [data-photo-item]').forEach(makeKeyboardClickable);
+  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-day-receipts], [data-photo-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
@@ -4960,8 +5259,31 @@ function attachEvents(){
       saveState();
       showAlertSettingsModal=false; render();
     };
+    const btnOpenDeleteAccount=document.getElementById('btn-open-delete-account');
+    if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAlertSettingsModal=false; openDeleteAccountModal(); };
   }
 
+  const deleteAccountOverlay=document.getElementById('delete-account-overlay');
+  if(deleteAccountOverlay){
+    deleteAccountOverlay.addEventListener('mousedown',(e)=>{ if(e.target===deleteAccountOverlay && !deleteAccountLoading) closeDeleteAccountModal(); });
+    const btnCancelDeleteAccount=document.getElementById('btn-cancel-delete-account');
+    if(btnCancelDeleteAccount) btnCancelDeleteAccount.onclick=closeDeleteAccountModal;
+    const btnContinueDeleteAccount=document.getElementById('btn-continue-delete-account');
+    if(btnContinueDeleteAccount) btnContinueDeleteAccount.onclick=()=>{ deleteAccountStep='reauth'; deleteAccountError=''; render(); };
+    const deleteAccountPasswordInp=document.getElementById('delete-account-password');
+    if(deleteAccountPasswordInp) deleteAccountPasswordInp.oninput=(e)=>{ deleteAccountPassword=e.target.value; };
+    const btnConfirmDeleteAccount=document.getElementById('btn-confirm-delete-account');
+    if(btnConfirmDeleteAccount) btnConfirmDeleteAccount.onclick=performAccountDeletion;
+  }
+
+  const btnCriticalAlerts=document.getElementById('btn-critical-alerts');
+  if(btnCriticalAlerts) btnCriticalAlerts.onclick=()=>{
+    const critRows = document.querySelectorAll('.stock-row-static[data-status="crit"]');
+    if(critRows.length===0) return;
+    critRows[0].scrollIntoView({behavior:'smooth', block:'center'});
+    critRows.forEach(r=>r.classList.add('crit-flash'));
+    setTimeout(()=>critRows.forEach(r=>r.classList.remove('crit-flash')), 2400);
+  };
   const btnSuggestedOrder=document.getElementById('btn-suggested-order');
   if(btnSuggestedOrder) btnSuggestedOrder.onclick=()=>{ showSuggestedOrderModal=true; render(); };
   const suggestedOrderOverlay=document.getElementById('suggested-order-overlay');
@@ -5101,7 +5423,7 @@ function attachEvents(){
 
   document.querySelectorAll('[data-edit-item]').forEach(b=>{ b.onclick=()=>openItemModal(inventory.find(i=>i.id===b.dataset.editItem)); });
   document.querySelectorAll('[data-delete-stock-item]').forEach(b=>{
-    b.onclick=(e)=>{ e.stopPropagation(); deleteStockItem(b.dataset.deleteStockItem); };
+    b.onclick=(e)=>{ e.stopPropagation(); deleteStockItem(b.dataset.deleteStockItem, b); };
   });
   // Tocar el ícono directo en la lista sube la foto sin pasar por el formulario completo de editar.
   document.querySelectorAll('[data-photo-item]').forEach(el=>{
@@ -5114,9 +5436,15 @@ function attachEvents(){
       input.accept='image/*';
       input.style.display='none';
       document.body.appendChild(input);
+      // Si el usuario cierra el selector de archivos sin elegir ninguno, "change"
+      // nunca dispara — sin este manejo el <input> quedaba huérfano en el body para
+      // siempre (invisible, pero acumulándose en el DOM en cada intento cancelado).
+      // "cancel" no es soportado en absolutamente todos los navegadores, pero cuando
+      // lo es evita ese acumulado; cuando no, el peor caso es el mismo de antes.
+      input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
       input.onchange=async ()=>{
         const file=input.files[0];
-        document.body.removeChild(input);
+        if(input.parentNode) input.parentNode.removeChild(input);
         if(!file || !/^image\//.test(file.type)) return;
         try{
           const img = await loadImageFromFile(file);
@@ -5304,6 +5632,7 @@ document.addEventListener('keydown', (e)=>{
   if(showMonthlySpendModal){ closeMonthlySpendModal(); return; }
   if(showCycleCountModal){ closeCycleCountModal(); return; }
   if(showAlertSettingsModal){ showAlertSettingsModal=false; render(); return; }
+  if(showDeleteAccountModal){ if(!deleteAccountLoading) closeDeleteAccountModal(); return; }
   if(showSuggestedOrderModal){ showSuggestedOrderModal=false; render(); return; }
   if(showReceiptDetail){ showReceiptDetail=null; render(); return; }
   if(showDayReceipts){ showDayReceipts=null; render(); return; }

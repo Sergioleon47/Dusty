@@ -19,15 +19,9 @@
 // sola foto con 3 recibos (modo "multi") cuenta como 3, no como 1: si contáramos
 // por llamada, agrupar varios recibos en una foto sería una forma gratis de
 // esquivar el cupo.
-const admin = require('firebase-admin');
-
-function getFirebaseApp() {
-  if (admin.apps.length) return admin.apps[0];
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!raw) throw new Error('Falta configurar FIREBASE_SERVICE_ACCOUNT_KEY en Netlify');
-  const serviceAccount = JSON.parse(raw);
-  return admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-}
+// getFirebaseApp/isAllowedOrigin/verifyCaller ahora viven en lib/patron-admin.js,
+// compartidas con delete-account.js — ver ese archivo para el porqué.
+const { admin, getFirebaseApp, isAllowedOrigin, verifyCaller } = require('./lib/patron-admin');
 
 const PLAN_SCAN_LIMITS = { starter: 30, pro: 60, negocio: 120, equipo: 300 };
 // Cuentas sin "plan" asignado a mano todavía en Firestore (no hay cobro real
@@ -38,19 +32,6 @@ const DEFAULT_SCAN_LIMIT = 60;
 function currentBillingPeriod() {
   const d = new Date();
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
-}
-
-async function verifyCaller(event) {
-  const header = event.headers.authorization || event.headers.Authorization || '';
-  const idToken = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (!idToken) return null;
-  try {
-    getFirebaseApp();
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    return decoded.uid;
-  } catch (e) {
-    return null;
-  }
 }
 
 // Mismo criterio que firestore.rules: el dueño de la cuenta, o alguien que
@@ -187,25 +168,6 @@ Formato de cada item:
     }
   ]
 }`}`;
-}
-
-// Esta función es una URL pública — cualquiera que la encuentre podría mandarle
-// pedidos directo (sin pasar por la app) y gastar la ANTHROPIC_API_KEY de Sergio.
-// Como freno básico (no es seguridad perfecta, un ataque decidido puede falsificar
-// el header Origin, pero corta el abuso casual/bots), solo se acepta si el pedido
-// viene realmente del sitio de PATRON o de una vista previa/desarrollo local.
-const ALLOWED_ORIGIN_PATTERNS = [
-  /^https:\/\/([a-z0-9-]+\.)?patronsc\.netlify\.app$/i,
-  /^http:\/\/localhost(:\d+)?$/i,
-  /^http:\/\/127\.0\.0\.1(:\d+)?$/i
-];
-function isAllowedOrigin(event) {
-  const origin = event.headers.origin || event.headers.Origin || '';
-  const referer = event.headers.referer || event.headers.Referer || '';
-  const check = (val) => ALLOWED_ORIGIN_PATTERNS.some(re => re.test(val.replace(/\/$/, '')));
-  if (origin) return check(origin);
-  if (referer) { try { return check(new URL(referer).origin); } catch (e) { return false; } }
-  return false;
 }
 
 exports.handler = async (event) => {
