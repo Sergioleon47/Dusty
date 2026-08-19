@@ -627,10 +627,20 @@ function ensurePatronFirebaseReady(){
             // algo que este dispositivo tenía y todavía no había subido.
             return reconcileLocalOnlyData(targetUid, localSnapshot).catch(err=>{
               console.error('[PATRON] reconcile failed:', err);
+              // Si el reconcile falla no hay forma de saber si la nube tenía algo más
+              // que lo local -- no vale la pena seguir esperando un snapshot que a lo
+              // mejor nunca llega por este error.
+              cloudSyncPending = false;
             }).then(()=>{
               attachFirestoreListeners(targetUid);
               attachTeamListener();
               if(joinedOwnerUid) startPresenceHeartbeat(); else stopPresenceHeartbeat();
+              // cloudSyncPending NO se apaga acá todavía a propósito: recién ahora es
+              // que attachFirestoreListeners() dispara el primer snapshot real de
+              // Firestore (de forma asíncrona) -- lo apaga applyRemoteInventorySnapshot()
+              // cuando ese primer snapshot efectivamente llega. Apagarlo acá dejaría
+              // la ventana de riesgo (entre "se pidió" y "llegó") completamente
+              // desprotegida, que es justo la ventana que causaba el problema.
               render();
             });
           }).catch(err=>{
@@ -640,6 +650,7 @@ function ensurePatronFirebaseReady(){
             render();
           });
         } else {
+          cloudSyncPending = false;
           try{ localStorage.removeItem('patron_had_session'); }catch(e){}
           detachFirestoreListeners();
           detachTeamListener();
@@ -817,6 +828,17 @@ let cloudSyncRetryTimer = null;
 let cloudSyncRetryDelayMs = 2000;
 const CLOUD_SYNC_RETRY_MAX_MS = 60000;
 let applyingRemoteSnapshot = false;
+// true desde que arranca la app hasta que la primera reconexión a la nube de ESTA
+// carga de página termina (con éxito o con error) -- solo se pone en true para
+// empezar si este navegador ya había tenido sesión antes (ver el arranque, al final
+// del archivo), porque ahí SÍ hay datos en la nube por los que vale la pena esperar
+// antes de decidir que el inventario está vacío. Mientras esto es true, la pantalla
+// de "no tenés productos todavía" no se muestra aunque inventory.length sea 0 en ese
+// instante -- se ve una pantalla de carga en su lugar. Sin esto, si el primer
+// snapshot de Firestore tarda un poco más que el resto del arranque, el usuario veía
+// (aunque fuera un instante) su inventario real reemplazado por el cartel de "vacío",
+// que da la impresión de que se borró todo cuando en realidad nunca se tocó nada.
+let cloudSyncPending = false;
 let unsubInventory = null, unsubPurchases = null, unsubReceipts = null, unsubMeta = null;
 let lastKnownRemoteInventoryIds = null, lastKnownRemotePurchaseIds = null, lastKnownRemoteReceiptIds = null;
 
@@ -906,6 +928,11 @@ function onCloudSyncWriteFailed(err){
    podría pisar un cambio local que todavía no terminó de sincronizarse. */
 function applyRemoteInventorySnapshot(snapshot){
   if(snapshot.metadata.hasPendingWrites || cloudSyncDirty) return;
+  // Este es el primer dato de inventario que de verdad vino de Firestore desde que
+  // arrancó la página (o el único momento en que sabemos con certeza que la nube
+  // realmente no tiene nada) -- recién acá es seguro confiar en inventory.length
+  // para decidir si mostrar el cartel de "no tenés productos todavía".
+  cloudSyncPending = false;
   applyingRemoteSnapshot = true;
   lastKnownRemoteInventoryIds = snapshot.docs.map(d=>d.id);
   // Último resguardo: si por cualquier motivo un producto marcado como borrado todavía
@@ -1383,6 +1410,7 @@ const I18N = {
     import_confirm:'Esto va a reemplazar todo el inventario, recibos y compras actuales con los del archivo. ¿Continuar?',
     import_success:'Respaldo importado correctamente.',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer producto para empezar a llevar tu inventario.',
+    sync_loading_title:'Cargando tu inventario…', sync_loading_sub:'Estamos trayendo tus datos desde la nube — no debería tardar mucho.',
     dash_empty_title:'Vamos a armar tu inventario', dash_empty_sub:'Escaneá tu primer recibo y PATRON carga los productos y precios solo, o agregá uno a mano si preferís empezar simple.',
     dash_empty_scan_btn:'Escanear recibo', dash_empty_manual_btn:'+ Agregar producto a mano',
     empty_receipts_title:'Aún no hay recibos guardados',
@@ -1562,6 +1590,7 @@ const I18N = {
     import_confirm:'This will replace all current inventory, receipts and purchases with the ones in the file. Continue?',
     import_success:'Backup imported successfully.',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first product to start tracking your inventory.',
+    sync_loading_title:'Loading your inventory…', sync_loading_sub:"We're pulling your data from the cloud — this shouldn't take long.",
     dash_empty_title:'Let\'s build your inventory', dash_empty_sub:'Scan your first receipt and PATRON loads the products and prices on its own, or add one by hand if you\'d rather keep it simple.',
     dash_empty_scan_btn:'Scan receipt', dash_empty_manual_btn:'+ Add product by hand',
     empty_receipts_title:'No receipts saved yet',
@@ -2404,7 +2433,7 @@ function dashboardView(){
     </div>
   </div>
 
-  ${inventory.length===0 ? dashboardEmptyState() : ''}
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('☁️',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
   ${priceAlertsCard()}
   ${stockAnalyticsCard()}
   `;
@@ -2465,7 +2494,7 @@ function inventarioView(){
       ? `${t('cc_filtered_note')} <button type="button" id="btn-show-full-inventory" class="link-btn" style="padding:0;">${t('cc_show_all_link')}</button>`
       : `<button type="button" id="btn-show-pending-only" class="link-btn" style="padding:0;">${t('cc_show_pending_link')}</button>`}
   </div>` : ''}
-  ${inventory.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : (rows.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('☁️',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? emptyState('📦',t('empty_inventory_title'),t('empty_inventory_sub')) : `
   <div class="stock-card" style="padding-bottom:6px;">
     ${rows.map(r=>{
       const i = r.ing;
@@ -5351,7 +5380,16 @@ render();
 // vez, lo cual además de molesto dejaba a la app sin conectar los listeners hasta
 // ese click, aumentando la ventana en la que un dato local podía quedar sin subir.
 try{
-  if(localStorage.getItem('patron_had_session')) ensurePatronFirebaseReady();
+  if(localStorage.getItem('patron_had_session')){
+    cloudSyncPending = true;
+    ensurePatronFirebaseReady();
+    // Resguardo: si por lo que sea (sin red, Firestore caído, un error que no se
+    // esperaba) el primer snapshot nunca llega, no dejamos a alguien mirando la
+    // pantalla de "cargando" para siempre -- después de un rato razonable se apaga
+    // solo y se muestra lo que haya (los datos locales de este dispositivo siguen
+    // siendo los mismos de antes, no se perdió nada por este timeout).
+    setTimeout(()=>{ if(cloudSyncPending){ cloudSyncPending = false; render(); } }, 8000);
+  }
 }catch(e){}
 </script>
 </body>
