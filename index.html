@@ -3660,6 +3660,20 @@ function scanModal(){
           const isUnrecognized = item.matchedIngId==='__new__';
           let priceAlert = '';
           if(matchedIng && item.qty>0){
+            // Antes esto comparaba item.totalPrice/item.qty (en la unidad que trae ESTE
+            // recibo) directo contra matchedIng.costPerUnit (en la unidad que el
+            // ingrediente venía usando) sin fijarse si son la misma unidad — un producto
+            // que pasó de venderse por lb a venderse por caja mostraba subas de precio
+            // de miles por ciento, que no eran un cambio de precio real sino libras
+            // comparadas contra cajas. El resto de la app (lastPriceChangePct, el badge
+            // del inventario, el gráfico de historial) ya exige "misma unidad" antes de
+            // calcular un %; acá faltaba ese mismo chequeo.
+            if(item.unit !== matchedIng.unit){
+              const sentence = uiLang==='en'
+                ? `Unit changed vs. your inventory (was ${escapeHtml(unitLabel(matchedIng.unit))}, this receipt says ${escapeHtml(unitLabel(item.unit))}) — price can't be compared directly. Cost per unit and quantity on hand will reset to the new unit when you confirm.`
+                : `Cambió de unidad vs. tu inventario (antes ${escapeHtml(unitLabel(matchedIng.unit))}, este recibo dice ${escapeHtml(unitLabel(item.unit))}) — el precio no se puede comparar directamente. El costo por unidad y la cantidad en stock se reinician a la unidad nueva al confirmar.`;
+              priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--bg);padding:6px 8px;border-radius:6px;margin-top:8px;">⚠ ${sentence}</div>`;
+            } else {
             const newUnitCost = item.totalPrice/item.qty;
             const diffPct = matchedIng.costPerUnit>0 ? ((newUnitCost-matchedIng.costPerUnit)/matchedIng.costPerUnit)*100 : 0;
             if(diffPct>0.5){
@@ -3674,6 +3688,7 @@ function scanModal(){
                 ? `Price went down ${Math.abs(diffPct).toFixed(0)}% vs. current cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`
                 : `Precio bajó ${Math.abs(diffPct).toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`;
               priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--basil);background:var(--basil-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">▼ ${sentence}</div>`;
+            }
             }
           }
           // Cantidad fuera de lo común vs. el promedio de compras anteriores de este
@@ -4187,9 +4202,21 @@ function applyScanResults(){
     } else {
       const ing = inventory.find(i=>i.id===ingId);
       if(ing){
+        // Si este recibo trae una unidad distinta a la que el ingrediente venía usando
+        // (ej. antes se compraba por lb, este recibo dice caja), ing.unit se queda como
+        // estaba mientras costPerUnit/qtyOnHand se recalculaban igual con la unidad
+        // nueva — el precio guardado terminaba siendo "$46.00/lb" cuando en realidad
+        // era $46.00/caja, y el stock sumaba libras con cajas como si fueran lo mismo.
+        // Acá se trata un cambio de unidad como lo que es: no hay forma de convertir 12
+        // lb en cajas sin que el proveedor diga el factor, así que en vez de sumar dos
+        // unidades distintas como si fueran una sola, arrancamos el conteo de stock de
+        // nuevo desde esta compra — mismo criterio que ya usa lastPriceChangePct() para
+        // no comparar (ni acá, mezclar) unidades distintas.
+        const unitChanged = ing.unit !== item.unit;
+        if(unitChanged) ing.unit = item.unit;
         ing.costPerUnit = item.totalPrice/item.qty;
         ing.updated = true;
-        ing.qtyOnHand = (ing.qtyOnHand||0) + item.qty;
+        ing.qtyOnHand = unitChanged ? item.qty : (ing.qtyOnHand||0) + item.qty;
         if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
         ingName = ing.name;
       }
