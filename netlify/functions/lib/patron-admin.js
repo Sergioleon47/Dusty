@@ -61,4 +61,68 @@ async function verifyCaller(event) {
   }
 }
 
-module.exports = { admin, getFirebaseApp, isAllowedOrigin, verifyCaller, ALLOWED_ORIGIN_PATTERNS };
+// CUPO POR PLAN: cualquier llamada que le pegue a Claude (leer un recibo, identificar
+// un producto por foto, lo que sea) cuesta plata real, así que todas cuentan contra
+// el MISMO cupo mensual — antes esto vivía solo en extract-receipt.js; con
+// identify-product.js sumándose, separarlo acá evita que cada función lleve su
+// propio contador (alguien podría agotar el cupo de recibos y seguir escaneando
+// productos gratis por el resto del mes, que no es la intención del plan).
+const PLAN_SCAN_LIMITS = { starter: 30, pro: 60, negocio: 120, equipo: 300 };
+// Cuentas sin "plan" asignado a mano todavía en Firestore (no hay cobro real
+// implementado aún) caen acá — un tope razonable en vez de ilimitado, para no
+// dejar la puerta abierta mientras se decide/cobra el plan de cada quien.
+const DEFAULT_SCAN_LIMIT = 60;
+
+function currentBillingPeriod() {
+  const d = new Date();
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
+
+// Mismo criterio que firestore.rules: el dueño de la cuenta, o alguien que
+// figure como miembro de su equipo (users/{ownerUid}/members/{callerUid}).
+async function callerCanUseAccount(callerUid, ownerUid) {
+  if (callerUid === ownerUid) return true;
+  const db = admin.firestore();
+  const memberDoc = await db.doc(`users/${ownerUid}/members/${callerUid}`).get();
+  return memberDoc.exists;
+}
+
+async function checkScanQuota(ownerUid) {
+  const db = admin.firestore();
+  const ref = db.doc(`users/${ownerUid}/meta/billing`);
+  const period = currentBillingPeriod();
+  const snap = await ref.get();
+  const data = snap.exists ? snap.data() : {};
+  const limit = (data.plan && PLAN_SCAN_LIMITS[data.plan]) || DEFAULT_SCAN_LIMIT;
+  const used = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
+  return { allowed: used < limit, limit, used, period };
+}
+
+// Se llama recién después de que Claude ya contestó bien — count es la cantidad real
+// de "cosas" que salieron (recibos, o 1 por identificación de producto). Si esto
+// falla no tumbamos el pedido: el usuario ya recibió su resultado y ya se gastó la
+// plata en la llamada a Claude, perder el conteo de UN uso no vale la pena comparado
+// con mostrarle un error después de que todo salió bien.
+async function recordScanUsage(ownerUid, count, period) {
+  try {
+    const db = admin.firestore();
+    const ref = db.doc(`users/${ownerUid}/meta/billing`);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? snap.data() : {};
+      const prevUsed = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
+      tx.set(ref, {
+        scansUsed: prevUsed + count,
+        scansPeriod: period,
+        plan: data.plan || null
+      }, { merge: true });
+    });
+  } catch (e) {
+    console.error('[Dusty] no se pudo registrar el uso de escaneo:', e);
+  }
+}
+
+module.exports = {
+  admin, getFirebaseApp, isAllowedOrigin, verifyCaller, ALLOWED_ORIGIN_PATTERNS,
+  currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
+};

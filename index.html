@@ -609,6 +609,16 @@ let showPriceHistoryModal=false, priceHistoryIngId=null;
 let showMonthlySpendModal=false;
 let editingItem=null;
 let draftItem=null;
+// Estado del botón "Escanear producto" dentro del modal de nuevo/editar producto —
+// separado de scanState (que es del escaneo de RECIBOS, un flujo bastante más
+// elaborado con páginas/lote/duplicados) porque acá solo hace falta un in/out simple:
+// una foto entra, el formulario se completa solo o se avisa que no se pudo.
+let productScanState='idle', productScanError='';
+// Modal de código de barras: separado del modal de producto para poder tener la
+// cámara ocupando toda la ventana mientras escanea, sin competir con el resto del
+// formulario detrás.
+let showBarcodeScanModal=false, barcodeScanState='scanning', barcodeScanError='';
+let barcodeScannerInstance=null;
 /* Historial de actividad: quién cambió qué en el inventario y cuándo. Es de solo
    lectura desde Firestore (nunca se sube como "estado local" completo como
    inventory/purchases, cada entrada se agrega una sola vez con logActivity() y
@@ -1875,6 +1885,13 @@ const I18N = {
     item_edit_title:'Editar producto', item_new_title:'Nuevo producto',
     item_sub:'Unidad y costo por unidad de este producto',
     btn_upload_photo:'📷 Subir foto', item_photo_helper:'Útil sobre todo para productos que no son comida — así se reconocen a simple vista.',
+    btn_scan_product:'📷 Escanear producto', btn_scan_barcode:'🔲 Código de barras',
+    product_scan_loading:'Identificando el producto…',
+    product_scan_error:'No se pudo identificar el producto — completá los datos a mano.',
+    barcode_scan_title:'Código de barras', barcode_scan_hint:'Apuntá la cámara al código de barras del producto',
+    barcode_scan_camera_error:'No se pudo acceder a la cámara — revisá los permisos del navegador.',
+    barcode_scan_looking:'Buscando el producto…',
+    barcode_not_found:'No encontramos ese código — completá los datos a mano.',
     lbl_sale_price:'Precio de venta', lbl_profit_pct:'% de ganancia', lbl_profit_pct_short:'ganancia',
     lbl_sku:'SKU / Código', ph_sku_example:'Ej. SKU-1042', lbl_item_supplier:'Proveedor',
     lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp',
@@ -1921,6 +1938,7 @@ const I18N = {
     err_no_text:'No se detectó texto en la imagen — intenta con una foto más clara y bien iluminada',
     err_generic_receipt:'Ocurrió un error leyendo el recibo',
     err_function_not_found:'No se pudo conectar con el lector de recibos — revisa que la función esté publicada en Netlify (netlify/functions/extract-receipt.js) y que tenga la API key de Anthropic configurada.',
+    err_function_not_found_product:'No se pudo conectar con el identificador de productos — revisa que la función esté publicada en Netlify (netlify/functions/identify-product.js) y que tenga la API key de Anthropic configurada.',
     err_scan_auth_required:'Iniciá sesión de nuevo para escanear recibos.',
     err_scan_quota_exceeded:'Llegaste al límite de escaneos de tu plan este mes. Esperá al próximo mes o subí de plan para seguir escaneando.',
     fallback_no_product_name:'Producto sin nombre', fallback_scanned:'Escaneado', fallback_unspecified:'Sin especificar',
@@ -2093,6 +2111,13 @@ const I18N = {
     item_edit_title:'Edit product', item_new_title:'New product',
     item_sub:'Unit and cost per unit of this product',
     btn_upload_photo:'📷 Upload picture', item_photo_helper:"Especially useful for non-food products — so they're recognizable at a glance.",
+    btn_scan_product:'📷 Scan product', btn_scan_barcode:'🔲 Barcode',
+    product_scan_loading:'Identifying the product…',
+    product_scan_error:"Couldn't identify the product — fill in the details by hand.",
+    barcode_scan_title:'Barcode', barcode_scan_hint:"Point the camera at the product's barcode",
+    barcode_scan_camera_error:"Couldn't access the camera — check your browser permissions.",
+    barcode_scan_looking:'Looking up the product…',
+    barcode_not_found:"Couldn't find that barcode — fill in the details by hand.",
     lbl_sale_price:'Sale price', lbl_profit_pct:'Profit %', lbl_profit_pct_short:'profit',
     lbl_sku:'SKU / Code', ph_sku_example:'e.g. SKU-1042', lbl_item_supplier:'Supplier',
     lbl_name:'Name', ph_name_example:'e.g. Medium shrimp',
@@ -2139,6 +2164,7 @@ const I18N = {
     err_no_text:'No text detected in the image — try a clearer, better-lit photo',
     err_generic_receipt:'Something went wrong reading the receipt',
     err_function_not_found:"Couldn't connect to the receipt reader — check that the function is published on Netlify (netlify/functions/extract-receipt.js) and has the Anthropic API key configured.",
+    err_function_not_found_product:"Couldn't connect to the product identifier — check that the function is published on Netlify (netlify/functions/identify-product.js) and has the Anthropic API key configured.",
     err_scan_auth_required:'Sign in again to scan receipts.',
     err_scan_quota_exceeded:"You've reached your plan's scan limit for this month. Wait until next month or upgrade your plan to keep scanning.",
     fallback_no_product_name:'Unnamed product', fallback_scanned:'Scanned', fallback_unspecified:'Unspecified',
@@ -2368,7 +2394,17 @@ function render(){
   // animando un nodo huérfano (fuera del DOM, invisible) hasta que se asienta solo
   // y dispara un segundo redibujado tardío — se siente como un freeze seguido de un
   // salto brusco.
-  if(swipeGestureActive || trackAnimating){ renderPendingAfterGesture = true; return; }
+  // Mismo motivo que arriba, pero para la cámara del escaneo de código de barras:
+  // mientras barcodeScannerInstance existe hay un <video> de verdad adentro de
+  // #barcode-reader que la librería de códigos de barras maneja a mano — un
+  // redibujado completo (un snapshot de Firestore llegando en el peor momento, por
+  // ejemplo) le arrancaría el <video> por debajo sin avisarle, dejando la cámara
+  // prendida sin feed visible y sin forma de apagarla. Importante: el chequeo es
+  // sobre barcodeScannerInstance (¿la cámara ya está prendida de verdad?), NO sobre
+  // barcodeScanState==='scanning' — ese estado se pone ANTES del primer render que
+  // recién va a CREAR el <div id="barcode-reader">, así que frenar ese primer
+  // render por el estado dejaría el modal sin aparecer nunca.
+  if(swipeGestureActive || trackAnimating || barcodeScannerInstance){ renderPendingAfterGesture = true; return; }
   try{
     renderApp();
   }catch(err){
@@ -2410,6 +2446,7 @@ function renderApp(){
       </div>
     </div>
     ${showItemModal ? itemModal() : ''}
+    ${showBarcodeScanModal ? barcodeScanModal() : ''}
     ${showCategoriesModal ? categoriesModal() : ''}
     ${showActivityModal ? activityModal() : ''}
     ${showScanModal ? scanModal() : ''}
@@ -4322,6 +4359,13 @@ function itemModal(){
         </div>
         <input type="file" id="item-photo-file" accept="image/*" style="display:none;">
       </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-product" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_product')}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-barcode" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_barcode')}</button>
+        <input type="file" id="item-scan-photo-file" accept="image/*" capture="environment" style="display:none;">
+      </div>
+      ${productScanState==='loading' ? `<div class="scan-status" style="margin-bottom:14px;"><div class="spinner"></div> ${t('product_scan_loading')}</div>` : ''}
+      ${productScanState==='error' ? `<div class="scan-error" style="margin-bottom:14px;">⚠ ${productScanError||t('product_scan_error')}</div>` : ''}
       <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
       <div class="field">
         <label for="fi-category">${t('lbl_category')}</label>
@@ -4356,6 +4400,125 @@ function itemModal(){
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-item">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-item">${t('btn_save')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ================= MODAL: CÓDIGO DE BARRAS ================= */
+// La librería de lectura de código de barras (html5-qrcode) pesa lo suyo — se carga
+// recién la primera vez que alguien toca "Código de barras", igual que Firebase con
+// ensurePatronFirebaseReady() más arriba, así nadie que no use esto paga el costo.
+let barcodeLibLoadPromise = null;
+function ensureBarcodeLibReady(){
+  if(barcodeLibLoadPromise) return barcodeLibLoadPromise;
+  barcodeLibLoadPromise = loadExternalScript('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js');
+  return barcodeLibLoadPromise;
+}
+function openBarcodeScanModal(){
+  if(!currentUser){
+    ensurePatronFirebaseReady().then(()=>openAuthModal(t('scan_requires_account')));
+    return;
+  }
+  barcodeScanState='scanning'; barcodeScanError='';
+  showBarcodeScanModal=true; render();
+  // render() de arriba ya puso el <div id="barcode-reader"> vacío en el DOM antes de
+  // que esta promesa se resuelva (la carga del script es async, el render fue
+  // sincrónico) — para cuando entramos acá, el elemento ya existe.
+  ensureBarcodeLibReady().then(()=>{
+    startBarcodeScanner();
+  }).catch(()=>{
+    barcodeScanState='error'; barcodeScanError=t('barcode_scan_camera_error'); render();
+  });
+}
+function startBarcodeScanner(){
+  const el = document.getElementById('barcode-reader');
+  // Si el modal ya se cerró (el usuario tocó "Cancelar") mientras la librería
+  // todavía estaba cargando, el div ya no existe — no arrancar la cámara para nada.
+  if(!el || typeof Html5Qrcode==='undefined') return;
+  barcodeScannerInstance = new Html5Qrcode('barcode-reader', {
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128
+    ],
+    verbose: false
+  });
+  barcodeScannerInstance.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 260, height: 150 } },
+    (decodedText)=>{ onBarcodeDetected(decodedText); },
+    ()=>{} // "no se encontró ningún código en este cuadro" — pasa en CADA cuadro sin código, no es un error real
+  ).catch(()=>{
+    // Si start() nunca llegó a levantar cámara, no queda ningún <video> vivo que
+    // proteger — hay que soltar la referencia ACÁ, si no el guard de render() de
+    // arriba (que pospone redibujados mientras barcodeScannerInstance exista) deja
+    // TODA la app trabada sin volver a redibujar nunca más, no solo este modal.
+    barcodeScannerInstance = null;
+    barcodeScanState='error'; barcodeScanError=t('barcode_scan_camera_error'); render();
+  });
+}
+async function stopBarcodeScanner(){
+  if(!barcodeScannerInstance) return;
+  const instance = barcodeScannerInstance;
+  barcodeScannerInstance = null;
+  try{ await instance.stop(); }catch(e){}
+  try{ instance.clear(); }catch(e){}
+}
+function closeBarcodeScanModal(){
+  stopBarcodeScanner();
+  showBarcodeScanModal=false; render();
+}
+// Se llama con cada código que la cámara logra leer — el guard de arriba evita
+// procesar el mismo código varias veces seguidas mientras la librería sigue mandando
+// cuadros antes de que la cámara termine de apagarse.
+async function onBarcodeDetected(code){
+  if(barcodeScanState!=='scanning' || !barcodeScannerInstance) return;
+  // Se limpia la referencia YA MISMO (no se espera a que termine instance.stop(), que
+  // es async) — el guard de render() de arriba pospone cualquier redibujado mientras
+  // barcodeScannerInstance exista, así que si esperáramos acá el "Buscando el
+  // producto…" de abajo jamás llegaría a pintarse hasta que la cámara termine de
+  // apagarse del todo. La cámara igual se apaga en paralelo, sin bloquear la UI.
+  const instance = barcodeScannerInstance;
+  barcodeScannerInstance = null;
+  barcodeScanState='looking'; render();
+  try{ await instance.stop(); }catch(e){}
+  try{ instance.clear(); }catch(e){}
+  try{
+    // Open Food Facts: base pública, sin API key, sin costo — cubre bien productos de
+    // marca (sobre todo comida/bebida), pero no todo lo que un negocio pueda escanear
+    // (insumos genéricos sin marca, por ejemplo). Si no está, se avisa y se completa a
+    // mano — nunca se inventa un producto para un código que no se encontró.
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`);
+    const data = await res.json();
+    if(data && data.status===1 && data.product && (data.product.product_name || data.product.generic_name)){
+      draftItem.name = data.product.product_name || data.product.generic_name;
+      draftItem.sku = code;
+      showBarcodeScanModal=false;
+      barcodeScanState='scanning';
+      render();
+    } else {
+      barcodeScanState='notfound'; render();
+    }
+  }catch(e){
+    barcodeScanState='notfound'; render();
+  }
+}
+function barcodeScanModal(){
+  return `
+  <div class="overlay" id="barcode-scan-overlay">
+    <div class="modal">
+      <h3 class="navy">${t('barcode_scan_title')}</h3>
+      ${barcodeScanState==='scanning' ? `
+        <div class="sub">${t('barcode_scan_hint')}</div>
+        <div id="barcode-reader" style="border-radius:12px;overflow:hidden;margin:14px 0;background:#000;"></div>
+      ` : ''}
+      ${barcodeScanState==='looking' ? `<div class="scan-status"><div class="spinner"></div> ${t('barcode_scan_looking')}</div>` : ''}
+      ${barcodeScanState==='notfound' ? `<div class="scan-error">⚠ ${t('barcode_not_found')}</div>` : ''}
+      ${barcodeScanState==='error' ? `<div class="scan-error">⚠ ${barcodeScanError||t('barcode_scan_camera_error')}</div>` : ''}
+      <div class="modal-actions">
+        ${barcodeScanState==='notfound' ? `<button class="btn btn-ghost" id="btn-barcode-retry">${t('btn_retry_scan')}</button>` : ''}
+        <button class="btn ${barcodeScanState==='notfound'?'btn-primary':'btn-ghost'}" id="btn-close-barcode-scan" style="flex:1;">${t('btn_cancel')}</button>
       </div>
     </div>
   </div>`;
@@ -4880,6 +5043,48 @@ async function callReceiptReader(images, multi){
   }
   if(!response.ok || parsed.error){
     throw new Error(parsed.error || t('err_generic_receipt'));
+  }
+  return parsed;
+}
+
+/* Hermana de callReceiptReader() de arriba, pero para UNA foto de un producto físico
+   en vez de una factura — misma cuenta, mismo cupo mensual de escaneos (ver
+   identify-product.js), mismo tipo de errores ya traducidos. */
+async function identifyProductFromPhoto(image){
+  if(!currentUser){ throw new Error(t('err_scan_auth_required')); }
+  let idToken;
+  try{
+    idToken = await currentUser.getIdToken();
+  }catch(tokenErr){
+    throw new Error(t('err_scan_auth_required'));
+  }
+
+  let response;
+  try{
+    response = await fetch('/.netlify/functions/identify-product', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
+      body: JSON.stringify({
+        image: image,
+        ownerUid: syncUid(),
+        categoryNames: categories.map(c=>c.name)
+      })
+    });
+  }catch(netErr){
+    throw new Error(t('err_scan_no_connection'));
+  }
+
+  let parsed;
+  try{
+    parsed = await response.json();
+  }catch(parseErr){
+    throw new Error(t('err_function_not_found_product'));
+  }
+  if(response.status===429 && parsed.quotaExceeded){
+    throw new Error(t('err_scan_quota_exceeded'));
+  }
+  if(!response.ok || parsed.error){
+    throw new Error(parsed.error || t('product_scan_error'));
   }
   return parsed;
 }
@@ -6160,6 +6365,38 @@ function attachEvents(){
     };
     const btnRemoveItemPhoto=document.getElementById('btn-remove-item-photo');
     if(btnRemoveItemPhoto) btnRemoveItemPhoto.onclick=()=>{ draftItem.photo=null; render(); };
+    const btnScanProduct=document.getElementById('btn-scan-product');
+    const itemScanPhotoFile=document.getElementById('item-scan-photo-file');
+    if(btnScanProduct && itemScanPhotoFile) btnScanProduct.onclick=()=>{
+      if(!currentUser){ ensurePatronFirebaseReady().then(()=>openAuthModal(t('scan_requires_account'))); return; }
+      itemScanPhotoFile.click();
+    };
+    if(itemScanPhotoFile) itemScanPhotoFile.onchange=async (e)=>{
+      const file=e.target.files[0];
+      itemScanPhotoFile.value='';
+      if(!file || !/^image\//.test(file.type)) return;
+      productScanState='loading'; productScanError=''; render();
+      try{
+        const img = await loadImageFromFile(file);
+        const image = resizeToBase64(img, 1400, 0.9);
+        const result = await identifyProductFromPhoto(image);
+        if(result.name) draftItem.name = result.name;
+        if(result.unit) draftItem.unit = result.unit;
+        if(typeof result.cost_per_unit==='number') draftItem.costPerUnit = result.cost_per_unit;
+        if(result.sku) draftItem.sku = result.sku;
+        if(result.category){
+          const match = categories.find(c=>c.name===result.category);
+          if(match) draftItem.categoryId = match.id;
+        }
+        productScanState='idle';
+        render();
+      }catch(err){
+        productScanState='error'; productScanError = err.message || t('product_scan_error');
+        render();
+      }
+    };
+    const btnScanBarcode=document.getElementById('btn-scan-barcode');
+    if(btnScanBarcode) btnScanBarcode.onclick=openBarcodeScanModal;
     // Recalcula el % de ganancia en vivo mientras se escribe el costo o el precio de
     // venta. Antes esto llamaba a render() (reconstruía la ventana entera) para
     // actualizar el número — pero como el modal tiene una animación de entrada, cada
@@ -6210,6 +6447,19 @@ function attachEvents(){
       saveState();
       logActivity(wasEditing ? 'item_edited' : 'item_created', name);
       closeItemModal();
+    };
+  }
+
+  /* Modal código de barras */
+  const barcodeScanOverlay=document.getElementById('barcode-scan-overlay');
+  if(barcodeScanOverlay){
+    barcodeScanOverlay.addEventListener('mousedown',(e)=>{ if(e.target===barcodeScanOverlay) closeBarcodeScanModal(); });
+    const btnCloseBarcodeScan=document.getElementById('btn-close-barcode-scan');
+    if(btnCloseBarcodeScan) btnCloseBarcodeScan.onclick=closeBarcodeScanModal;
+    const btnBarcodeRetry=document.getElementById('btn-barcode-retry');
+    if(btnBarcodeRetry) btnBarcodeRetry.onclick=()=>{
+      barcodeScanState='scanning'; render();
+      startBarcodeScanner();
     };
   }
 

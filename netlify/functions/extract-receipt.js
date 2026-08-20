@@ -19,74 +19,29 @@
 // sola foto con 3 recibos (modo "multi") cuenta como 3, no como 1: si contáramos
 // por llamada, agrupar varios recibos en una foto sería una forma gratis de
 // esquivar el cupo.
-// getFirebaseApp/isAllowedOrigin/verifyCaller ahora viven en lib/patron-admin.js,
-// compartidas con delete-account.js — ver ese archivo para el porqué.
-const { admin, getFirebaseApp, isAllowedOrigin, verifyCaller } = require('./lib/patron-admin');
-
-const PLAN_SCAN_LIMITS = { starter: 30, pro: 60, negocio: 120, equipo: 300 };
-// Cuentas sin "plan" asignado a mano todavía en Firestore (no hay cobro real
-// implementado aún) caen acá — un tope razonable en vez de ilimitado, para no
-// dejar la puerta abierta mientras se decide/cobra el plan de cada quien.
-const DEFAULT_SCAN_LIMIT = 60;
-
-function currentBillingPeriod() {
-  const d = new Date();
-  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
-}
-
-// Mismo criterio que firestore.rules: el dueño de la cuenta, o alguien que
-// figure como miembro de su equipo (users/{ownerUid}/members/{callerUid}).
-async function callerCanUseAccount(callerUid, ownerUid) {
-  if (callerUid === ownerUid) return true;
-  const db = admin.firestore();
-  const memberDoc = await db.doc(`users/${ownerUid}/members/${callerUid}`).get();
-  return memberDoc.exists;
-}
-
-async function checkScanQuota(ownerUid) {
-  const db = admin.firestore();
-  const ref = db.doc(`users/${ownerUid}/meta/billing`);
-  const period = currentBillingPeriod();
-  const snap = await ref.get();
-  const data = snap.exists ? snap.data() : {};
-  const limit = (data.plan && PLAN_SCAN_LIMITS[data.plan]) || DEFAULT_SCAN_LIMIT;
-  const used = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
-  return { allowed: used < limit, limit, used, period };
-}
-
-// Se llama recién después de que Claude ya contestó bien — receiptsCount es la
-// cantidad real de recibos devueltos (1 en modo normal, receipts.length en modo
-// "varios recibos en una foto"). Si esto falla no tumbamos el pedido: el
-// usuario ya recibió su recibo y ya se gastó la plata en la llamada a Claude,
-// perder el conteo de UN escaneo no vale la pena comparado con mostrarle un
-// error después de que todo salió bien.
-async function recordScanUsage(ownerUid, receiptsCount, period) {
-  try {
-    const db = admin.firestore();
-    const ref = db.doc(`users/${ownerUid}/meta/billing`);
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = snap.exists ? snap.data() : {};
-      const prevUsed = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
-      tx.set(ref, {
-        scansUsed: prevUsed + receiptsCount,
-        scansPeriod: period,
-        plan: data.plan || null
-      }, { merge: true });
-    });
-  } catch (e) {
-    console.error('[Dusty] no se pudo registrar el uso de escaneo:', e);
-  }
-}
+// getFirebaseApp/isAllowedOrigin/verifyCaller/el cupo por plan ahora viven en
+// lib/patron-admin.js, compartidas con delete-account.js e identify-product.js —
+// ver ese archivo para el porqué.
+const {
+  admin, getFirebaseApp, isAllowedOrigin, verifyCaller,
+  currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
+} = require('./lib/patron-admin');
 
 function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, multi) {
   const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
   const hasCaseTracked = Array.isArray(caseTrackedNames) && caseTrackedNames.length > 0;
   const hasCategories = Array.isArray(categoryNames) && categoryNames.length > 0;
 
-  return `Eres un sistema experto en extraer datos de facturas de restaurante (Sysco, US Foods, Cintas, proveedores locales de produce, etc).
+  return `Eres un sistema experto en extraer datos de compras de un negocio: facturas impresas de mayorista (Sysco, US Foods, Cintas, proveedores locales de produce, etc) O capturas de pantalla de una compra online (Amazon, Walmart, cualquier sitio) — la imagen puede ser cualquiera de las dos cosas.
 
-Analiza la(s) imagen(es) de esta factura y extrae la información en JSON puro (sin markdown, sin backticks, sin texto extra antes o después).
+Analiza la(s) imagen(es) de esta factura o captura de compra online y extrae la información en JSON puro (sin markdown, sin backticks, sin texto extra antes o después).
+
+SI ES UNA CAPTURA DE COMPRA ONLINE (no una factura impresa) — se nota porque es un pantallazo de un sitio o app, con un resumen de "pedido"/"order" en vez de líneas de factura escaneadas:
+- "supplier" es el nombre del sitio/tienda (ej. "Amazon"), no el vendedor externo si aparece uno chico debajo del producto.
+- "invoice_total" es el total final del pedido ("Order total", "Total"), no el subtotal antes de envío/impuestos.
+- Ignora las líneas de "Subtotal", "Shipping"/envío, "Tax"/impuesto, descuentos y promociones aplicadas — no son productos.
+- Estos NO son cajas de mayorista: la cantidad que se ve junto a cada producto ("Qty: 2") YA es la cantidad real, nunca la desarmes ni la multipliques por ningún tamaño de paquete — esa lógica de cajas es solo para facturas de mayorista, no aplica acá. "unit" para estos productos va a ser casi siempre "unidad", salvo que el producto en sí se venda por peso o volumen (ej. una bolsa de 5 lb de algo).
+- Si el pedido tiene varios productos distintos, cada uno es un item separado, igual que las líneas de una factura normal.
 
 ${multi ? `MUY IMPORTANTE — ESTA IMAGEN PUEDE CONTENER VARIOS RECIBOS DISTINTOS:
 La foto puede mostrar UNO o VARIOS recibos separados, puestos uno al lado del otro (por ejemplo varios tickets chicos apoyados sobre una mesa). Tu tarea es identificar cuántos recibos DISTINTOS hay y devolver uno por cada uno, cada uno con su propio proveedor, fecha, total y lista de productos.
