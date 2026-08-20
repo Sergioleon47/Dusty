@@ -3711,9 +3711,9 @@ function alertSettingsModal(){
       </div>
 
       ${currentUser ? `
-      <div class="settings-card">
-        ${settingsCardHeader('share','var(--basil-soft)','var(--basil-ink)',t('connect_open_btn'))}
-        <button class="btn btn-ghost btn-sm" id="btn-open-connections">${t('connect_open_btn')}${connections.length>0?` (${connections.length})`:''}</button>
+      <div class="settings-card" style="background:var(--basil-soft);">
+        ${settingsCardHeader('share','#fff','var(--basil-ink)',t('connect_open_btn'))}
+        <button class="btn btn-ghost btn-sm" id="btn-open-connections" style="color:var(--basil-ink);border-color:var(--basil);background:#fff;">${t('connect_open_btn')}${connections.length>0?` (${connections.length})`:''}</button>
         <div class="helper-note" style="margin-top:8px;margin-bottom:0;">${t('connect_open_hint')}</div>
       </div>
       ` : ''}
