@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Dusty — Inventario</title>
-<meta name="description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically. For restaurants, stores, and any business that buys and resells.">
+<meta name="description" content="Scan receipts, track inventory, stay on budget, and catch price changes automatically — for stores, restaurants, and anyone reselling on their own.">
 <meta name="theme-color" content="#E8562C">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23E8562C'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E">
 <!-- "Agregar a inicio" saca la barra de Safari/Chrome y, con ella, el gesto de
@@ -20,13 +20,13 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://patronsc.netlify.app/">
 <meta property="og:title" content="Dusty — Inventory">
-<meta property="og:description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically.">
+<meta property="og:description" content="Scan receipts, track inventory, stay on budget, and catch price changes automatically.">
 <meta property="og:image" content="https://patronsc.netlify.app/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Dusty — Inventory">
-<meta name="twitter:description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically.">
+<meta name="twitter:description" content="Scan receipts, track inventory, stay on budget, and catch price changes automatically.">
 <meta name="twitter:image" content="https://patronsc.netlify.app/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -146,6 +146,12 @@
   #btn-cloud-sync.synced{color:var(--basil);background:var(--basil-soft);}
   #btn-cloud-sync.loading{opacity:0.5;pointer-events:none;}
   #btn-cloud-sync.loading svg{animation:spin .8s linear infinite;}
+  /* A diferencia de .loading (que además bloquea el toque), acá el botón sigue
+     tocable a propósito — abrir el panel de equipo es exactamente lo que alguien
+     quiere hacer si nota que la nube quedó "pendiente" un rato largo (ver
+     cloudSyncDirty en el listener de Firestore). */
+  #btn-cloud-sync.pending{color:var(--saffron-ink);background:var(--saffron-soft);}
+  #btn-cloud-sync.pending svg{animation:spin 1.1s linear infinite;}
   /* Cuando no hay sesión, el botón de la nube se ve como un ícono chico más entre
      otros y pasa desapercibido — en ese estado se agranda a una píldora con texto
      para que sea obvio que ahí se crea una cuenta. */
@@ -586,7 +592,7 @@ let calendarBlinkDates = []; // fechas "YYYY-MM-DD" que coinciden con calendarAm
 let activeTab = 'dashboard';
 try{ activeTab = localStorage.getItem('patron_active_tab') || 'dashboard'; }catch(e){}
 const TAB_ORDER = ['dashboard','inventario','recibos'];
-let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false;
+let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
 let showAuthModal=false, authMode='signin', authError='', authContextNote='', authLoading=false, authEmail='', authPassword='';
 // authMode también puede ser 'join' (alguien sin cuenta todavía que recibió un código
 // de invitación — crea una cuenta liviana con nombre+PIN, sin email) o 'pinlogin'
@@ -1009,6 +1015,10 @@ function syncAllToFirestore(){
       cloudSyncDirty = false;
       clearTimeout(cloudSyncRetryTimer);
       cloudSyncRetryDelayMs = 2000;
+      // Vuelve a dibujar para que el ícono de la nube deje de mostrarse "pendiente" ya
+      // mismo, en vez de esperar a que el eco del snapshot en tiempo real dispare su
+      // propio redibujado (que puede tardar un rato largo con mala señal).
+      render();
     }).catch(err=>{
       onCloudSyncWriteFailed(err);
       throw err;
@@ -1678,7 +1688,14 @@ let scanBatchFailedPhotos = 0; // fotos del lote que no se pudieron leer, para a
    recibos no se confunda entre idiomas. */
 let uiLang = 'es';
 try{
-  const savedLang = localStorage.getItem('platocost_lang');
+  // 'platocost_lang' es el nombre viejo del producto, de antes de renombrarse a
+  // PATRON — se sigue leyendo una sola vez acá (y se migra a la clave nueva de una)
+  // para que a nadie que ya tenía la app instalada se le resetee el idioma elegido.
+  const savedLang = localStorage.getItem('patron_lang') || localStorage.getItem('platocost_lang');
+  if(savedLang){
+    localStorage.setItem('patron_lang', savedLang);
+    localStorage.removeItem('platocost_lang');
+  }
   // Sin preferencia guardada todavía (primera visita): arrancamos con una mejor
   // adivinanza que el navegador/celular del usuario ya sabe (navigator.language),
   // en vez de asumir español siempre — igual se lo confirmamos explícitamente en
@@ -1688,7 +1705,7 @@ try{
 }catch(e){}
 function setLang(l){
   uiLang = l;
-  try{ localStorage.setItem('platocost_lang', l); }catch(e){}
+  try{ localStorage.setItem('patron_lang', l); }catch(e){}
   render();
 }
 const I18N = {
@@ -1763,6 +1780,7 @@ const I18N = {
     btn_feedback:'Reportar un problema',
     cloud_sync_signed_out:'Iniciar sesión para sincronizar en la nube',
     cloud_sync_signed_in:'Sincronizado como {email} — toca para compartir o cerrar sesión',
+    cloud_sync_pending:'Sincronizando cambios con la nube — todavía puede faltar ver lo último de tu equipo',
     btn_login:'Iniciar sesión', btn_account_cta:'Entrar',
     auth_signin_title:'Iniciar sesión', auth_signup_title:'Crear cuenta',
     scan_requires_account:'Creá una cuenta gratis para escanear recibos — así tu inventario queda respaldado y podés verlo desde cualquier dispositivo.',
@@ -1980,6 +1998,7 @@ const I18N = {
     btn_feedback:'Report an issue',
     cloud_sync_signed_out:'Sign in to sync to the cloud',
     cloud_sync_signed_in:'Synced as {email} — tap to share or sign out',
+    cloud_sync_pending:'Syncing changes with the cloud — you may not be seeing your team\'s latest yet',
     btn_login:'Log in', btn_account_cta:'Sign in',
     auth_signin_title:'Log in', auth_signup_title:'Create account',
     scan_requires_account:'Create a free account to scan receipts — that way your inventory is backed up and you can check it from any device.',
@@ -2172,7 +2191,8 @@ function itemPhotoSrc(item){
 }
 
 /* ================= PERSISTENCIA (localStorage) ================= */
-const STORAGE_KEY = 'platocost_data_v1';
+const STORAGE_KEY = 'patron_data_v1';
+const LEGACY_STORAGE_KEY = 'platocost_data_v1'; // nombre viejo del producto — ver loadState()
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -2209,7 +2229,18 @@ function applyStateData(data){
 }
 function loadState(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
+    // Si ya existe la clave nueva, listo — ya se migró en una carga anterior. Si no,
+    // se lee la vieja (de cuando la app se llamaba PlatoCost) UNA sola vez y se
+    // reescribe bajo el nombre nuevo, para no resetear el inventario de nadie que
+    // ya la tenía instalada solo por el rename.
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw){
+      raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if(raw){
+        localStorage.setItem(STORAGE_KEY, raw);
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+    }
     if(!raw) return;
     applyStateData(JSON.parse(raw));
   }catch(e){
@@ -2390,6 +2421,7 @@ function renderApp(){
     ${showDeleteAccountModal ? deleteAccountModal() : ''}
     ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
     ${showCycleCountModal ? cycleCountModal() : ''}
+    ${showLangChoiceModal ? langChoiceModal() : ''}
     ${showWelcomeModal ? welcomeModal() : ''}
     ${showAuthModal ? authModal() : ''}
     ${showTeamModal ? teamModal() : ''}
@@ -2473,7 +2505,7 @@ function topbar(){
         <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </button>
       ${currentUser ? `
-      <button class="lang-toggle synced" id="btn-cloud-sync" title="${t('cloud_sync_signed_in').replace('{email}', escapeHtml(currentUserLabel()))}">
+      <button class="lang-toggle ${cloudSyncDirty ? 'pending' : 'synced'}" id="btn-cloud-sync" title="${cloudSyncDirty ? t('cloud_sync_pending') : t('cloud_sync_signed_in').replace('{email}', escapeHtml(currentUserLabel()))}">
         <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6.5 16"/><path d="m9 15 2 2 4-4"/></svg>
       </button>
       ` : `
@@ -3649,6 +3681,7 @@ async function performAccountDeletion(){
     try{
       localStorage.removeItem('patron_had_session');
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
     }catch(e){}
     showDeleteAccountModal=false; deleteAccountLoading=false;
     alert(t('delete_account_success'));
@@ -3802,6 +3835,33 @@ function emptyState(iconName,title,sub,compact){
   return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}</div>`;
 }
 
+/* ================= MODAL: IDIOMA (primera pantalla que ve un usuario nuevo) ================= */
+// Su propia pantalla, separada del tutorial de bienvenida — antes compartían modal, así
+// que alguien que no lee ni español ni inglés se encontraba con un párrafo entero
+// ilegible antes de llegar a los botones que se lo iban a arreglar. Arrancamos con una
+// adivinanza (navigator.language, ver arriba en la carga de uiLang) pero se la
+// confirmamos acá en vez de asumirla calladamente. Los nombres de los idiomas van
+// fijos en su propio idioma (nunca "Inglés"/"Spanish" traducidos) porque alguien que
+// no lee el idioma activo todavía tiene que poder reconocer el suyo igual.
+function chooseLangAndContinue(lang){
+  setLang(lang);
+  showLangChoiceModal = false;
+  showWelcomeModal = true;
+  render();
+}
+function langChoiceModal(){
+  return `
+  <div class="overlay" id="lang-choice-overlay">
+    <div class="modal" style="text-align:center;">
+      <div style="font-size:34px;margin-bottom:14px;">🌐</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button type="button" data-choose-lang="es" class="btn btn-primary" style="padding:14px;font-size:15px;">Español</button>
+        <button type="button" data-choose-lang="en" class="btn btn-primary" style="padding:14px;font-size:15px;">English</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 /* ================= MODAL: BIENVENIDA (primera vez que se abre la app) ================= */
 function closeWelcomeModal(){
   showWelcomeModal = false;
@@ -3812,16 +3872,6 @@ function welcomeModal(){
   return `
   <div class="overlay" id="welcome-overlay">
     <div class="modal">
-      <!-- Elegir idioma es lo primero que ve un usuario nuevo, antes de leer nada
-           más — arrancamos con una adivinanza (navigator.language, ver arriba en
-           la carga de uiLang) pero se lo confirmamos acá en vez de asumirlo
-           calladamente. Los nombres de los idiomas van fijos en su propio idioma
-           (nunca "Inglés"/"Spanish" traducidos) porque alguien que no lee el
-           idioma activo todavía tiene que poder reconocer el suyo igual. -->
-      <div style="display:flex;gap:8px;margin-bottom:18px;">
-        <button type="button" data-choose-lang="es" class="btn ${uiLang==='es'?'btn-primary':'btn-ghost'}" style="flex:1;">Español</button>
-        <button type="button" data-choose-lang="en" class="btn ${uiLang==='en'?'btn-primary':'btn-ghost'}" style="flex:1;">English</button>
-      </div>
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin:16px 0;">
@@ -5073,7 +5123,7 @@ function applyParsedReceiptToScanState(parsed){
     // de las líneas leídas — el mismo criterio que se usa para guardar el recibo.
     const compareTotal = scanInvoiceTotal!==null ? scanInvoiceTotal : scanExtracted.reduce((s,it)=>s+it.totalPrice,0);
     scanDuplicateOf = receipts.find(r=>
-      (r.supplier||'').toLowerCase()===(scanSupplier||'').toLowerCase() &&
+      (r.supplier||'').trim().toLowerCase()===(scanSupplier||'').trim().toLowerCase() &&
       r.date===scanDate &&
       Math.abs(r.total-compareTotal)<0.5
     ) || null;
@@ -5765,14 +5815,22 @@ function attachEvents(){
     if(closeMonthlySpendBtn) closeMonthlySpendBtn.onclick = closeMonthlySpendModal;
   }
 
+  const langChoiceOverlay = document.getElementById('lang-choice-overlay');
+  if(langChoiceOverlay){
+    // Cerrar tocando el fondo (sin elegir) sigue de largo con la adivinanza inicial —
+    // igual que cualquier otro overlay de la app, no queda trabado si alguien lo toca
+    // sin querer.
+    langChoiceOverlay.addEventListener('mousedown',(e)=>{ if(e.target===langChoiceOverlay) chooseLangAndContinue(uiLang); });
+    document.querySelectorAll('[data-choose-lang]').forEach(btn=>{
+      btn.onclick = ()=> chooseLangAndContinue(btn.dataset.chooseLang);
+    });
+  }
+
   const welcomeOverlay = document.getElementById('welcome-overlay');
   if(welcomeOverlay){
     welcomeOverlay.addEventListener('mousedown',(e)=>{ if(e.target===welcomeOverlay) closeWelcomeModal(); });
     const closeWelcomeBtn = document.getElementById('btn-close-welcome');
     if(closeWelcomeBtn) closeWelcomeBtn.onclick = closeWelcomeModal;
-    document.querySelectorAll('[data-choose-lang]').forEach(btn=>{
-      btn.onclick = ()=> setLang(btn.dataset.chooseLang);
-    });
   }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
@@ -6304,7 +6362,13 @@ window.addEventListener('unhandledrejection', (e)=>{ reportClientError(e.reason,
 
 loadState();
 if(categories===null) categories = defaultCategories();
-try{ if(!localStorage.getItem('patron_onboarded')) showWelcomeModal = true; }catch(e){}
+// Antes el selector de idioma vivía arriba del todo DENTRO del modal de bienvenida,
+// compartiendo pantalla con los 4 pasos del tutorial — alguien que no lee ni español
+// ni inglés se encontraba con un párrafo entero en un idioma que no entiende antes de
+// llegar a los botones que se lo iban a arreglar. Ahora es su propia pantalla, la
+// primera que ve cualquiera que arranca de cero, sin nada más compitiendo por su
+// atención — recién al elegir pasa al tutorial ya en su idioma (ver langChoiceModal()).
+try{ if(!localStorage.getItem('patron_onboarded')) showLangChoiceModal = true; }catch(e){}
 try{
   const savedCalSearch = localStorage.getItem('patron_cal_search');
   if(savedCalSearch) applyCalendarSearch(savedCalSearch);
