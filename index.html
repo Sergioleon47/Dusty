@@ -1441,8 +1441,8 @@ let showCategoriesModal = false;
 let draftCategories = [];
 function defaultCategories(){
   const names = uiLang==='en'
-    ? ['Food','Household','Clothing','Maintenance']
-    : ['Comida','Hogar','Ropa','Mantenimiento'];
+    ? ['Food','Household','Clothing','Maintenance','Eat Out','Miscellaneous','Entertainment','Transportation','Utilities']
+    : ['Comida','Hogar','Ropa','Mantenimiento','Comer afuera','Varios','Entretenimiento','Transporte','Servicios'];
   return names.map(name=>({id:uid('cat'), name}));
 }
 
