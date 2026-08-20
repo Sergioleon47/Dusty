@@ -1491,7 +1491,7 @@ const I18N = {
   es: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos',
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
-    dash_budget_of:'Presupuesto:', dash_set_budget:'+ Definir presupuesto', dash_edit_budget:'Editar',
+    dash_budget_of:'Presupuesto:', dash_edit_budget:'Editar',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
     stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
     stock_no_data_caption:'Sin compras registradas todavía — no se puede evaluar el stock',
@@ -1683,7 +1683,7 @@ const I18N = {
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
-    dash_budget_of:'Budget:', dash_set_budget:'+ Set budget', dash_edit_budget:'Edit',
+    dash_budget_of:'Budget:', dash_edit_budget:'Edit',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
     stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
     stock_no_data_caption:"No purchases logged yet — can't evaluate stock level",
@@ -2618,11 +2618,15 @@ function dashboardView(){
         const pct = Math.round((currentSpend/monthlyBudget)*100);
         return `
         <div class="budget-bar-track"><div class="budget-bar-fill ${budgetStatus(pct)}" style="width:${Math.min(Math.max(pct,3),100)}%;"></div></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-          <span style="font-size:11px;color:var(--ink-soft);">${t('dash_budget_of')} ${money(monthlyBudget)} (${pct}%)</span>
-          <button class="link-btn" id="btn-edit-budget" style="padding:0;font-size:11px;">${t('dash_edit_budget')}</button>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;">
+          <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(monthlyBudget)}</strong> (${pct}%)</span>
+          <button class="link-btn" id="btn-edit-budget" style="padding:0;font-size:11.5px;">${t('dash_edit_budget')}</button>
         </div>`;
-      })() : `<button class="link-btn" id="btn-edit-budget" style="padding:0;margin-top:8px;">${t('dash_set_budget')}</button>`}
+      })() : `
+        <button id="btn-edit-budget" style="all:unset;cursor:pointer;display:flex;align-items:baseline;gap:6px;margin-top:10px;">
+          <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
+          <span style="font-size:16px;font-weight:800;color:var(--navy);">${money(0)}</span>
+        </button>`}
       <button class="link-btn" id="btn-open-monthly-spend" style="padding:0;margin-top:8px;">${t('dash_see_all_months')}</button>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;">
