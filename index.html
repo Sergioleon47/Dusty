@@ -1647,6 +1647,7 @@ const I18N = {
     btn_retry_scan:'Intentar de nuevo',
     err_img_process:'No se pudo procesar la imagen', err_img_read:'No se pudo leer la imagen',
     err_ocr_read:'No se pudo leer el texto de la imagen — intenta con una foto más clara y bien iluminada',
+    err_scan_no_connection:'No hay conexión a internet — escanear recibos necesita estar conectado. El inventario que ya tenés guardado lo podés seguir viendo sin problema; volvé a intentar el escaneo cuando tengas señal.',
     err_no_text:'No se detectó texto en la imagen — intenta con una foto más clara y bien iluminada',
     err_generic_receipt:'Ocurrió un error leyendo el recibo',
     err_function_not_found:'No se pudo conectar con el lector de recibos — revisa que la función esté publicada en Netlify (netlify/functions/extract-receipt.js) y que tenga la API key de Anthropic configurada.',
@@ -1835,6 +1836,7 @@ const I18N = {
     btn_retry_scan:'Try again',
     err_img_process:"Couldn't process the image", err_img_read:"Couldn't read the image",
     err_ocr_read:"Couldn't read the text in the image — try a clearer, better-lit photo",
+    err_scan_no_connection:"No internet connection — scanning receipts needs you to be online. You can still see the inventory you've already saved; try scanning again once you're back on the network.",
     err_no_text:'No text detected in the image — try a clearer, better-lit photo',
     err_generic_receipt:'Something went wrong reading the receipt',
     err_function_not_found:"Couldn't connect to the receipt reader — check that the function is published on Netlify (netlify/functions/extract-receipt.js) and has the Anthropic API key configured.",
@@ -4297,7 +4299,13 @@ async function callReceiptReader(images, multi){
       })
     });
   }catch(netErr){
-    throw new Error(t('err_ocr_read'));
+    // Este catch es específico de un fallo de RED (fetch nunca llegó a completarse —
+    // sin conexión, DNS, CORS, etc.) — nunca de un error que devuelva el servidor,
+    // esos se manejan más abajo por separado. Antes acá se tiraba el mismo mensaje
+    // que "la foto está borrosa" (err_ocr_read), que es simplemente falso cuando la
+    // causa real es no tener conexión — alguien sin señal sacaba la foto de nuevo
+    // una y otra vez sin que eso arreglara nada, porque el problema nunca fue la foto.
+    throw new Error(t('err_scan_no_connection'));
   }
 
   let parsed;
