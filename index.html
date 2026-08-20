@@ -220,6 +220,10 @@
 
   /* STOCK ANALYTICS CARD */
   .stock-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:20px 20px 0;margin-bottom:24px;}
+  /* Encabezado de cada grupo de categoría en Inventario — solo aparece cuando hay
+     2+ grupos con productos, para no meter un título de más cuando total no aporta nada. */
+  .category-group-header{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 8px 4px;}
+  .category-group-header span{background:var(--line);color:var(--ink-soft);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   /* Todas las filas de inventario (Dashboard e Inventario) usan esta misma clase — ya
      no hay gesto de deslizar para borrar en ninguna de las dos, se borra con la x
@@ -678,7 +682,8 @@ function ensurePatronFirebaseReady(){
             const localSnapshot = {
               inventory: inventory.slice(), purchases: purchases.slice(), receipts: receipts.slice(),
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
-              cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget
+              cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
+              categories: categories ? categories.slice() : categories
             };
             // Importante: los listeners en tiempo real recién se conectan DESPUÉS de que
             // termine (o falle) la reconciliación — así el primer snapshot que llega ya
@@ -940,7 +945,7 @@ function syncAllToFirestore(){
     receipts.forEach(r=>{ recIds[r.id]=true; ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}); });
     if(lastKnownRemoteReceiptIds) lastKnownRemoteReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
     ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
-      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget
+      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget, categories
     }))});
 
     const CHUNK = 450;
@@ -1065,7 +1070,7 @@ function applyRemoteMetaSnapshot(doc){
   // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
   // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
   const incomingMeta = doc.data();
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget, categories};
   if(sameJSON(incomingMeta, currentMeta)) return;
   applyingRemoteSnapshot = true;
   applyStateData(incomingMeta);
@@ -1389,6 +1394,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         cycleCountCursor: metaSnap.exists ? remoteMeta.cycleCountCursor : localSnapshot.cycleCountCursor,
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
+        categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
         deletedInventoryIds
       }))});
     }
@@ -1417,6 +1423,21 @@ let draftBusinessName = businessName;
 // en ese caso el Dashboard no muestra la barra.
 let monthlyBudget = null;
 let draftMonthlyBudget = monthlyBudget;
+// Categorías de inventario (ej. Comida/Hogar/Ropa/Mantenimiento) — el usuario las crea,
+// renombra y borra a mano, no vienen fijas en el código. null = todavía no se cargó nada
+// guardado (ni local ni de la nube); un array, aunque esté vacío, significa que el
+// usuario ya tiene su propia lista (incluso si la vació a propósito) y no hay que
+// pisarla con las categorías por defecto. La siembra real pasa después de loadState(),
+// ver más abajo cerca de "loadState();".
+let categories = null;
+let showCategoriesModal = false;
+let draftCategories = [];
+function defaultCategories(){
+  const names = uiLang==='en'
+    ? ['Food','Household','Clothing','Maintenance']
+    : ['Comida','Hogar','Ropa','Mantenimiento'];
+  return names.map(name=>({id:uid('cat'), name}));
+}
 
 /* Conteo cíclico: cada X días, recuerda contar a mano un % del inventario, rotando
    qué productos toca cada vez (cycleCountCursor) para no repetir siempre los mismos. */
@@ -1547,6 +1568,12 @@ const I18N = {
     alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
     budget_title:'Presupuesto mensual', budget_label:'Monto ($)', budget_placeholder:'Ej. 2000',
     budget_helper:'Se repite todos los meses hasta que lo cambies. Dejalo vacío para no mostrar la barra de presupuesto.',
+    btn_manage_categories:'Categorías', categories_title:'Categorías de inventario',
+    categories_sub:'Agrupá tus productos como quieras — Comida, Hogar, Ropa, Mantenimiento, o las que necesites.',
+    categories_empty:'No tenés categorías — todo el inventario aparece en una sola lista.',
+    categories_new_placeholder:'Nueva categoría', categories_add_btn:'+ Agregar',
+    categories_helper:'Borrar una categoría no borra sus productos — solo dejan de estar agrupados, y pasan a "Sin categoría".',
+    categories_uncategorized:'Sin categoría', lbl_category:'Categoría', category_none_option:'Sin categoría',
     btn_save:'Guardar', btn_alert_settings:'Configuración',
     btn_feedback:'Reportar un problema',
     cloud_sync_signed_out:'Iniciar sesión para sincronizar en la nube',
@@ -1739,6 +1766,12 @@ const I18N = {
     alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
     budget_title:'Monthly budget', budget_label:'Amount ($)', budget_placeholder:'E.g. 2000',
     budget_helper:'Repeats every month until you change it. Leave it blank to hide the budget bar.',
+    btn_manage_categories:'Categories', categories_title:'Inventory categories',
+    categories_sub:'Group your products however you want — Food, Household, Clothing, Maintenance, or whatever you need.',
+    categories_empty:'No categories yet — the whole inventory shows as a single list.',
+    categories_new_placeholder:'New category', categories_add_btn:'+ Add',
+    categories_helper:'Deleting a category doesn\'t delete its products — they just stop being grouped, and move to "Uncategorized".',
+    categories_uncategorized:'Uncategorized', lbl_category:'Category', category_none_option:'Uncategorized',
     btn_save:'Save', btn_alert_settings:'Settings',
     btn_feedback:'Report an issue',
     cloud_sync_signed_out:'Sign in to sync to the cloud',
@@ -1924,7 +1957,7 @@ function saveState(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds,
-      businessName, monthlyBudget
+      businessName, monthlyBudget, categories
     }));
     scheduleCloudSync();
     return true;
@@ -1951,6 +1984,7 @@ function applyStateData(data){
   if(Array.isArray(data.deletedInventoryIds)) deletedInventoryIds = data.deletedInventoryIds;
   if(typeof data.businessName==='string') businessName = data.businessName;
   if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
+  if(Array.isArray(data.categories)) categories = data.categories;
 }
 function loadState(){
   try{
@@ -1967,7 +2001,7 @@ function loadState(){
 function exportData(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
-    cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, monthlyBudget,
+    cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, monthlyBudget, categories,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -2124,6 +2158,7 @@ function renderApp(){
       </div>
     </div>
     ${showItemModal ? itemModal() : ''}
+    ${showCategoriesModal ? categoriesModal() : ''}
     ${showActivityModal ? activityModal() : ''}
     ${showScanModal ? scanModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
@@ -2668,12 +2703,51 @@ function dashboardEmptyState(){
 // que esperar a terminar el conteo. Se resetea solo al recargar la página — es una
 // preferencia de la sesión, no algo que haya que guardar.
 let showFullInventoryDespiteCycleCount = false;
+/* Agrupa las filas de inventario por categoría, en el orden en que el usuario las
+   tiene definidas — los productos sin categoría (o con una categoría que ya no
+   existe, ej. se borró) van todos juntos al final en "Sin categoría". Solo se
+   arman grupos con al menos una fila, para no mostrar encabezados vacíos. */
+function groupRowsByCategory(rows){
+  const groups = categories.map(c=>({id:c.id, name:c.name, rows:[]}));
+  const groupById = {};
+  groups.forEach(g=>{ groupById[g.id]=g; });
+  const uncategorized = {id:null, name:t('categories_uncategorized'), rows:[]};
+  rows.forEach(r=>{
+    const cid = r.ing.categoryId;
+    const g = (cid && groupById[cid]) ? groupById[cid] : uncategorized;
+    g.rows.push(r);
+  });
+  return groups.concat([uncategorized]).filter(g=>g.rows.length>0);
+}
+function stockRowHtml(r, ccDueIds){
+  const i = r.ing;
+  return `
+  <div class="stock-row-static ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-ing-id="${i.id}">
+    <div class="stock-row">
+      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
+      <div class="stock-main">
+        <div class="stock-name">${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
+        <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchases))}${marginBadge(i)}</div>
+        <div class="stock-caption">${i.qtyOnHand||0} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
+      </div>
+      <div class="stock-actions">
+        <div class="stock-actions-btns">
+          <button class="stock-row-x-btn" data-delete-stock-item="${i.id}" title="${t('btn_delete')}">✕</button>
+          <button class="stock-icon-btn edit" data-edit-item="${i.id}" title="${t('btn_edit')}">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
 function inventarioView(){
   const allRows = stockRowsData();
   const ccDue = isCycleCountDue();
   const ccDueIds = cycleCountDueIds();
   const filteringToCC = ccDue && !showFullInventoryDespiteCycleCount;
   const rows = filteringToCC ? allRows.filter(r=>ccDueIds.has(r.ing.id)) : allRows;
+  const groups = groupRowsByCategory(rows);
   return `
   <div class="section-head">
     <div>${businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p>`}</div>
@@ -2687,6 +2761,7 @@ function inventarioView(){
         ${t('btn_inventory_activity')}${unreadActivityCount()>0?`<span class="count-badge">${unreadActivityCount()>99?'99+':unreadActivityCount()}</span>`:''}
       </button>
       ` : ''}
+      <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
     </div>
   </div>
   ${ccDue && inventory.length>0 ? `
@@ -2699,32 +2774,16 @@ function inventarioView(){
       ? `${t('cc_filtered_note')} <button type="button" id="btn-show-full-inventory" class="link-btn" style="padding:0;">${t('cc_show_all_link')}</button>`
       : `<button type="button" id="btn-show-pending-only" class="link-btn" style="padding:0;">${t('cc_show_pending_link')}</button>`}
   </div>` : ''}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')) : `
-  <div class="stock-card" style="padding-bottom:6px;">
-    ${rows.map(r=>{
-      const i = r.ing;
-      return `
-      <div class="stock-row-static ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-ing-id="${i.id}">
-        <div class="stock-row">
-          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
-          <div class="stock-main">
-            <div class="stock-name">${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
-            <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchases))}${marginBadge(i)}</div>
-            <div class="stock-caption">${i.qtyOnHand||0} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
-          </div>
-          <div class="stock-actions">
-            <div class="stock-actions-btns">
-              <button class="stock-row-x-btn" data-delete-stock-item="${i.id}" title="${t('btn_delete')}">✕</button>
-              <button class="stock-icon-btn edit" data-edit-item="${i.id}" title="${t('btn_edit')}">
-                <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-              </button>
-            </div>
-          </div>
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')) : (
+    groups.length>1
+      ? groups.map(g=>`
+        <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
+        <div class="stock-card" style="padding-bottom:6px;margin-bottom:18px;">
+          ${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}
         </div>
-      </div>`;
-    }).join('')}
-  </div>
-  `)}
+      `).join('')
+      : `<div class="stock-card" style="padding-bottom:6px;">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`
+  ))}
   `;
 }
 
@@ -3847,7 +3906,7 @@ function feedbackModal(){
 
 /* ================= MODAL: INGREDIENTE ================= */
 function openItemModal(item){
-  draftItem = item ? {...item} : {id:uid('i'), name:'', unit:'lb', costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:''};
+  draftItem = item ? {...item} : {id:uid('i'), name:'', unit:'lb', costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:'', categoryId:null};
   editingItem = item ? item.id : null;
   showItemModal = true; render();
 }
@@ -3875,6 +3934,13 @@ function itemModal(){
         <input type="file" id="item-photo-file" accept="image/*" style="display:none;">
       </div>
       <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
+      <div class="field">
+        <label for="fi-category">${t('lbl_category')}</label>
+        <select id="fi-category">
+          <option value="">${t('category_none_option')}</option>
+          ${categories.map(c=>`<option value="${c.id}" ${draftItem.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+        </select>
+      </div>
       <div class="field-row">
         <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
           <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
@@ -3901,6 +3967,40 @@ function itemModal(){
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-item">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-item">${t('btn_save')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ================= MODAL: CATEGORÍAS DE INVENTARIO ================= */
+function openCategoriesModal(){
+  draftCategories = categories.map(c=>({...c}));
+  showCategoriesModal = true; render();
+}
+function closeCategoriesModal(){ showCategoriesModal=false; render(); }
+function categoriesModal(){
+  return `
+  <div class="overlay" id="categories-overlay">
+    <div class="modal">
+      <h3 class="navy">${t('categories_title')}</h3>
+      <div class="sub">${t('categories_sub')}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0;">
+        ${draftCategories.map((c,idx)=>`
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" data-category-name="${idx}" value="${escapeHtml(c.name)}" style="flex:1;">
+            <button type="button" class="stock-row-x-btn" data-remove-category="${idx}" title="${t('btn_delete')}">✕</button>
+          </div>
+        `).join('')}
+        ${draftCategories.length===0 ? `<div class="helper-note" style="margin:0;">${t('categories_empty')}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="new-category-name" placeholder="${t('categories_new_placeholder')}" style="flex:1;">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-category">${t('categories_add_btn')}</button>
+      </div>
+      <div class="helper-note">${t('categories_helper')}</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-categories">${t('btn_cancel')}</button>
+        <button class="btn btn-primary" id="btn-save-categories">${t('btn_save')}</button>
       </div>
     </div>
   </div>`;
@@ -5307,6 +5407,50 @@ function attachEvents(){
   }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
+  const btnManageCategories=document.getElementById('btn-manage-categories');
+  if(btnManageCategories) btnManageCategories.onclick=openCategoriesModal;
+
+  const categoriesOverlay=document.getElementById('categories-overlay');
+  if(categoriesOverlay){
+    categoriesOverlay.addEventListener('mousedown',(e)=>{ if(e.target===categoriesOverlay) closeCategoriesModal(); });
+    const btnCancelCategories=document.getElementById('btn-cancel-categories');
+    if(btnCancelCategories) btnCancelCategories.onclick=closeCategoriesModal;
+    document.querySelectorAll('[data-category-name]').forEach(inp=>{
+      inp.oninput=()=>{ draftCategories[parseInt(inp.dataset.categoryName,10)].name = inp.value; };
+    });
+    document.querySelectorAll('[data-remove-category]').forEach(btn=>{
+      btn.onclick=()=>{ draftCategories.splice(parseInt(btn.dataset.removeCategory,10),1); render(); };
+    });
+    const newCategoryInput=document.getElementById('new-category-name');
+    const addCategory=()=>{
+      const name=(newCategoryInput.value||'').trim();
+      if(!name) return;
+      draftCategories.push({id:uid('cat'), name});
+      render();
+    };
+    const btnAddCategory=document.getElementById('btn-add-category');
+    if(btnAddCategory) btnAddCategory.onclick=addCategory;
+    if(newCategoryInput) newCategoryInput.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); addCategory(); } };
+    const btnSaveCategories=document.getElementById('btn-save-categories');
+    if(btnSaveCategories) btnSaveCategories.onclick=()=>{
+      const cleaned = draftCategories.map(c=>({id:c.id, name:c.name.trim()})).filter(c=>c.name);
+      // Cualquier categoría que estaba antes y ya no está en la lista guardada (se
+      // borró o se descartó por quedar sin nombre) deja huérfanos a los productos que
+      // la tenían asignada — se les saca la categoría en vez de dejarlos apuntando a
+      // un id que ya no existe en ningún lado. inventarioView ya los agrupa aparte
+      // en "Sin categoría" cuando categoryId no matchea ninguna categoría real, pero
+      // limpiar el dato ahora evita que revivan solos si la categoría se recrea después
+      // con el mismo nombre (nuevo id, ya no sería la misma).
+      const keptIds = new Set(cleaned.map(c=>c.id));
+      const removedIds = new Set(categories.filter(c=>!keptIds.has(c.id)).map(c=>c.id));
+      if(removedIds.size>0){
+        inventory.forEach(i=>{ if(i.categoryId && removedIds.has(i.categoryId)) i.categoryId=null; });
+      }
+      categories = cleaned;
+      saveState();
+      closeCategoriesModal();
+    };
+  }
   const btnExportData=document.getElementById('btn-export-data'); if(btnExportData) btnExportData.onclick=()=>exportData();
   const btnImportData=document.getElementById('btn-import-data'); const importFileInput=document.getElementById('import-file-input');
   if(btnImportData && importFileInput) btnImportData.onclick=()=>importFileInput.click();
@@ -5593,7 +5737,8 @@ function attachEvents(){
         photo:draftItem.photo||null,
         salePrice:parseFloat(document.getElementById('fi-sale-price').value)||0,
         sku:document.getElementById('fi-sku').value.trim(),
-        supplier:document.getElementById('fi-supplier').value.trim()
+        supplier:document.getElementById('fi-supplier').value.trim(),
+        categoryId:document.getElementById('fi-category').value || null
       };
       // El "quién y cuándo" solo tiene sentido si hay una cuenta detrás — un uso 100%
       // local, sin sesión, no tiene a quién atribuirle el cambio.
@@ -5761,6 +5906,7 @@ window.addEventListener('error', (e)=>{ reportClientError(e.error || e.message, 
 window.addEventListener('unhandledrejection', (e)=>{ reportClientError(e.reason, 'unhandledrejection'); });
 
 loadState();
+if(categories===null) categories = defaultCategories();
 try{ if(!localStorage.getItem('patron_onboarded')) showWelcomeModal = true; }catch(e){}
 try{
   const savedCalSearch = localStorage.getItem('patron_cal_search');
