@@ -3654,6 +3654,18 @@ function monthlySpendModal(){
   </div>`;
 }
 
+// Encabezado chico reusado por cada tarjeta de esta pantalla — mismo círculo de
+// color + ícono que ya usa welcomeModal() para sus 4 pasos, para que "Configuración"
+// se sienta parte de la misma familia visual que el resto de la app (categorías con
+// sus burbujas de color, el dashboard con sus íconos por tarjeta) en vez de ser la
+// única pantalla que todavía es puro texto plano apilado.
+function settingsCardHeader(icon, bg, fg, title){
+  return `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    <span style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;">${lineIcon(icon,16)}</span>
+    <label style="font-size:13px;font-weight:700;color:var(--ink);">${title}</label>
+  </div>`;
+}
 function alertSettingsModal(){
   return `
   <div class="overlay" id="alert-settings-overlay">
@@ -3661,29 +3673,35 @@ function alertSettingsModal(){
       <h3 class="saffron">${t('alert_title')}</h3>
       <div class="sub">${t('alert_sub')}</div>
 
-      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('business_name_title')}</label>
-      <div class="field">
-        <label>${t('business_name_label')}</label>
-        <input id="business-name-input" type="text" maxlength="40" placeholder="${t('business_name_placeholder')}" value="${escapeHtml(draftBusinessName)}">
+      <div class="settings-card">
+        ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('business_name_title'))}
+        <div class="field">
+          <label>${t('business_name_label')}</label>
+          <input id="business-name-input" type="text" maxlength="40" placeholder="${t('business_name_placeholder')}" value="${escapeHtml(draftBusinessName)}">
+        </div>
+        <div class="helper-note" style="margin-bottom:0;">${t('business_name_helper')}</div>
       </div>
-      <div class="helper-note">${t('business_name_helper')}</div>
-
-      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;margin-top:18px;">${t('alert_threshold_title')}</label>
-      <div class="field">
-        <label>${t('alert_threshold_label')}</label>
-        <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftThreshold)}">
-      </div>
-      <div class="helper-note">${t('alert_helper')}</div>
-
-      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;margin-top:18px;">${t('budget_title')}</label>
-      <div class="field">
-        <label>${t('budget_label')}</label>
-        <input id="budget-input" type="number" min="0" step="1" placeholder="${t('budget_placeholder')}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">
-      </div>
-      <div class="helper-note">${t('budget_helper')}</div>
 
       <div class="settings-card">
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;">${t('backup_section_title')}</label>
+        ${settingsCardHeader('bell','var(--saffron-soft)','var(--saffron-ink)',t('alert_threshold_title'))}
+        <div class="field">
+          <label>${t('alert_threshold_label')}</label>
+          <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftThreshold)}">
+        </div>
+        <div class="helper-note" style="margin-bottom:0;">${t('alert_helper')}</div>
+      </div>
+
+      <div class="settings-card">
+        ${settingsCardHeader('chart','var(--basil-soft)','var(--basil-ink)',t('budget_title'))}
+        <div class="field">
+          <label>${t('budget_label')}</label>
+          <input id="budget-input" type="number" min="0" step="1" placeholder="${t('budget_placeholder')}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">
+        </div>
+        <div class="helper-note" style="margin-bottom:0;">${t('budget_helper')}</div>
+      </div>
+
+      <div class="settings-card">
+        ${settingsCardHeader('cloud','var(--sky-soft)','var(--sky-ink)',t('backup_section_title'))}
         <div style="display:flex;flex-direction:column;gap:8px;">
           <button class="btn btn-ghost btn-sm" id="btn-export-data">${t('btn_export_data')}</button>
           <button class="btn btn-ghost btn-sm" id="btn-import-data">${t('btn_import_data')}</button>
@@ -3694,14 +3712,15 @@ function alertSettingsModal(){
 
       ${currentUser ? `
       <div class="settings-card">
+        ${settingsCardHeader('share','var(--navy-wash)','var(--navy)',t('connect_open_btn'))}
         <button class="btn btn-ghost btn-sm" id="btn-open-connections">${t('connect_open_btn')}${connections.length>0?` (${connections.length})`:''}</button>
         <div class="helper-note" style="margin-top:8px;margin-bottom:0;">${t('connect_open_hint')}</div>
       </div>
       ` : ''}
 
       ${currentUser ? `
-      <div class="settings-card">
-        <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:#EBC2B8;">${t('delete_account_btn')}</button>
+      <div class="settings-card" style="background:var(--tomato-soft);">
+        <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:#EBC2B8;background:#fff;">${t('delete_account_btn')}</button>
       </div>
       ` : ''}
 
