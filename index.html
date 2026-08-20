@@ -235,6 +235,13 @@
   .category-chip-row{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .category-chip-row::-webkit-scrollbar{display:none;}
   .category-chip{flex-shrink:0;display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:9px 8px 9px 16px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .12s ease;white-space:nowrap;}
+  /* Mantener presionado un chip y arrastrarlo reordena la fila en el lugar — ver
+     attachCategoryChipDragHandlers(). Mientras se arrastra, se le saca la transición
+     de transform (si no, cada micro-ajuste de re-base al cruzar un vecino se ve como
+     un rebote elástico en vez de seguir el dedo 1 a 1, el mismo motivo por el que
+     .view-track apaga su transition mientras el swipe de pestañas está en curso). */
+  .category-chip.dragging{transition:none;box-shadow:var(--shadow-lg);opacity:.97;cursor:grabbing;}
+  .category-chip-row.reordering{touch-action:none;}
   .category-chip:active{transform:scale(0.96);}
   .category-chip span{background:var(--navy-wash);color:var(--navy-ink);border-radius:10px;min-width:20px;text-align:center;padding:2px 7px;font-size:11.5px;font-weight:700;}
 
@@ -5939,6 +5946,106 @@ function attachViewSwipeHandlers(){
   document.addEventListener('pointercancel', (e)=>endGestureImpl(e, true));
 }
 
+/* Mantener presionado un chip de categoría (en el Dashboard) y arrastrarlo lo mueve
+   de lugar entre sus vecinos — el orden final es el que categoryChipsRow() va a
+   mostrar de ahí en más, el mismo que categoriesModal() deja editar con flechas.
+   Requiere mantener presionado un rato antes de arrancar (en vez de reaccionar al
+   primer movimiento, como el swipe de pestañas) porque la fila hace scroll
+   horizontal — sin ese margen, cualquier intento de scrollear la fila se
+   confundiría con querer reordenar un chip. Se cablea UNA sola vez en document,
+   igual que attachViewSwipeHandlers — ver esa función para por qué. */
+let categoryChipDragAttached = false;
+function attachCategoryChipDragHandlers(){
+  if(categoryChipDragAttached) return;
+  categoryChipDragAttached = true;
+  const LONG_PRESS_MS = 350;
+  const MOVE_CANCEL_PX = 10; // moverse esto antes de que se cumpla el long-press cancela: era scroll, no reorder
+  let pending = null; // toque en espera de cumplir el long-press, o null
+  let drag = null; // arrastre ya confirmado, o null
+
+  document.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    if(e.isPrimary===false || drag) return;
+    const chip = e.target.closest('.category-chip');
+    if(!chip) return;
+    const row = chip.closest('.category-chip-row');
+    if(!row) return;
+    pending = {chip, row, pointerId:e.pointerId, startX:e.clientX, startY:e.clientY};
+    pending.timer = setTimeout(()=>{
+      if(!pending) return;
+      const p = pending; pending = null;
+      p.row.classList.add('reordering');
+      p.chip.classList.add('dragging');
+      p.chip.style.position = 'relative';
+      p.chip.style.zIndex = '5';
+      drag = {chip:p.chip, row:p.row, pointerId:p.pointerId, baseX:p.startX, tx:0};
+    }, LONG_PRESS_MS);
+  }, {passive:true});
+
+  document.addEventListener('pointermove', (e)=>{
+    if(pending && e.pointerId===pending.pointerId){
+      if(Math.abs(e.clientX-pending.startX)>MOVE_CANCEL_PX || Math.abs(e.clientY-pending.startY)>MOVE_CANCEL_PX){
+        clearTimeout(pending.timer); pending = null;
+      }
+      return;
+    }
+    if(!drag || e.pointerId!==drag.pointerId) return;
+    e.preventDefault();
+    drag.tx += e.clientX - drag.baseX;
+    drag.baseX = e.clientX;
+    drag.chip.style.transform = `translateX(${drag.tx}px)`;
+    // ¿El chip arrastrado ya cruzó el centro de un vecino? Si sí, cambian de lugar EN
+    // EL DOM ahí mismo (no se espera a soltar) para que la fila se sienta "viva"
+    // mientras se arrastra, como reordenar apps en un celular de verdad. Al
+    // reordenar, el chip arrastrado cambia de posición NATURAL en el flujo — sin
+    // volver a basear tx contra esa nueva posición, pegaría un salto seco hacia
+    // donde ahora "le toca" estar antes de seguir al dedo (mismo truco de re-base
+    // que usa el swipe de pestañas al enganchar un gesto nuevo).
+    const visualLeftBefore = drag.chip.getBoundingClientRect().left;
+    const prev = drag.chip.previousElementSibling;
+    const next = drag.chip.nextElementSibling;
+    let moved = false;
+    if(prev && prev.classList.contains('category-chip')){
+      const r = prev.getBoundingClientRect();
+      if(visualLeftBefore < r.left + r.width/2){ drag.row.insertBefore(drag.chip, prev); moved = true; }
+    }
+    if(!moved && next && next.classList.contains('category-chip')){
+      const dw = drag.chip.getBoundingClientRect().width;
+      const r = next.getBoundingClientRect();
+      if(visualLeftBefore + dw > r.left + r.width/2){ drag.row.insertBefore(drag.chip, next.nextElementSibling); moved = true; }
+    }
+    if(moved){
+      const naturalLeftPlusOldTx = drag.chip.getBoundingClientRect().left;
+      const naturalLeftNew = naturalLeftPlusOldTx - drag.tx;
+      drag.tx = visualLeftBefore - naturalLeftNew;
+      drag.chip.style.transform = `translateX(${drag.tx}px)`;
+    }
+  }, {passive:false});
+
+  function endPress(e){
+    if(pending && (!e || e.pointerId===pending.pointerId)){ clearTimeout(pending.timer); pending = null; }
+    if(!drag || (e && e.pointerId!==drag.pointerId)) return;
+    const {chip, row} = drag; drag = null;
+    chip.classList.remove('dragging');
+    chip.style.transform = ''; chip.style.position = ''; chip.style.zIndex = '';
+    row.classList.remove('reordering');
+    // El orden final es simplemente el orden actual del DOM (cada swap de arriba ya
+    // lo fue dejando así) — se traduce a ids y se reordena categories para que
+    // coincida, se guarda, y recién ACÁ se redibuja: durante el arrastre en sí nunca
+    // se llamó a render(), todo fue manipulación directa del DOM, igual que el
+    // resorte del swipe de pestañas nunca reconstruye nada hasta asentarse.
+    const domOrder = [...row.querySelectorAll('.category-chip')].map(c=>c.dataset.openCategory);
+    const reordered = domOrder.map(id=>categories.find(c=>c.id===id)).filter(Boolean);
+    if(reordered.length===categories.length){
+      categories = reordered;
+      saveState();
+    }
+    render();
+  }
+  document.addEventListener('pointerup', endPress);
+  document.addEventListener('pointercancel', endPress);
+}
+
 /* ================= EVENTOS ================= */
 // Varios controles clave de la app (el botón grande de "Escanear", cada tarjeta de
 // recibo, las celdas del calendario, el ícono de subir foto) son <div>/<span> con
@@ -5959,6 +6066,7 @@ function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
   document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-day-receipts], [data-photo-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
+  attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
   const btnFeedback=document.getElementById('btn-feedback');
