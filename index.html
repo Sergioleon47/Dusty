@@ -1185,10 +1185,24 @@ function attachFirestoreListeners(uid){
   unsubReceipts = receiptsRef(uid).onSnapshot(applyRemoteReceiptsSnapshot, err=>{ console.error('[Dusty] receipts listener error:', err); handleSyncPermissionDenied(err); });
   unsubMeta = metaRef(uid).onSnapshot(applyRemoteMetaSnapshot, err=>{ console.error('[Dusty] meta listener error:', err); handleSyncPermissionDenied(err); });
   // De solo lectura — nunca se guarda en localStorage ni se "sube" como el resto,
-  // así que no necesita pasar por applyingRemoteSnapshot ni por saveState().
+  // así que no necesita pasar por applyingRemoteSnapshot ni por saveState(). Sí
+  // necesita el mismo chequeo de "¿cambió algo de verdad?" que los otros 4
+  // listeners (ver sameJSON en applyRemoteInventorySnapshot/applyRemoteMetaSnapshot):
+  // sin él, este llamaba a render() a lo bruto en cada entrega del snapshot, y en el
+  // celular ese "cada entrega" pasa mucho más seguido de lo que parece — cada vez
+  // que la app vuelve de segundo plano (cambiar de app, prender la pantalla),
+  // Firestore reconecta y entrega el mismo estado dos veces (caché, después
+  // servidor). Este además ni pasaba por el debounce de scheduleCloudTriggeredRender,
+  // así que su redibujado quedaba totalmente suelto del de los otros — con inventario,
+  // equipo y conexiones activados a la vez, un solo reconectar podía disparar
+  // media docena de redibujados completos seguidos, uno por cada listener, cada uno
+  // "saltando" la pantalla un poco. Eso es lo que se siente como que "todo brinca o
+  // desaparece y reaparece" en el celular.
   unsubActivity = activityRef(uid).orderBy('at','desc').limit(100).onSnapshot(snap=>{
-    activityLog = snap.docs.map(d=>d.data());
-    render();
+    const nextActivityLog = snap.docs.map(d=>d.data());
+    if(sameJSON(nextActivityLog, activityLog)) return;
+    activityLog = nextActivityLog;
+    scheduleCloudTriggeredRender();
   }, err=>{ console.error('[Dusty] activity listener error:', err); handleSyncPermissionDenied(err); });
   // Un solo lugar para esto, en vez de repetirlo en cada sitio que llama a
   // attachFirestoreListeners — cubre tanto el primer login como reconectar
@@ -1218,8 +1232,23 @@ function attachTeamListener(){
   // Idempotente por la misma razón que attachFirestoreListeners() de arriba.
   detachTeamListener();
   unsubTeamMembers = membersRef(currentUser.uid).onSnapshot(snap=>{
-    teamMembers = snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
-    render();
+    const nextTeamMembers = snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
+    // "lastActive" de cada miembro cambia solo por su propio latido de presencia
+    // cada 30s (ver sendPresenceHeartbeat) — comparando el array completo, ESO solo
+    // ya alcanza para que sameJSON nunca vea dos snapshots iguales mientras haya
+    // algún miembro activo, y la app entera se redibujara cada 30s aunque nada
+    // visible haya cambiado. Se compara sin ese campo — el resto (mismo chequeo que
+    // el listener de actividad, más arriba) sigue cubriendo la reconexión duplicada
+    // del celular.
+    const strip = (list)=> list.map(m=>{ const {lastActive, ...rest} = m; return rest; });
+    const structurallySame = sameJSON(strip(nextTeamMembers), strip(teamMembers));
+    teamMembers = nextTeamMembers;
+    // Si nada estructural cambió, solo vale la pena redibujar mientras el modal de
+    // equipo está abierto de verdad mostrando "activo ahora" — cerrado, a nadie le
+    // importa el latido de este instante, y la próxima vez que se abra el modal va a
+    // leer el teamMembers ya actualizado igual, sin depender de este redibujado.
+    if(structurallySame && !showTeamModal) return;
+    scheduleCloudTriggeredRender();
   }, err=>console.error('[Dusty] team members listener error:', err));
 }
 function detachTeamListener(){
@@ -1393,10 +1422,15 @@ function attachConnectionsListener(){
     // Conserva el pct ya cargado de una conexión que ya estaba (para que no parpadee a
     // "sin datos" cada vez que llega un snapshot por cualquier otro motivo) — solo las
     // conexiones nuevas empiezan sin pct hasta el próximo refreshConnectionBars().
-    connections = list.map(c=>{
+    const nextConnections = list.map(c=>{
       const prev = connections.find(p=>p.uid===c.uid);
       return prev ? Object.assign({}, c, {pct: prev.pct}) : c;
     });
+    // Con el pct ya conservado arriba, esta comparación da igual (sin redibujar de
+    // más) cuando el snapshot entregó lo mismo de siempre — el mismo caso de
+    // reconexión en el celular que ya se resolvió en los demás listeners.
+    if(sameJSON(nextConnections, connections)) return;
+    connections = nextConnections;
     render();
     refreshConnectionBars();
   }, err=>console.error('[Dusty] connections listener error:', err));
@@ -1417,11 +1451,17 @@ function refreshConnectionBars(){
       .then(doc=>({uid:c.uid, pct: (doc.exists && typeof doc.data().pct==='number') ? doc.data().pct : null}))
       .catch(()=>({uid:c.uid, pct:null}))
   )).then(results=>{
+    // Este refresco corre solo, cada 45s, mientras haya alguna conexión — sin este
+    // chequeo, redibujaba la app entera cada 45s PARA SIEMPRE con solo tener una
+    // conexión activa, aunque el % de nadie hubiera cambiado un solo punto. En el
+    // celular eso se siente como un saltito recurrente sin razón aparente cada rato,
+    // ni siquiera atado a algo que el usuario hizo.
+    let changed = false;
     results.forEach(r=>{
       const c = connections.find(x=>x.uid===r.uid);
-      if(c) c.pct = r.pct;
+      if(c && c.pct!==r.pct){ c.pct = r.pct; changed = true; }
     });
-    render();
+    if(changed) render();
   });
   if(!connectionsBarRefreshTimer){
     connectionsBarRefreshTimer = setInterval(()=>{ if(connections.length>0) refreshConnectionBars(); }, 45000);
