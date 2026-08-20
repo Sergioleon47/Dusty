@@ -231,6 +231,16 @@
   .category-chip{flex-shrink:0;display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:9px 8px 9px 16px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .12s ease;white-space:nowrap;}
   .category-chip:active{transform:scale(0.96);}
   .category-chip span{background:var(--navy-wash);color:var(--navy-ink);border-radius:10px;min-width:20px;text-align:center;padding:2px 7px;font-size:11.5px;font-weight:700;}
+
+  /* Modal de gestión de categorías — cada fila es una "tarjeta" con una burbuja de
+     color (rotando por una paleta, solo decorativo, sin significado semántico como
+     en el resto de la app) en vez de un renglón de formulario plano. */
+  .category-edit-row{display:flex;gap:10px;align-items:center;background:var(--bg);border-radius:16px;padding:6px 8px 6px 6px;transition:background .15s ease, box-shadow .15s ease;}
+  .category-edit-row:focus-within{background:#fff;box-shadow:0 0 0 2px var(--line);}
+  .category-edit-row.add-row{background:transparent;border:2px dashed var(--line);}
+  .cat-bubble{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;font-family:'Space Grotesk';}
+  .category-edit-row input{flex:1;min-width:0;border:none;background:transparent;font-size:15px;font-weight:700;padding:11px 6px;color:var(--ink);outline:none;font-family:'Inter';}
+  .category-edit-row input::placeholder{font-weight:600;color:var(--ink-soft);}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   /* Todas las filas de inventario (Dashboard e Inventario) usan esta misma clase — ya
      no hay gesto de deslizar para borrar en ninguna de las dos, se borra con la x
@@ -4019,24 +4029,40 @@ function openCategoriesModal(){
   showCategoriesModal = true; render();
 }
 function closeCategoriesModal(){ showCategoriesModal=false; render(); }
+// Paleta puramente decorativa para las burbujas de categoría — a diferencia de
+// --tomato/--basil/etc en el resto de la app, acá el color no significa nada
+// (no es "alerta" ni "todo bien"), solo ayuda a distinguir una fila de otra
+// de un vistazo y le da algo de vida a una lista que si no es puro texto plano.
+const CATEGORY_BUBBLE_STYLES = [
+  {bg:'var(--navy-wash)', fg:'var(--navy)'},
+  {bg:'var(--sky-soft)', fg:'var(--sky-ink)'},
+  {bg:'var(--saffron-soft)', fg:'var(--saffron-ink)'},
+  {bg:'var(--basil-soft)', fg:'var(--basil-ink)'},
+  {bg:'var(--tomato-soft)', fg:'var(--tomato-ink)'}
+];
 function categoriesModal(){
   return `
   <div class="overlay" id="categories-overlay">
-    <div class="modal">
-      <h3 class="navy">${t('categories_title')}</h3>
+    <div class="modal wide">
+      <h3 class="navy" style="font-size:21px;">${t('categories_title')}</h3>
       <div class="sub">${t('categories_sub')}</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0;">
-        ${draftCategories.map((c,idx)=>`
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="text" data-category-name="${idx}" value="${escapeHtml(c.name)}" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
+        ${draftCategories.map((c,idx)=>{
+          const style = CATEGORY_BUBBLE_STYLES[idx % CATEGORY_BUBBLE_STYLES.length];
+          const initial = (c.name.trim()[0]||'?').toUpperCase();
+          return `
+          <div class="category-edit-row">
+            <div class="cat-bubble" style="background:${style.bg};color:${style.fg};">${escapeHtml(initial)}</div>
+            <input type="text" data-category-name="${idx}" value="${escapeHtml(c.name)}" placeholder="${t('categories_new_placeholder')}">
             <button type="button" class="stock-row-x-btn" data-remove-category="${idx}" title="${t('btn_delete')}">✕</button>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
         ${draftCategories.length===0 ? `<div class="helper-note" style="margin:0;">${t('categories_empty')}</div>` : ''}
-      </div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="new-category-name" placeholder="${t('categories_new_placeholder')}" style="flex:1;">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-category">${t('categories_add_btn')}</button>
+        <div class="category-edit-row add-row">
+          <div class="cat-bubble" style="background:var(--navy-wash);color:var(--navy);font-size:22px;">+</div>
+          <input type="text" id="new-category-name" placeholder="${t('categories_new_placeholder')}">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-add-category">${t('categories_add_btn')}</button>
+        </div>
       </div>
       <div class="helper-note">${t('categories_helper')}</div>
       <div class="modal-actions">
