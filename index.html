@@ -41,7 +41,7 @@
        tiene que ver con la marca — cambiarlo confundiría esos indicadores. */
     --navy:#E8562C; --navy-soft:#F0703F; --tomato:#E5484D; --saffron:#F5A623; --basil:#25D366;
     --basil-soft:#E5F9EA; --tomato-soft:#FCE7E7; --saffron-soft:#FDF0DA; --navy-wash:#FCE7DE;
-    --sky:#5AAAD6; --sky-bright:#7EC8ED;
+    --sky:#5AAAD6; --sky-bright:#7EC8ED; --sky-soft:#E5F1F9;
     --radius:14px;
     --stock-ok:#25D366; --stock-warn:#F5A623; --stock-crit:#E5484D;
     /* Variantes hover/press calculadas con color-mix() en vez de hex sueltos
@@ -52,6 +52,7 @@
     --tomato-press:color-mix(in oklch, var(--tomato), black 18%);
     --basil-press:color-mix(in oklch, var(--basil), black 18%);
     --tomato-ink:color-mix(in oklch, var(--tomato), black 32%);
+    --sky-ink:color-mix(in oklch, var(--sky), black 32%);
     --saffron-ink:color-mix(in oklch, var(--saffron), black 38%);
     --basil-ink:color-mix(in oklch, var(--basil), black 38%);
     --navy-ink:color-mix(in oklch, var(--navy), black 20%);
@@ -168,7 +169,7 @@
   .scan-card:active .scan-fab-mini{transform:scale(0.94);}
   .scan-fab-mini svg{position:relative;z-index:2;width:100%;height:100%;filter:drop-shadow(0 2px 5px rgba(32,33,36,0.25));}
   .scan-fab-ring{
-    position:absolute;inset:0;border-radius:50%;background:rgba(229,72,77,0.35);
+    position:absolute;inset:0;border-radius:50%;background:rgba(90,170,214,0.35);
     animation:fabPulse 1.8s cubic-bezier(0.3,0.6,0.4,1) infinite; z-index:1;
   }
   .scan-fab-ring.delay{animation-delay:.6s;}
@@ -369,6 +370,7 @@
   .modal h3.basil{color:var(--basil-ink);}
   .modal h3.saffron{color:var(--saffron-ink);}
   .modal h3.tomato{color:var(--tomato);}
+  .modal h3.sky{color:var(--sky-ink);}
 
   /* Fila del historial de actividad — quién, qué y cuándo, una línea liviana por
      cambio (no una tarjeta pesada, puede haber muchas). */
@@ -443,10 +445,10 @@
   }
 
   /* RECEIPT SCAN */
-  .drop-zone{border:2px dashed #F0C2C2;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:var(--tomato-soft);margin-bottom:16px;transition:transform .12s ease,border-color .15s ease;}
-  .drop-zone:hover{border-color:var(--tomato);}
-  .drop-zone:active{transform:scale(0.98);border-color:var(--tomato);}
-  .drop-zone .dz-icon{display:flex;justify-content:center;color:var(--tomato);margin-bottom:6px;}
+  .drop-zone{border:2px dashed #BFDDF0;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:var(--sky-soft);margin-bottom:16px;transition:transform .12s ease,border-color .15s ease;}
+  .drop-zone:hover{border-color:var(--sky);}
+  .drop-zone:active{transform:scale(0.98);border-color:var(--sky);}
+  .drop-zone .dz-icon{display:flex;justify-content:center;color:var(--sky);margin-bottom:6px;}
   .receipt-preview{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);}
   .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:var(--saffron-ink);margin-bottom:14px;}
   .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
@@ -2252,7 +2254,7 @@ function lineIcon(name, size){
 /* ---------- DASHBOARD ---------- */
 function scanIconSvg(){
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="48" fill="var(--tomato)"/>
+    <circle cx="50" cy="50" r="48" fill="var(--sky)"/>
     <g transform="translate(23.6,23.6) scale(2.2)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
       <path d="M5 7h1a2 2 0 0 0 2 -2a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2"/>
       <circle cx="12" cy="13" r="3"/>
@@ -3437,7 +3439,7 @@ function welcomeModal(){
       <div class="sub">${t('welcome_sub')}</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin:16px 0;">
         <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--tomato-soft);color:var(--tomato);display:flex;align-items:center;justify-content:center;">${lineIcon('camera',18)}</span>
+          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--sky-soft);color:var(--sky);display:flex;align-items:center;justify-content:center;">${lineIcon('camera',18)}</span>
           <div><strong>${t('welcome_step1_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step1_sub')}</div></div>
         </div>
         <div style="display:flex;gap:12px;align-items:flex-start;">
@@ -3914,7 +3916,7 @@ function scanModal(){
   return `
   <div class="overlay" id="scan-overlay">
     <div class="modal wide">
-      <h3 class="tomato">${t('scan_title')}</h3>
+      <h3 class="sky">${t('scan_title')}</h3>
       <div class="sub">${t('scan_sub')}</div>
 
       ${scanState==='idle' && scanImages.length===0 ? `
