@@ -3288,7 +3288,7 @@ function deleteAccountModal(){
         <div class="field"><label>${t('auth_password')}</label><input id="delete-account-password" type="password" value="${escapeHtml(deleteAccountPassword)}" placeholder="••••••••" autocomplete="current-password"></div>
         `}
         <div class="modal-actions">
-          <button class="btn btn-ghost" id="btn-cancel-delete-account">${t('btn_cancel')}</button>
+          <button class="btn btn-ghost" id="btn-cancel-delete-account" ${deleteAccountLoading?'disabled':''}>${t('btn_cancel')}</button>
           <button class="btn btn-primary" id="btn-confirm-delete-account" style="background:var(--tomato);color:#fff;" ${deleteAccountLoading?'disabled':''}>${deleteAccountLoading ? t('auth_loading') : (isGoogle ? t('delete_account_google_reauth_btn') : t('delete_account_confirm_btn'))}</button>
         </div>
       `}
@@ -5282,7 +5282,7 @@ function attachEvents(){
   if(deleteAccountOverlay){
     deleteAccountOverlay.addEventListener('mousedown',(e)=>{ if(e.target===deleteAccountOverlay && !deleteAccountLoading) closeDeleteAccountModal(); });
     const btnCancelDeleteAccount=document.getElementById('btn-cancel-delete-account');
-    if(btnCancelDeleteAccount) btnCancelDeleteAccount.onclick=closeDeleteAccountModal;
+    if(btnCancelDeleteAccount) btnCancelDeleteAccount.onclick=()=>{ if(!deleteAccountLoading) closeDeleteAccountModal(); };
     const btnContinueDeleteAccount=document.getElementById('btn-continue-delete-account');
     if(btnContinueDeleteAccount) btnContinueDeleteAccount.onclick=()=>{ deleteAccountStep='reauth'; deleteAccountError=''; render(); };
     const deleteAccountPasswordInp=document.getElementById('delete-account-password');
