@@ -253,6 +253,14 @@
   .stock-bar-fill.ok{background:var(--stock-ok);}
   .stock-bar-fill.warn{background:var(--stock-warn);}
   .stock-bar-fill.crit{background:var(--stock-crit);}
+
+  /* Barra de presupuesto — versión angosta de .stock-bar-track/.stock-bar-fill,
+     sin el badge de texto adentro (acá el número va afuera, en su propia línea). */
+  .budget-bar-track{background:#E9EAEC;border-radius:20px;height:7px;overflow:hidden;margin-top:10px;}
+  .budget-bar-fill{height:100%;border-radius:20px;transition:width .4s ease;}
+  .budget-bar-fill.ok{background:var(--stock-ok);}
+  .budget-bar-fill.warn{background:var(--stock-warn);}
+  .budget-bar-fill.crit{background:var(--stock-crit);}
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
   .stock-caption-muted{font-style:italic;}
   .stock-actions{flex-shrink:0;text-align:center;}
@@ -670,7 +678,7 @@ function ensurePatronFirebaseReady(){
             const localSnapshot = {
               inventory: inventory.slice(), purchases: purchases.slice(), receipts: receipts.slice(),
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
-              cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName
+              cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget
             };
             // Importante: los listeners en tiempo real recién se conectan DESPUÉS de que
             // termine (o falle) la reconciliación — así el primer snapshot que llega ya
@@ -932,7 +940,7 @@ function syncAllToFirestore(){
     receipts.forEach(r=>{ recIds[r.id]=true; ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}); });
     if(lastKnownRemoteReceiptIds) lastKnownRemoteReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
     ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
-      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName
+      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget
     }))});
 
     const CHUNK = 450;
@@ -1057,7 +1065,7 @@ function applyRemoteMetaSnapshot(doc){
   // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
   // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
   const incomingMeta = doc.data();
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget};
   if(sameJSON(incomingMeta, currentMeta)) return;
   applyingRemoteSnapshot = true;
   applyStateData(incomingMeta);
@@ -1380,6 +1388,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         cycleCountLastDate: metaSnap.exists ? remoteMeta.cycleCountLastDate : localSnapshot.cycleCountLastDate,
         cycleCountCursor: metaSnap.exists ? remoteMeta.cycleCountCursor : localSnapshot.cycleCountCursor,
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
+        monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         deletedInventoryIds
       }))});
     }
@@ -1403,6 +1412,11 @@ let draftThreshold = priceAlertThreshold;
 // defecto: en ese caso el título de Inventario se ve exactamente como siempre.
 let businessName = '';
 let draftBusinessName = businessName;
+// Presupuesto mensual: un solo número que se repite todos los meses (no uno por
+// mes) hasta que el usuario lo cambie a mano en Ajustes. null = todavía no lo definió,
+// en ese caso el Dashboard no muestra la barra.
+let monthlyBudget = null;
+let draftMonthlyBudget = monthlyBudget;
 
 /* Conteo cíclico: cada X días, recuerda contar a mano un % del inventario, rotando
    qué productos toca cada vez (cycleCountCursor) para no repetir siempre los mismos. */
@@ -1477,6 +1491,7 @@ const I18N = {
   es: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos',
     dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
+    dash_budget_of:'Presupuesto:', dash_set_budget:'+ Definir presupuesto', dash_edit_budget:'Editar',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
     stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
     stock_no_data_caption:'Sin compras registradas todavía — no se puede evaluar el stock',
@@ -1530,6 +1545,8 @@ const I18N = {
     business_name_title:'Nombre del negocio', business_name_label:'Nombre', business_name_placeholder:'Ej. Pedro\'s',
     business_name_helper:'Si lo completás, reemplaza el título "Inventario" en esta cuenta. Dejalo vacío para no cambiar nada. Solo afecta a esta cuenta, nunca a otras.',
     alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
+    budget_title:'Presupuesto mensual', budget_label:'Monto ($)', budget_placeholder:'Ej. 2000',
+    budget_helper:'Se repite todos los meses hasta que lo cambies. Dejalo vacío para no mostrar la barra de presupuesto.',
     btn_save:'Guardar', btn_alert_settings:'Configuración',
     btn_feedback:'Reportar un problema',
     cloud_sync_signed_out:'Iniciar sesión para sincronizar en la nube',
@@ -1666,6 +1683,7 @@ const I18N = {
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
     dash_spending_of:'Spending for', dash_see_all_months:'See all months',
+    dash_budget_of:'Budget:', dash_set_budget:'+ Set budget', dash_edit_budget:'Edit',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
     stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
     stock_no_data_caption:"No purchases logged yet — can't evaluate stock level",
@@ -1719,6 +1737,8 @@ const I18N = {
     business_name_title:'Business name', business_name_label:'Name', business_name_placeholder:"E.g. Pedro's",
     business_name_helper:'If you fill this in, it replaces the "Inventory" title on this account. Leave it blank to change nothing. Only affects this account, never others.',
     alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
+    budget_title:'Monthly budget', budget_label:'Amount ($)', budget_placeholder:'E.g. 2000',
+    budget_helper:'Repeats every month until you change it. Leave it blank to hide the budget bar.',
     btn_save:'Save', btn_alert_settings:'Settings',
     btn_feedback:'Report an issue',
     cloud_sync_signed_out:'Sign in to sync to the cloud',
@@ -1904,7 +1924,7 @@ function saveState(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds,
-      businessName
+      businessName, monthlyBudget
     }));
     scheduleCloudSync();
     return true;
@@ -1930,6 +1950,7 @@ function applyStateData(data){
   if(typeof data.cycleCountCursor==='number') cycleCountCursor = data.cycleCountCursor;
   if(Array.isArray(data.deletedInventoryIds)) deletedInventoryIds = data.deletedInventoryIds;
   if(typeof data.businessName==='string') businessName = data.businessName;
+  if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
 }
 function loadState(){
   try{
@@ -1946,7 +1967,7 @@ function loadState(){
 function exportData(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
-    cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+    cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, monthlyBudget,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -2478,6 +2499,9 @@ function stockIconSvg(item){
   return stockIconFallbackSvg(key);
 }
 function stockStatus(pct){ return pct>=60 ? 'ok' : pct>=20 ? 'warn' : 'crit'; }
+// A diferencia de stockStatus (pct alto = bien, queda stock), acá pct alto = mal
+// (ya gastaste esa parte del presupuesto) — la escala va al revés a propósito.
+function budgetStatus(pct){ return pct>=100 ? 'crit' : pct>=80 ? 'warn' : 'ok'; }
 
 /* stockTarget es un placeholder mientras definimos de dónde sale el "stock objetivo"
    real (ver conversación pendiente) — por ahora se estima a partir de lo que hay.
@@ -2590,6 +2614,15 @@ function dashboardView(){
     <div class="stat-card">
       <div class="stat-label">${t('dash_spending_of')} ${monthLabel(currentMonthKey, uiLang)}</div>
       <div class="stat-value saffron">${money(currentSpend)}</div>
+      ${monthlyBudget ? (()=>{
+        const pct = Math.round((currentSpend/monthlyBudget)*100);
+        return `
+        <div class="budget-bar-track"><div class="budget-bar-fill ${budgetStatus(pct)}" style="width:${Math.min(Math.max(pct,3),100)}%;"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+          <span style="font-size:11px;color:var(--ink-soft);">${t('dash_budget_of')} ${money(monthlyBudget)} (${pct}%)</span>
+          <button class="link-btn" id="btn-edit-budget" style="padding:0;font-size:11px;">${t('dash_edit_budget')}</button>
+        </div>`;
+      })() : `<button class="link-btn" id="btn-edit-budget" style="padding:0;margin-top:8px;">${t('dash_set_budget')}</button>`}
       <button class="link-btn" id="btn-open-monthly-spend" style="padding:0;margin-top:8px;">${t('dash_see_all_months')}</button>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;">
@@ -3168,6 +3201,13 @@ function alertSettingsModal(){
         <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftThreshold)}">
       </div>
       <div class="helper-note">${t('alert_helper')}</div>
+
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;margin-top:18px;">${t('budget_title')}</label>
+      <div class="field">
+        <label>${t('budget_label')}</label>
+        <input id="budget-input" type="number" min="0" step="1" placeholder="${t('budget_placeholder')}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">
+      </div>
+      <div class="helper-note">${t('budget_helper')}</div>
 
       <div class="settings-card">
         <label style="display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;">${t('backup_section_title')}</label>
@@ -5267,12 +5307,16 @@ function attachEvents(){
   const btnImportData=document.getElementById('btn-import-data'); const importFileInput=document.getElementById('import-file-input');
   if(btnImportData && importFileInput) btnImportData.onclick=()=>importFileInput.click();
   if(importFileInput) importFileInput.onchange=(e)=>{ const f=e.target.files[0]; importFileInput.value=''; if(f) importData(f); };
-  const btnAlertSettings=document.getElementById('btn-alert-settings');
-  if(btnAlertSettings) btnAlertSettings.onclick=()=>{
+  const openAlertSettings=()=>{
     draftThreshold=priceAlertThreshold;
     draftBusinessName=businessName;
+    draftMonthlyBudget=monthlyBudget;
     showAlertSettingsModal=true; render();
   };
+  const btnAlertSettings=document.getElementById('btn-alert-settings');
+  if(btnAlertSettings) btnAlertSettings.onclick=openAlertSettings;
+  const btnEditBudget=document.getElementById('btn-edit-budget');
+  if(btnEditBudget) btnEditBudget.onclick=openAlertSettings;
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
   if(alertSettingsOverlay){
@@ -5285,6 +5329,8 @@ function attachEvents(){
       if(val>0) priceAlertThreshold=val;
       const nameVal=document.getElementById('business-name-input').value;
       businessName = nameVal.trim();
+      const budgetRaw=document.getElementById('budget-input').value.trim();
+      monthlyBudget = budgetRaw==='' ? null : Math.max(0, parseFloat(budgetRaw)||0);
       saveState();
       showAlertSettingsModal=false; render();
     };
