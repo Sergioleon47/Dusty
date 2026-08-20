@@ -75,7 +75,7 @@ async function recordScanUsage(ownerUid, receiptsCount, period) {
       }, { merge: true });
     });
   } catch (e) {
-    console.error('[PATRON] no se pudo registrar el uso de escaneo:', e);
+    console.error('[Dusty] no se pudo registrar el uso de escaneo:', e);
   }
 }
 
@@ -239,7 +239,7 @@ exports.handler = async (event) => {
       return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
     }
   } catch (e) {
-    console.error('[PATRON] error verificando cupo de escaneo:', e);
+    console.error('[Dusty] error verificando cupo de escaneo:', e);
     return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo' }) };
   }
   if (images.length > 5) {

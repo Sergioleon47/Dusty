@@ -1,4 +1,4 @@
-/* Service Worker de PATRON — cachea el app shell para que la app abra sin
+/* Service Worker de Dusty — cachea el app shell para que la app abra sin
    conexión. Estrategia: network-first con fallback a caché. Se prioriza
    traer siempre la versión más nueva cuando hay red (el repo cambia seguido)
    y sólo se usa lo cacheado cuando falla el fetch (sin red) o para las

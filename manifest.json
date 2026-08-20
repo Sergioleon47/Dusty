@@ -1,6 +1,6 @@
 {
-  "name": "PATRON",
-  "short_name": "PATRON",
+  "name": "Dusty",
+  "short_name": "Dusty",
   "description": "Escaneá recibos, mantené tu inventario al día y detectá cambios de precio automáticamente.",
   "start_url": "/",
   "scope": "/",

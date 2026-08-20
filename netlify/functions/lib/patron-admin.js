@@ -1,6 +1,6 @@
 // netlify/functions/lib/patron-admin.js
 //
-// Piezas compartidas entre las Netlify Functions de PATRON que necesitan
+// Piezas compartidas entre las Netlify Functions de Dusty que necesitan
 // privilegios de administrador (Firebase Admin SDK) y verificar quién llama.
 // Antes esto vivía duplicado adentro de extract-receipt.js; con delete-account.js
 // sumándose, factorizarlo acá evita que las copias se desincronicen con el tiempo
@@ -29,7 +29,7 @@ function getFirebaseApp() {
 // mandarles pedidos directo (sin pasar por la app). Como freno básico (no es
 // seguridad perfecta, un ataque decidido puede falsificar el header Origin,
 // pero corta el abuso casual/bots), solo se acepta si el pedido viene
-// realmente del sitio de PATRON o de una vista previa/desarrollo local.
+// realmente del sitio de Dusty o de una vista previa/desarrollo local.
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/([a-z0-9-]+\.)?patronsc\.netlify\.app$/i,
   /^http:\/\/localhost(:\d+)?$/i,

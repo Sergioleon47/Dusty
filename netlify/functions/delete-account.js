@@ -71,7 +71,7 @@ exports.handler = async (event) => {
       joinedOwnerUidToClean ? db.doc(`users/${joinedOwnerUidToClean}/members/${callerUid}`).delete() : Promise.resolve()
     ]);
     cleanupResults.forEach((r, i) => {
-      if (r.status === 'rejected') console.error('[PATRON] delete-account: falló limpieza extra #' + i + ':', r.reason);
+      if (r.status === 'rejected') console.error('[Dusty] delete-account: falló limpieza extra #' + i + ':', r.reason);
     });
 
     // 5. Fotos de recibos en Storage — no son parte de Firestore, hay que
@@ -82,7 +82,7 @@ exports.handler = async (event) => {
       const bucket = admin.storage().bucket();
       await bucket.deleteFiles({ prefix: `users/${callerUid}/receipts/` });
     } catch (storageErr) {
-      console.error('[PATRON] delete-account: no se pudieron borrar las fotos de Storage:', storageErr);
+      console.error('[Dusty] delete-account: no se pudieron borrar las fotos de Storage:', storageErr);
     }
 
     // 6. Recién al final, con los datos ya borrados, se borra la cuenta de
@@ -93,7 +93,7 @@ exports.handler = async (event) => {
 
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (err) {
-    console.error('[PATRON] delete-account failed:', err);
+    console.error('[Dusty] delete-account failed:', err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'No se pudo borrar la cuenta, intentá de nuevo' }) };
   }
 };

@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>PATRON — Inventario</title>
+<title>Dusty — Inventario</title>
 <meta name="description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically. For restaurants, stores, and any business that buys and resells.">
 <meta name="theme-color" content="#128C7E">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23128C7E'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23128C7E'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E">
 <!-- "Agregar a inicio" saca la barra de Safari/Chrome y, con ella, el gesto de
      "volver atrás" del sistema desde el borde de la pantalla — el que competía con
      deslizar entre pestañas en un celular real (ver attachViewSwipeHandlers). Sin
@@ -16,16 +16,16 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="PATRON">
+<meta name="apple-mobile-web-app-title" content="Dusty">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://patronsc.netlify.app/">
-<meta property="og:title" content="PATRON — Inventory">
+<meta property="og:title" content="Dusty — Inventory">
 <meta property="og:description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically.">
 <meta property="og:image" content="https://patronsc.netlify.app/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="PATRON — Inventory">
+<meta name="twitter:title" content="Dusty — Inventory">
 <meta name="twitter:description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically.">
 <meta name="twitter:image" content="https://patronsc.netlify.app/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -494,7 +494,7 @@
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('/sw.js').catch(err=>{
-      console.error('[PATRON] service worker registration failed:', err);
+      console.error('[Dusty] service worker registration failed:', err);
     });
   });
 }
@@ -629,7 +629,7 @@ function ensurePatronFirebaseReady(){
     .then(()=>{
       firebase.initializeApp(firebaseConfig);
       firebase.auth().getRedirectResult().catch(err=>{
-        console.error('[PATRON] sign-in redirect result failed:', err);
+        console.error('[Dusty] sign-in redirect result failed:', err);
       });
       firebase.auth().onAuthStateChanged(user=>{
         currentUser = user;
@@ -671,7 +671,7 @@ function ensurePatronFirebaseReady(){
             // incluye todo lo local, y nunca pisa con una versión incompleta de la nube
             // algo que este dispositivo tenía y todavía no había subido.
             return reconcileLocalOnlyData(targetUid, localSnapshot).catch(err=>{
-              console.error('[PATRON] reconcile failed:', err);
+              console.error('[Dusty] reconcile failed:', err);
               // Si el reconcile falla no hay forma de saber si la nube tenía algo más
               // que lo local -- no vale la pena seguir esperando un snapshot que a lo
               // mejor nunca llega por este error.
@@ -689,7 +689,7 @@ function ensurePatronFirebaseReady(){
               render();
             });
           }).catch(err=>{
-            console.error('[PATRON] joined-team lookup failed:', err);
+            console.error('[Dusty] joined-team lookup failed:', err);
             attachFirestoreListeners(user.uid);
             attachTeamListener();
             render();
@@ -762,7 +762,7 @@ function logActivity(type, itemName, detail){
     type, itemName: itemName||'', detail: detail||'',
     by: currentUser.uid, byLabel: currentUserLabel(),
     at: new Date().toISOString()
-  }).catch(err=>console.error('[PATRON] activity log failed:', err));
+  }).catch(err=>console.error('[Dusty] activity log failed:', err));
 }
 // Nunca cuenta los cambios que hiciste vos mismo — el numerito es para avisarte de
 // lo que hizo el RESTO del equipo mientras no mirabas, no un contador de tus propias
@@ -847,7 +847,7 @@ async function uploadReceiptImages(receipt){
     receipt.images = uploadedImages;
     await receiptsRef(uid).doc(receipt.id).set({images: uploadedImages}, {merge:true});
   }catch(err){
-    console.error('[PATRON] no se pudieron subir las fotos del recibo '+receipt.id+' (se reintenta en la próxima conexión):', err);
+    console.error('[Dusty] no se pudieron subir las fotos del recibo '+receipt.id+' (se reintenta en la próxima conexión):', err);
   }
 }
 
@@ -960,7 +960,7 @@ function syncAllToFirestore(){
 // - Para cualquier otro error (sin red, Firestore caído, etc.) se reintenta solo,
 //   con backoff exponencial, hasta que un intento tenga éxito.
 function onCloudSyncWriteFailed(err){
-  console.error('[PATRON] cloud sync failed:', err);
+  console.error('[Dusty] cloud sync failed:', err);
   if(err && err.code==='permission-denied'){ handleSyncPermissionDenied(err); return; }
   clearTimeout(cloudSyncRetryTimer);
   cloudSyncRetryTimer = setTimeout(()=>{ if(cloudSyncDirty) syncAllToFirestore(); }, cloudSyncRetryDelayMs);
@@ -1066,7 +1066,7 @@ function applyRemoteMetaSnapshot(doc){
 // listeners, se la vuelve a su propia cuenta (vacía) automáticamente.
 function handleSyncPermissionDenied(err){
   if(!err || err.code!=='permission-denied' || !currentUser || !joinedOwnerUid) return;
-  console.warn('[PATRON] se perdió el acceso al inventario compartido — volviendo a la cuenta propia.');
+  console.warn('[Dusty] se perdió el acceso al inventario compartido — volviendo a la cuenta propia.');
   detachFirestoreListeners();
   detachTeamListener();
   stopPresenceHeartbeat();
@@ -1089,16 +1089,16 @@ function attachFirestoreListeners(uid){
   // listeners viejos quedan escuchando (y re-subiendo fotos vía catchUpReceiptPhotoUploads)
   // para siempre.
   detachFirestoreListeners();
-  unsubInventory = inventoryRef(uid).onSnapshot(applyRemoteInventorySnapshot, err=>{ console.error('[PATRON] inventory listener error:', err); handleSyncPermissionDenied(err); });
-  unsubPurchases = purchasesRef(uid).onSnapshot(applyRemotePurchasesSnapshot, err=>{ console.error('[PATRON] purchases listener error:', err); handleSyncPermissionDenied(err); });
-  unsubReceipts = receiptsRef(uid).onSnapshot(applyRemoteReceiptsSnapshot, err=>{ console.error('[PATRON] receipts listener error:', err); handleSyncPermissionDenied(err); });
-  unsubMeta = metaRef(uid).onSnapshot(applyRemoteMetaSnapshot, err=>{ console.error('[PATRON] meta listener error:', err); handleSyncPermissionDenied(err); });
+  unsubInventory = inventoryRef(uid).onSnapshot(applyRemoteInventorySnapshot, err=>{ console.error('[Dusty] inventory listener error:', err); handleSyncPermissionDenied(err); });
+  unsubPurchases = purchasesRef(uid).onSnapshot(applyRemotePurchasesSnapshot, err=>{ console.error('[Dusty] purchases listener error:', err); handleSyncPermissionDenied(err); });
+  unsubReceipts = receiptsRef(uid).onSnapshot(applyRemoteReceiptsSnapshot, err=>{ console.error('[Dusty] receipts listener error:', err); handleSyncPermissionDenied(err); });
+  unsubMeta = metaRef(uid).onSnapshot(applyRemoteMetaSnapshot, err=>{ console.error('[Dusty] meta listener error:', err); handleSyncPermissionDenied(err); });
   // De solo lectura — nunca se guarda en localStorage ni se "sube" como el resto,
   // así que no necesita pasar por applyingRemoteSnapshot ni por saveState().
   unsubActivity = activityRef(uid).orderBy('at','desc').limit(100).onSnapshot(snap=>{
     activityLog = snap.docs.map(d=>d.data());
     render();
-  }, err=>{ console.error('[PATRON] activity listener error:', err); handleSyncPermissionDenied(err); });
+  }, err=>{ console.error('[Dusty] activity listener error:', err); handleSyncPermissionDenied(err); });
   // Un solo lugar para esto, en vez de repetirlo en cada sitio que llama a
   // attachFirestoreListeners — cubre tanto el primer login como reconectar
   // (refrescar la página, volver a tener red) y unirse/salir de un equipo.
@@ -1129,7 +1129,7 @@ function attachTeamListener(){
   unsubTeamMembers = membersRef(currentUser.uid).onSnapshot(snap=>{
     teamMembers = snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
     render();
-  }, err=>console.error('[PATRON] team members listener error:', err));
+  }, err=>console.error('[Dusty] team members listener error:', err));
 }
 function detachTeamListener(){
   if(unsubTeamMembers) unsubTeamMembers();
@@ -1154,7 +1154,7 @@ function ensureInviteCode(){
   }).then(code=>{
     teamInviteCode = code; teamLoading = false; render();
   }).catch(err=>{
-    console.error('[PATRON] invite code setup failed:', err);
+    console.error('[Dusty] invite code setup failed:', err);
     teamLoading = false; teamError = t('team_err_generic'); render();
   });
 }
@@ -1186,7 +1186,7 @@ function copyInviteCode(){
 }
 function shareInviteCode(){
   if(!teamInviteCode || !navigator.share) return;
-  navigator.share({ title: 'PATRON', text: t('team_share_msg'), url: teamInviteLink() }).catch(()=>{});
+  navigator.share({ title: 'Dusty', text: t('team_share_msg'), url: teamInviteLink() }).catch(()=>{});
 }
 function joinTeam(){
   const code = (teamJoinCode||'').trim().toUpperCase();
@@ -1221,7 +1221,7 @@ function joinTeam(){
       render();
     });
   }).catch(err=>{
-    console.error('[PATRON] join team failed:', err);
+    console.error('[Dusty] join team failed:', err);
     teamLoading = false; teamError = t('team_err_generic'); render();
   });
 }
@@ -1248,14 +1248,14 @@ function leaveTeam(){
       teamLoading = false; showTeamModal = false;
       render();
     }).catch(err=>{
-      console.error('[PATRON] leave team failed:', err);
+      console.error('[Dusty] leave team failed:', err);
       teamLoading = false; teamError = t('team_err_generic'); render();
     });
 }
 function removeMember(memberId){
   if(!confirm(t('team_remove_confirm'))) return;
   membersRef(currentUser.uid).doc(memberId).delete().catch(err=>{
-    console.error('[PATRON] remove member failed:', err);
+    console.error('[Dusty] remove member failed:', err);
     alert(t('team_err_generic'));
   });
 }
@@ -1272,7 +1272,7 @@ function removeMember(memberId){
 
    IMPORTANTE sobre aislamiento entre clientes: todo esto opera exclusivamente
    dentro de la colección de ESTE "uid" (users/{uid}/...) — nunca compara ni
-   toca datos de otra cuenta. Cada cliente de PATRON tiene su propio uid con
+   toca datos de otra cuenta. Cada cliente de Dusty tiene su propio uid con
    sus propias reglas de seguridad en Firestore (ya verificado con pruebas
    reales devolviendo 403 para accesos ajenos); esta función jamás ve ni podría
    ver el inventario de otro cliente, así que no hay forma de que se mezclen
@@ -1488,12 +1488,12 @@ const I18N = {
     cc_show_pending_link:'Ver solo lo pendiente de contar',
     btn_export_data:'Exportar respaldo (.json)', btn_import_data:'Importar respaldo (.json)',
     backup_section_title:'Respaldo local', backup_section_hint:'Guarda o restaura una copia de tus datos en un archivo — independiente de la sincronización en la nube.',
-    import_invalid:'Ese archivo no es un respaldo válido de PATRON.',
+    import_invalid:'Ese archivo no es un respaldo válido de Dusty.',
     import_confirm:'Esto va a reemplazar todo el inventario, recibos y compras actuales con los del archivo. ¿Continuar?',
     import_success:'Respaldo importado correctamente.',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer producto para empezar a llevar tu inventario.',
     sync_loading_title:'Cargando tu inventario…', sync_loading_sub:'Estamos trayendo tus datos desde la nube — no debería tardar mucho.',
-    dash_empty_title:'Vamos a armar tu inventario', dash_empty_sub:'Escaneá tu primer recibo y PATRON carga los productos y precios solo, o agregá uno a mano si preferís empezar simple.',
+    dash_empty_title:'Vamos a armar tu inventario', dash_empty_sub:'Escaneá tu primer recibo y Dusty carga los productos y precios solo, o agregá uno a mano si preferís empezar simple.',
     dash_empty_scan_btn:'Escanear recibo', dash_empty_manual_btn:'+ Agregar producto a mano',
     empty_receipts_title:'Aún no hay recibos guardados',
     inv_title:'Inventario', inv_sub:'Tus productos y su costo actual por unidad, siempre al día',
@@ -1571,7 +1571,7 @@ const I18N = {
     team_err_not_found:'Ese código no existe. Revisalo con la persona que te lo compartió.',
     team_err_self:'Ese es tu propio código — compartíselo a otra persona.',
     team_err_generic:'Algo salió mal. Probá de nuevo.',
-    team_share_btn:'Compartir', team_share_msg:'Te comparto el inventario en PATRON — abrí este link y entrá con tu nombre y un PIN:',
+    team_share_btn:'Compartir', team_share_msg:'Te comparto el inventario en Dusty — abrí este link y entrá con tu nombre y un PIN:',
     team_join_title:'Unirme con un código', team_join_hint:'Alguien te compartió un código de invitación. Poné tu nombre y elegí un PIN — no hace falta ningún email.',
     team_pinlogin_title:'Entrar con nombre y PIN', team_pinlogin_hint:'Si ya te uniste antes a un inventario compartido, entrá con el mismo código, tu nombre y tu PIN.',
     team_pin_name_label:'Tu nombre', team_pin_name_placeholder:'Ej. Juan',
@@ -1581,7 +1581,7 @@ const I18N = {
     auth_err_need_name:'Escribí tu nombre primero.', auth_err_need_pin:'Escribí tu PIN.',
     auth_err_pin_short:'El PIN tiene que tener al menos 6 caracteres.',
     auth_err_pin_mismatch:'Los dos PIN no coinciden.',
-    auth_err_name_taken:'Ese nombre ya está en uso en PATRON — probá agregando tu apellido o algo que lo distinga.',
+    auth_err_name_taken:'Ese nombre ya está en uso en Dusty — probá agregando tu apellido o algo que lo distinga.',
     auth_err_pin_wrong:'Nombre o PIN incorrecto.',
     feedback_title:'Reportar un problema', feedback_sub:'Contanos qué pasó — lo vamos a revisar apenas podamos.',
     feedback_placeholder:'Ej. Al escanear un recibo de 3 páginas, la última no se leyó bien...',
@@ -1595,7 +1595,7 @@ const I18N = {
     delete_account_google_reauth_btn:'Confirmar con Google',
     delete_account_success:'Tu cuenta fue eliminada.',
     privacy_policy_link:'Política de privacidad',
-    welcome_title:'Bienvenido a PATRON', welcome_sub:'Así funciona, en 3 pasos:',
+    welcome_title:'Bienvenido a Dusty', welcome_sub:'Así funciona, en 3 pasos:',
     welcome_step1_title:'Escaneá un recibo', welcome_step1_sub:'Sacale una foto y la app lee los productos y precios sola.',
     welcome_step2_title:'Tu inventario se actualiza solo', welcome_step2_sub:'Sabés en todo momento cuánto tenés de cada producto y cuánto vale.',
     welcome_step3_title:'Te avisamos si algo cambia', welcome_step3_sub:'Precio que sube, cantidad rara, o stock que se está por acabar.',
@@ -1677,12 +1677,12 @@ const I18N = {
     cc_show_pending_link:'Show only what needs counting',
     btn_export_data:'Export backup (.json)', btn_import_data:'Import backup (.json)',
     backup_section_title:'Local backup', backup_section_hint:'Save or restore a copy of your data as a file — independent from cloud sync.',
-    import_invalid:'That file is not a valid PATRON backup.',
+    import_invalid:'That file is not a valid Dusty backup.',
     import_confirm:'This will replace all current inventory, receipts and purchases with the ones in the file. Continue?',
     import_success:'Backup imported successfully.',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first product to start tracking your inventory.',
     sync_loading_title:'Loading your inventory…', sync_loading_sub:"We're pulling your data from the cloud — this shouldn't take long.",
-    dash_empty_title:'Let\'s build your inventory', dash_empty_sub:'Scan your first receipt and PATRON loads the products and prices on its own, or add one by hand if you\'d rather keep it simple.',
+    dash_empty_title:'Let\'s build your inventory', dash_empty_sub:'Scan your first receipt and Dusty loads the products and prices on its own, or add one by hand if you\'d rather keep it simple.',
     dash_empty_scan_btn:'Scan receipt', dash_empty_manual_btn:'+ Add product by hand',
     empty_receipts_title:'No receipts saved yet',
     inv_title:'Inventory', inv_sub:'Your products and their current cost per unit, always up to date',
@@ -1760,7 +1760,7 @@ const I18N = {
     team_err_not_found:"That code doesn't exist. Check it with whoever shared it with you.",
     team_err_self:'That\'s your own code — share it with someone else.',
     team_err_generic:'Something went wrong. Try again.',
-    team_share_btn:'Share', team_share_msg:"I'm sharing the PATRON inventory with you — open this link and sign in with your name and a PIN:",
+    team_share_btn:'Share', team_share_msg:"I'm sharing the Dusty inventory with you — open this link and sign in with your name and a PIN:",
     team_join_title:'Join with a code', team_join_hint:"Someone shared an invite code with you. Enter your name and pick a PIN — no email needed.",
     team_pinlogin_title:'Sign in with name and PIN', team_pinlogin_hint:'If you already joined a shared inventory, sign in with the same code, your name, and your PIN.',
     team_pin_name_label:'Your name', team_pin_name_placeholder:'e.g. John',
@@ -1770,7 +1770,7 @@ const I18N = {
     auth_err_need_name:'Enter your name first.', auth_err_need_pin:'Enter your PIN.',
     auth_err_pin_short:'The PIN needs to be at least 6 characters.',
     auth_err_pin_mismatch:"The two PINs don't match.",
-    auth_err_name_taken:"That name is already used on PATRON — try adding your last name or something to tell it apart.",
+    auth_err_name_taken:"That name is already used on Dusty — try adding your last name or something to tell it apart.",
     auth_err_pin_wrong:'Wrong name or PIN.',
     feedback_title:'Report an issue', feedback_sub:"Tell us what happened — we'll take a look as soon as we can.",
     feedback_placeholder:"E.g. When scanning a 3-page receipt, the last page didn't read correctly...",
@@ -1784,7 +1784,7 @@ const I18N = {
     delete_account_google_reauth_btn:'Confirm with Google',
     delete_account_success:'Your account has been deleted.',
     privacy_policy_link:'Privacy policy',
-    welcome_title:'Welcome to PATRON', welcome_sub:'Here\'s how it works, in 3 steps:',
+    welcome_title:'Welcome to Dusty', welcome_sub:'Here\'s how it works, in 3 steps:',
     welcome_step1_title:'Scan a receipt', welcome_step1_sub:'Take a photo and the app reads the products and prices on its own.',
     welcome_step2_title:'Your inventory updates itself', welcome_step2_sub:'Always know how much you have of each product and what it\'s worth.',
     welcome_step3_title:'We\'ll flag anything unusual', welcome_step3_sub:'A price that jumps, a weird quantity, or stock running low.',
@@ -1955,7 +1955,7 @@ function exportData(){
    decide si lo envía. Cuando haya cuentas reales, esto se puede reemplazar por
    un formulario que guarde el reporte en la base de datos. */
 function openFeedbackEmail(){
-  const subject = encodeURIComponent(uiLang==='en' ? 'PATRON — Issue report' : 'PATRON — Reporte de un problema');
+  const subject = encodeURIComponent(uiLang==='en' ? 'Dusty — Issue report' : 'Dusty — Reporte de un problema');
   const body = encodeURIComponent(
     (uiLang==='en' ? 'Describe what happened:\n\n\n' : 'Describí qué pasó:\n\n\n') +
     '---\n' + navigator.userAgent
@@ -2059,7 +2059,7 @@ function render(){
   try{
     renderApp();
   }catch(err){
-    console.error('PATRON render error:', err);
+    console.error('Dusty render error:', err);
     reportClientError(err, 'render');
     renderCrashScreen(err);
   }
@@ -2085,7 +2085,7 @@ function scheduleCloudTriggeredRender(){
 function renderApp(){
   const app = document.getElementById('app');
   document.documentElement.lang = uiLang;
-  document.title = uiLang==='en' ? 'PATRON — Inventory' : 'PATRON — Inventario';
+  document.title = uiLang==='en' ? 'Dusty — Inventory' : 'Dusty — Inventario';
   const tabIdx = TAB_ORDER.indexOf(activeTab);
   app.innerHTML = `
     ${topbar()}
@@ -2154,8 +2154,8 @@ function renderCrashScreen(err){
   let lang = 'es';
   try{ lang = uiLang || 'es'; }catch(e){}
   const copy = lang==='en'
-    ? {title:'Something went wrong', body:'PATRON hit an unexpected error and couldn’t continue. Your saved data is safe on this device — reloading usually fixes it.', btn:'Reload'}
-    : {title:'Algo salió mal', body:'PATRON encontró un error inesperado y no pudo continuar. Tus datos guardados en este dispositivo están a salvo — recargar normalmente lo soluciona.', btn:'Recargar'};
+    ? {title:'Something went wrong', body:'Dusty hit an unexpected error and couldn’t continue. Your saved data is safe on this device — reloading usually fixes it.', btn:'Reload'}
+    : {title:'Algo salió mal', body:'Dusty encontró un error inesperado y no pudo continuar. Tus datos guardados en este dispositivo están a salvo — recargar normalmente lo soluciona.', btn:'Recargar'};
   app.innerHTML = `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
       <div style="background:var(--panel);border-radius:20px;box-shadow:var(--shadow);padding:32px 24px;max-width:360px;text-align:center;">
@@ -2173,9 +2173,9 @@ function topbar(){
   return `
   <div class="topbar">
     <div class="brand">
-      <div class="brand-mark">P</div>
+      <div class="brand-mark">D</div>
       <div>
-        <div class="brand-name">ATRON</div>
+        <div class="brand-name">usty</div>
         ${joinedOwnerUid ? `
         <div class="account-owner-pill" title="${t('account_owner_hint')}">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
@@ -3264,7 +3264,7 @@ async function performAccountDeletion(){
     deleteAccountLoading=false;
     if(err && err.code==='auth/popup-closed-by-user'){ render(); return; } // cerró el popup, no es un error real
     if(err && (err.code==='auth/wrong-password' || err.code==='auth/invalid-credential')) deleteAccountError=t('auth_err_wrong_password');
-    else { console.error('[PATRON] account deletion failed:', err); deleteAccountError = (err && err.message) || t('auth_err_generic'); }
+    else { console.error('[Dusty] account deletion failed:', err); deleteAccountError = (err && err.message) || t('auth_err_generic'); }
     render();
   }
 }
@@ -3469,7 +3469,7 @@ function slugifyName(name){
   return (name||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,40);
 }
 // El email se arma con nombre + código de equipo (no solo el nombre) para que quede
-// aislado por negocio: dos cuentas distintas de PATRON pueden tener cada una a su
+// aislado por negocio: dos cuentas distintas de Dusty pueden tener cada una a su
 // propia "Maria" sin pisarse ni poder loguearse una en la cuenta de la otra.
 function teamPinEmail(name, code){ return slugifyName(name)+'.'+(code||'').toString().trim().toLowerCase()+'@patron-team.local'; }
 // Formato viejo (solo nombre, sin código) — se usa como respaldo al iniciar sesión
@@ -3578,7 +3578,7 @@ function submitQuickJoin(){
     if(err && err.code==='not-found') authError=t('team_err_not_found');
     else if(err && err.code==='auth/email-already-in-use') authError=t('auth_err_name_taken');
     else if(err && err.code==='auth/weak-password') authError=t('auth_err_pin_short');
-    else { console.error('[PATRON] quick join failed:', err); authError=t('auth_err_generic'); }
+    else { console.error('[Dusty] quick join failed:', err); authError=t('auth_err_generic'); }
     render();
   });
 }
@@ -3605,7 +3605,7 @@ function submitPinLogin(){
   }).catch(err=>{
     authLoading=false;
     authError = (err && (err.code==='auth/user-not-found' || err.code==='auth/wrong-password' || err.code==='auth/invalid-credential')) ? t('auth_err_pin_wrong') : t('auth_err_generic');
-    if(err && err.code!=='auth/user-not-found' && err.code!=='auth/wrong-password' && err.code!=='auth/invalid-credential') console.error('[PATRON] pin login failed:', err);
+    if(err && err.code!=='auth/user-not-found' && err.code!=='auth/wrong-password' && err.code!=='auth/invalid-credential') console.error('[Dusty] pin login failed:', err);
     render();
   });
 }
@@ -3633,11 +3633,11 @@ function signInWithGoogle(){
     const popupFailed = err && (err.code==='auth/popup-blocked' || err.code==='auth/operation-not-supported-in-this-environment' || err.code==='auth/cancelled-popup-request');
     if(popupFailed) return firebase.auth().signInWithRedirect(new firebase.auth.GoogleAuthProvider());
     if(err && err.code!=='auth/popup-closed-by-user'){
-      console.error('[PATRON] sign-in failed:', err);
+      console.error('[Dusty] sign-in failed:', err);
       authError = authErrorMessage(err.code);
     }
   }).catch(err=>{
-    console.error('[PATRON] sign-in redirect failed:', err);
+    console.error('[Dusty] sign-in redirect failed:', err);
   }).then(()=>{
     authLoading = false; render();
   });
@@ -3769,7 +3769,7 @@ function sendFeedback(){
   }).then(()=>{
     feedbackSent=true;
   }).catch(err=>{
-    console.error('[PATRON] feedback send failed:', err);
+    console.error('[Dusty] feedback send failed:', err);
     alert(t('feedback_error'));
   }).then(()=>{
     feedbackSubmitting=false; render();
@@ -4254,7 +4254,7 @@ async function buildImagesForReading(){
     }
     return imgs.map(img=>resizeToBase64(img, 1400, 0.92));
   }catch(err){
-    console.error('[PATRON] no se pudo re-armar las fotos para leer, se usan las que ya estaban:', err);
+    console.error('[Dusty] no se pudo re-armar las fotos para leer, se usan las que ya estaban:', err);
     return scanImagesHiRes.length === pageCount ? scanImagesHiRes : scanImages;
   }
 }
@@ -4371,7 +4371,7 @@ async function processReceiptBatch(imagesToRead, requestId){
       const list = Array.isArray(parsed.receipts) ? parsed.receipts : (Array.isArray(parsed.items) ? [parsed] : []);
       return {idx, list};
     }catch(err){
-      console.error('[PATRON] no se pudo leer la foto '+(idx+1)+' del lote:', err);
+      console.error('[Dusty] no se pudo leer la foto '+(idx+1)+' del lote:', err);
       return {idx, list:null, err};
     }
   }));
