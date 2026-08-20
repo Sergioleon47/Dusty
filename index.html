@@ -247,6 +247,18 @@
   .cat-bubble{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;font-family:'Space Grotesk';}
   .category-edit-row input{flex:1;min-width:0;border:none;background:transparent;font-size:15px;font-weight:700;padding:11px 6px;color:var(--ink);outline:none;font-family:'Inter';}
   .category-edit-row input::placeholder{font-weight:600;color:var(--ink-soft);}
+  /* Flechitas para reordenar categorías — el orden acá es el mismo en el que van a
+     aparecer de izquierda a derecha en la fila de chips del Dashboard (ver
+     categoryChipsRow), así que "arriba" en esta lista vertical mueve un puesto hacia
+     la izquierda allá. Botones chicos apilados en vez de arrastrar y soltar: en un
+     celular, arrastrar una fila mientras el dedo tapa lo que se está reordenando es
+     más torpe que tocar dos veces una flecha — y con pocas categorías (el caso común)
+     no hace falta nada más elaborado. */
+  .category-reorder-btns{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+  .category-reorder-btn{width:24px;height:19px;border-radius:6px;border:none;background:var(--panel);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,background .15s ease,color .15s ease;}
+  .category-reorder-btn:hover:not(:disabled){background:var(--navy-wash);color:var(--navy);}
+  .category-reorder-btn:active:not(:disabled){transform:scale(0.88);}
+  .category-reorder-btn:disabled{opacity:.3;cursor:default;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   /* Todas las filas de inventario (Dashboard e Inventario) usan esta misma clase — ya
      no hay gesto de deslizar para borrar en ninguna de las dos, se borra con la x
@@ -1822,6 +1834,7 @@ const I18N = {
     categories_sub:'Agrupá tus productos como quieras — Comida, Hogar, Ropa, Mantenimiento, o las que necesites.',
     categories_empty:'No tenés categorías — todo el inventario aparece en una sola lista.',
     categories_new_placeholder:'Nueva categoría', categories_add_btn:'+ Agregar',
+    categories_move_up:'Mover antes', categories_move_down:'Mover después',
     categories_helper:'Borrar una categoría no borra sus productos — solo dejan de estar agrupados, y pasan a "Sin categoría".',
     categories_uncategorized:'Sin categoría', lbl_category:'Categoría', category_none_option:'Sin categoría',
     inv_filtered_by_category:'Mostrando: {name}', btn_clear_category_filter:'Ver todo',
@@ -2048,6 +2061,7 @@ const I18N = {
     categories_sub:'Group your products however you want — Food, Household, Clothing, Maintenance, or whatever you need.',
     categories_empty:'No categories yet — the whole inventory shows as a single list.',
     categories_new_placeholder:'New category', categories_add_btn:'+ Add',
+    categories_move_up:'Move earlier', categories_move_down:'Move later',
     categories_helper:'Deleting a category doesn\'t delete its products — they just stop being grouped, and move to "Uncategorized".',
     categories_uncategorized:'Uncategorized', lbl_category:'Category', category_none_option:'Uncategorized',
     inv_filtered_by_category:'Showing: {name}', btn_clear_category_filter:'View all',
@@ -2633,6 +2647,8 @@ const LINE_ICONS = {
   printer: `<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>`,
   share: `<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>`,
   chart: `<line x1="6" y1="20" x2="6" y2="15"/><line x1="12" y1="20" x2="12" y2="9"/><line x1="18" y1="20" x2="18" y2="4"/>`,
+  chevronUp: `<polyline points="18 15 12 9 6 15"/>`,
+  chevronDown: `<polyline points="6 9 12 15 18 9"/>`,
 };
 function lineIcon(name, size){
   const s = size||18;
@@ -4591,10 +4607,15 @@ function categoriesModal(){
         ${draftCategories.map((c,idx)=>{
           const style = CATEGORY_BUBBLE_STYLES[idx % CATEGORY_BUBBLE_STYLES.length];
           const initial = (c.name.trim()[0]||'?').toUpperCase();
+          const isFirst = idx===0, isLast = idx===draftCategories.length-1;
           return `
           <div class="category-edit-row">
             <div class="cat-bubble" style="background:${style.bg};color:${style.fg};">${escapeHtml(initial)}</div>
             <input type="text" data-category-name="${idx}" value="${escapeHtml(c.name)}" placeholder="${t('categories_new_placeholder')}">
+            <div class="category-reorder-btns">
+              <button type="button" class="category-reorder-btn" data-move-category-up="${idx}" title="${t('categories_move_up')}" ${isFirst?'disabled':''}>${lineIcon('chevronUp',13)}</button>
+              <button type="button" class="category-reorder-btn" data-move-category-down="${idx}" title="${t('categories_move_down')}" ${isLast?'disabled':''}>${lineIcon('chevronDown',13)}</button>
+            </div>
             <button type="button" class="stock-row-x-btn" data-remove-category="${idx}" title="${t('btn_delete')}">✕</button>
           </div>`;
         }).join('')}
@@ -6100,6 +6121,22 @@ function attachEvents(){
     });
     document.querySelectorAll('[data-remove-category]').forEach(btn=>{
       btn.onclick=()=>{ draftCategories.splice(parseInt(btn.dataset.removeCategory,10),1); render(); };
+    });
+    document.querySelectorAll('[data-move-category-up]').forEach(btn=>{
+      btn.onclick=()=>{
+        const idx = parseInt(btn.dataset.moveCategoryUp,10);
+        if(idx<=0) return;
+        [draftCategories[idx-1], draftCategories[idx]] = [draftCategories[idx], draftCategories[idx-1]];
+        render();
+      };
+    });
+    document.querySelectorAll('[data-move-category-down]').forEach(btn=>{
+      btn.onclick=()=>{
+        const idx = parseInt(btn.dataset.moveCategoryDown,10);
+        if(idx>=draftCategories.length-1) return;
+        [draftCategories[idx], draftCategories[idx+1]] = [draftCategories[idx+1], draftCategories[idx]];
+        render();
+      };
     });
     const newCategoryInput=document.getElementById('new-category-name');
     const addCategory=()=>{
