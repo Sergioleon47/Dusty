@@ -28,7 +28,15 @@
 <meta name="twitter:title" content="Dusty — Inventory">
 <meta name="twitter:description" content="Scan receipts, track inventory, stay on budget, and catch price changes automatically.">
 <meta name="twitter:image" content="https://patronsc.netlify.app/og-image.png">
+<!-- Falta preconectar a fonts.gstatic.com (donde viven los archivos de fuente en
+     sí, un dominio DISTINTO de fonts.googleapis.com de arriba, que solo sirve el
+     CSS) era justo lo que alargaba el parpadeo de tipografía al cargar: sin esto,
+     el navegador recién se entera de que necesita gstatic.com al leer el CSS, y
+     arranca esa conexión (DNS+TLS) desde cero recién ahí, en serie después de la de
+     googleapis.com — con las dos precoconectadas en paralelo desde el arranque, las
+     fuentes reales llegan antes y la letra de reemplazo se ve menos tiempo. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -509,7 +517,13 @@
   .drop-zone:hover{border-color:var(--sky);}
   .drop-zone:active{transform:scale(0.98);border-color:var(--sky);}
   .drop-zone .dz-icon{display:flex;justify-content:center;color:var(--sky);margin-bottom:6px;}
-  .receipt-preview{width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);}
+  /* min-height (no solo max-height) reserva el espacio ANTES de que la foto termine
+     de cargar — sin esto, una foto que vive solo en Storage (la subió otro
+     dispositivo, no este) empieza en alto 0 y "salta" a su tamaño real recién cuando
+     termina de bajar de la red, un layout shift clásico. Con min-height, el hueco ya
+     está ahí desde el primer render — la foto aparece adentro sin mover nada de
+     alrededor. */
+  .receipt-preview{width:100%;min-height:180px;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);background:var(--bg);}
   .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:var(--saffron-ink);margin-bottom:14px;}
   .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
