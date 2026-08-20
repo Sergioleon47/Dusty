@@ -79,9 +79,10 @@ async function recordScanUsage(ownerUid, receiptsCount, period) {
   }
 }
 
-function buildPrompt(inventoryNames, caseTrackedNames, multi) {
+function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, multi) {
   const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
   const hasCaseTracked = Array.isArray(caseTrackedNames) && caseTrackedNames.length > 0;
+  const hasCategories = Array.isArray(categoryNames) && categoryNames.length > 0;
 
   return `Eres un sistema experto en extraer datos de facturas de restaurante (Sysco, US Foods, Cintas, proveedores locales de produce, etc).
 
@@ -121,6 +122,12 @@ ${inventoryNames.map(n => `- ${n}`).join('\n')}
 
 Para cada producto de la factura, fijate si corresponde a alguno de esos ingredientes ya existentes (aunque la descripción de la factura esté abreviada o en otro idioma — usá tu criterio, no comparación literal de texto). Si corresponde, poné en "matched_inventory_name" el nombre EXACTO tal cual aparece en esa lista (copiado letra por letra). Si es un producto distinto que no está en la lista, poné "matched_inventory_name": null.` : `No hay inventario cargado todavía, así que "matched_inventory_name" va a ser null para todos los productos.`}
 
+${hasCategories ? `SOBRE "category" (a qué categoría de inventario pertenece el producto):
+Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
+${categoryNames.map(n => `- ${n}`).join('\n')}
+
+Para cada producto de la factura, elegí la categoría de esa lista que mejor le quede (usá tu criterio, no comparación literal — ej. "leche" va en una categoría de comida aunque se llame "Food" o "Alimentos"). Si corresponde, poné en "category" el nombre EXACTO tal cual aparece en esa lista (copiado letra por letra). Si ninguna categoría le queda bien, poné "category": null — mejor sin categoría que una que no corresponde.` : `El usuario no tiene categorías de inventario creadas todavía, así que "category" va a ser null para todos los productos.`}
+
 SOBRE "duplicate_of" (líneas repetidas del mismo producto NUEVO dentro de esta misma factura):
 A veces una factura describe el mismo producto en más de una línea (ej. una línea por caja y otra por el reempaque en unidades sueltas, o una columna que se leyó dos veces). Si detectás que dos o más líneas de ESTA factura son en realidad el mismo producto — y ese producto NO tiene "matched_inventory_name" (es nuevo, no está en el inventario existente) — dejá "duplicate_of": null en la PRIMERA aparición, y en las siguientes apariciones poné "duplicate_of" con el índice (empezando en 0) de esa primera línea dentro de este mismo array "items". Si un producto ya tiene "matched_inventory_name" (ya existe en el inventario), nunca uses "duplicate_of" para él — dejalo en null, aunque aparezca más de una vez. Si no estás seguro de que sean el mismo producto, dejá "duplicate_of": null (mejor dos líneas separadas que combinar mal dos productos distintos).
 
@@ -146,6 +153,7 @@ Formato de cada item:
   "raw_name": "string",
   "clean_name": "string (en inglés)",
   "matched_inventory_name": "string exacto de la lista, o null",
+  "category": "string exacto de la lista de categorías, o null",
   "quantity": number,
   "unit": "string (lb, oz, gal, unidad, caja, etc)",
   "total_price": number,
@@ -160,6 +168,7 @@ Formato de cada item:
       "raw_name": "string",
       "clean_name": "string (en inglés)",
       "matched_inventory_name": "string exacto de la lista, o null",
+      "category": "string exacto de la lista de categorías, o null",
       "quantity": number,
       "unit": "string (lb, oz, gal, unidad, caja, etc)",
       "total_price": number,
@@ -205,7 +214,7 @@ exports.handler = async (event) => {
   // "ownerUid": la cuenta dueña del inventario contra la que se cuenta el cupo —
   // la propia si el que escanea es el dueño, o la del equipo si se unió a uno
   // (ver syncUid() en index.html).
-  let images, inventoryNames, caseTrackedNames, multi = false, ownerUid;
+  let images, inventoryNames, caseTrackedNames, categoryNames, multi = false, ownerUid;
   try {
     const parsed = JSON.parse(event.body || '{}');
     if (Array.isArray(parsed.images) && parsed.images.length > 0) {
@@ -218,6 +227,9 @@ exports.handler = async (event) => {
     }
     if (Array.isArray(parsed.caseTrackedNames)) {
       caseTrackedNames = parsed.caseTrackedNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
+    }
+    if (Array.isArray(parsed.categoryNames)) {
+      categoryNames = parsed.categoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50);
     }
     multi = parsed.multi === true;
     ownerUid = typeof parsed.ownerUid === 'string' && parsed.ownerUid ? parsed.ownerUid : callerUid;
@@ -278,7 +290,7 @@ exports.handler = async (event) => {
             role: 'user',
             content: [
               ...imageContentBlocks,
-              { type: 'text', text: buildPrompt(inventoryNames, caseTrackedNames, multi) }
+              { type: 'text', text: buildPrompt(inventoryNames, caseTrackedNames, categoryNames, multi) }
             ]
           }
         ]

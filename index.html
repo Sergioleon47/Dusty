@@ -224,6 +224,13 @@
      2+ grupos con productos, para no meter un título de más cuando total no aporta nada. */
   .category-group-header{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 8px 4px;}
   .category-group-header span{background:var(--line);color:var(--ink-soft);border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;}
+  /* Botones de categoría del Dashboard — fila horizontal con scroll propio, no se
+     envuelve en varias líneas ni empuja el resto de la pantalla hacia abajo. */
+  .category-chip-row{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .category-chip-row::-webkit-scrollbar{display:none;}
+  .category-chip{flex-shrink:0;display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:9px 8px 9px 16px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .12s ease;white-space:nowrap;}
+  .category-chip:active{transform:scale(0.96);}
+  .category-chip span{background:var(--navy-wash);color:var(--navy-ink);border-radius:10px;min-width:20px;text-align:center;padding:2px 7px;font-size:11.5px;font-weight:700;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   /* Todas las filas de inventario (Dashboard e Inventario) usan esta misma clase — ya
      no hay gesto de deslizar para borrar en ninguna de las dos, se borra con la x
@@ -1574,6 +1581,8 @@ const I18N = {
     categories_new_placeholder:'Nueva categoría', categories_add_btn:'+ Agregar',
     categories_helper:'Borrar una categoría no borra sus productos — solo dejan de estar agrupados, y pasan a "Sin categoría".',
     categories_uncategorized:'Sin categoría', lbl_category:'Categoría', category_none_option:'Sin categoría',
+    inv_filtered_by_category:'Mostrando: {name}', btn_clear_category_filter:'Ver todo',
+    empty_category_title:'Nada por acá todavía', empty_category_sub:'Esta categoría no tiene productos asignados.',
     btn_save:'Guardar', btn_alert_settings:'Configuración',
     btn_feedback:'Reportar un problema',
     cloud_sync_signed_out:'Iniciar sesión para sincronizar en la nube',
@@ -1772,6 +1781,8 @@ const I18N = {
     categories_new_placeholder:'New category', categories_add_btn:'+ Add',
     categories_helper:'Deleting a category doesn\'t delete its products — they just stop being grouped, and move to "Uncategorized".',
     categories_uncategorized:'Uncategorized', lbl_category:'Category', category_none_option:'Uncategorized',
+    inv_filtered_by_category:'Showing: {name}', btn_clear_category_filter:'View all',
+    empty_category_title:'Nothing here yet', empty_category_sub:'This category has no products assigned.',
     btn_save:'Save', btn_alert_settings:'Settings',
     btn_feedback:'Report an issue',
     cloud_sync_signed_out:'Sign in to sync to the cloud',
@@ -2674,8 +2685,23 @@ function dashboardView(){
   </div>
 
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
+  ${inventory.length>0 && categories.length>0 ? categoryChipsRow() : ''}
   ${priceAlertsCard()}
   ${stockAnalyticsCard()}
+  `;
+}
+/* Fila de botones de categoría en el Dashboard — tocar uno filtra Inventario a
+   esa categoría (ver btn-manage-categories/data-open-category en attachEvents y
+   el filtro inventoryCategoryFilter en inventarioView). El número es cuántos
+   productos tiene esa categoría ahora mismo, no un conteo fijo. */
+function categoryChipsRow(){
+  return `
+  <div class="category-chip-row">
+    ${categories.map(c=>{
+      const count = inventory.filter(i=>i.categoryId===c.id).length;
+      return `<button type="button" class="category-chip" data-open-category="${c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
+    }).join('')}
+  </div>
   `;
 }
 // Primer día: nada escaneado, nada cargado a mano. Sin esto, el Dashboard quedaba
@@ -2703,6 +2729,11 @@ function dashboardEmptyState(){
 // que esperar a terminar el conteo. Se resetea solo al recargar la página — es una
 // preferencia de la sesión, no algo que haya que guardar.
 let showFullInventoryDespiteCycleCount = false;
+// Filtro de categoría activado desde los botones del Dashboard — al tocar una
+// categoría se guarda su id acá y se cambia a la pestaña Inventario, que lo lee y
+// muestra solo esos productos (ver inventarioView). También es preferencia de
+// sesión nomás, se resetea solo al recargar.
+let inventoryCategoryFilter = null;
 /* Agrupa las filas de inventario por categoría, en el orden en que el usuario las
    tiene definidas — los productos sin categoría (o con una categoría que ya no
    existe, ej. se borró) van todos juntos al final en "Sin categoría". Solo se
@@ -2745,12 +2776,18 @@ function inventarioView(){
   const allRows = stockRowsData();
   const ccDue = isCycleCountDue();
   const ccDueIds = cycleCountDueIds();
-  const filteringToCC = ccDue && !showFullInventoryDespiteCycleCount;
-  const rows = filteringToCC ? allRows.filter(r=>ccDueIds.has(r.ing.id)) : allRows;
+  const filterCategory = inventoryCategoryFilter ? categories.find(c=>c.id===inventoryCategoryFilter) : null;
+  // El filtro de categoría (activado desde los botones del Dashboard) tiene prioridad
+  // sobre el filtro de conteo cíclico — mostrar los dos combinados sería confuso, y
+  // el usuario llegó acá a propósito a ver una categoría puntual.
+  const filteringToCC = !filterCategory && ccDue && !showFullInventoryDespiteCycleCount;
+  const rows = filterCategory
+    ? allRows.filter(r=>r.ing.categoryId===filterCategory.id)
+    : (filteringToCC ? allRows.filter(r=>ccDueIds.has(r.ing.id)) : allRows);
   const groups = groupRowsByCategory(rows);
   return `
   <div class="section-head">
-    <div>${businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p>`}</div>
+    <div>${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p>`)}</div>
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-cycle-count">
@@ -2764,7 +2801,11 @@ function inventarioView(){
       <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
     </div>
   </div>
-  ${ccDue && inventory.length>0 ? `
+  ${filterCategory ? `
+  <div class="alert-banner" id="category-filter-banner" style="background:var(--navy-wash);border-color:transparent;color:var(--navy-ink);justify-content:space-between;">
+    <span>${t('inv_filtered_by_category').replace('{name}', escapeHtml(filterCategory.name))}</span>
+    <button type="button" class="link-btn" id="btn-clear-category-filter" style="padding:0;color:var(--navy-ink);">${t('btn_clear_category_filter')}</button>
+  </div>` : (ccDue && inventory.length>0 ? `
   <div class="alert-banner" id="cc-banner" style="cursor:pointer;">
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
     <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
@@ -2773,8 +2814,8 @@ function inventarioView(){
     ${filteringToCC
       ? `${t('cc_filtered_note')} <button type="button" id="btn-show-full-inventory" class="link-btn" style="padding:0;">${t('cc_show_all_link')}</button>`
       : `<button type="button" id="btn-show-pending-only" class="link-btn" style="padding:0;">${t('cc_show_pending_link')}</button>`}
-  </div>` : ''}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')) : (
+  </div>` : '')}
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (
     groups.length>1
       ? groups.map(g=>`
         <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
@@ -4445,7 +4486,11 @@ async function callReceiptReader(images, multi){
         // llevar por caja (no por unidad suelta) — para esos, no hay que desarmar el
         // tamaño de paquete del recibo.
         inventoryNames: inventory.map(i=>i.name),
-        caseTrackedNames: inventory.filter(i=>i.unit==='caja').map(i=>i.name)
+        caseTrackedNames: inventory.filter(i=>i.unit==='caja').map(i=>i.name),
+        // Para que Claude pueda sugerir a qué categoría del usuario pertenece cada
+        // producto nuevo (ver categoryId más abajo en applyParsedReceiptToScanState) —
+        // solo tiene sentido mandar esto si el usuario ya tiene categorías creadas.
+        categoryNames: categories.map(c=>c.name)
       })
     });
   }catch(netErr){
@@ -4656,6 +4701,15 @@ function applyParsedReceiptToScanState(parsed){
         const existing = inventory.find(ing=> nameLower.includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(nameLower));
         matchedId = existing ? existing.id : '__new__';
       }
+      // Categoría sugerida por Claude a partir de las categorías del usuario (ver
+      // categoryNames en callReceiptReader) — solo se usa para productos NUEVOS
+      // (ver applyScanResults), nunca para pisar la categoría que el usuario ya le
+      // haya puesto a mano a un producto existente.
+      let suggestedCategoryId = null;
+      if(it.category){
+        const catMatch = categories.find(c=>c.name.toLowerCase().trim()===String(it.category).toLowerCase().trim());
+        if(catMatch) suggestedCategoryId = catMatch.id;
+      }
       const itemUnit = it.unit || 'unidad';
       // Un producto puede empezar a comprarse en una unidad distinta con el tiempo
       // (antes por lb, ahora por caja) sin dejar de ser "el mismo producto" para
@@ -4689,6 +4743,7 @@ function applyParsedReceiptToScanState(parsed){
         unit: itemUnit,
         matchedIngId: matchedId,
         newIngName: newIngName,
+        suggestedCategoryId: suggestedCategoryId,
         // "confidence" tal cual la reporta Claude (alta/media/baja) para distinguir en
         // la pantalla de confirmación qué tan segura está cada línea. qtyVerified se
         // mantiene como antes (solo baja cuenta como "no verificado") para no tocar el
@@ -4727,7 +4782,7 @@ function applyScanResults(){
       // original, no el texto crudo de esta línea del recibo, para que ambas filas
       // se lean como "el mismo producto, unidad distinta" (ej. "Cebolla roja" en lb
       // y en caja) y no como dos productos sin relación aparente.
-      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty};
+      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty, categoryId:item.suggestedCategoryId||null};
       if(currentUser){ newIng.lastEditedBy = currentUserLabel(); newIng.lastEditedAt = new Date().toISOString(); }
       inventory.push(newIng);
       ingId = newIng.id;
@@ -5409,6 +5464,14 @@ function attachEvents(){
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
   const btnManageCategories=document.getElementById('btn-manage-categories');
   if(btnManageCategories) btnManageCategories.onclick=openCategoriesModal;
+  document.querySelectorAll('[data-open-category]').forEach(btn=>{
+    btn.onclick=()=>{
+      inventoryCategoryFilter = btn.dataset.openCategory;
+      switchToTab('inventario');
+    };
+  });
+  const btnClearCategoryFilter=document.getElementById('btn-clear-category-filter');
+  if(btnClearCategoryFilter) btnClearCategoryFilter.onclick=()=>{ inventoryCategoryFilter=null; render(); };
 
   const categoriesOverlay=document.getElementById('categories-overlay');
   if(categoriesOverlay){
