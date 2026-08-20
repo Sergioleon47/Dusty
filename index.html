@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Dusty — Inventario</title>
 <meta name="description" content="Scan receipts, keep your inventory up to date, and catch price changes automatically. For restaurants, stores, and any business that buys and resells.">
-<meta name="theme-color" content="#128C7E">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23128C7E'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#E8562C">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23E8562C'/%3E%3Ctext x='24' y='34' font-family='Arial, sans-serif' font-weight='700' font-size='28' fill='white' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E">
 <!-- "Agregar a inicio" saca la barra de Safari/Chrome y, con ella, el gesto de
      "volver atrás" del sistema desde el borde de la pantalla — el que competía con
      deslizar entre pestañas en un celular real (ver attachViewSwipeHandlers). Sin
@@ -33,11 +33,15 @@
 <style>
   :root{
     --bg:#F0F2F5; --panel:#FFFFFF; --ink:#1C1E21; --ink-soft:#45474B; --line:#DDDFE2;
-    /* Paleta "verde WhatsApp": verde oscuro de WhatsApp (#128C7E, el de encabezados/tabs)
-       como color de marca/acciones principales, verde brillante de WhatsApp (#25D366, el del
-       botón de enviar) para lo positivo/saludable — todo en tonos de verde reconocibles. */
-    --navy:#128C7E; --navy-soft:#15A28F; --tomato:#E5484D; --saffron:#F5A623; --basil:#25D366;
-    --basil-soft:#E5F9EA; --tomato-soft:#FCE7E7; --saffron-soft:#FDF0DA; --navy-wash:#E1F3F0;
+    /* Paleta "Dusty" (inspirada en el avión Dusty Crophopper de Planes): naranja
+       cálido como color de marca/acciones principales, celeste como su pareja en
+       los degradés de marca (logo, barra inferior, badges) — "avión contra el
+       cielo". --basil se queda en verde a propósito: es el color SEMÁNTICO de
+       "todo bien" (stock ok, precio bajó, presencia activa) en toda la app, no
+       tiene que ver con la marca — cambiarlo confundiría esos indicadores. */
+    --navy:#E8562C; --navy-soft:#F0703F; --tomato:#E5484D; --saffron:#F5A623; --basil:#25D366;
+    --basil-soft:#E5F9EA; --tomato-soft:#FCE7E7; --saffron-soft:#FDF0DA; --navy-wash:#FCE7DE;
+    --sky:#5AAAD6; --sky-bright:#7EC8ED;
     --radius:14px;
     --stock-ok:#25D366; --stock-warn:#F5A623; --stock-crit:#E5484D;
     /* Variantes hover/press calculadas con color-mix() en vez de hex sueltos
@@ -55,15 +59,15 @@
     /* Sombras con un tinte muy leve de marca en vez de negro puro — se sienten
        "diseñadas" en vez de una sombra CSS por defecto, sin llegar a notarse como
        color. Tres niveles de elevación: pills/botones chicos, tarjetas, modales. */
-    --shadow-sm:0 1px 2px rgba(18,45,40,0.10);
-    --shadow:0 1px 2px rgba(18,45,40,0.07), 0 8px 24px rgba(18,45,40,0.09);
-    --shadow-lg:0 12px 20px rgba(18,45,40,0.10), 0 24px 64px rgba(18,45,40,0.20);
+    --shadow-sm:0 1px 2px rgba(42,22,14,0.10);
+    --shadow:0 1px 2px rgba(42,22,14,0.07), 0 8px 24px rgba(42,22,14,0.09);
+    --shadow-lg:0 12px 20px rgba(42,22,14,0.10), 0 24px 64px rgba(42,22,14,0.20);
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
   *{box-sizing:border-box;}
   html{touch-action:manipulation;}
-  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, #2FE070 0%, #128C7E 52%, var(--bg) 86%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
+  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, var(--sky-bright) 0%, var(--navy) 52%, var(--bg) 86%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
   /* Foco de teclado consistente en toda la app (accesibilidad + look pulido) —
      antes solo los inputs de formulario tenían anillo de foco definido. */
@@ -116,7 +120,7 @@
     width:42px;height:42px;border-radius:11px;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy),var(--basil));
+      linear-gradient(145deg,var(--navy),var(--sky));
     display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
   }
   .brand-name{font-size:20px;font-weight:700;}
@@ -150,7 +154,7 @@
   .cloud-signin-btn.loading svg{animation:spin .8s linear infinite;}
 
   /* BOTTOM NAV */
-  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(115deg,#128C7E,#25D366);border-top:1px solid rgba(255,255,255,0.15);display:flex;z-index:40;box-shadow:0 -4px 18px rgba(18,140,126,0.3);padding-bottom:env(safe-area-inset-bottom);}
+  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(115deg,var(--navy),var(--sky));border-top:1px solid rgba(255,255,255,0.15);display:flex;z-index:40;box-shadow:0 -4px 18px rgba(232,86,44,0.3);padding-bottom:env(safe-area-inset-bottom);}
   .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:rgba(255,255,255,0.65);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
   .bottom-nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .bottom-nav-item.active{color:#fff;}
@@ -416,9 +420,9 @@
     width:64px;height:64px;margin:0 auto 16px;border-radius:18px;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy),var(--basil));
+      linear-gradient(145deg,var(--navy),var(--sky));
     display:flex;align-items:center;justify-content:center;color:#fff;
-    box-shadow:0 6px 18px rgba(18,140,126,0.35);
+    box-shadow:0 6px 18px rgba(232,86,44,0.35);
     animation:dash-empty-breathe 2.6s ease-in-out infinite;
   }
   .dash-empty-badge svg{stroke-width:1.6;}
@@ -458,7 +462,7 @@
   .scan-queue-bar .dots{display:flex;gap:4px;}
   .scan-queue-bar .dots i{width:6px;height:6px;border-radius:50%;background:#9CCFC8;display:block;}
   .scan-queue-bar .dots i.done{background:var(--navy);}
-  .scan-queue-bar .dots i.now{background:var(--navy);box-shadow:0 0 0 3px rgba(18,140,126,.2);}
+  .scan-queue-bar .dots i.now{background:var(--navy);box-shadow:0 0 0 3px rgba(232,86,44,.2);}
 
   .matched-item{background:#FAFAF7;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
   .matched-item .mi-top{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
