@@ -1984,6 +1984,7 @@ const I18N = {
     scan_unrecognized:'No reconocido en tu inventario — edita el nombre/cantidad o confirma como producto nuevo',
     scan_qty_unverified:'No se pudo confirmar la cantidad leída del recibo — revísala antes de aplicar',
     scan_qty_review:'Confianza media en esta lectura — conviene revisarla',
+    scan_category_unsure:'No estamos seguros en qué categoría va — elegí una',
     price_alerts_title:'Cambios de precio recientes',
     price_unit_mismatch:'unidad distinta', price_unit_mismatch_hint:'Las últimas dos compras de este producto se registraron en unidades distintas (ej. libras vs. cajas), así que no se puede comparar el precio de forma confiable.',
     price_implausible:'revisar precio', price_implausible_hint:'Este cambio es demasiado grande para ser un precio real (probablemente una cantidad o un precio mal leído en algún recibo viejo) — abrí el historial de precios de este producto para encontrar y corregir la compra con el dato raro.',
@@ -2211,6 +2212,7 @@ const I18N = {
     scan_unrecognized:'Not recognized in your inventory — edit the name/quantity or confirm as a new product',
     scan_qty_unverified:"Couldn't confirm the quantity read from the receipt — double-check it before applying",
     scan_qty_review:'Medium confidence on this reading — worth double-checking',
+    scan_category_unsure:"We're not sure which category this goes in — pick one",
     price_alerts_title:'Recent price changes',
     price_unit_mismatch:'unit changed', price_unit_mismatch_hint:"The last two purchases of this product were logged in different units (e.g. pounds vs. cases), so the price can't be compared reliably.",
     price_implausible:'check price', price_implausible_hint:"This change is too large to be a real price (probably a misread quantity or price on an old receipt) — open this product's price history to find and fix the purchase with the odd number.",
@@ -4860,6 +4862,15 @@ function scanModal(){
               <input data-scan-qty="${idx}" type="number" step="0.01" value="${item.qty}" style="flex:1;border:${confBorder};" placeholder="${t('ph_qty_short')}">
               <input data-scan-price="${idx}" type="number" step="0.01" value="${item.totalPrice}" style="flex:1;" placeholder="${t('ph_price_short')}">
             </div>
+            ${isUnrecognized && categories.length>0 ? `
+            <div class="field" style="margin-top:8px;">
+              <label style="font-size:10.5px;">${t('lbl_category')}</label>
+              <select data-scan-category="${idx}">
+                <option value="">${t('category_none_option')}</option>
+                ${categories.map(c=>`<option value="${c.id}" ${item.suggestedCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+              </select>
+              ${!item.suggestedCategoryId ? `<div style="font-size:11px;font-weight:700;color:#4A6478;background:#EAF1F6;padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
+            </div>` : ''}
             ${priceAlert}
             ${qtyAlert}
             ${mergedNote}
@@ -6706,6 +6717,15 @@ function attachEvents(){
     });
     document.querySelectorAll('[data-scan-match]').forEach(sel=>{
       sel.onchange=()=>{ scanExtracted[parseInt(sel.dataset.scanMatch)].matchedIngId=sel.value; render(); };
+    });
+    // Solo aparece para productos nuevos (ver isUnrecognized en scanModal) — Claude
+    // sugiere una categoría con su propio criterio, pero cuando no encuentra ninguna
+    // que le calce bien (o directamente no hay categorías creadas todavía) esto
+    // queda en blanco con un aviso, en vez de guardar el producto sin categoría en
+    // silencio. El value queda vacío ("") a propósito para "sin categoría", nunca
+    // "__new__" ni ningún otro sentinel — coincide con category_none_option de abajo.
+    document.querySelectorAll('[data-scan-category]').forEach(sel=>{
+      sel.onchange=()=>{ scanExtracted[parseInt(sel.dataset.scanCategory)].suggestedCategoryId=sel.value||null; render(); };
     });
     document.querySelectorAll('[data-scan-qty]').forEach(inp=>{
       inp.onchange=()=>{ const it=scanExtracted[parseInt(inp.dataset.scanQty)]; it.qty=parseFloat(inp.value)||0; it.qtyVerified=true; it.confidence='alta'; render(); };
