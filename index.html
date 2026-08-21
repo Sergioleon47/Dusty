@@ -420,6 +420,12 @@
     to{opacity:1;transform:scaleY(1) scaleX(1) translateY(0);}
   }
   .modal.wide{max-width:600px;}
+  /* Botón de cerrar (X) para modales largos que se scrollean (ej. Configuración) —
+     position:sticky lo deja pegado arriba a la derecha del modal aunque el usuario
+     esté scrolleado en el medio, en vez de obligarlo a llegar hasta "Cancelar" al
+     final para poder salir. */
+  .modal-close-btn{position:sticky;top:0;float:right;margin:-16px -8px 0 12px;width:30px;height:30px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:background .15s ease,transform .1s ease;}
+  .modal-close-btn:active{transform:scale(0.9);}
   .modal h3{margin:0 0 4px;font-size:18px;}
   /* Antes todos los títulos de modal eran del mismo negro parejo que el resto del
      texto — nada distinguía a simple vista un modal de alertas de uno de compartir
@@ -471,6 +477,9 @@
   .welcome-dots{display:flex;justify-content:center;gap:7px;margin-bottom:4px;}
   .welcome-dot{width:7px;height:7px;border-radius:50%;transition:transform .25s ease,background .25s ease;}
   .welcome-dot.active{transform:scale(1.35);}
+  /* Corta cualquier animation: de entrada — se usa en redibujados de fondo que NO
+     son un cambio real de pantalla (ver welcomeStepAnimated), para que no "parpadeen". */
+  .no-anim{animation:none !important;}
   .settings-card{background:#F7F7F5;border-radius:12px;padding:16px;margin-bottom:14px;}
   .settings-card .helper-note{margin-top:8px;}
 
@@ -632,6 +641,20 @@ const TAB_ORDER = ['dashboard','inventario','recibos'];
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
 // Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
 let welcomeStep = 0;
+// Si el paso actual ya se terminó de animar una vez. render() reconstruye TODA la
+// pantalla de cero ante cualquier cosa (ej. la reconexión a la nube que arranca sola
+// en segundo plano si ya iniciaste sesión antes) — sin esto, cada uno de esos
+// redibujados de fondo, aunque no cambien nada visible del tutorial, vuelve a
+// disparar sus animaciones de entrada (fade del fondo + pop del modal + del paso),
+// lo que se ve como que la pantalla "parpadea" sola. Se resetea a false solo cuando
+// el paso realmente cambia (avanzar/retroceder), que es cuando sí vale animar de nuevo.
+let welcomeStepAnimated = false;
+// Mismo motivo que welcomeStepAnimated: dashboardEmptyState() (la tarjeta de "vamos a
+// armar tu inventario") tiene una animación de entrada pensada para jugar UNA sola vez
+// (ver el comentario junto a .dash-empty-card en el CSS) — sin esto, cada redibujado de
+// fondo, o cada vez que se vuelve a la pestaña Dashboard por swipe, la hace "aparecer
+// de golpe" de nuevo, que es el parpadeo que se nota al deslizar entre pestañas.
+let dashEmptyCardAnimated = false;
 let showAuthModal=false, authMode='signin', authError='', authContextNote='', authLoading=false, authEmail='', authPassword='';
 // authMode también puede ser 'join' (alguien sin cuenta todavía que recibió un código
 // de invitación — crea una cuenta liviana con nombre+PIN, sin email) o 'pinlogin'
@@ -1791,6 +1814,7 @@ const I18N = {
     lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp',
     lbl_unit:'Unidad', lbl_cost_unit:'Costo por unidad',
     item_helper:'Al registrar una compra o escanear un recibo, el costo se actualiza solo.',
+    item_section_photo:'Foto', item_section_basic:'Datos básicos', item_section_pricing:'Precio y ganancia', item_section_ids:'Identificación y stock',
     btn_remove_photo:'Quitar foto', lbl_qty_bought:'Cantidad comprada',
     lbl_total_paid:'Precio total pagado', lbl_supplier:'Proveedor',
     ph_supplier_example:'Ej. US Foods', lbl_date:'Fecha',
@@ -2002,6 +2026,7 @@ const I18N = {
     lbl_name:'Name', ph_name_example:'e.g. Medium shrimp',
     lbl_unit:'Unit', lbl_cost_unit:'Cost per unit',
     item_helper:'When you log a purchase or scan a receipt, the cost updates automatically.',
+    item_section_photo:'Photo', item_section_basic:'Basic info', item_section_pricing:'Price & profit', item_section_ids:'Identification & stock',
     btn_remove_photo:'Remove photo', lbl_qty_bought:'Quantity bought',
     lbl_total_paid:'Total price paid', lbl_supplier:'Supplier',
     ph_supplier_example:'e.g. US Foods', lbl_date:'Date',
@@ -2881,8 +2906,14 @@ function categoryChipsRow(){
 // con solo la tarjeta de gasto ($0.00) y el botón de escanear — funcional, pero sin
 // nada que le explique al usuario qué hacer primero ni por qué está tan vacío.
 function dashboardEmptyState(){
+  // Ver dashEmptyCardAnimated más arriba: solo anima la primera vez que se dibuja en
+  // esta sesión de la app — no en cada redibujado ni cada vez que se vuelve a esta
+  // pestaña. El "breathe" del ícono (dash-empty-breathe) SÍ sigue en loop siempre,
+  // ese no se toca — es continuo a propósito, no una entrada.
+  const animClass = dashEmptyCardAnimated ? ' no-anim' : '';
+  dashEmptyCardAnimated = true;
   return `
-  <div class="dash-empty-card">
+  <div class="dash-empty-card${animClass}">
     <div class="dash-empty-badge">${lineIcon('box',30)}</div>
     <h3>${t('dash_empty_title')}</h3>
     <p>${t('dash_empty_sub')}</p>
@@ -3474,6 +3505,7 @@ function alertSettingsModal(){
   return `
   <div class="overlay" id="alert-settings-overlay">
     <div class="modal">
+      <button type="button" class="modal-close-btn" id="btn-close-alert-settings" aria-label="${t('btn_cancel')}">✕</button>
       <h3 class="saffron">${t('alert_title')}</h3>
       <div class="sub">${t('alert_sub')}</div>
 
@@ -3794,25 +3826,31 @@ const WELCOME_STEPS = [
 function closeWelcomeModal(){
   showWelcomeModal = false;
   welcomeStep = 0;
+  welcomeStepAnimated = false;
   try{ localStorage.setItem('patron_onboarded','1'); }catch(e){}
   render();
 }
 function advanceWelcomeStep(){
-  if(welcomeStep < WELCOME_STEPS.length-1){ welcomeStep++; render(); }
+  if(welcomeStep < WELCOME_STEPS.length-1){ welcomeStep++; welcomeStepAnimated = false; render(); }
   else closeWelcomeModal();
 }
 function retreatWelcomeStep(){
-  if(welcomeStep>0){ welcomeStep--; render(); }
+  if(welcomeStep>0){ welcomeStep--; welcomeStepAnimated = false; render(); }
 }
 function welcomeModal(){
   const step = WELCOME_STEPS[welcomeStep];
   const isLast = welcomeStep === WELCOME_STEPS.length-1;
+  // Ver el comentario de welcomeStepAnimated más arriba: la primera vez que se
+  // dibuja este paso se deja animar (animClass vacío); cualquier redibujado
+  // posterior del MISMO paso llega con animClass=' no-anim' y salta la animación.
+  const animClass = welcomeStepAnimated ? ' no-anim' : '';
+  welcomeStepAnimated = true;
   return `
-  <div class="overlay" id="welcome-overlay">
-    <div class="modal">
+  <div class="overlay${animClass}" id="welcome-overlay">
+    <div class="modal${animClass}">
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
-      <div class="welcome-step-card" style="background:${step.bg};">
+      <div class="welcome-step-card${animClass}" style="background:${step.bg};">
         <span class="welcome-step-icon" style="background:${step.fg};">${lineIcon(step.icon,28)}</span>
         <strong class="welcome-step-title">${t(step.titleKey)}</strong>
         <div class="welcome-step-sub">${t(step.subKey)}</div>
@@ -4215,52 +4253,69 @@ function itemModal(){
       <h3 class="navy">${editingItem?t('item_edit_title'):t('item_new_title')}</h3>
       <div class="sub">${t('item_sub')}</div>
       ${editingItem && draftItem.lastEditedBy ? `<div class="helper-note">${t('activity_last_edit').replace('{who}', escapeHtml(draftItem.lastEditedBy)).replace('{when}', timeAgo(draftItem.lastEditedAt))}</div>` : ''}
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <div class="stock-icon-ring" style="width:56px;height:56px;flex-shrink:0;">${stockIconSvg(draftItem)}</div>
-        <div>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-upload-item-photo">${t('btn_upload_photo')}</button>
-          ${itemPhotoSrc(draftItem) ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-remove-item-photo" style="margin-left:6px;">${t('btn_remove_photo')}</button>` : ''}
-          <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">${t('item_photo_helper')}</div>
+
+      <div class="settings-card">
+        ${settingsCardHeader('camera','var(--sky-soft)','var(--sky-ink)',t('item_section_photo'))}
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div class="stock-icon-ring" style="width:56px;height:56px;flex-shrink:0;">${stockIconSvg(draftItem)}</div>
+          <div>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-upload-item-photo">${t('btn_upload_photo')}</button>
+            ${itemPhotoSrc(draftItem) ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-remove-item-photo" style="margin-left:6px;">${t('btn_remove_photo')}</button>` : ''}
+            <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">${t('item_photo_helper')}</div>
+          </div>
+          <input type="file" id="item-photo-file" accept="image/*" style="display:none;">
         </div>
-        <input type="file" id="item-photo-file" accept="image/*" style="display:none;">
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-product" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_product')}</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-barcode" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_barcode')}</button>
-        <input type="file" id="item-scan-photo-file" accept="image/*" capture="environment" style="display:none;">
-      </div>
-      ${productScanState==='loading' ? `<div class="scan-status" style="margin-bottom:14px;"><div class="spinner"></div> ${t('product_scan_loading')}</div>` : ''}
-      ${productScanState==='error' ? `<div class="scan-error" style="margin-bottom:14px;">⚠ ${productScanError||t('product_scan_error')}</div>` : ''}
-      <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
-      <div class="field">
-        <label for="fi-category">${t('lbl_category')}</label>
-        <select id="fi-category">
-          <option value="">${t('category_none_option')}</option>
-          ${categories.map(c=>`<option value="${c.id}" ${draftItem.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
-          <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-product" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_product')}</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-barcode" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_barcode')}</button>
+          <input type="file" id="item-scan-photo-file" accept="image/*" capture="environment" style="display:none;">
         </div>
-        <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
+        ${productScanState==='loading' ? `<div class="scan-status" style="margin-top:14px;margin-bottom:0;"><div class="spinner"></div> ${t('product_scan_loading')}</div>` : ''}
+        ${productScanState==='error' ? `<div class="scan-error" style="margin-top:14px;margin-bottom:0;">⚠ ${productScanError||t('product_scan_error')}</div>` : ''}
       </div>
-      <div class="field-row">
-        <div class="field"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" value="${draftItem.salePrice||''}" placeholder="0.00"></div>
-        <div class="field"><label id="fi-profit-label">${t('lbl_profit_pct')}</label>
-          ${(()=>{
-            const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
-            const display = margin===null ? '—' : `${margin.toFixed(0)}%`;
-            const color = margin===null ? 'var(--ink-soft)' : margin<0 ? 'var(--tomato)' : margin<15 ? 'var(--saffron)' : 'var(--basil)';
-            return `<div id="fi-profit-display" role="status" aria-labelledby="fi-profit-label" style="padding:9px 11px;font-size:14px;font-weight:700;color:${color};">${display}</div>`;
-          })()}
+
+      <div class="settings-card">
+        ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('item_section_basic'))}
+        <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="fi-category">${t('lbl_category')}</label>
+          <select id="fi-category">
+            <option value="">${t('category_none_option')}</option>
+            ${categories.map(c=>`<option value="${c.id}" ${draftItem.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+          </select>
         </div>
       </div>
-      <div class="field-row">
-        <div class="field"><label for="fi-sku">${t('lbl_sku')}</label><input id="fi-sku" type="text" value="${escapeHtml(draftItem.sku||'')}" placeholder="${t('ph_sku_example')}"></div>
-        <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
+
+      <div class="settings-card">
+        ${settingsCardHeader('chart','var(--basil-soft)','var(--basil-ink)',t('item_section_pricing'))}
+        <div class="field-row">
+          <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
+            <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
+        </div>
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" value="${draftItem.salePrice||''}" placeholder="0.00"></div>
+          <div class="field" style="margin-bottom:0;"><label id="fi-profit-label">${t('lbl_profit_pct')}</label>
+            ${(()=>{
+              const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
+              const display = margin===null ? '—' : `${margin.toFixed(0)}%`;
+              const color = margin===null ? 'var(--ink-soft)' : margin<0 ? 'var(--tomato)' : margin<15 ? 'var(--saffron)' : 'var(--basil)';
+              return `<div id="fi-profit-display" role="status" aria-labelledby="fi-profit-label" style="padding:9px 11px;font-size:14px;font-weight:700;color:${color};">${display}</div>`;
+            })()}
+          </div>
+        </div>
       </div>
-      <div class="field"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${draftItem.qtyOnHand||0}"></div>
+
+      <div class="settings-card">
+        ${settingsCardHeader('printer','var(--saffron-soft)','var(--saffron-ink)',t('item_section_ids'))}
+        <div class="field-row">
+          <div class="field"><label for="fi-sku">${t('lbl_sku')}</label><input id="fi-sku" type="text" value="${escapeHtml(draftItem.sku||'')}" placeholder="${t('ph_sku_example')}"></div>
+          <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
+        </div>
+        <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${draftItem.qtyOnHand||0}"></div>
+      </div>
+
       <div class="helper-note">${t('item_helper')}</div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-item">${t('btn_cancel')}</button>
@@ -6188,6 +6243,8 @@ function attachEvents(){
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
   if(alertSettingsOverlay){
     alertSettingsOverlay.addEventListener('mousedown',(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } });
+    const closeAlertSettingsBtn=document.getElementById('btn-close-alert-settings');
+    if(closeAlertSettingsBtn) closeAlertSettingsBtn.onclick=()=>{ showAlertSettingsModal=false; render(); };
     const cancelAlertBtn=document.getElementById('btn-cancel-alert-settings');
     if(cancelAlertBtn) cancelAlertBtn.onclick=()=>{ showAlertSettingsModal=false; render(); };
     const saveAlertBtn=document.getElementById('btn-save-alert-settings');
@@ -6715,6 +6772,20 @@ try{
   }
 }catch(e){}
 render();
+// Adentro de la app nativa (Capacitor/Android), el splash nativo se queda prendido
+// a propósito (launchAutoHide:false en capacitor.config.json) hasta que se lo pide
+// desde acá — si no, Android lo esconde apenas el WebView "existe", que puede ser
+// bastante antes de que este script termine de cargar y pintar la pantalla real,
+// dejando un hueco en blanco de por medio (un flash feo entre splash y contenido).
+// Dos requestAnimationFrame en cadena (en vez de uno solo) esperan a que el navegador
+// ya haya compuesto el frame con el HTML de arriba, no solo que lo haya encolado.
+try{
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      window.Capacitor.Plugins.SplashScreen.hide().catch(()=>{});
+    }));
+  }
+}catch(e){}
 // Si este navegador ya había iniciado sesión antes, se reconecta solo a la nube al
 // abrir/refrescar la página — antes había que tocar el botón de nube de nuevo cada
 // vez, lo cual además de molesto dejaba a la app sin conectar los listeners hasta
