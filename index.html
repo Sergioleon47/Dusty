@@ -2290,6 +2290,20 @@ function scheduleCloudTriggeredRender(){
   cloudRenderDebounceTimer = setTimeout(()=>{ cloudRenderDebounceTimer = null; render(); }, 80);
 }
 
+/* Mismo problema que scheduleCloudTriggeredRender de arriba, pero disparado por el
+   usuario en vez de la nube: los buscadores de recibos (por texto y por monto) llaman
+   a esto en cada tecla, y como render() reconstruye #app entero, cada letra volvía a
+   decodificar de cero todas las fotos de recibo visibles (la grilla de recibos, las
+   miniaturas del calendario) — eso es lo que se sentía como que las fotos
+   "parpadean"/desaparecen mientras se escribe. Juntar las teclas seguidas en un solo
+   redibujado al final (como ya hacen los eventos de Firestore) evita ese redibujado
+   de más sin perder la sensación de "busca mientras escribís". */
+let searchRenderDebounceTimer = null;
+function scheduleSearchTriggeredRender(afterRender){
+  clearTimeout(searchRenderDebounceTimer);
+  searchRenderDebounceTimer = setTimeout(()=>{ searchRenderDebounceTimer = null; render(); afterRender(); }, 150);
+}
+
 function renderApp(){
   const app = document.getElementById('app');
   document.documentElement.lang = uiLang;
@@ -6293,17 +6307,19 @@ function attachEvents(){
       if(receiptSearchQuery) localStorage.setItem('patron_receipt_search', receiptSearchQuery);
       else localStorage.removeItem('patron_receipt_search');
     }catch(e){}
-    render();
-    const freshInp = document.getElementById('receipt-search');
-    if(freshInp){ freshInp.focus(); freshInp.setSelectionRange(cursorPos, cursorPos); }
+    scheduleSearchTriggeredRender(()=>{
+      const freshInp = document.getElementById('receipt-search');
+      if(freshInp){ freshInp.focus(); freshInp.setSelectionRange(cursorPos, cursorPos); }
+    });
   };
   const calAmountInp=document.getElementById('cal-amount-search');
   if(calAmountInp) calAmountInp.oninput=(e)=>{
     const cursorPos = e.target.selectionStart;
     applyCalendarSearch(e.target.value);
-    render();
-    const freshInp = document.getElementById('cal-amount-search');
-    if(freshInp){ freshInp.focus(); freshInp.setSelectionRange(cursorPos, cursorPos); }
+    scheduleSearchTriggeredRender(()=>{
+      const freshInp = document.getElementById('cal-amount-search');
+      if(freshInp){ freshInp.focus(); freshInp.setSelectionRange(cursorPos, cursorPos); }
+    });
   };
 
   document.querySelectorAll('[data-history-item]').forEach(b=>{ b.onclick=()=>openPriceHistoryModal(b.dataset.historyItem); });
