@@ -23,7 +23,7 @@
 // lib/patron-admin.js, compartidas con delete-account.js e identify-product.js —
 // ver ese archivo para el porqué.
 const {
-  admin, getFirebaseApp, isAllowedOrigin, verifyCaller,
+  isAllowedOrigin, verifyCaller,
   currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
 } = require('./lib/patron-admin');
 

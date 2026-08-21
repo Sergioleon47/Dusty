@@ -444,10 +444,6 @@
      que abre el historial, para que se note sin tener que entrar a mirar. */
   .count-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:10px;background:var(--tomato);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px #fff;}
 
-  /* Puntito de presencia en el panel de equipo — verde si mandó señal hace poco,
-     gris si no (no es tiempo real segundo a segundo, se basa en la última señal). */
-  .presence-dot{width:8px;height:8px;border-radius:50%;background:#C7CAD1;flex-shrink:0;}
-  .presence-dot.active{background:var(--basil);box-shadow:0 0 0 3px var(--basil-soft);}
   .modal .sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
@@ -1563,7 +1559,7 @@ let scanImagesHiRes = []; // misma cantidad de páginas que scanImages, pero en 
    que el usuario toca "leer". Guardar el File es barato: es una referencia al archivo, no
    los pixeles decodificados. */
 let scanSourceFiles = [];
-let scanPageWarnings = []; // misma cantidad de páginas — null, o 'dark'/'bright'/'blurry'/'flat' si la foto se ve difícil de leer
+let scanPageWarnings = []; // misma cantidad de páginas — null, o 'dark'/'blurry'/'flat' si la foto se ve difícil de leer
 let scanExtracted = []; // [{name, qty, unit, totalPrice, matchedIngId(new/null), supplier, date}]
 let scanErrorMsg = '';
 let scanSupplier = '';
@@ -1813,7 +1809,6 @@ const I18N = {
     btn_add_product_manually:'+ Agregar producto a mano', btn_confirm_apply:'Confirmar y actualizar inventario',
     btn_retry_scan:'Intentar de nuevo',
     err_img_process:'No se pudo procesar la imagen', err_img_read:'No se pudo leer la imagen',
-    err_ocr_read:'No se pudo leer el texto de la imagen — intenta con una foto más clara y bien iluminada',
     err_scan_no_connection:'No hay conexión a internet — escanear recibos necesita estar conectado. El inventario que ya tenés guardado lo podés seguir viendo sin problema; volvé a intentar el escaneo cuando tengas señal.',
     err_no_text:'No se detectó texto en la imagen — intenta con una foto más clara y bien iluminada',
     err_generic_receipt:'Ocurrió un error leyendo el recibo',
@@ -2024,7 +2019,6 @@ const I18N = {
     btn_add_product_manually:'+ Add product by hand', btn_confirm_apply:'Confirm and update inventory',
     btn_retry_scan:'Try again',
     err_img_process:"Couldn't process the image", err_img_read:"Couldn't read the image",
-    err_ocr_read:"Couldn't read the text in the image — try a clearer, better-lit photo",
     err_scan_no_connection:"No internet connection — scanning receipts needs you to be online. You can still see the inventory you've already saved; try scanning again once you're back on the network.",
     err_no_text:'No text detected in the image — try a clearer, better-lit photo',
     err_generic_receipt:'Something went wrong reading the receipt',
@@ -3485,7 +3479,6 @@ function alertSettingsModal(){
         <input type="file" id="import-file-input" accept="application/json" style="display:none;">
         <div class="helper-note" style="margin-top:10px;margin-bottom:0;">${t('backup_section_hint')}</div>
       </div>
-
 
       ${currentUser ? `
       <div class="settings-card" style="background:var(--tomato-soft);">

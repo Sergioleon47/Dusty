@@ -11,7 +11,7 @@
 // y cuenta contra el mismo límite — separarlo dejaría un hueco para gastar sin
 // tope una vez agotado el cupo de recibos.
 const {
-  admin, isAllowedOrigin, verifyCaller,
+  isAllowedOrigin, verifyCaller,
   currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
 } = require('./lib/patron-admin');
 
