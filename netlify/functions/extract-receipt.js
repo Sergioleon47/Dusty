@@ -32,9 +32,9 @@ function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, multi) {
   const hasCaseTracked = Array.isArray(caseTrackedNames) && caseTrackedNames.length > 0;
   const hasCategories = Array.isArray(categoryNames) && categoryNames.length > 0;
 
-  return `Eres un sistema experto en extraer datos de compras de un negocio: facturas impresas de mayorista (Sysco, US Foods, Cintas, proveedores locales de produce, etc) O capturas de pantalla de una compra online (Amazon, Walmart, cualquier sitio) — la imagen puede ser cualquiera de las dos cosas.
+  return `Eres un sistema experto en extraer datos de compras y gastos de un negocio: facturas impresas de mayorista (Sysco, US Foods, Cintas, proveedores locales de produce, etc), capturas de pantalla de una compra online (Amazon, Walmart, cualquier sitio), o recibos/facturas de servicios (luz, agua, gas, internet, renta, etc) — la imagen puede ser cualquiera de estas tres cosas.
 
-Analiza la(s) imagen(es) de esta factura o captura de compra online y extrae la información en JSON puro (sin markdown, sin backticks, sin texto extra antes o después).
+Analiza la(s) imagen(es) de esta factura, captura de compra online, o recibo de servicio, y extrae la información en JSON puro (sin markdown, sin backticks, sin texto extra antes o después).
 
 SI ES UNA CAPTURA DE COMPRA ONLINE (no una factura impresa) — se nota porque es un pantallazo de un sitio o app, con un resumen de "pedido"/"order" en vez de líneas de factura escaneadas:
 - "supplier" es el nombre del sitio/tienda (ej. "Amazon"), no el vendedor externo si aparece uno chico debajo del producto.
@@ -42,6 +42,11 @@ SI ES UNA CAPTURA DE COMPRA ONLINE (no una factura impresa) — se nota porque e
 - Ignora las líneas de "Subtotal", "Shipping"/envío, "Tax"/impuesto, descuentos y promociones aplicadas — no son productos.
 - Estos NO son cajas de mayorista: la cantidad que se ve junto a cada producto ("Qty: 2") YA es la cantidad real, nunca la desarmes ni la multipliques por ningún tamaño de paquete — esa lógica de cajas es solo para facturas de mayorista, no aplica acá. "unit" para estos productos va a ser casi siempre "unidad", salvo que el producto en sí se venda por peso o volumen (ej. una bolsa de 5 lb de algo).
 - Si el pedido tiene varios productos distintos, cada uno es un item separado, igual que las líneas de una factura normal.
+
+SI ES UN RECIBO O FACTURA DE UN SERVICIO (no una factura de productos) — es una boleta de luz/electricidad, agua, gas, internet, teléfono/celular, cable, renta/alquiler, seguro, u otro servicio recurrente similar, sin una lista de productos comprados:
+- Tratá TODO el recibo como un solo item en "items", aunque el documento tenga varias líneas de cargos, cuotas, desglose de consumo o impuestos — no las separes en items distintos, sumalas todas en un solo total.
+- "supplier" es el nombre de la empresa que presta el servicio (ej. "CFE", "AT&T", "Con Edison"), y "invoice_total" es el monto total a pagar de la factura.
+- Para ese item único: "raw_name" copia el nombre del servicio o tipo de cuenta tal como aparece impreso (ej. "Electric Service", "Agua Potable"); "clean_name" es el tipo de servicio en inglés y en su forma más simple (ej. "Electricity", "Water", "Gas", "Internet", "Phone", "Cable", "Rent", "Insurance"); "quantity" es siempre 1 y "unit" es siempre "servicio" (nunca apliques acá la lógica de cajas/paquetes de la sección de mayoristas más abajo); "total_price" es el mismo monto que "invoice_total".
 
 ${multi ? `MUY IMPORTANTE — ESTA IMAGEN PUEDE CONTENER VARIOS RECIBOS DISTINTOS:
 La foto puede mostrar UNO o VARIOS recibos separados, puestos uno al lado del otro (por ejemplo varios tickets chicos apoyados sobre una mesa). Tu tarea es identificar cuántos recibos DISTINTOS hay y devolver uno por cada uno, cada uno con su propio proveedor, fecha, total y lista de productos.

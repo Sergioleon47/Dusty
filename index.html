@@ -1818,7 +1818,7 @@ const I18N = {
     err_scan_quota_exceeded:'Llegaste al límite de escaneos de tu plan este mes. Esperá al próximo mes o subí de plan para seguir escaneando.',
     fallback_no_product_name:'Producto sin nombre', fallback_scanned:'Escaneado', fallback_unspecified:'Sin especificar',
     storage_full_warning:'⚠ No se pudo guardar este cambio — el almacenamiento del navegador está lleno. Anda a la pestaña Recibos, abrí un recibo viejo que ya no necesites y tocá "Eliminar" para liberar espacio (las fotos son lo que más ocupa). Después volvé a intentar el cambio.',
-    unit_unidad:'unidad', unit_caja:'caja',
+    unit_unidad:'unidad', unit_caja:'caja', unit_servicio:'servicio',
   },
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
@@ -2028,11 +2028,11 @@ const I18N = {
     err_scan_quota_exceeded:"You've reached your plan's scan limit for this month. Wait until next month or upgrade your plan to keep scanning.",
     fallback_no_product_name:'Unnamed product', fallback_scanned:'Scanned', fallback_unspecified:'Unspecified',
     storage_full_warning:'⚠ This change could not be saved — your browser storage is full. Go to the Receipts tab, open an old receipt you no longer need, and tap "Delete" to free up space (photos take up the most room). Then try the change again.',
-    unit_unidad:'unit', unit_caja:'case',
+    unit_unidad:'unit', unit_caja:'case', unit_servicio:'service',
   }
 };
 function t(key){ return (I18N[uiLang] && I18N[uiLang][key]) || I18N.es[key] || key; }
-function unitLabel(u){ return u==='unidad' ? t('unit_unidad') : u==='caja' ? t('unit_caja') : u; }
+function unitLabel(u){ return u==='unidad' ? t('unit_unidad') : u==='caja' ? t('unit_caja') : u==='servicio' ? t('unit_servicio') : u; }
 
 /* ================= UTILIDADES ================= */
 function uid(p){return p+Math.random().toString(36).slice(2,9);}
@@ -4208,7 +4208,7 @@ function itemModal(){
       </div>
       <div class="field-row">
         <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
-          <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
+          <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
         </div>
         <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
       </div>
