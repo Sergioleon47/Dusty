@@ -5269,9 +5269,23 @@ function deleteReceipt(receiptId){
   if(hasPurchases){
     const idSet = new Set(r.purchaseIds);
     if(revertInventory){
+      const touchedIngIds = new Set();
       purchases.filter(p=>idSet.has(p.id)).forEach(p=>{
         const ing = inventory.find(i=>i.id===p.ingId);
-        if(ing) ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - p.qty);
+        if(ing){ ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - p.qty); touchedIngIds.add(ing.id); }
+      });
+      // Un producto que este recibo tocó y que no tiene NINGUNA otra compra (ni de
+      // antes, ni de otro recibo) fue creado enteramente por este recibo — al
+      // revertirlo no debe quedar como fantasma en cero, tiene que desaparecer del
+      // todo. Uno que sí tiene historia propia (otro recibo, o se cargó a mano) se
+      // queda en la lista, solo con la cantidad ya restada arriba.
+      touchedIngIds.forEach(ingId=>{
+        const stillHasOtherPurchases = purchases.some(p=>p.ingId===ingId && !idSet.has(p.id));
+        if(stillHasOtherPurchases) return;
+        const ghostItem = inventory.find(i=>i.id===ingId);
+        inventory = inventory.filter(i=>i.id!==ingId);
+        if(!deletedInventoryIds.includes(ingId)) deletedInventoryIds.push(ingId);
+        if(ghostItem) logActivity('item_deleted', ghostItem.name);
       });
     }
     purchases = purchases.filter(p=>!idSet.has(p.id));
