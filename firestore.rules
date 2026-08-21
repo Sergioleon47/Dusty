@@ -69,40 +69,6 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
     }
 
-    // Conexiones de presupuesto: dos cuentas TOTALMENTE separadas (no un equipo, cada una
-    // sigue con su propio inventario) que se conectan para verse mutuamente solo el % de
-    // avance del presupuesto mensual — nunca el monto en dólares ni ningún otro dato. A
-    // diferencia de /members (una sola lista, bajo el dueño), acá cada lado tiene su PROPIA
-    // lista simétrica — conectarse escribe un doc en el árbol de CADA uno. Por eso hacen
-    // falta las dos condiciones: request.auth.uid == uid deja que escriba en SU PROPIO
-    // árbol (una entrada sobre la otra persona), y request.auth.uid == connId deja que se
-    // "auto-declare" en el árbol ajeno (su propia entrada ahí) — igual de seguro que
-    // /members: sin conocer el código exacto (ver budgetConnectCodes) no hay forma de
-    // enterarse del uid de nadie para escribir nada en su árbol.
-    match /users/{uid}/connections/{connId} {
-      allow read: if request.auth != null && (request.auth.uid == uid || request.auth.uid == connId);
-      allow create, update: if request.auth != null && (request.auth.uid == uid || request.auth.uid == connId);
-      allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == connId);
-    }
-
-    // budgetShare es un doc chiquito y derivado (solo {pct, updatedAt}, nunca el presupuesto
-    // real en dólares que vive en meta/settings) — esta regla SOLO agrega permiso de lectura
-    // para quien esté conectado. El dueño y los miembros de equipo ya tienen acceso de sobra
-    // por la regla más amplia de arriba (match /users/{uid}/meta/{document=**}); Firestore
-    // combina con OR las reglas que matchean el mismo camino, así que esto nunca resta
-    // permisos, solo los suma para el caso de una conexión que no es ni dueño ni miembro.
-    match /users/{uid}/meta/budgetShare {
-      allow read: if request.auth != null && exists(/databases/$(database)/documents/users/$(uid)/connections/$(request.auth.uid));
-    }
-
-    // Mismo esqueleto que inviteCodes de arriba, pero en su propio namespace — un código de
-    // conexión de presupuesto nunca debe poder usarse para entrar a un equipo ni viceversa.
-    match /budgetConnectCodes/{code} {
-      allow read: if true;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-    }
-
     match /feedback/{id} {
       allow create: if request.auth != null;
       allow read, update, delete: if false;

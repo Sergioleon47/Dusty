@@ -316,11 +316,6 @@
   .budget-bar-fill.warn{background:var(--stock-warn);}
   .budget-bar-fill.crit{background:var(--stock-crit);}
   .budget-bar-fill.none{background:var(--line);}
-  /* Tarjeta "Conectados" en el Dashboard — una fila por conexión, nombre + barra nomás,
-     nunca números (el % en detalle solo se ve en la pantalla de gestión, connectionsModal). */
-  .connection-row{padding:10px 0;border-bottom:1px solid var(--line);}
-  .connection-row:last-child{border-bottom:none;}
-  .connection-row-name{font-size:13px;font-weight:700;color:var(--ink);}
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
   .stock-caption-muted{font-style:italic;}
   .stock-actions{flex-shrink:0;text-align:center;}
@@ -690,10 +685,6 @@ let currentUser = null;
 let joinedOwnerUid = null, joinedOwnerEmail = '';
 function syncUid(){ return joinedOwnerUid || (currentUser && currentUser.uid) || null; }
 let showTeamModal = false, teamInviteCode = '', teamMembers = [], teamLoading = false, teamError = '', teamJoinCode = '';
-// Conexiones de presupuesto — cuentas separadas (no equipo) que se ven mutuamente el % de
-// avance del mes. connections: array de {uid, label, pct} (pct null = esa cuenta no tiene
-// presupuesto puesto). Se resetea al cerrar sesión igual que teamMembers.
-let showConnectionsModal = false, connectMyCode = '', connections = [], connectLoading = false, connectError = '', connectJoinCode = '';
 let unsubTeamMembers = null;
 // Qué uid produjo el estado local que hay cargado ahora mismo (memoria/localStorage).
 // Sirve para detectar el caso "se cerró sesión de una cuenta y se inició sesión con
@@ -774,7 +765,6 @@ function ensurePatronFirebaseReady(){
             }).then(()=>{
               attachFirestoreListeners(targetUid);
               attachTeamListener();
-              attachConnectionsListener();
               if(joinedOwnerUid) startPresenceHeartbeat(); else stopPresenceHeartbeat();
               // cloudSyncPending NO se apaga acá todavía a propósito: recién ahora es
               // que attachFirestoreListeners() dispara el primer snapshot real de
@@ -788,7 +778,6 @@ function ensurePatronFirebaseReady(){
             console.error('[Dusty] joined-team lookup failed:', err);
             attachFirestoreListeners(user.uid);
             attachTeamListener();
-            attachConnectionsListener();
             render();
           });
         } else {
@@ -796,7 +785,6 @@ function ensurePatronFirebaseReady(){
           try{ localStorage.removeItem('patron_had_session'); }catch(e){}
           detachFirestoreListeners();
           detachTeamListener();
-          detachConnectionsListener();
           stopPresenceHeartbeat();
           joinedOwnerUid = null; joinedOwnerEmail = '';
           // ensureInviteCode() solo pide uno nuevo si teamInviteCode está vacío — sin
@@ -850,16 +838,6 @@ function inviteCodeRef(code){ return firebase.firestore().collection('inviteCode
 // resto de los datos del equipo, así que las reglas de siempre (dueño o miembro
 // reconocido) ya la cubren sin agregar nada nuevo a firestore.rules.
 function activityRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('activity'); }
-/* ---- Referencias para conectar presupuestos entre cuentas separadas (no un equipo:
-   cada cuenta sigue con su propio inventario, solo se ven el % de presupuesto) ---- */
-// connectionsRef vive bajo CADA lado (a diferencia de membersRef, que solo vive bajo el
-// dueño) — es simétrico, dos docs por conexión, uno en el árbol de cada cuenta.
-function connectionsRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('connections'); }
-// budgetShare es el único dato que una conexión puede leer del otro lado — nunca el
-// presupuesto real en dólares (eso vive en metaRef, separado a propósito).
-function budgetShareRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('meta').doc('budgetShare'); }
-// Mismo patrón que inviteCodeRef, namespace aparte para no mezclar con códigos de equipo.
-function connectCodeRef(code){ return firebase.firestore().collection('budgetConnectCodes').doc(code); }
 // Se llama desde cada punto que cambia el inventario de verdad (guardar producto,
 // borrar, aplicar un recibo) — nunca bloquea ni revierte la acción principal si
 // falla, es solo un registro para que el equipo vea qué pasó.
@@ -1036,16 +1014,6 @@ function syncAllToFirestore(){
     ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
       aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget, categories
     }))});
-    // budgetShare es el único dato que una conexión (cuenta separada, no equipo) puede leer
-    // — nunca el monthlyBudget real de arriba. Se manda siempre (aunque no haya conexiones
-    // todavía) para que una conexión nueva vea datos frescos sin depender de que este
-    // dispositivo vuelva a cambiar algo después de conectarse.
-    const currentMonthKeyForShare = allMonths()[0] || localMonthStr();
-    const currentSpendForShare = spendForMonth(currentMonthKeyForShare);
-    ops.push({ref:budgetShareRef(uid), data:{
-      pct: monthlyBudget ? Math.round((currentSpendForShare/monthlyBudget)*100) : null,
-      updatedAt: new Date().toISOString()
-    }});
 
     const CHUNK = 450;
     const commits = [];
@@ -1191,7 +1159,6 @@ function handleSyncPermissionDenied(err){
   console.warn('[Dusty] se perdió el acceso al inventario compartido — volviendo a la cuenta propia.');
   detachFirestoreListeners();
   detachTeamListener();
-  detachConnectionsListener();
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
@@ -1202,7 +1169,6 @@ function handleSyncPermissionDenied(err){
   applyingRemoteSnapshot = false;
   attachFirestoreListeners(currentUser.uid);
   attachTeamListener();
-  attachConnectionsListener();
   render();
 }
 function attachFirestoreListeners(uid){
@@ -1398,7 +1364,6 @@ function leaveTeam(){
       applyingRemoteSnapshot = false;
       attachFirestoreListeners(currentUser.uid);
       attachTeamListener();
-      attachConnectionsListener();
       teamLoading = false; showTeamModal = false;
       render();
     }).catch(err=>{
@@ -1414,146 +1379,6 @@ function removeMember(memberId){
   });
 }
 
-/* ================= CONEXIONES DE PRESUPUESTO (cuentas separadas, NO un equipo) =================
-   Dos cuentas totalmente independientes — cada una sigue con su propio inventario — se
-   conectan por código (mismo mecanismo que compartir equipo, colección aparte) para verse
-   mutuamente solo el % de avance del presupuesto mensual del mes. Nunca comparte inventario,
-   compras, recibos ni el monto real del presupuesto — ver firestore.rules para el límite
-   exacto de qué puede leer una conexión (un solo doc chiquito, meta/budgetShare). */
-function generateConnectCode(){
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I/L, igual que el de equipo
-  let code = '';
-  for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
-  return code;
-}
-function connectMetaRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('meta').doc('budgetConnect'); }
-function ensureConnectCode(){
-  const uid = syncUid();
-  if(connectMyCode || !uid) return;
-  connectLoading = true; render();
-  connectMetaRef(uid).get().then(doc=>{
-    if(doc.exists && doc.data().code) return doc.data().code;
-    const code = generateConnectCode();
-    return Promise.all([
-      connectMetaRef(uid).set({code}),
-      connectCodeRef(code).set({ownerUid: uid, ownerLabel: currentUserLabel()})
-    ]).then(()=>code);
-  }).then(code=>{
-    connectMyCode = code; connectLoading = false; render();
-  }).catch(err=>{
-    console.error('[Dusty] connect code setup failed:', err);
-    connectLoading = false; connectError = t('connect_err_generic'); render();
-  });
-}
-let unsubConnections = null, connectionsBarRefreshTimer = null;
-function attachConnectionsListener(){
-  const uid = syncUid();
-  if(!uid) return;
-  detachConnectionsListener();
-  unsubConnections = connectionsRef(uid).onSnapshot(snap=>{
-    const list = snap.docs.map(d=>({uid:d.id, label:d.data().label||'', pct:null}));
-    // Conserva el pct ya cargado de una conexión que ya estaba (para que no parpadee a
-    // "sin datos" cada vez que llega un snapshot por cualquier otro motivo) — solo las
-    // conexiones nuevas empiezan sin pct hasta el próximo refreshConnectionBars().
-    const nextConnections = list.map(c=>{
-      const prev = connections.find(p=>p.uid===c.uid);
-      return prev ? Object.assign({}, c, {pct: prev.pct}) : c;
-    });
-    // Con el pct ya conservado arriba, esta comparación da igual (sin redibujar de
-    // más) cuando el snapshot entregó lo mismo de siempre — el mismo caso de
-    // reconexión en el celular que ya se resolvió en los demás listeners.
-    if(sameJSON(nextConnections, connections)) return;
-    connections = nextConnections;
-    render();
-    refreshConnectionBars();
-  }, err=>console.error('[Dusty] connections listener error:', err));
-}
-function detachConnectionsListener(){
-  if(unsubConnections) unsubConnections();
-  unsubConnections = null; connections = [];
-  if(connectionsBarRefreshTimer){ clearInterval(connectionsBarRefreshTimer); connectionsBarRefreshTimer=null; }
-}
-// A diferencia de la lista de conexiones (en vivo, onSnapshot), el % de cada una se trae
-// con un .get() puntual — evita mantener un listener permanente por cada conexión — y se
-// refresca solo (no solo con el modal abierto) para que la tarjeta del Dashboard no quede
-// pegada mientras la sesión sigue abierta.
-function refreshConnectionBars(){
-  if(connections.length===0) return;
-  Promise.all(connections.map(c=>
-    budgetShareRef(c.uid).get()
-      .then(doc=>({uid:c.uid, pct: (doc.exists && typeof doc.data().pct==='number') ? doc.data().pct : null}))
-      .catch(()=>({uid:c.uid, pct:null}))
-  )).then(results=>{
-    // Este refresco corre solo, cada 45s, mientras haya alguna conexión — sin este
-    // chequeo, redibujaba la app entera cada 45s PARA SIEMPRE con solo tener una
-    // conexión activa, aunque el % de nadie hubiera cambiado un solo punto. En el
-    // celular eso se siente como un saltito recurrente sin razón aparente cada rato,
-    // ni siquiera atado a algo que el usuario hizo.
-    let changed = false;
-    results.forEach(r=>{
-      const c = connections.find(x=>x.uid===r.uid);
-      if(c && c.pct!==r.pct){ c.pct = r.pct; changed = true; }
-    });
-    if(changed) render();
-  });
-  if(!connectionsBarRefreshTimer){
-    connectionsBarRefreshTimer = setInterval(()=>{ if(connections.length>0) refreshConnectionBars(); }, 45000);
-  }
-}
-function connectLink(){
-  return location.origin + location.pathname + '?connect=' + encodeURIComponent(connectMyCode);
-}
-function copyConnectCode(){
-  if(!connectMyCode) return;
-  navigator.clipboard.writeText(connectLink()).catch(()=>{});
-}
-function shareConnectCode(){
-  if(!connectMyCode || !navigator.share) return;
-  navigator.share({ title: 'Dusty', text: t('connect_share_msg'), url: connectLink() }).catch(()=>{});
-}
-function openConnectionsModal(){
-  showConnectionsModal = true; connectError='';
-  ensureConnectCode();
-  render();
-}
-function closeConnectionsModal(){
-  showConnectionsModal=false; connectError='';
-  render();
-}
-function connectAccount(){
-  const code = (connectJoinCode||'').trim().toUpperCase();
-  if(!code){ connectError=t('connect_err_need_code'); render(); return; }
-  const myUid = syncUid();
-  if(!myUid) return;
-  connectLoading = true; connectError=''; render();
-  connectCodeRef(code).get().then(doc=>{
-    if(!doc.exists){ connectLoading=false; connectError=t('connect_err_not_found'); render(); return; }
-    const otherUid = doc.data().ownerUid, otherLabel = doc.data().ownerLabel||'';
-    if(otherUid === myUid){ connectLoading=false; connectError=t('connect_err_self'); render(); return; }
-    if(connections.some(c=>c.uid===otherUid)){ connectLoading=false; connectError=t('connect_err_already'); render(); return; }
-    return Promise.all([
-      connectionsRef(myUid).doc(otherUid).set({label: otherLabel, connectedAt: new Date().toISOString()}),
-      connectionsRef(otherUid).doc(myUid).set({label: currentUserLabel(), connectedAt: new Date().toISOString()})
-    ]).then(()=>{
-      connectLoading=false; connectJoinCode=''; render();
-    });
-  }).catch(err=>{
-    console.error('[Dusty] connect account failed:', err);
-    connectLoading=false; connectError=t('connect_err_generic'); render();
-  });
-}
-function removeConnection(otherUid){
-  if(!confirm(t('connect_remove_confirm'))) return;
-  const myUid = syncUid();
-  if(!myUid) return;
-  Promise.all([
-    connectionsRef(myUid).doc(otherUid).delete(),
-    connectionsRef(otherUid).doc(myUid).delete()
-  ]).catch(err=>{
-    console.error('[Dusty] remove connection failed:', err);
-    alert(t('connect_err_generic'));
-  });
-}
 /* Cada vez que este dispositivo se conecta a la nube (no solo la primera vez):
    compara por id qué hay local que todavía NO está en la nube, y lo sube antes
    de dejar que los listeners en tiempo real empiecen a aplicar snapshots.
@@ -1909,22 +1734,6 @@ const I18N = {
     team_err_self:'Ese es tu propio código — compartíselo a otra persona.',
     team_err_generic:'Algo salió mal. Probá de nuevo.',
     team_share_btn:'Compartir', team_share_msg:'Te comparto el inventario en Dusty — abrí este link y entrá con tu nombre y un PIN:',
-    connect_open_btn:'Conectar cuentas', connect_open_hint:'Conectá tu cuenta con la de otra persona (cada uno sigue con su propio inventario) para verse mutuamente el avance del presupuesto del mes — solo una barra de color, nunca montos.',
-    connect_title:'Conexiones de presupuesto',
-    connect_your_code_hint:'Cualquiera que entre este código en su cuenta se conecta con vos — va a ver solo una barra de color con tu avance del presupuesto, nunca montos ni tu inventario.',
-    connect_your_code_label:'Tu código', connect_list_label:'Conectado con',
-    connect_none_yet:'Todavía no te conectaste con nadie.',
-    connect_no_budget:'sin presupuesto', connect_unknown_label:'Cuenta conectada',
-    connect_join_label:'¿Alguien te compartió un código?', connect_join_placeholder:'CÓDIGO',
-    connect_join_btn:'Conectar',
-    connect_err_need_code:'Escribí un código primero.',
-    connect_err_not_found:'Ese código no existe. Revisalo con la persona que te lo compartió.',
-    connect_err_self:'Ese es tu propio código — compartíselo a otra persona.',
-    connect_err_already:'Ya estás conectado con esa cuenta.',
-    connect_err_generic:'Algo salió mal. Probá de nuevo.',
-    connect_remove_confirm:'¿Desconectar esta cuenta? Van a dejar de verse el presupuesto mutuamente.',
-    connect_share_msg:'Te comparto mi código de Dusty para conectar presupuestos — abrí este link:',
-    dash_connections_title:'Conectados',
     team_join_title:'Unirme con un código', team_join_hint:'Alguien te compartió un código de invitación. Poné tu nombre y elegí un PIN — no hace falta ningún email.',
     team_pinlogin_title:'Entrar con nombre y PIN', team_pinlogin_hint:'Si ya te uniste antes a un inventario compartido, entrá con el mismo código, tu nombre y tu PIN.',
     team_pin_name_label:'Tu nombre', team_pin_name_placeholder:'Ej. Juan',
@@ -1952,7 +1761,7 @@ const I18N = {
     welcome_step1_title:'Escaneá un recibo', welcome_step1_sub:'Sacale una foto y la app lee los productos y precios sola.',
     welcome_step2_title:'Tu inventario se actualiza solo', welcome_step2_sub:'Sabés en todo momento cuánto tenés de cada producto y cuánto vale.',
     welcome_step3_title:'Te avisamos si algo cambia', welcome_step3_sub:'Precio que sube, cantidad rara, o stock que se está por acabar.',
-    welcome_step4_title:'Organizá y controlá tu presupuesto', welcome_step4_sub:'Agrupá todo en categorías, poné un presupuesto mensual, y conectate con otras cuentas para comparar el avance.',
+    welcome_step4_title:'Organizá y controlá tu presupuesto', welcome_step4_sub:'Agrupá todo en categorías y poné un presupuesto mensual para seguir el avance del mes.',
     welcome_btn:'Entendido, empezar',
     rd_scanned_on:'escaneado el', rd_applied_label:'Productos aplicados al inventario', rd_applied_to:'aplicado a:',
     rd_photo_alt:'Foto del recibo de',
@@ -2137,22 +1946,6 @@ const I18N = {
     team_err_self:'That\'s your own code — share it with someone else.',
     team_err_generic:'Something went wrong. Try again.',
     team_share_btn:'Share', team_share_msg:"I'm sharing the Dusty inventory with you — open this link and sign in with your name and a PIN:",
-    connect_open_btn:'Connect accounts', connect_open_hint:"Connect your account with someone else's (each keeps their own inventory) to see each other's monthly budget progress — just a colored bar, never amounts.",
-    connect_title:'Budget connections',
-    connect_your_code_hint:"Anyone who enters this code in their account connects with you — they'll only see a colored bar of your budget progress, never amounts or your inventory.",
-    connect_your_code_label:'Your code', connect_list_label:'Connected with',
-    connect_none_yet:"You haven't connected with anyone yet.",
-    connect_no_budget:'no budget set', connect_unknown_label:'Connected account',
-    connect_join_label:'Did someone share a code with you?', connect_join_placeholder:'CODE',
-    connect_join_btn:'Connect',
-    connect_err_need_code:'Enter a code first.',
-    connect_err_not_found:"That code doesn't exist. Check it with whoever shared it with you.",
-    connect_err_self:"That's your own code — share it with someone else.",
-    connect_err_already:"You're already connected with that account.",
-    connect_err_generic:'Something went wrong. Try again.',
-    connect_remove_confirm:"Disconnect this account? You'll stop seeing each other's budget progress.",
-    connect_share_msg:'Sharing my Dusty code to connect budgets — open this link:',
-    dash_connections_title:'Connected',
     team_join_title:'Join with a code', team_join_hint:"Someone shared an invite code with you. Enter your name and pick a PIN — no email needed.",
     team_pinlogin_title:'Sign in with name and PIN', team_pinlogin_hint:'If you already joined a shared inventory, sign in with the same code, your name, and your PIN.',
     team_pin_name_label:'Your name', team_pin_name_placeholder:'e.g. John',
@@ -2180,7 +1973,7 @@ const I18N = {
     welcome_step1_title:'Scan a receipt', welcome_step1_sub:'Take a photo and the app reads the products and prices on its own.',
     welcome_step2_title:'Your inventory updates itself', welcome_step2_sub:'Always know how much you have of each product and what it\'s worth.',
     welcome_step3_title:'We\'ll flag anything unusual', welcome_step3_sub:'A price that jumps, a weird quantity, or stock running low.',
-    welcome_step4_title:'Organize and stay on budget', welcome_step4_sub:'Group everything into categories, set a monthly budget, and connect with other accounts to compare progress.',
+    welcome_step4_title:'Organize and stay on budget', welcome_step4_sub:'Group everything into categories and set a monthly budget to track your progress.',
     welcome_btn:'Got it, let\'s go',
     rd_scanned_on:'scanned on', rd_applied_label:'Products applied to inventory', rd_applied_to:'applied to:',
     rd_photo_alt:'Receipt photo from',
@@ -2539,7 +2332,6 @@ function renderApp(){
     ${showWelcomeModal ? welcomeModal() : ''}
     ${showAuthModal ? authModal() : ''}
     ${showTeamModal ? teamModal() : ''}
-    ${showConnectionsModal ? connectionsModal() : ''}
     ${showFeedbackModal ? feedbackModal() : ''}
     ${bottomNav()}
   `;
@@ -3046,7 +2838,6 @@ function dashboardView(){
 
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
   ${inventory.length>0 && categories.length>0 ? categoryChipsRow() : ''}
-  ${connections.length>0 ? connectionsCard() : ''}
   ${priceAlertsCard()}
   ${stockAnalyticsCard()}
   `;
@@ -3061,28 +2852,6 @@ function categoryChipsRow(){
     ${categories.map(c=>{
       const count = inventory.filter(i=>i.categoryId===c.id).length;
       return `<button type="button" class="category-chip" data-open-category="${c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
-    }).join('')}
-  </div>
-  `;
-}
-// Barra de cada conexión, SIN número ni monto — tal cual lo pidió el usuario, "no tiene
-// que verse todo, solo las barras de verde a rojo". pct null (esa cuenta no tiene
-// presupuesto puesto) se muestra como barra gris llena, no verde — 0% de gasto y "no hay
-// dato" son cosas distintas, y una barra verde de más diría "le está yendo bien" cuando en
-// realidad no hay nada que medir.
-function connectionsCard(){
-  return `
-  <div class="stock-card">
-    <div class="stock-card-title">${t('dash_connections_title')}</div>
-    ${connections.map(c=>{
-      const hasBudget = typeof c.pct==='number';
-      const cls = hasBudget ? budgetStatus(c.pct) : 'none';
-      const width = hasBudget ? Math.min(Math.max(c.pct,3),100) : 100;
-      return `
-      <div class="connection-row">
-        <div class="connection-row-name">${escapeHtml(c.label||t('connect_unknown_label'))}</div>
-        <div class="budget-bar-track"><div class="budget-bar-fill ${cls}" style="width:${width}%;"></div></div>
-      </div>`;
     }).join('')}
   </div>
   `;
@@ -3724,13 +3493,6 @@ function alertSettingsModal(){
         <div class="helper-note" style="margin-top:10px;margin-bottom:0;">${t('backup_section_hint')}</div>
       </div>
 
-      ${currentUser ? `
-      <div class="settings-card" style="background:var(--basil-soft);">
-        ${settingsCardHeader('share','#fff','var(--basil-ink)',t('connect_open_btn'))}
-        <button class="btn btn-ghost btn-sm" id="btn-open-connections" style="color:var(--basil-ink);border-color:var(--basil);background:#fff;">${t('connect_open_btn')}${connections.length>0?` (${connections.length})`:''}</button>
-        <div class="helper-note" style="margin-top:8px;margin-bottom:0;">${t('connect_open_hint')}</div>
-      </div>
-      ` : ''}
 
       ${currentUser ? `
       <div class="settings-card" style="background:var(--tomato-soft);">
@@ -3808,7 +3570,6 @@ async function performAccountDeletion(){
     // esperar a que onAuthStateChanged se entere solo de una cuenta que ya no está.
     detachFirestoreListeners();
     detachTeamListener();
-    detachConnectionsListener();
     stopPresenceHeartbeat();
     try{ await firebase.auth().signOut(); }catch(e){}
     inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; aliasMap={};
@@ -4111,7 +3872,6 @@ function isRecentlyActive(iso){
 function applyJoinedTeam(ownerUid, ownerEmail){
   detachFirestoreListeners();
   detachTeamListener();
-  detachConnectionsListener();
   // Esta limpieza es una transición de árbol de datos, no una edición real — no debe
   // disparar una subida a la nube con estado vacío (ver nota completa en joinTeam()).
   applyingRemoteSnapshot = true;
@@ -4121,10 +3881,6 @@ function applyJoinedTeam(ownerUid, ownerEmail){
   saveState();
   applyingRemoteSnapshot = false;
   attachFirestoreListeners(joinedOwnerUid);
-  // A diferencia de attachTeamListener() (que solo ve el equipo el dueño real), las
-  // conexiones de presupuesto son del NEGOCIO (syncUid(), ya apuntando acá al dueño) — un
-  // miembro que se une también tiene que ver/usar las conexiones del negocio compartido.
-  attachConnectionsListener();
   startPresenceHeartbeat();
 }
 function submitQuickJoin(){
@@ -4334,52 +4090,6 @@ function teamModal(){
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-sign-out-team">${t('team_sign_out_btn')}</button>
         <button class="btn btn-primary" id="btn-close-team">${t('btn_close')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-/* ================= MODAL: CONEXIONES DE PRESUPUESTO ================= */
-// Acá sí se muestra el % en detalle (es la propia pantalla de gestión del usuario) — la
-// regla de "solo la barra, sin números" es para el Dashboard, donde se ve a los demás de
-// pasada (ver categoryChipsRow / la tarjeta de conectados en dashboardView()).
-function connectionsModal(){
-  return `
-  <div class="overlay" id="connections-overlay">
-    <div class="modal">
-      <h3 class="basil">${t('connect_title')}</h3>
-      <p style="font-size:13px;color:var(--ink-soft);">${t('connect_your_code_hint')}</p>
-      <div class="field">
-        <label>${t('connect_your_code_label')}</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="connect-code-display" type="text" value="${escapeHtml(connectMyCode)}" readonly placeholder="${connectLoading?'…':''}" style="font-weight:700;letter-spacing:2px;text-align:center;">
-          ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-ghost" id="btn-share-connect-code" ${connectMyCode?'':'disabled'}>${t('team_share_btn')}</button>` : ''}
-          <button type="button" class="btn btn-ghost" id="btn-copy-connect-code" ${connectMyCode?'':'disabled'}>${t('team_copy_btn')}</button>
-        </div>
-      </div>
-      <div style="margin-top:6px;">
-        <label style="font-size:11.5px;color:var(--ink-soft);">${t('connect_list_label')}</label>
-        ${connections.map(c=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-            <span style="font-size:13px;">${escapeHtml(c.label||c.uid)}</span>
-            <span style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:11px;color:var(--ink-soft);">${c.pct===null||c.pct===undefined ? t('connect_no_budget') : c.pct+'%'}</span>
-              <button type="button" class="link-btn" data-remove-connection="${escapeHtml(c.uid)}" style="padding:0;color:#C0392B;">${t('team_remove_btn')}</button>
-            </span>
-          </div>
-        `).join('')}
-        ${connections.length===0 ? `<div class="helper-note" style="margin-top:2px;">${t('connect_none_yet')}</div>` : ''}
-      </div>
-      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-        <label style="font-size:11.5px;color:var(--ink-soft);">${t('connect_join_label')}</label>
-        <div style="display:flex;gap:8px;">
-          <input id="connect-join-input" type="text" value="${escapeHtml(connectJoinCode)}" placeholder="${t('connect_join_placeholder')}" style="text-transform:uppercase;">
-          <button type="button" class="btn btn-ghost" id="btn-do-connect" ${connectLoading?'disabled':''}>${t('connect_join_btn')}</button>
-        </div>
-      </div>
-      ${connectError ? `<div class="scan-error" style="margin-top:12px;">${escapeHtml(connectError)}</div>` : ''}
-      <div class="modal-actions">
-        <button class="btn btn-primary" id="btn-close-connections" style="width:100%;">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;
@@ -6356,26 +6066,6 @@ function attachEvents(){
     };
     const btnOpenDeleteAccount=document.getElementById('btn-open-delete-account');
     if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAlertSettingsModal=false; openDeleteAccountModal(); };
-    const btnOpenConnections=document.getElementById('btn-open-connections');
-    if(btnOpenConnections) btnOpenConnections.onclick=()=>{ showAlertSettingsModal=false; openConnectionsModal(); };
-  }
-
-  const connectionsOverlay=document.getElementById('connections-overlay');
-  if(connectionsOverlay){
-    connectionsOverlay.addEventListener('mousedown',(e)=>{ if(e.target===connectionsOverlay) closeConnectionsModal(); });
-    const btnCloseConnections=document.getElementById('btn-close-connections');
-    if(btnCloseConnections) btnCloseConnections.onclick=closeConnectionsModal;
-    const btnCopyConnectCode=document.getElementById('btn-copy-connect-code');
-    if(btnCopyConnectCode) btnCopyConnectCode.onclick=copyConnectCode;
-    const btnShareConnectCode=document.getElementById('btn-share-connect-code');
-    if(btnShareConnectCode) btnShareConnectCode.onclick=shareConnectCode;
-    const connectJoinInput=document.getElementById('connect-join-input');
-    if(connectJoinInput) connectJoinInput.oninput=(e)=>{ connectJoinCode=e.target.value; };
-    const btnDoConnect=document.getElementById('btn-do-connect');
-    if(btnDoConnect) btnDoConnect.onclick=connectAccount;
-    document.querySelectorAll('[data-remove-connection]').forEach(btn=>{
-      btn.onclick=()=>removeConnection(btn.dataset.removeConnection);
-    });
   }
 
   const deleteAccountOverlay=document.getElementById('delete-account-overlay');
@@ -6883,18 +6573,6 @@ try{
     } else {
       authJoinCode = code; authMode = 'join'; showAuthModal = true;
     }
-  }
-}catch(e){}
-// Si el link trae ?connect=CODIGO (alguien compartió su código de conexión de
-// presupuesto), se autocompleta el campo de conectar — a diferencia de ?join=, esto nunca
-// abre el flujo de cuenta nueva por nombre+PIN, porque conectar presupuestos requiere que
-// ambos lados ya tengan su propio inventario, no tiene sentido crear una cuenta vacía solo
-// para esto.
-try{
-  const connectCodeFromUrl = new URLSearchParams(location.search).get('connect');
-  if(connectCodeFromUrl){
-    history.replaceState(null, '', location.pathname);
-    connectJoinCode = connectCodeFromUrl.toUpperCase();
   }
 }catch(e){}
 render();
