@@ -455,6 +455,22 @@
   .modal-actions .btn{flex:1;}
   .helper-note{font-size:11.5px;color:var(--ink-soft);margin-top:-8px;margin-bottom:14px;}
   .status-pill-success{display:inline-flex;align-items:center;gap:6px;background:var(--basil-soft);color:var(--basil-ink);font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:20px;margin-bottom:18px;}
+
+  /* Tutorial de bienvenida: un paso a la vez, con un color lleno de fondo (no solo
+     el ícono) para que avanzar se sienta como pasar de página. render() reconstruye
+     el modal entero en cada paso, así que la animación de entrada se vuelve a
+     disparar sola cada vez — no hace falta ningún truco de "key" en JS. */
+  .welcome-step-card{border-radius:14px;padding:26px 20px;text-align:center;margin:16px 0;animation:welcomeStepIn .4s var(--ease-soft);}
+  .welcome-step-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;color:#fff;margin-bottom:14px;box-shadow:var(--shadow);}
+  .welcome-step-title{display:block;font-size:16px;margin-bottom:6px;}
+  .welcome-step-sub{font-size:13px;color:var(--ink-soft);line-height:1.45;}
+  @keyframes welcomeStepIn{
+    from{opacity:0;transform:translateY(8px) scale(0.98);}
+    to{opacity:1;transform:translateY(0) scale(1);}
+  }
+  .welcome-dots{display:flex;justify-content:center;gap:7px;margin-bottom:4px;}
+  .welcome-dot{width:7px;height:7px;border-radius:50%;transition:transform .25s ease,background .25s ease;}
+  .welcome-dot.active{transform:scale(1.35);}
   .settings-card{background:#F7F7F5;border-radius:12px;padding:16px;margin-bottom:14px;}
   .settings-card .helper-note{margin-top:8px;}
 
@@ -614,6 +630,8 @@ let activeTab = 'dashboard';
 try{ activeTab = localStorage.getItem('patron_active_tab') || 'dashboard'; }catch(e){}
 const TAB_ORDER = ['dashboard','inventario','recibos'];
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
+// Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
+let welcomeStep = 0;
 let showAuthModal=false, authMode='signin', authError='', authContextNote='', authLoading=false, authEmail='', authPassword='';
 // authMode también puede ser 'join' (alguien sin cuenta todavía que recibió un código
 // de invitación — crea una cuenta liviana con nombre+PIN, sin email) o 'pinlogin'
@@ -1750,11 +1768,12 @@ const I18N = {
     delete_account_success:'Tu cuenta fue eliminada.',
     privacy_policy_link:'Política de privacidad',
     welcome_title:'Bienvenido a Dusty', welcome_sub:'Así funciona:',
-    welcome_step1_title:'Escaneá un recibo', welcome_step1_sub:'Sacale una foto y la app lee los productos y precios sola.',
+    welcome_step1_title:'Escaneá cualquier recibo o factura', welcome_step1_sub:'Sacale una foto — de una compra, una factura de proveedor, o hasta una boleta de luz, agua o internet — y la app la lee sola.',
     welcome_step2_title:'Tu inventario se actualiza solo', welcome_step2_sub:'Sabés en todo momento cuánto tenés de cada producto y cuánto vale.',
     welcome_step3_title:'Te avisamos si algo cambia', welcome_step3_sub:'Precio que sube, cantidad rara, o stock que se está por acabar.',
     welcome_step4_title:'Organizá y controlá tu presupuesto', welcome_step4_sub:'Agrupá todo en categorías y poné un presupuesto mensual para seguir el avance del mes.',
-    welcome_btn:'Entendido, empezar',
+    welcome_step5_title:'Trabajá en equipo', welcome_step5_sub:'Compartí un código con alguien y los dos ven y actualizan el mismo inventario, recibos y presupuesto, siempre sincronizado.',
+    welcome_btn:'Entendido, empezar', welcome_next_btn:'Siguiente', welcome_back_btn:'Atrás',
     rd_scanned_on:'escaneado el', rd_applied_label:'Productos aplicados al inventario', rd_applied_to:'aplicado a:',
     rd_photo_alt:'Foto del recibo de',
     item_edit_title:'Editar producto', item_new_title:'Nuevo producto',
@@ -1960,11 +1979,12 @@ const I18N = {
     delete_account_success:'Your account has been deleted.',
     privacy_policy_link:'Privacy policy',
     welcome_title:'Welcome to Dusty', welcome_sub:'Here\'s how it works:',
-    welcome_step1_title:'Scan a receipt', welcome_step1_sub:'Take a photo and the app reads the products and prices on its own.',
+    welcome_step1_title:'Scan any receipt or bill', welcome_step1_sub:'Snap a photo — of a purchase, a supplier invoice, even an electricity, water, or internet bill — and the app reads it on its own.',
     welcome_step2_title:'Your inventory updates itself', welcome_step2_sub:'Always know how much you have of each product and what it\'s worth.',
     welcome_step3_title:'We\'ll flag anything unusual', welcome_step3_sub:'A price that jumps, a weird quantity, or stock running low.',
     welcome_step4_title:'Organize and stay on budget', welcome_step4_sub:'Group everything into categories and set a monthly budget to track your progress.',
-    welcome_btn:'Got it, let\'s go',
+    welcome_step5_title:'Work as a team', welcome_step5_sub:'Share a code with someone and you both see and update the same inventory, receipts, and budget, always in sync.',
+    welcome_btn:'Got it, let\'s go', welcome_next_btn:'Next', welcome_back_btn:'Back',
     rd_scanned_on:'scanned on', rd_applied_label:'Products applied to inventory', rd_applied_to:'applied to:',
     rd_photo_alt:'Receipt photo from',
     item_edit_title:'Edit product', item_new_title:'New product',
@@ -3759,37 +3779,50 @@ function langChoiceModal(){
 }
 
 /* ================= MODAL: BIENVENIDA (primera vez que se abre la app) ================= */
+// Un color lleno por paso (no solo el ícono, como antes) para que avanzar se sienta
+// como pasar de página en vez de leer una lista estática — mismos 4 colores que ya
+// usa el resto de la app para agrupar conceptos (ver el comentario de settingsCardHeader
+// más arriba) más "tomato" para el paso de equipo, que en todos lados es el color de
+// "compartir/positivo" en Configuración.
+const WELCOME_STEPS = [
+  {icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)',        titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
+  {icon:'box',    bg:'var(--navy-wash)',    fg:'var(--navy)',       titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'},
+  {icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'},
+  {icon:'chart',  bg:'var(--basil-soft)',   fg:'var(--basil-ink)',  titleKey:'welcome_step4_title', subKey:'welcome_step4_sub'},
+  {icon:'share',  bg:'var(--tomato-soft)',  fg:'var(--tomato-ink)', titleKey:'welcome_step5_title', subKey:'welcome_step5_sub'}
+];
 function closeWelcomeModal(){
   showWelcomeModal = false;
+  welcomeStep = 0;
   try{ localStorage.setItem('patron_onboarded','1'); }catch(e){}
   render();
 }
+function advanceWelcomeStep(){
+  if(welcomeStep < WELCOME_STEPS.length-1){ welcomeStep++; render(); }
+  else closeWelcomeModal();
+}
+function retreatWelcomeStep(){
+  if(welcomeStep>0){ welcomeStep--; render(); }
+}
 function welcomeModal(){
+  const step = WELCOME_STEPS[welcomeStep];
+  const isLast = welcomeStep === WELCOME_STEPS.length-1;
   return `
   <div class="overlay" id="welcome-overlay">
     <div class="modal">
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
-      <div style="display:flex;flex-direction:column;gap:14px;margin:16px 0;">
-        <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--sky-soft);color:var(--sky);display:flex;align-items:center;justify-content:center;">${lineIcon('camera',18)}</span>
-          <div><strong>${t('welcome_step1_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step1_sub')}</div></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--navy-wash);color:var(--navy);display:flex;align-items:center;justify-content:center;">${lineIcon('box',18)}</span>
-          <div><strong>${t('welcome_step2_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step2_sub')}</div></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--saffron-soft);color:var(--saffron-ink);display:flex;align-items:center;justify-content:center;">${lineIcon('bell',18)}</span>
-          <div><strong>${t('welcome_step3_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step3_sub')}</div></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;">
-          <span style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--basil-soft);color:var(--basil-ink);display:flex;align-items:center;justify-content:center;">${lineIcon('chart',18)}</span>
-          <div><strong>${t('welcome_step4_title')}</strong><div style="font-size:12.5px;color:var(--ink-soft);">${t('welcome_step4_sub')}</div></div>
-        </div>
+      <div class="welcome-step-card" style="background:${step.bg};">
+        <span class="welcome-step-icon" style="background:${step.fg};">${lineIcon(step.icon,28)}</span>
+        <strong class="welcome-step-title">${t(step.titleKey)}</strong>
+        <div class="welcome-step-sub">${t(step.subKey)}</div>
+      </div>
+      <div class="welcome-dots">
+        ${WELCOME_STEPS.map((s,i)=>`<span class="welcome-dot${i===welcomeStep?' active':''}" style="background:${i===welcomeStep?s.fg:'var(--line)'};"></span>`).join('')}
       </div>
       <div class="modal-actions">
-        <button class="btn btn-primary" id="btn-close-welcome" style="width:100%;">${t('welcome_btn')}</button>
+        ${welcomeStep>0 ? `<button type="button" class="btn btn-ghost" id="btn-welcome-back">${t('welcome_back_btn')}</button>` : ''}
+        <button type="button" class="btn btn-primary" id="btn-welcome-next">${isLast ? t('welcome_btn') : t('welcome_next_btn')}</button>
       </div>
     </div>
   </div>`;
@@ -6050,8 +6083,10 @@ function attachEvents(){
   const welcomeOverlay = document.getElementById('welcome-overlay');
   if(welcomeOverlay){
     welcomeOverlay.addEventListener('mousedown',(e)=>{ if(e.target===welcomeOverlay) closeWelcomeModal(); });
-    const closeWelcomeBtn = document.getElementById('btn-close-welcome');
-    if(closeWelcomeBtn) closeWelcomeBtn.onclick = closeWelcomeModal;
+    const welcomeNextBtn = document.getElementById('btn-welcome-next');
+    if(welcomeNextBtn) welcomeNextBtn.onclick = advanceWelcomeStep;
+    const welcomeBackBtn = document.getElementById('btn-welcome-back');
+    if(welcomeBackBtn) welcomeBackBtn.onclick = retreatWelcomeStep;
   }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
