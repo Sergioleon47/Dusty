@@ -6620,6 +6620,11 @@ function attachEvents(){
           const match = categories.find(c=>c.name===result.category);
           if(match) draftItem.categoryId = match.id;
         }
+        // Ya sacó la foto para identificar el producto — reusarla como ícono (mismo
+        // tamaño/calidad que sube "Subir foto" a mano) evita que tenga que sacar una
+        // segunda foto para lo mismo. Se pisa a propósito aunque ya hubiera una: si
+        // volvió a escanear, es porque quiere una foto nueva.
+        draftItem.photo = resizeToBase64(img, 300, 0.75);
         productScanState='idle';
         render();
       }catch(err){
