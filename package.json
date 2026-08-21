@@ -1,0 +1,36 @@
+{
+  "name": "dusty",
+  "version": "1.0.0",
+  "description": "Dusty — general expense & inventory tracker",
+  "main": "patron-core.js",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build-www.js",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:open:android": "npx cap open android"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sergioleon47/PATRON.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Sergioleon47/PATRON/issues"
+  },
+  "homepage": "https://github.com/Sergioleon47/PATRON#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/splash-screen": "^8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
+  },
+  "allowScripts": {
+    "sharp@0.32.6": true
+  }
+}

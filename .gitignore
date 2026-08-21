@@ -1,2 +1,12 @@
 node_modules/
 .netlify/
+
+# Generado por `npm run build` (scripts/build-www.js) — copia de los archivos
+# estáticos que Capacitor empaqueta como webDir. Nunca se edita a mano, se
+# regenera solo antes de cada `npx cap sync`.
+www/
+
+# Estado local de Android Studio para este proyecto (qué emulador quedó
+# seleccionado, rutas del SDK de esta máquina, etc) — se regenera solo al
+# abrir el proyecto, y es distinto por cada máquina/desarrollador.
+android/.idea/
