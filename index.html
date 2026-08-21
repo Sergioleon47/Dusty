@@ -262,18 +262,15 @@
   .cat-bubble{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;font-family:'Space Grotesk';}
   .category-edit-row input{flex:1;min-width:0;border:none;background:transparent;font-size:15px;font-weight:700;padding:11px 6px;color:var(--ink);outline:none;font-family:'Inter';}
   .category-edit-row input::placeholder{font-weight:600;color:var(--ink-soft);}
-  /* Flechitas para reordenar categorías — el orden acá es el mismo en el que van a
-     aparecer de izquierda a derecha en la fila de chips del Dashboard (ver
-     categoryChipsRow), así que "arriba" en esta lista vertical mueve un puesto hacia
-     la izquierda allá. Botones chicos apilados en vez de arrastrar y soltar: en un
-     celular, arrastrar una fila mientras el dedo tapa lo que se está reordenando es
-     más torpe que tocar dos veces una flecha — y con pocas categorías (el caso común)
-     no hace falta nada más elaborado. */
-  .category-reorder-btns{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
-  .category-reorder-btn{width:24px;height:19px;border-radius:6px;border:none;background:var(--panel);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform .12s ease,background .15s ease,color .15s ease;}
-  .category-reorder-btn:hover:not(:disabled){background:var(--navy-wash);color:var(--navy);}
-  .category-reorder-btn:active:not(:disabled){transform:scale(0.88);}
-  .category-reorder-btn:disabled{opacity:.3;cursor:default;}
+  /* Reordenar categorías es presionar y arrastrar la fila (no la fila entera: el input
+     y la x quedan afuera del gesto, ver attachEvents) — mismo truco de long-press +
+     reinserción en vivo en el DOM que ya usan los chips de categoría del Dashboard
+     (attachCategoryChipDragHandlers), solo que en el eje vertical. El orden acá es el
+     mismo en el que van a aparecer de izquierda a derecha en esa fila de chips, así que
+     "arriba" en esta lista vertical mueve un puesto hacia la izquierda allá. */
+  .category-edit-row[data-cat-id]{cursor:grab;}
+  .category-edit-row.dragging{transition:none;box-shadow:var(--shadow-lg);background:#fff;opacity:.97;cursor:grabbing;}
+  .category-edit-list.reordering{touch-action:none;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   /* Todas las filas de inventario (Dashboard e Inventario) usan esta misma clase — ya
      no hay gesto de deslizar para borrar en ninguna de las dos, se borra con la x
@@ -1680,7 +1677,6 @@ const I18N = {
     categories_sub:'Agrupá tus productos como quieras — Comida, Hogar, Ropa, Mantenimiento, o las que necesites.',
     categories_empty:'No tenés categorías — todo el inventario aparece en una sola lista.',
     categories_new_placeholder:'Nueva categoría', categories_add_btn:'+ Agregar',
-    categories_move_up:'Mover antes', categories_move_down:'Mover después',
     categories_helper:'Borrar una categoría no borra sus productos — solo dejan de estar agrupados, y pasan a "Sin categoría".',
     categories_uncategorized:'Sin categoría', lbl_category:'Categoría', category_none_option:'Sin categoría',
     inv_filtered_by_category:'Mostrando: {name}', btn_clear_category_filter:'Ver todo',
@@ -1892,7 +1888,6 @@ const I18N = {
     categories_sub:'Group your products however you want — Food, Household, Clothing, Maintenance, or whatever you need.',
     categories_empty:'No categories yet — the whole inventory shows as a single list.',
     categories_new_placeholder:'New category', categories_add_btn:'+ Add',
-    categories_move_up:'Move earlier', categories_move_down:'Move later',
     categories_helper:'Deleting a category doesn\'t delete its products — they just stop being grouped, and move to "Uncategorized".',
     categories_uncategorized:'Uncategorized', lbl_category:'Category', category_none_option:'Uncategorized',
     inv_filtered_by_category:'Showing: {name}', btn_clear_category_filter:'View all',
@@ -2462,8 +2457,6 @@ const LINE_ICONS = {
   printer: `<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>`,
   share: `<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>`,
   chart: `<line x1="6" y1="20" x2="6" y2="15"/><line x1="12" y1="20" x2="12" y2="9"/><line x1="18" y1="20" x2="18" y2="4"/>`,
-  chevronUp: `<polyline points="18 15 12 9 6 15"/>`,
-  chevronDown: `<polyline points="6 9 12 15 18 9"/>`,
 };
 function lineIcon(name, size){
   const s = size||18;
@@ -4040,46 +4033,67 @@ function authModal(){
 }
 
 /* ================= MODAL: EQUIPO (compartir inventario) ================= */
+// Círculo de color con la inicial de cada persona — mismo truco que settingsCardHeader
+// (bubbles de color en vez de texto plano apilado), rotando por 4 colores ya usados en
+// el resto de la app para que cada fila se distinga de un vistazo, no solo por el texto.
+const TEAM_AVATAR_COLORS = [
+  {bg:'var(--navy-wash)', fg:'var(--navy)'},
+  {bg:'var(--sky-soft)', fg:'var(--sky-ink)'},
+  {bg:'var(--saffron-soft)', fg:'var(--saffron-ink)'},
+  {bg:'var(--basil-soft)', fg:'var(--basil-ink)'}
+];
+function teamAvatarBubble(label, idx){
+  const c = TEAM_AVATAR_COLORS[idx % TEAM_AVATAR_COLORS.length];
+  const initial = (label||'?').trim().charAt(0).toUpperCase() || '?';
+  return `<span style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:${c.bg};color:${c.fg};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${escapeHtml(initial)}</span>`;
+}
 function teamModal(){
   return `
   <div class="overlay" id="team-overlay">
     <div class="modal">
       <h3 class="basil">${t('team_title')}</h3>
       ${joinedOwnerUid ? `
-        <p style="font-size:13px;color:var(--ink-soft);">${t('team_viewing_shared').replace('{email}', escapeHtml(joinedOwnerEmail))}</p>
+        <div class="settings-card" style="background:var(--basil-soft);">
+          ${settingsCardHeader('cloud','#fff','var(--basil-ink)',t('team_title'))}
+          <p style="font-size:13px;color:var(--basil-ink);margin:0;">${t('team_viewing_shared').replace('{email}', escapeHtml(joinedOwnerEmail))}</p>
+        </div>
         <button type="button" class="btn btn-ghost" id="btn-leave-team" style="width:100%;" ${teamLoading?'disabled':''}>${t('team_leave_btn')}</button>
       ` : `
-        <p style="font-size:13px;color:var(--ink-soft);">${t('team_your_code_hint')}</p>
-        <div class="field">
-          <label>${t('team_your_code_label')}</label>
+        <div class="settings-card">
+          ${settingsCardHeader('share','var(--basil-soft)','var(--basil-ink)',t('team_your_code_label'))}
           <div style="display:flex;gap:8px;align-items:center;">
             <input id="team-code-display" type="text" value="${escapeHtml(teamInviteCode)}" readonly placeholder="${teamLoading?'…':''}" style="font-weight:700;letter-spacing:2px;text-align:center;">
             ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-ghost" id="btn-share-invite-code" ${teamInviteCode?'':'disabled'}>${t('team_share_btn')}</button>` : ''}
             <button type="button" class="btn btn-ghost" id="btn-copy-invite-code" ${teamInviteCode?'':'disabled'}>${t('team_copy_btn')}</button>
           </div>
+          <div class="helper-note" style="margin-bottom:0;">${t('team_your_code_hint')}</div>
         </div>
-        <div style="margin-top:6px;">
-          <label style="font-size:11.5px;color:var(--ink-soft);">${t('team_members_label')}</label>
+
+        <div class="settings-card">
+          ${settingsCardHeader('clock','var(--navy-wash)','var(--navy)',t('team_members_label'))}
           <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-            <span style="font-size:13px;display:flex;align-items:center;gap:7px;"><span class="presence-dot active"></span>${t('team_you_owner_label')}</span>
-            <span style="font-size:11px;color:var(--ink-soft);">${t('presence_active_now')}</span>
+            <span style="font-size:13px;display:flex;align-items:center;gap:8px;">${teamAvatarBubble(currentUserLabel()||t('team_you_owner_label'),0)}${t('team_you_owner_label')}</span>
+            <span style="font-size:10px;font-weight:700;color:var(--basil-ink);background:var(--basil-soft);padding:2px 8px;border-radius:20px;">${t('presence_active_now')}</span>
           </div>
-          ${teamMembers.map(m=>`
+          ${teamMembers.map((m,idx)=>`
             <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);gap:8px;">
-              <span style="font-size:13px;display:flex;align-items:center;gap:7px;min-width:0;flex:1;">
-                <span class="presence-dot ${isRecentlyActive(m.lastActive)?'active':''}" style="flex-shrink:0;"></span>
+              <span style="font-size:13px;display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
+                ${teamAvatarBubble(m.email||m.id, idx+1)}
                 <span style="overflow-wrap:anywhere;">${escapeHtml(m.email||m.id)}</span>
               </span>
               <span style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                <span style="font-size:11px;color:var(--ink-soft);">${isRecentlyActive(m.lastActive) ? t('presence_active_now') : (m.lastActive ? t('presence_last_seen').replace('{when}', timeAgo(m.lastActive)) : t('presence_never'))}</span>
-                <button type="button" class="link-btn" data-remove-member="${escapeHtml(m.id)}" style="padding:0;color:#C0392B;">${t('team_remove_btn')}</button>
+                ${isRecentlyActive(m.lastActive)
+                  ? `<span style="font-size:10px;font-weight:700;color:var(--basil-ink);background:var(--basil-soft);padding:2px 8px;border-radius:20px;">${t('presence_active_now')}</span>`
+                  : `<span style="font-size:11px;color:var(--ink-soft);">${m.lastActive ? t('presence_last_seen').replace('{when}', timeAgo(m.lastActive)) : t('presence_never')}</span>`}
+                <button type="button" class="link-btn" data-remove-member="${escapeHtml(m.id)}" style="padding:0;color:var(--tomato);">${t('team_remove_btn')}</button>
               </span>
             </div>
           `).join('')}
+          ${teamMembers.length===0 ? `<div class="helper-note" style="margin:8px 0 0;">${t('team_no_members_yet')}</div>` : ''}
         </div>
-        ${teamMembers.length===0 ? `<div class="helper-note" style="margin-top:2px;">${t('team_no_members_yet')}</div>` : ''}
-        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-          <label style="font-size:11.5px;color:var(--ink-soft);">${t('team_join_label')}</label>
+
+        <div class="settings-card" style="margin-bottom:0;">
+          ${settingsCardHeader('share','var(--sky-soft)','var(--sky-ink)',t('team_join_label'))}
           <div style="display:flex;gap:8px;">
             <input id="team-join-input" type="text" value="${escapeHtml(teamJoinCode)}" placeholder="${t('team_join_placeholder')}" style="text-transform:uppercase;">
             <button type="button" class="btn btn-ghost" id="btn-join-team" ${teamLoading?'disabled':''}>${t('team_join_btn')}</button>
@@ -4341,6 +4355,66 @@ function openCategoriesModal(){
   showCategoriesModal = true; render();
 }
 function closeCategoriesModal(){ showCategoriesModal=false; render(); }
+// Confirmado el long-press (ver el pointerdown que llama a esto en attachEvents), la
+// fila se levanta y sigue al dedo — mismo truco de reinserción en vivo en el DOM que
+// attachCategoryChipDragHandlers ya usa para los chips del Dashboard (reordenar se
+// SIENTE al arrastrar, no recién al soltar), solo que en vertical y sin re-basear tx
+// contra un límite: acá no hay scroll propio que disputar, el límite es la lista misma.
+// draftCategories NUNCA se toca mientras se arrastra — la reordenada real, leyendo el
+// DOM (data-cat-id de cada fila), pasa una sola vez al soltar, junto con el único
+// render() de todo el gesto.
+function beginCategoryDrag(row, list, pointerId, startY){
+  if(list) list.classList.add('reordering');
+  row.classList.add('dragging');
+  row.style.position = 'relative';
+  row.style.zIndex = '5';
+  let baseY = startY, ty = 0;
+  function onMove(e){
+    if(e.pointerId!==pointerId) return;
+    e.preventDefault();
+    ty += e.clientY - baseY;
+    baseY = e.clientY;
+    row.style.transform = `translateY(${ty}px)`;
+    const visualTopBefore = row.getBoundingClientRect().top;
+    const prev = row.previousElementSibling;
+    const next = row.nextElementSibling;
+    let moved = false;
+    if(prev && prev.dataset && prev.dataset.catId){
+      const r = prev.getBoundingClientRect();
+      if(visualTopBefore < r.top + r.height/2){ list.insertBefore(row, prev); moved = true; }
+    }
+    if(!moved && next && next.dataset && next.dataset.catId){
+      const rh = row.getBoundingClientRect().height;
+      const r = next.getBoundingClientRect();
+      if(visualTopBefore + rh > r.top + r.height/2){ list.insertBefore(row, next.nextElementSibling); moved = true; }
+    }
+    if(moved){
+      // Mismo re-base que los chips: la fila cambió de posición NATURAL en el flujo al
+      // reinsertarse — sin esto pegaría un salto seco hacia donde ahora "le toca" estar
+      // antes de seguir al dedo.
+      const naturalTopPlusOldTy = row.getBoundingClientRect().top;
+      const naturalTopNew = naturalTopPlusOldTy - ty;
+      ty = visualTopBefore - naturalTopNew;
+      row.style.transform = `translateY(${ty}px)`;
+    }
+  }
+  function onUp(e){
+    if(e.pointerId!==pointerId) return;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    row.classList.remove('dragging');
+    row.style.transform = ''; row.style.position = ''; row.style.zIndex = '';
+    if(list) list.classList.remove('reordering');
+    const domOrder = [...list.querySelectorAll('.category-edit-row[data-cat-id]')].map(r=>r.dataset.catId);
+    const reordered = domOrder.map(id=>draftCategories.find(c=>c.id===id)).filter(Boolean);
+    if(reordered.length===draftCategories.length) draftCategories = reordered;
+    render();
+  }
+  document.addEventListener('pointermove', onMove, {passive:false});
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
+}
 // Paleta puramente decorativa para las burbujas de categoría — a diferencia de
 // --tomato/--basil/etc en el resto de la app, acá el color no significa nada
 // (no es "alerta" ni "todo bien"), solo ayuda a distinguir una fila de otra
@@ -4358,19 +4432,14 @@ function categoriesModal(){
     <div class="modal wide">
       <h3 class="navy" style="font-size:21px;">${t('categories_title')}</h3>
       <div class="sub">${t('categories_sub')}</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
+      <div class="category-edit-list" style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
         ${draftCategories.map((c,idx)=>{
           const style = CATEGORY_BUBBLE_STYLES[idx % CATEGORY_BUBBLE_STYLES.length];
           const initial = (c.name.trim()[0]||'?').toUpperCase();
-          const isFirst = idx===0, isLast = idx===draftCategories.length-1;
           return `
-          <div class="category-edit-row">
+          <div class="category-edit-row" data-cat-id="${c.id}">
             <div class="cat-bubble" style="background:${style.bg};color:${style.fg};">${escapeHtml(initial)}</div>
             <input type="text" data-category-name="${idx}" value="${escapeHtml(c.name)}" placeholder="${t('categories_new_placeholder')}">
-            <div class="category-reorder-btns">
-              <button type="button" class="category-reorder-btn" data-move-category-up="${idx}" title="${t('categories_move_up')}" ${isFirst?'disabled':''}>${lineIcon('chevronUp',13)}</button>
-              <button type="button" class="category-reorder-btn" data-move-category-down="${idx}" title="${t('categories_move_down')}" ${isLast?'disabled':''}>${lineIcon('chevronDown',13)}</button>
-            </div>
             <button type="button" class="stock-row-x-btn" data-remove-category="${idx}" title="${t('btn_delete')}">✕</button>
           </div>`;
         }).join('')}
@@ -6001,21 +6070,33 @@ function attachEvents(){
     document.querySelectorAll('[data-remove-category]').forEach(btn=>{
       btn.onclick=()=>{ draftCategories.splice(parseInt(btn.dataset.removeCategory,10),1); render(); };
     });
-    document.querySelectorAll('[data-move-category-up]').forEach(btn=>{
-      btn.onclick=()=>{
-        const idx = parseInt(btn.dataset.moveCategoryUp,10);
-        if(idx<=0) return;
-        [draftCategories[idx-1], draftCategories[idx]] = [draftCategories[idx], draftCategories[idx-1]];
-        render();
+    // Reordenar categorías: presionar y arrastrar una fila (el input y la x quedan
+    // afuera del gesto, ver el chequeo de closest() más abajo). Se re-cablea de cero
+    // en cada render — como el resto de este bloque — así que no hace falta ningún
+    // guard de "adjuntar una sola vez": los listeners de document que arma un
+    // arrastre se sacan solos al soltar, y los de cada fila mueren con su nodo viejo
+    // en el próximo render.
+    document.querySelectorAll('.category-edit-row[data-cat-id]').forEach(row=>{
+      const list = row.closest('.category-edit-list');
+      let pendingTimer = null, pendingStart = null;
+      const cancelPending = (e)=>{
+        if(pendingTimer && (!e || e.pointerId===pendingStart.pointerId)){ clearTimeout(pendingTimer); pendingTimer=null; }
       };
-    });
-    document.querySelectorAll('[data-move-category-down]').forEach(btn=>{
-      btn.onclick=()=>{
-        const idx = parseInt(btn.dataset.moveCategoryDown,10);
-        if(idx>=draftCategories.length-1) return;
-        [draftCategories[idx], draftCategories[idx+1]] = [draftCategories[idx+1], draftCategories[idx]];
-        render();
-      };
+      row.addEventListener('pointerdown', (e)=>{
+        if(e.pointerType==='mouse' && e.button!==0) return;
+        if(pendingTimer || e.target.closest('input, .stock-row-x-btn')) return;
+        pendingStart = {x:e.clientX, y:e.clientY, pointerId:e.pointerId};
+        pendingTimer = setTimeout(()=>{
+          pendingTimer = null;
+          beginCategoryDrag(row, list, pendingStart.pointerId, pendingStart.y);
+        }, 350);
+      }, {passive:true});
+      row.addEventListener('pointermove', (e)=>{
+        if(!pendingTimer || e.pointerId!==pendingStart.pointerId) return;
+        if(Math.abs(e.clientX-pendingStart.x)>10 || Math.abs(e.clientY-pendingStart.y)>10) cancelPending(e);
+      });
+      row.addEventListener('pointerup', cancelPending);
+      row.addEventListener('pointercancel', cancelPending);
     });
     const newCategoryInput=document.getElementById('new-category-name');
     const addCategory=()=>{
