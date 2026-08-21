@@ -553,9 +553,10 @@
   .scan-queue-bar .dots i.done{background:var(--navy);}
   .scan-queue-bar .dots i.now{background:var(--navy);box-shadow:0 0 0 3px rgba(232,86,44,.2);}
 
-  .matched-item{background:#FAFAF7;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
-  .matched-item .mi-top{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
+  .matched-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
+  .matched-item .mi-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
   .matched-item .mi-top strong{color:var(--ink);font-size:13px;}
+  .mi-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;}
   .mi-fields{display:flex;gap:8px;}
   .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:#fff;}
 
@@ -4724,7 +4725,7 @@ function scanModal(){
               const sentence = uiLang==='en'
                 ? `Supplier price went up ${diffPct.toFixed(0)}% vs. current cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirm the reading is correct':''}`
                 : `Precio de proveedor subió ${diffPct.toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirma que la lectura sea correcta':''}`;
-              priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'#B23A48':'var(--saffron)'};background:${strong?'var(--tomato-soft)':'var(--saffron-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">▲ ${sentence}</div>`;
+              priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'var(--tomato-ink)':'var(--saffron)'};background:${strong?'var(--tomato-soft)':'var(--saffron-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">▲ ${sentence}</div>`;
             } else if(diffPct<-0.5){
               const sentence = uiLang==='en'
                 ? `Price went down ${Math.abs(diffPct).toFixed(0)}% vs. current cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`
@@ -4746,30 +4747,36 @@ function scanModal(){
                 const sentence = uiLang==='en'
                   ? `Unusual quantity: ${item.qty} ${escapeHtml(unitLabel(item.unit))} vs. your usual ~${avgQty.toFixed(1)} ${escapeHtml(unitLabel(item.unit))} — double check the reading`
                   : `Cantidad fuera de lo común: ${item.qty} ${escapeHtml(unitLabel(item.unit))} vs. tu promedio habitual de ~${avgQty.toFixed(1)} ${escapeHtml(unitLabel(item.unit))} — revisá que la lectura sea correcta`;
-                qtyAlert = `<div style="font-size:11px;font-weight:700;color:#8C6D1F;background:var(--saffron-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">⚠ ${sentence}</div>`;
+                qtyAlert = `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">⚠ ${sentence}</div>`;
               }
             }
           }
           const mergedNote = item.mergedCount>1 ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:6px;">ℹ ${uiLang==='en' ? `Combined with ${item.mergedCount-1} similar line(s) from this same receipt` : `Combinado con ${item.mergedCount-1} línea(s) similares del mismo recibo`}</div>` : '';
-          const confBorder = item.confidence==='baja' ? '1.5px solid #D9A72E' : item.confidence==='media' ? '1.5px solid #9FB8C9' : '1px solid var(--line)';
+          const confBorder = item.confidence==='baja' ? '1.5px solid var(--saffron)' : item.confidence==='media' ? '1.5px solid var(--sky)' : '1px solid var(--line)';
+          // Bolita de color junto al nombre — mismo lenguaje visual que el resto de la
+          // app (ícono en círculo de color): ámbar = todavía no existe en tu inventario,
+          // verde = ya emparejado con un producto que ya tenés.
+          const miIcon = `<span class="mi-icon" style="background:${isUnrecognized?'var(--saffron)':'var(--basil)'};">${lineIcon(isUnrecognized?'box':'chart',12)}</span>`;
           return `
-          <div class="matched-item" style="${isUnrecognized?'border-color:#EBC2B8;background:#FBF3F1;':''}">
+          <div class="matched-item" style="${isUnrecognized?'border-color:#F5DCC0;background:var(--saffron-soft);':''}">
             <div class="mi-top">
+              ${miIcon}
               <input data-scan-name="${idx}" type="text" value="${escapeHtml(item.rawName)}" placeholder="${t('ph_product_name')}" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:13px;padding:2px 0;">
               <span style="display:flex;align-items:center;gap:8px;">
                 ${money(item.totalPrice)}
                 <button class="remove-x" data-remove-scan-item="${idx}" title="${t('title_remove_product')}">✕</button>
               </span>
             </div>
-            ${isUnrecognized ? `<div style="font-size:11px;font-weight:700;color:#B23A48;margin-bottom:8px;">⚠ ${t('scan_unrecognized')}</div>` : ''}
-            ${item.confidence==='baja' ? `<div style="font-size:11px;font-weight:700;color:#8C6D1F;background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
-            ${item.confidence==='media' ? `<div style="font-size:11px;font-weight:700;color:#4A6478;background:#EAF1F6;padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${t('scan_qty_review')}</div>` : ''}
+            ${isUnrecognized ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('scan_unrecognized')}</div>` : ''}
+            ${item.confidence==='baja' ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
+            ${item.confidence==='media' ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${t('scan_qty_review')}</div>` : ''}
             <div class="mi-fields">
               <select data-scan-match="${idx}" style="flex:2;">
                 <option value="__new__" ${item.matchedIngId==='__new__'?'selected':''}>${t('opt_add_new_ing')}</option>
                 ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})</option>`).join('')}
               </select>
               <input data-scan-qty="${idx}" type="number" step="0.01" value="${item.qty}" style="flex:1;border:${confBorder};" placeholder="${t('ph_qty_short')}">
+              <select data-scan-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${item.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
               <input data-scan-price="${idx}" type="number" step="0.01" value="${item.totalPrice}" style="flex:1;" placeholder="${t('ph_price_short')}">
             </div>
             ${isUnrecognized && categories.length>0 ? `
@@ -4779,7 +4786,7 @@ function scanModal(){
                 <option value="">${t('category_none_option')}</option>
                 ${categories.map(c=>`<option value="${c.id}" ${item.suggestedCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
               </select>
-              ${!item.suggestedCategoryId ? `<div style="font-size:11px;font-weight:700;color:#4A6478;background:#EAF1F6;padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
+              ${!item.suggestedCategoryId ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
             </div>` : ''}
             ${priceAlert}
             ${qtyAlert}
@@ -6656,6 +6663,11 @@ function attachEvents(){
     });
     document.querySelectorAll('[data-scan-qty]').forEach(inp=>{
       inp.onchange=()=>{ const it=scanExtracted[parseInt(inp.dataset.scanQty)]; it.qty=parseFloat(inp.value)||0; it.qtyVerified=true; it.confidence='alta'; render(); };
+    });
+    // Mismo criterio que data-scan-qty de arriba: si lo corrige a mano, ya no hace
+    // falta seguir marcándolo como "confianza baja/media" — la persona ya lo revisó.
+    document.querySelectorAll('[data-scan-unit]').forEach(sel=>{
+      sel.onchange=()=>{ const it=scanExtracted[parseInt(sel.dataset.scanUnit)]; it.unit=sel.value; it.confidence='alta'; render(); };
     });
     document.querySelectorAll('[data-scan-price]').forEach(inp=>{
       inp.onchange=()=>{ scanExtracted[parseInt(inp.dataset.scanPrice)].totalPrice=parseFloat(inp.value)||0; render(); };
