@@ -1,0 +1,9 @@
+# Antes de que existiera un package.json en la raíz del repo (agregado para Capacitor,
+# ver Fase 3), Netlify instalaba solo las dependencias del package.json aparte que vive
+# en netlify/functions/ (ahí vive firebase-admin, que usan las 3 funciones). En cuanto
+# apareció el package.json de la raíz, Netlify dejó de hacerlo automático — este plugin
+# restaura ese comportamiento sin tener que mezclar las dependencias de las functions
+# con las del proyecto principal. Ver el mensaje de error de Netlify que sugiere esto
+# mismo: "Dependencies installation error... firebase-admin has not been installed yet".
+[[plugins]]
+  package = "@netlify/plugin-functions-install-core"
