@@ -3723,7 +3723,11 @@ function cycleCountModal(){
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
           ${batch.map(i=>`
             <div class="matched-item" style="cursor:default;">
-              <div class="mi-top"><strong>${escapeHtml(i.name)}</strong><span>${t('cc_current')}: ${i.qtyOnHand||0} ${escapeHtml(unitLabel(i.unit))}</span></div>
+              <div class="mi-top">
+                <span class="mi-icon" style="background:var(--basil);">${lineIcon('box',12)}</span>
+                <strong style="flex:1;">${escapeHtml(i.name)}</strong>
+                <span>${t('cc_current')}: ${i.qtyOnHand||0} ${escapeHtml(unitLabel(i.unit))}</span>
+              </div>
               <div class="mi-fields">
                 <input type="number" step="0.01" placeholder="${t('cc_counted_placeholder')}" data-cc-count="${i.id}" style="flex:1;">
               </div>
@@ -3738,7 +3742,7 @@ function cycleCountModal(){
       `}
 
       <div class="settings-card">
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px;">${t('cc_settings_title')}</label>
+        ${settingsCardHeader('clock','var(--sky-soft)','var(--sky-ink)',t('cc_settings_title'))}
         <div class="field-row">
           <div class="field"><label>${t('cc_pct_label')}</label><input id="cc-pct-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftCycleCountPct)}"></div>
           <div class="field"><label>${t('cc_interval_label')}</label><input id="cc-interval-input" type="number" min="1" max="90" step="1" value="${escapeHtml(draftCycleCountInterval)}"></div>
