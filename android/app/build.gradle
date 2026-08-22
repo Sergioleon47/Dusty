@@ -1,5 +1,18 @@
 apply plugin: 'com.android.application'
 
+// Carga las credenciales de firma desde keystore.properties (fuera de git, ver
+// .gitignore) en vez de escribirlas acá — este archivo SÍ se commitea. Si el
+// archivo no existe (cualquier otra máquina que clone el repo sin el keystore),
+// releaseSigning queda null y el build de release simplemente sale sin firmar en
+// vez de fallar — solo hace falta para generar el .aab que se sube a Play Store.
+def keystorePropsFile = rootProject.file('keystore.properties')
+def releaseSigning = null
+if (keystorePropsFile.exists()) {
+    def keystoreProps = new Properties()
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+    releaseSigning = keystoreProps
+}
+
 android {
     namespace = "com.dusty.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +29,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (releaseSigning != null) {
+            release {
+                storeFile rootProject.file(releaseSigning['storeFile'])
+                storePassword releaseSigning['storePassword']
+                keyAlias releaseSigning['keyAlias']
+                keyPassword releaseSigning['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseSigning != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

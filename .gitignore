@@ -10,3 +10,10 @@ www/
 # seleccionado, rutas del SDK de esta máquina, etc) — se regenera solo al
 # abrir el proyecto, y es distinto por cada máquina/desarrollador.
 android/.idea/
+
+# La clave de firma de la app y sus contraseñas — NUNCA al repo. Si esto se
+# pierde, no hay forma de recuperarlo ni de volver a firmar una actualización
+# de la misma ficha de Play Store con Google (haría falta publicar como app
+# nueva). Guardado aparte, fuera de git, con backup propio.
+android/keystore/
+android/keystore.properties
