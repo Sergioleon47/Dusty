@@ -1,4 +1,4 @@
-package com.dusty.app;
+package com.dusty.inventory;
 
 import com.getcapacitor.BridgeActivity;
 

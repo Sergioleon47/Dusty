@@ -1,5 +1,5 @@
 {
-  "appId": "com.dusty.app",
+  "appId": "com.dusty.inventory",
   "appName": "Dusty",
   "webDir": "www",
   "plugins": {

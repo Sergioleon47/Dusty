@@ -14,10 +14,10 @@ if (keystorePropsFile.exists()) {
 }
 
 android {
-    namespace = "com.dusty.app"
+    namespace = "com.dusty.inventory"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.dusty.app"
+        applicationId "com.dusty.inventory"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

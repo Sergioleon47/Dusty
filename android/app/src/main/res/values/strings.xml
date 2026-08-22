@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">Dusty</string>
     <string name="title_activity_main">Dusty</string>
-    <string name="package_name">com.dusty.app</string>
-    <string name="custom_url_scheme">com.dusty.app</string>
+    <string name="package_name">com.dusty.inventory</string>
+    <string name="custom_url_scheme">com.dusty.inventory</string>
 </resources>
