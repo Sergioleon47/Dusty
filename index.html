@@ -465,18 +465,34 @@
   /* Tutorial de bienvenida: un paso a la vez, con un color lleno de fondo (no solo
      el ícono) para que avanzar se sienta como pasar de página. render() reconstruye
      el modal entero en cada paso, así que la animación de entrada se vuelve a
-     disparar sola cada vez — no hace falta ningún truco de "key" en JS. */
-  .welcome-step-card{border-radius:14px;padding:26px 20px;text-align:center;margin:16px 0;animation:welcomeStepIn .4s var(--ease-soft);}
+     disparar sola cada vez — no hace falta ningún truco de "key" en JS.
+     cursor:grab avisa que también se puede deslizar el dedo (o arrastrar con el
+     mouse) para cambiar de paso, no solo tocar los botones (ver attachEvents). */
+  .welcome-step-card{border-radius:14px;padding:26px 20px;text-align:center;margin:16px 0;animation:welcomeStepInFwd .4s var(--ease-soft);cursor:grab;touch-action:pan-y;}
+  .welcome-step-card:active{cursor:grabbing;}
+  .welcome-step-card.dir-back{animation-name:welcomeStepInBack;}
   .welcome-step-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;color:#fff;margin-bottom:14px;box-shadow:var(--shadow);}
   .welcome-step-title{display:block;font-size:16px;margin-bottom:6px;}
   .welcome-step-sub{font-size:13px;color:var(--ink-soft);line-height:1.45;}
-  @keyframes welcomeStepIn{
-    from{opacity:0;transform:translateY(8px) scale(0.98);}
-    to{opacity:1;transform:translateY(0) scale(1);}
+  /* Entra deslizando desde el lado del que "viene" (derecha al avanzar, izquierda al
+     retroceder o saltar hacia atrás con los puntitos) en vez de solo aparecer — se
+     siente como pasar páginas de verdad, no como un cambio de contenido genérico. */
+  @keyframes welcomeStepInFwd{
+    from{opacity:0;transform:translateX(22px) scale(0.98);}
+    to{opacity:1;transform:translateX(0) scale(1);}
   }
-  .welcome-dots{display:flex;justify-content:center;gap:7px;margin-bottom:4px;}
-  .welcome-dot{width:7px;height:7px;border-radius:50%;transition:transform .25s ease,background .25s ease;}
+  @keyframes welcomeStepInBack{
+    from{opacity:0;transform:translateX(-22px) scale(0.98);}
+    to{opacity:1;transform:translateX(0) scale(1);}
+  }
+  .welcome-dots{display:flex;justify-content:center;gap:9px;margin-bottom:4px;}
+  .welcome-dot{width:7px;height:7px;border-radius:50%;cursor:pointer;padding:6px;margin:-6px;background-clip:content-box;transition:transform .25s ease,background .25s ease;}
   .welcome-dot.active{transform:scale(1.35);}
+  /* Link de "Saltar" arriba a la derecha del modal, mismo patrón sticky+float que
+     .modal-close-btn (funciona sin position:relative porque .modal ya scrollea) —
+     visible en todos los pasos salvo el último, que ya tiene su propio botón de salida. */
+  .welcome-skip-btn{position:sticky;top:0;float:right;margin:-6px -6px 0 12px;background:none;border:none;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;padding:5px 8px;border-radius:8px;transition:background .15s ease,transform .1s ease;}
+  .welcome-skip-btn:active{transform:scale(0.94);background:var(--bg);}
   /* Corta cualquier animation: de entrada — se usa en redibujados de fondo que NO
      son un cambio real de pantalla (ver welcomeStepAnimated), para que no "parpadeen". */
   .no-anim{animation:none !important;}
@@ -642,6 +658,16 @@ const TAB_ORDER = ['dashboard','inventario','recibos'];
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
 // Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
 let welcomeStep = 0;
+// Dirección del último cambio de paso (1 = avanzando, -1 = retrocediendo) — decide si
+// el paso entra deslizando desde la derecha o desde la izquierda (ver welcomeModal()),
+// para que saltar directo a un punto con los puntitos también se sienta direccional
+// y no solo un fade genérico.
+let welcomeStepDir = 1;
+// Punto X donde empezó el toque actual sobre la tarjeta del paso, o null si no hay
+// ningún gesto en curso — permite deslizar el dedo para avanzar/retroceder el
+// tutorial además de los botones (ver attachEvents). Usa pointer events (no touch)
+// para que también funcione arrastrando con el mouse en desktop.
+let welcomeSwipeStartX = null;
 // Si el paso actual ya se terminó de animar una vez. render() reconstruye TODA la
 // pantalla de cero ante cualquier cosa (ej. la reconexión a la nube que arranca sola
 // en segundo plano si ya iniciaste sesión antes) — sin esto, cada uno de esos
@@ -1791,13 +1817,11 @@ const I18N = {
     delete_account_google_reauth_btn:'Confirmar con Google',
     delete_account_success:'Tu cuenta fue eliminada.',
     privacy_policy_link:'Política de privacidad',
-    welcome_title:'Bienvenido a Dusty', welcome_sub:'Así funciona:',
-    welcome_step1_title:'Escaneá cualquier recibo o factura', welcome_step1_sub:'Sacale una foto — de una compra, una factura de proveedor, o hasta una boleta de luz, agua o internet — y la app la lee sola.',
-    welcome_step2_title:'Tu inventario se actualiza solo', welcome_step2_sub:'Sabés en todo momento cuánto tenés de cada producto y cuánto vale.',
-    welcome_step3_title:'Te avisamos si algo cambia', welcome_step3_sub:'Precio que sube, cantidad rara, o stock que se está por acabar.',
-    welcome_step4_title:'Organizá y controlá tu presupuesto', welcome_step4_sub:'Agrupá todo en categorías y poné un presupuesto mensual para seguir el avance del mes.',
-    welcome_step5_title:'Trabajá en equipo', welcome_step5_sub:'Compartí un código con alguien y los dos ven y actualizan el mismo inventario, recibos y presupuesto, siempre sincronizado.',
-    welcome_btn:'Entendido, empezar', welcome_next_btn:'Siguiente', welcome_back_btn:'Atrás',
+    welcome_title:'Bienvenido a Dusty', welcome_sub:'Así funciona, en 3 pasos:',
+    welcome_step1_title:'Escaneá, y listo', welcome_step1_sub:'Sacale una foto a cualquier recibo, factura o boleta — de una compra, un proveedor, o hasta luz, agua o internet — y tu inventario se actualiza solo, al toque.',
+    welcome_step2_title:'Nosotros vigilamos los números', welcome_step2_sub:'Te avisamos si un precio sube raro, si el stock se está por acabar, o si te estás por pasar del presupuesto del mes.',
+    welcome_step3_title:'Mejor en equipo', welcome_step3_sub:'Compartí un código y listo: los dos ven y actualizan el mismo inventario, recibos y presupuesto, siempre sincronizado.',
+    welcome_btn:'¡Listo, vamos!', welcome_next_btn:'Siguiente', welcome_back_btn:'Atrás', welcome_skip_btn:'Saltar',
     rd_scanned_on:'escaneado el', rd_applied_label:'Productos aplicados al inventario', rd_applied_to:'aplicado a:',
     rd_photo_alt:'Foto del recibo de',
     item_edit_title:'Editar producto', item_new_title:'Nuevo producto',
@@ -2003,13 +2027,11 @@ const I18N = {
     delete_account_google_reauth_btn:'Confirm with Google',
     delete_account_success:'Your account has been deleted.',
     privacy_policy_link:'Privacy policy',
-    welcome_title:'Welcome to Dusty', welcome_sub:'Here\'s how it works:',
-    welcome_step1_title:'Scan any receipt or bill', welcome_step1_sub:'Snap a photo — of a purchase, a supplier invoice, even an electricity, water, or internet bill — and the app reads it on its own.',
-    welcome_step2_title:'Your inventory updates itself', welcome_step2_sub:'Always know how much you have of each product and what it\'s worth.',
-    welcome_step3_title:'We\'ll flag anything unusual', welcome_step3_sub:'A price that jumps, a weird quantity, or stock running low.',
-    welcome_step4_title:'Organize and stay on budget', welcome_step4_sub:'Group everything into categories and set a monthly budget to track your progress.',
-    welcome_step5_title:'Work as a team', welcome_step5_sub:'Share a code with someone and you both see and update the same inventory, receipts, and budget, always in sync.',
-    welcome_btn:'Got it, let\'s go', welcome_next_btn:'Next', welcome_back_btn:'Back',
+    welcome_title:'Welcome to Dusty', welcome_sub:'Here\'s how it works, in 3 steps:',
+    welcome_step1_title:'Scan it, and you\'re done', welcome_step1_sub:'Snap a photo of any receipt, invoice, or bill — a purchase, a supplier, even electricity, water, or internet — and your inventory updates itself, instantly.',
+    welcome_step2_title:'We keep an eye on the numbers', welcome_step2_sub:'We\'ll flag a price that jumps, stock running low, or your monthly budget getting close to the edge.',
+    welcome_step3_title:'Better as a team', welcome_step3_sub:'Share a code and you\'re set: you both see and update the same inventory, receipts, and budget, always in sync.',
+    welcome_btn:'All set, let\'s go!', welcome_next_btn:'Next', welcome_back_btn:'Back', welcome_skip_btn:'Skip',
     rd_scanned_on:'scanned on', rd_applied_label:'Products applied to inventory', rd_applied_to:'applied to:',
     rd_photo_alt:'Receipt photo from',
     item_edit_title:'Edit product', item_new_title:'New product',
@@ -3817,16 +3839,18 @@ function langChoiceModal(){
 
 /* ================= MODAL: BIENVENIDA (primera vez que se abre la app) ================= */
 // Un color lleno por paso (no solo el ícono, como antes) para que avanzar se sienta
-// como pasar de página en vez de leer una lista estática — mismos 4 colores que ya
+// como pasar de página en vez de leer una lista estática — mismos colores que ya
 // usa el resto de la app para agrupar conceptos (ver el comentario de settingsCardHeader
 // más arriba) más "tomato" para el paso de equipo, que en todos lados es el color de
 // "compartir/positivo" en Configuración.
+// Antes eran 5 pasos (uno por feature suelta); un usuario nos dijo que se sentía largo
+// para lo poco que hace falta saber antes de arrancar. Bajado a 3, agrupando por lo que
+// el usuario realmente hace ("escaneo" + "se actualiza solo" son un solo momento, igual
+// que "te avisamos" + "presupuesto" son las dos caras de "controlamos los números").
 const WELCOME_STEPS = [
   {icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)',        titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
-  {icon:'box',    bg:'var(--navy-wash)',    fg:'var(--navy)',       titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'},
-  {icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'},
-  {icon:'chart',  bg:'var(--basil-soft)',   fg:'var(--basil-ink)',  titleKey:'welcome_step4_title', subKey:'welcome_step4_sub'},
-  {icon:'share',  bg:'var(--tomato-soft)',  fg:'var(--tomato-ink)', titleKey:'welcome_step5_title', subKey:'welcome_step5_sub'}
+  {icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'},
+  {icon:'share',  bg:'var(--tomato-soft)',  fg:'var(--tomato-ink)', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'}
 ];
 function closeWelcomeModal(){
   showWelcomeModal = false;
@@ -3836,11 +3860,21 @@ function closeWelcomeModal(){
   render();
 }
 function advanceWelcomeStep(){
-  if(welcomeStep < WELCOME_STEPS.length-1){ welcomeStep++; welcomeStepAnimated = false; render(); }
+  if(welcomeStep < WELCOME_STEPS.length-1){ welcomeStepDir=1; welcomeStep++; welcomeStepAnimated = false; render(); }
   else closeWelcomeModal();
 }
 function retreatWelcomeStep(){
-  if(welcomeStep>0){ welcomeStep--; welcomeStepAnimated = false; render(); }
+  if(welcomeStep>0){ welcomeStepDir=-1; welcomeStep--; welcomeStepAnimated = false; render(); }
+}
+// Saltar directo a un paso tocando su puntito, en vez de tener que ir de a uno — la
+// dirección del deslizamiento se calcula igual que avanzar/retroceder a mano, así el
+// salto se siente consistente con el resto del tutorial en vez de un corte seco.
+function jumpToWelcomeStep(i){
+  if(i===welcomeStep || i<0 || i>=WELCOME_STEPS.length) return;
+  welcomeStepDir = i>welcomeStep ? 1 : -1;
+  welcomeStep = i;
+  welcomeStepAnimated = false;
+  render();
 }
 function welcomeModal(){
   const step = WELCOME_STEPS[welcomeStep];
@@ -3849,19 +3883,21 @@ function welcomeModal(){
   // dibuja este paso se deja animar (animClass vacío); cualquier redibujado
   // posterior del MISMO paso llega con animClass=' no-anim' y salta la animación.
   const animClass = welcomeStepAnimated ? ' no-anim' : '';
+  const dirClass = welcomeStepDir<0 ? ' dir-back' : '';
   welcomeStepAnimated = true;
   return `
   <div class="overlay${animClass}" id="welcome-overlay">
     <div class="modal${animClass}">
+      ${!isLast ? `<button type="button" class="welcome-skip-btn" id="btn-welcome-skip">${t('welcome_skip_btn')}</button>` : ''}
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
-      <div class="welcome-step-card${animClass}" style="background:${step.bg};">
+      <div class="welcome-step-card${animClass}${dirClass}" style="background:${step.bg};">
         <span class="welcome-step-icon" style="background:${step.fg};">${lineIcon(step.icon,28)}</span>
         <strong class="welcome-step-title">${t(step.titleKey)}</strong>
         <div class="welcome-step-sub">${t(step.subKey)}</div>
       </div>
       <div class="welcome-dots">
-        ${WELCOME_STEPS.map((s,i)=>`<span class="welcome-dot${i===welcomeStep?' active':''}" style="background:${i===welcomeStep?s.fg:'var(--line)'};"></span>`).join('')}
+        ${WELCOME_STEPS.map((s,i)=>`<span class="welcome-dot${i===welcomeStep?' active':''}" data-jump-step="${i}" style="background:${i===welcomeStep?s.fg:'var(--line)'};"></span>`).join('')}
       </div>
       <div class="modal-actions">
         ${welcomeStep>0 ? `<button type="button" class="btn btn-ghost" id="btn-welcome-back">${t('welcome_back_btn')}</button>` : ''}
@@ -6153,6 +6189,25 @@ function attachEvents(){
     if(welcomeNextBtn) welcomeNextBtn.onclick = advanceWelcomeStep;
     const welcomeBackBtn = document.getElementById('btn-welcome-back');
     if(welcomeBackBtn) welcomeBackBtn.onclick = retreatWelcomeStep;
+    const welcomeSkipBtn = document.getElementById('btn-welcome-skip');
+    if(welcomeSkipBtn) welcomeSkipBtn.onclick = closeWelcomeModal;
+    document.querySelectorAll('[data-jump-step]').forEach(dot=>{
+      dot.onclick = ()=> jumpToWelcomeStep(+dot.dataset.jumpStep);
+    });
+    // Deslizar el dedo (o arrastrar con el mouse) sobre la tarjeta del paso para
+    // avanzar/retroceder, además de los botones — un umbral de 40px evita que un
+    // toque que solo quiso tocar la tarjeta dispare un cambio de paso sin querer.
+    const welcomeStepCard = document.querySelector('.welcome-step-card');
+    if(welcomeStepCard){
+      welcomeStepCard.addEventListener('pointerdown',(e)=>{ welcomeSwipeStartX = e.clientX; });
+      welcomeStepCard.addEventListener('pointerup',(e)=>{
+        if(welcomeSwipeStartX===null) return;
+        const dx = e.clientX - welcomeSwipeStartX;
+        welcomeSwipeStartX = null;
+        if(Math.abs(dx) < 40) return;
+        if(dx < 0) advanceWelcomeStep(); else retreatWelcomeStep();
+      });
+    }
   }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
