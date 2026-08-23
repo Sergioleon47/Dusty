@@ -1846,7 +1846,7 @@ const I18N = {
     lbl_invoice_total:'Total de la factura', ph_invoice_total:'Ej. 245.90',
     invoice_total_helper:'Este es el monto que se usa para el gasto del mes — corrígelo si no coincide con el total impreso del recibo.',
     scan_title:'Escanear recibo', scan_sub:'El sistema detecta los productos y precios, tú confirmas antes de aplicar',
-    scan_tap_photo:'Toca para tomar o subir una foto',
+    scan_tap_photo:'Toca para tomar una foto', scan_upload_gallery_btn:'o subí una desde la galería',
     scan_reading:'Leyendo el recibo con IA (puede tardar unos segundos)...',
     scan_page:'Página', scan_add_page:'Agregar otra página', scan_read_btn:'Leer recibo',
     scan_mode_pages:'Un solo recibo', scan_mode_batch:'Varios recibos',
@@ -2056,7 +2056,7 @@ const I18N = {
     lbl_invoice_total:'Invoice total', ph_invoice_total:'e.g. 245.90',
     invoice_total_helper:"This is the amount used for the month's spending — correct it if it doesn't match the printed total on the receipt.",
     scan_title:'Scan receipt', scan_sub:'The system extracts the products and prices, you confirm before applying',
-    scan_tap_photo:'Tap to take or upload a photo',
+    scan_tap_photo:'Tap to take a photo', scan_upload_gallery_btn:'or upload one from your gallery',
     scan_reading:'Reading the receipt with AI (this can take a few seconds)...',
     scan_page:'Page', scan_add_page:'Add another page', scan_read_btn:'Read receipt',
     scan_mode_pages:'One receipt', scan_mode_batch:'Several receipts',
@@ -4657,8 +4657,10 @@ function scanModal(){
           <div class="dz-icon">${lineIcon('camera',26)}</div>
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
+        <button type="button" id="btn-scan-gallery" style="display:block;margin:-8px auto 16px;background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 8px;">${t('scan_upload_gallery_btn')}</button>
       ` : ''}
-      <input type="file" id="receipt-file" accept="image/*" style="display:none;">
+      <input type="file" id="receipt-file" accept="image/*" capture="environment" style="display:none;">
+      <input type="file" id="receipt-file-gallery" accept="image/*" style="display:none;">
 
       ${scanState==='idle' && scanImages.length>0 ? `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
@@ -6670,14 +6672,23 @@ function attachEvents(){
 
     const dz=document.getElementById('drop-zone');
     const fileInput=document.getElementById('receipt-file');
-    if(fileInput){
-      fileInput.onchange=(e)=>{
-        const f=e.target.files[0];
-        fileInput.value=''; // permite volver a elegir el mismo archivo para otra página si hace falta
-        if(f) addScanPage(f);
-      };
-    }
+    const galleryInput=document.getElementById('receipt-file-gallery');
+    // Dos inputs separados (cámara forzada vs. galería) en vez de uno solo sin
+    // "capture" — un input de archivo sin capture puede, según el WebView/Android,
+    // saltar directo al explorador de archivos y esconder la opción de cámara (bug
+    // reportado por un usuario real: "no puede tirar fotos, solo puede subir").
+    // Mismo patrón ya usado en item-photo-file (subir, sin capture) vs.
+    // item-scan-photo-file (cámara, con capture) más arriba en este archivo.
+    const onScanFileChosen=(input)=>(e)=>{
+      const f=e.target.files[0];
+      input.value=''; // permite volver a elegir el mismo archivo para otra página si hace falta
+      if(f) addScanPage(f);
+    };
+    if(fileInput) fileInput.onchange=onScanFileChosen(fileInput);
+    if(galleryInput) galleryInput.onchange=onScanFileChosen(galleryInput);
     if(dz) dz.onclick=()=>fileInput.click();
+    const galleryBtn=document.getElementById('btn-scan-gallery');
+    if(galleryBtn) galleryBtn.onclick=()=>galleryInput.click();
     const addPageBtn=document.getElementById('btn-add-scan-page');
     if(addPageBtn) addPageBtn.onclick=()=>fileInput.click();
     const processBtn=document.getElementById('btn-process-scan');
