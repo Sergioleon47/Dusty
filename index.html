@@ -1847,6 +1847,7 @@ const I18N = {
     invoice_total_helper:'Este es el monto que se usa para el gasto del mes — corrígelo si no coincide con el total impreso del recibo.',
     scan_title:'Escanear recibo', scan_sub:'El sistema detecta los productos y precios, tú confirmas antes de aplicar',
     scan_tap_photo:'Toca para tomar una foto', scan_upload_gallery_btn:'o subí una desde la galería',
+    scan_add_gallery_btn:'+ agregar varias desde la galería',
     scan_reading:'Leyendo el recibo con IA (puede tardar unos segundos)...',
     scan_page:'Página', scan_add_page:'Agregar otra página', scan_read_btn:'Leer recibo',
     scan_mode_pages:'Un solo recibo', scan_mode_batch:'Varios recibos',
@@ -2057,6 +2058,7 @@ const I18N = {
     invoice_total_helper:"This is the amount used for the month's spending — correct it if it doesn't match the printed total on the receipt.",
     scan_title:'Scan receipt', scan_sub:'The system extracts the products and prices, you confirm before applying',
     scan_tap_photo:'Tap to take a photo', scan_upload_gallery_btn:'or upload one from your gallery',
+    scan_add_gallery_btn:'+ add several from your gallery',
     scan_reading:'Reading the receipt with AI (this can take a few seconds)...',
     scan_page:'Page', scan_add_page:'Add another page', scan_read_btn:'Read receipt',
     scan_mode_pages:'One receipt', scan_mode_batch:'Several receipts',
@@ -4660,7 +4662,7 @@ function scanModal(){
         <button type="button" id="btn-scan-gallery" style="display:block;margin:-8px auto 16px;background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 8px;">${t('scan_upload_gallery_btn')}</button>
       ` : ''}
       <input type="file" id="receipt-file" accept="image/*" capture="environment" style="display:none;">
-      <input type="file" id="receipt-file-gallery" accept="image/*" style="display:none;">
+      <input type="file" id="receipt-file-gallery" accept="image/*" multiple style="display:none;">
 
       ${scanState==='idle' && scanImages.length>0 ? `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
@@ -4683,10 +4685,11 @@ function scanModal(){
           <button data-scan-mode="batch" class="${scanBatchMode?'on':''}">${t('scan_mode_batch')}</button>
         </div>
         <div class="helper-note" style="margin-top:-6px;">${scanBatchMode ? t('scan_mode_batch_hint') : t('scan_mode_pages_hint')}</div>
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">
           <button class="btn btn-ghost btn-sm" id="btn-add-scan-page">+ ${t(scanBatchMode?'scan_add_receipt':'scan_add_page')}</button>
           <button class="btn btn-primary btn-sm" id="btn-process-scan">${t('scan_read_btn')}</button>
         </div>
+        <button type="button" id="btn-add-scan-gallery" style="display:block;background:none;border:none;color:var(--sky-ink);font-size:11.5px;font-weight:600;cursor:pointer;padding:2px 4px;margin:0 0 14px;">${t('scan_add_gallery_btn')}</button>
       ` : ''}
 
       ${scanState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('scan_reading')}</div>` : ''}
@@ -6679,18 +6682,25 @@ function attachEvents(){
     // reportado por un usuario real: "no puede tirar fotos, solo puede subir").
     // Mismo patrón ya usado en item-photo-file (subir, sin capture) vs.
     // item-scan-photo-file (cámara, con capture) más arriba en este archivo.
-    const onScanFileChosen=(input)=>(e)=>{
-      const f=e.target.files[0];
+    // La galería permite elegir varias fotos de una (input "multiple") — un tester real
+    // reportó que si ya tenía varias fotos de páginas de un mismo recibo guardadas, tener
+    // que agregarlas de a una (cada tap volvía a abrir la cámara) era muy lento. Se
+    // procesan en orden, una por una (await), para que las páginas queden en el orden en
+    // que las eligió y no en el orden en que cada una termina de cargar/redimensionar.
+    const onScanFilesChosen=(input)=>async(e)=>{
+      const files=Array.from(e.target.files||[]);
       input.value=''; // permite volver a elegir el mismo archivo para otra página si hace falta
-      if(f) addScanPage(f);
+      for(const f of files) await addScanPage(f);
     };
-    if(fileInput) fileInput.onchange=onScanFileChosen(fileInput);
-    if(galleryInput) galleryInput.onchange=onScanFileChosen(galleryInput);
+    if(fileInput) fileInput.onchange=onScanFilesChosen(fileInput);
+    if(galleryInput) galleryInput.onchange=onScanFilesChosen(galleryInput);
     if(dz) dz.onclick=()=>fileInput.click();
     const galleryBtn=document.getElementById('btn-scan-gallery');
     if(galleryBtn) galleryBtn.onclick=()=>galleryInput.click();
     const addPageBtn=document.getElementById('btn-add-scan-page');
     if(addPageBtn) addPageBtn.onclick=()=>fileInput.click();
+    const addPageGalleryBtn=document.getElementById('btn-add-scan-gallery');
+    if(addPageGalleryBtn) addPageGalleryBtn.onclick=()=>galleryInput.click();
     const processBtn=document.getElementById('btn-process-scan');
     if(processBtn) processBtn.onclick=()=>processReceiptImage();
     document.querySelectorAll('[data-remove-scan-page]').forEach(b=>{

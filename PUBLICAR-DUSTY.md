@@ -35,11 +35,12 @@ dónde vive cada cosa.
   personal del usuario.
 - **Se subió el `.aab` (versionCode 2) al track de closed testing**, con
   177 países/regiones habilitados y una lista de testers ("Dusty testers")
-  que **ahora tiene 8 emails guardados y confirmados** (verificado
+  que **ahora tiene 9 emails guardados y confirmados** (verificado
   recargando la página después de guardar):
   ohknee1986@gmail.com, folziegirlie2@yahoo.com, folzman26@gmail.com,
   nidiagarcia.rd@gmail.com, mariocelle1995@gmail.com, caego23@gmail.com,
-  gioserfeliz14@gmail.com, Karla.trizzino@gmail.com.
+  gioserfeliz14@gmail.com, Karla.trizzino@gmail.com,
+  altagraciafeliz.af@gmail.com. Faltan **3 más** para los 12.
 - **✅ RESUELTO — causa raíz del "Your changes couldn't be saved":** no era
   un bug de la UI ni un límite de cuenta. Play Console valida cada email
   contra una cuenta de Google real, y si **cualquiera** de la lista falla
