@@ -79,13 +79,12 @@ dónde vive cada cosa.
   bundleRelease` (JDK 21, ver sección 1) + subida manual del `.aab` en
   Play Console → "Submit changes for review". Mismo track (Closed testing
   - Alpha), mismos 9 testers de antes.
-  - **Nota sobre el bug de la cámara:** se probó en un emulador Pixel 8 con
-    Android muy nuevo y ahí Chrome ya no distingue el atributo `capture`
-    (cámara y galería abren el mismo selector). El arreglo debería
-    funcionar en los teléfonos reales de los testers (versiones de Android
-    más viejas, donde `capture` sí importa) — pero conviene que el cliente
-    que reportó el bug confirme con la build nueva en cuanto Google la
-    apruebe, en vez de asumir que ya quedó resuelto.
+  - **✅ Bug de la cámara CONFIRMADO arreglado en teléfono real** — el
+    cliente que lo reportó probó la build nueva (23/08/2026) y avisó que
+    salió todo bien. En el emulador Pixel 8 (Android muy nuevo) cámara y
+    galería habían abierto el mismo selector porque ahí Chrome ya no
+    distingue el atributo `capture`, así que esa prueba había quedado
+    incompleta — pero la confirmación real es la que cuenta, y ya llegó.
   - **Nota técnica: OneDrive traba las carpetas `build/`** de Gradle
     durante la compilación (el proyecto vive en una carpeta sincronizada
     por OneDrive) — si `gradlew` falla con "Unable to delete directory" o
@@ -96,9 +95,7 @@ dónde vive cada cosa.
 - **Lo que falta ahora:**
   1. Esperar la aprobación de Google Play del versionCode 3.
   2. Completar los 12 testers reales (ver lista pendiente arriba).
-  3. Pedirle al cliente que reportó el bug de la cámara que confirme si se
-     arregló con la build nueva.
-  4. Una vez aprobada y con 12 testers durante 14 días, se puede promover
+  3. Una vez aprobada y con 12 testers durante 14 días, se puede promover
      a producción.
 
 ---
