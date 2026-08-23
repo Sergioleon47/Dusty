@@ -552,7 +552,7 @@
      termina de bajar de la red, un layout shift clásico. Con min-height, el hueco ya
      está ahí desde el primer render — la foto aparece adentro sin mover nada de
      alrededor. */
-  .receipt-preview{width:100%;min-height:180px;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);background:var(--bg);}
+  .receipt-preview{width:100%;height:200px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);background:var(--bg);}
   .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:var(--saffron-ink);margin-bottom:14px;}
   .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -3166,7 +3166,7 @@ function receiptCalendarWidget(){
     const clickAttr = multi ? `data-day-receipts="${dateStr}"` : r ? `data-view-receipt="${r.id}"` : '';
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${isToday?'today':''} ${isBlink?'blink':''}" ${clickAttr} ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:''}>
-        ${cover ? `<img src="${receiptImageSrc(cover)}" alt="">`
+        ${cover ? `<img src="${receiptImageSrc(cover)}" alt="" loading="lazy" onerror="this.style.display='none'">`
           : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
           : `<span class="cal-day-num">${day}</span>`}
         ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
@@ -3205,7 +3205,7 @@ function dayReceiptsModal(){
           return `
           <div class="day-receipt-row" data-view-receipt="${r.id}">
             <div class="day-receipt-thumb">
-              ${cover ? `<img src="${receiptImageSrc(cover)}" alt="">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
+              ${cover ? `<img src="${receiptImageSrc(cover)}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:13.5px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -3266,7 +3266,7 @@ function recibosView(){
           const cover = imgs[0];
           return `
           <div class="dish-card" style="cursor:pointer;position:relative;" data-view-receipt="${r.id}">
-            ${cover ? `<img src="${receiptImageSrc(cover)}" alt="" style="width:100%;height:140px;object-fit:cover;">` : `<div style="width:100%;height:140px;background:#FAFAF7;"></div>`}
+            ${cover ? `<img src="${receiptImageSrc(cover)}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:#FAFAF7;&quot;></div>'">` : `<div style="width:100%;height:140px;background:#FAFAF7;"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
               <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -3790,7 +3790,7 @@ function receiptDetailModal(){
     <div class="modal wide">
       <h3 class="navy">${escapeHtml(r.supplier)||t('no_supplier_name')}</h3>
       <div class="sub">${r.date} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
-      ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${receiptImageSrc(img)}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;">`).join('')}
+      ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${receiptImageSrc(img)}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
       <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">${t('rd_applied_label')}</label>
       ${(r.appliedItems||[]).map(it=>`
         <div class="matched-item" style="cursor:default;">
