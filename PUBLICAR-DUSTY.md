@@ -42,6 +42,11 @@ dónde vive cada cosa.
   gioserfeliz14@gmail.com, Karla.trizzino@gmail.com,
   altagraciafeliz.af@gmail.com, antonioblackwell05@gmail.com,
   jtbayleee@gmail.com. Falta **1 más** para los 12.
+  - **⚠️ `manney.reginald@yahoo.com` falló la misma validación** ("This
+    email address doesn't exist" — no tiene cuenta de Google asociada, ver
+    nota abajo). Se descartó, no llegó a sumarse a los 11. Hace falta un
+    email distinto de esa persona, o que cree una cuenta de Google con ese
+    mismo email.
 - **✅ El versionCode 3 ya fue aprobado y publicado por Google** (visto en
   Play Console: notificación "App update published", y "Latest release: 3
   (1.0)" en el resumen del track de Closed testing - Alpha).
@@ -64,8 +69,6 @@ dónde vive cada cosa.
     suyo. Cuando aparezca este mismo error con cualquier otro email
     nuevo, el mismo método (sacar el que tiene el ícono rojo, guardar el
     resto, resolver aparte el que falló) funciona.
-  - Todavía faltan **4 testers más** para llegar a los 12 necesarios (8 de
-    8 confirmados + el de icloud pendiente de resolver = potencialmente 9).
   - Todavía quedan 3 emails de otra lista del usuario que estaban cortados
     en una captura de pantalla (sin confirmar dominio completo):
     claude.test.dusty@exa... (probablemente de prueba, no una persona real),
