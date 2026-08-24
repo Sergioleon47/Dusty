@@ -561,6 +561,23 @@
   .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:var(--saffron-ink);margin-bottom:14px;}
   .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
+  /* Mientras la IA lee el recibo: la foto en pantalla con un haz de luz que la barre
+     de arriba a abajo y de vuelta (como un escáner de documentos de verdad), esquinas
+     de visor y todo — en vez de dejar al usuario mirando un spinner pelado sin ver
+     qué se está leyendo. El haz anima `top` en %, que se mide contra la altura del
+     contenedor: así funciona con fotos de cualquier alto sin medir nada en JS. */
+  .scan-anim{position:relative;border-radius:12px;overflow:hidden;margin-bottom:12px;background:#1C1E21;}
+  .scan-anim img{display:block;width:100%;max-height:300px;object-fit:contain;opacity:0.85;}
+  .scan-anim .beam{position:absolute;left:0;right:0;height:64px;top:-15%;pointer-events:none;
+    background:linear-gradient(to bottom, rgba(91,157,217,0), rgba(91,157,217,0.30) 42%, rgba(255,255,255,0.85) 50%, rgba(91,157,217,0.30) 58%, rgba(91,157,217,0));
+    animation:scanBeam 2.4s ease-in-out infinite alternate;}
+  @keyframes scanBeam{ from{top:-15%;} to{top:100%;} }
+  .scan-anim .corner{position:absolute;width:22px;height:22px;border:2.5px solid rgba(255,255,255,0.9);pointer-events:none;}
+  .scan-anim .corner.tl{top:10px;left:10px;border-right:none;border-bottom:none;border-top-left-radius:6px;}
+  .scan-anim .corner.tr{top:10px;right:10px;border-left:none;border-bottom:none;border-top-right-radius:6px;}
+  .scan-anim .corner.bl{bottom:10px;left:10px;border-right:none;border-top:none;border-bottom-left-radius:6px;}
+  .scan-anim .corner.br{bottom:10px;right:10px;border-left:none;border-top:none;border-bottom-right-radius:6px;}
+  @media (prefers-reduced-motion: reduce){ .scan-anim .beam{display:none;} }
   .scan-error{background:var(--tomato-soft);color:var(--tomato-ink);padding:12px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;}
   /* Control tipo segmentado (estilo iOS) para elegir si las fotos son páginas de un
      mismo recibo o recibos distintos. */
@@ -4835,7 +4852,19 @@ function scanModal(){
         <button type="button" id="btn-add-scan-gallery" style="display:block;background:none;border:none;color:var(--sky-ink);font-size:11.5px;font-weight:600;cursor:pointer;padding:2px 4px;margin:0 0 14px;">${t('scan_add_gallery_btn')}</button>
       ` : ''}
 
-      ${scanState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('scan_reading')}</div>` : ''}
+      ${scanState==='loading' ? (()=>{
+        // En modo lote, scanCurrentImages tiene las fotos del recibo que se está
+        // leyendo AHORA (la cola avanza de a uno); en modo normal van todas juntas.
+        const animImg = (scanCurrentImages && scanCurrentImages[0]) || scanImages[0];
+        return `
+        ${animImg ? `
+        <div class="scan-anim">
+          <img src="data:${animImg.mediaType};base64,${animImg.base64}" alt="">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div class="beam"></div>
+        </div>` : ''}
+        <div class="scan-status"><div class="spinner"></div> ${t('scan_reading')}</div>`;
+      })() : ''}
       ${scanState==='error' ? `<div class="scan-error">⚠ ${scanErrorMsg}</div>` : ''}
       ${scanState==='error' ? `<div class="helper-note" style="margin-top:-4px;">${t('scan_tip_manual')}</div>` : ''}
 
