@@ -33,20 +33,17 @@ dónde vive cada cosa.
   email `sergioleon47+dustyreview@hotmail.com` / contraseña
   `DustyReview2026!` — cuenta real creada en la app, separada de la cuenta
   personal del usuario.
-- **Se subió el `.aab` (versionCode 2) al track de closed testing**, con
-  177 países/regiones habilitados y una lista de testers ("Dusty testers")
-  que **ahora tiene 11 emails guardados y confirmados** (verificado
-  recargando la página después de guardar):
-  ohknee1986@gmail.com, folziegirlie2@yahoo.com, folzman26@gmail.com,
-  nidiagarcia.rd@gmail.com, mariocelle1995@gmail.com, caego23@gmail.com,
-  gioserfeliz14@gmail.com, Karla.trizzino@gmail.com,
-  altagraciafeliz.af@gmail.com, antonioblackwell05@gmail.com,
-  jtbayleee@gmail.com. Falta **1 más** para los 12.
-  - **⚠️ `manney.reginald@yahoo.com` falló la misma validación** ("This
-    email address doesn't exist" — no tiene cuenta de Google asociada, ver
-    nota abajo). Se descartó, no llegó a sumarse a los 11. Hace falta un
-    email distinto de esa persona, o que cree una cuenta de Google con ese
-    mismo email.
+- **✅ ¡Se llegó a los 12 testers reales!** (verificado recargando la
+  página después de guardar): ohknee1986@gmail.com,
+  folziegirlie2@yahoo.com, folzman26@gmail.com, nidiagarcia.rd@gmail.com,
+  mariocelle1995@gmail.com, caego23@gmail.com, gioserfeliz14@gmail.com,
+  Karla.trizzino@gmail.com, altagraciafeliz.af@gmail.com,
+  antonioblackwell05@gmail.com, jtbayleee@gmail.com, punk0188@yahoo.com.
+  Se subió al track de closed testing, 177 países/regiones habilitados.
+  - **⚠️ `manney.reginald@yahoo.com` falló la validación** ("This email
+    address doesn't exist" — no tiene cuenta de Google asociada, ver nota
+    abajo) y se descartó — `punk0188@yahoo.com` lo reemplazó como el
+    tester número 12.
 - **✅ El versionCode 3 ya fue aprobado y publicado por Google** (visto en
   Play Console: notificación "App update published", y "Latest release: 3
   (1.0)" en el resumen del track de Closed testing - Alpha).
@@ -100,9 +97,9 @@ dónde vive cada cosa.
     (`Remove-Item` normal a veces no alcanza por los path largos de
     node_modules).
 - **Lo que falta ahora:**
-  1. Conseguir **1 tester más** para llegar a los 12 (ver lista arriba).
-  2. Una vez con 12 testers durante 14 días corridos, se puede promover
-     a producción.
+  1. **Esperar los 14 días corridos con los 12 testers** (arrancó el
+     23/08/2026) — es el único requisito que falta para poder promover a
+     producción.
 
 ---
 
