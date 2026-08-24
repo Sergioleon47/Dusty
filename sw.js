@@ -4,13 +4,23 @@
    y sólo se usa lo cacheado cuando falla el fetch (sin red) o para las
    navegaciones dentro de la SPA. */
 
-const CACHE_NAME = 'patron-shell-v1';
+// v2: index.html se dividió en dusty.css + app-01..07-*.js — el bump fuerza a los
+// clientes con el shell viejo cacheado a precachear el juego de archivos nuevo.
+const CACHE_NAME = 'patron-shell-v2';
 
 const PRECACHE_URLS = [
   '/',
   '/index.html',
+  '/dusty.css',
   '/patron-core.js',
   '/morphdom-umd.min.js',
+  '/app-01-estado.js',
+  '/app-02-nube.js',
+  '/app-03-base.js',
+  '/app-04-render.js',
+  '/app-05-vistas.js',
+  '/app-06-modales.js',
+  '/app-07-eventos.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',

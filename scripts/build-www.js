@@ -11,8 +11,16 @@ const WWW = path.join(ROOT, 'www');
 
 const FILES = [
   'index.html',
+  'dusty.css',
   'patron-core.js',
   'morphdom-umd.min.js',
+  'app-01-estado.js',
+  'app-02-nube.js',
+  'app-03-base.js',
+  'app-04-render.js',
+  'app-05-vistas.js',
+  'app-06-modales.js',
+  'app-07-eventos.js',
   'manifest.json',
   'sw.js',
   'icon-192.png',
