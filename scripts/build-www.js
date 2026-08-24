@@ -12,6 +12,7 @@ const WWW = path.join(ROOT, 'www');
 const FILES = [
   'index.html',
   'patron-core.js',
+  'morphdom-umd.min.js',
   'manifest.json',
   'sw.js',
   'icon-192.png',

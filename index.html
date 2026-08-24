@@ -652,6 +652,7 @@
 <body>
 <div id="app"></div>
 
+<script src="morphdom-umd.min.js"></script>
 <script src="patron-core.js"></script>
 <script>
 if('serviceWorker' in navigator){
@@ -2555,7 +2556,7 @@ function renderApp(){
   document.documentElement.lang = uiLang;
   document.title = uiLang==='en' ? 'Dusty — Inventory' : 'Dusty — Inventario';
   const tabIdx = TAB_ORDER.indexOf(activeTab);
-  app.innerHTML = `
+  const html = `
     ${topbar()}
     <div class="view-viewport">
       <div class="view-track" style="transform:translateX(-${tabIdx*(100/3)}%);">
@@ -2584,6 +2585,33 @@ function renderApp(){
     ${showFeedbackModal ? feedbackModal() : ''}
     ${bottomNav()}
   `;
+  /* Parcheo del DOM con morphdom en vez de app.innerHTML = html. El reemplazo
+     total recreaba TODOS los nodos en cada render: cada <img> nuevo re-decodifica
+     su foto (flash blanco visible con las base64 de los recibos), el scroll y el
+     foco se pierden, y las animaciones CSS en curso se reinician. morphdom compara
+     el HTML nuevo contra el DOM vivo y solo toca lo que cambió — un snapshot de
+     Firestore que no cambia nada visible ahora no mueve ni un píxel.
+     Dos reglas en onBeforeElUpdated:
+     1. Subárbol idéntico → no entrar (es lo que preserva los <img> ya decodificados).
+     2. El elemento con foco donde el usuario está escribiendo no se pisa nunca —
+        un render de fondo a mitad de tipeo le borraría lo escrito o le movería el
+        cursor.
+     attachEvents() sigue corriendo completo después: todos sus handlers son
+     propiedades on* (asignar pisa, no apila — por eso los overlays se convirtieron
+     de addEventListener a onmousedown) o tienen guard propio (makeKeyboardClickable).
+     Fallback: si morphdom no cargó (CDN bloqueado jamás aplica — es archivo local —
+     pero un SW viejo podría no tenerlo cacheado offline), innerHTML como siempre. */
+  if(typeof morphdom === 'function'){
+    morphdom(app, `<div id="app">${html}</div>`, {
+      onBeforeElUpdated(fromEl, toEl){
+        if(fromEl.isEqualNode(toEl)) return false;
+        if(fromEl === document.activeElement && (fromEl.tagName==='INPUT' || fromEl.tagName==='TEXTAREA' || fromEl.tagName==='SELECT')) return false;
+        return true;
+      }
+    });
+  } else {
+    app.innerHTML = html;
+  }
   attachEvents();
   syncViewportHeight();
 }
@@ -6297,7 +6325,7 @@ function attachEvents(){
   if(btnFeedback) btnFeedback.onclick=()=>openFeedbackModal();
   const feedbackOverlay=document.getElementById('feedback-overlay');
   if(feedbackOverlay){
-    feedbackOverlay.addEventListener('mousedown',(e)=>{ if(e.target===feedbackOverlay) closeFeedbackModal(); });
+    feedbackOverlay.onmousedown=(e)=>{ if(e.target===feedbackOverlay) closeFeedbackModal(); };
     const btnCancelFeedback=document.getElementById('btn-cancel-feedback');
     if(btnCancelFeedback) btnCancelFeedback.onclick=closeFeedbackModal;
     const btnCloseFeedback=document.getElementById('btn-close-feedback');
@@ -6321,7 +6349,7 @@ function attachEvents(){
   /* Modal de equipo (compartir inventario) */
   const teamOverlay=document.getElementById('team-overlay');
   if(teamOverlay){
-    teamOverlay.addEventListener('mousedown',(e)=>{ if(e.target===teamOverlay) closeTeamModal(); });
+    teamOverlay.onmousedown=(e)=>{ if(e.target===teamOverlay) closeTeamModal(); };
     document.getElementById('btn-close-team').onclick=closeTeamModal;
     document.getElementById('btn-sign-out-team').onclick=()=>{ closeTeamModal(); firebase.auth().signOut(); };
     const btnCopyCode=document.getElementById('btn-copy-invite-code');
@@ -6347,7 +6375,7 @@ function attachEvents(){
   /* Modal de inicio de sesión */
   const authOverlay=document.getElementById('auth-overlay');
   if(authOverlay){
-    authOverlay.addEventListener('mousedown',(e)=>{ if(e.target===authOverlay) closeAuthModal(); });
+    authOverlay.onmousedown=(e)=>{ if(e.target===authOverlay) closeAuthModal(); };
     document.getElementById('btn-cancel-auth').onclick=closeAuthModal;
     const switchSignup=document.getElementById('btn-switch-signup');
     if(switchSignup) switchSignup.onclick=(e)=>{ e.preventDefault(); authMode='signup'; authError=''; render(); };
@@ -6408,7 +6436,7 @@ function attachEvents(){
   if(btnOpenMonthlySpend) btnOpenMonthlySpend.onclick = openMonthlySpendModal;
   const monthlySpendOverlay = document.getElementById('monthly-spend-overlay');
   if(monthlySpendOverlay){
-    monthlySpendOverlay.addEventListener('mousedown',(e)=>{ if(e.target===monthlySpendOverlay) closeMonthlySpendModal(); });
+    monthlySpendOverlay.onmousedown=(e)=>{ if(e.target===monthlySpendOverlay) closeMonthlySpendModal(); };
     const closeMonthlySpendBtn = document.getElementById('btn-close-monthly-spend');
     if(closeMonthlySpendBtn) closeMonthlySpendBtn.onclick = closeMonthlySpendModal;
   }
@@ -6418,7 +6446,7 @@ function attachEvents(){
     // Cerrar tocando el fondo (sin elegir) sigue de largo con la adivinanza inicial —
     // igual que cualquier otro overlay de la app, no queda trabado si alguien lo toca
     // sin querer.
-    langChoiceOverlay.addEventListener('mousedown',(e)=>{ if(e.target===langChoiceOverlay) chooseLangAndContinue(uiLang); });
+    langChoiceOverlay.onmousedown=(e)=>{ if(e.target===langChoiceOverlay) chooseLangAndContinue(uiLang); };
     document.querySelectorAll('[data-choose-lang]').forEach(btn=>{
       btn.onclick = ()=> chooseLangAndContinue(btn.dataset.chooseLang);
     });
@@ -6426,7 +6454,7 @@ function attachEvents(){
 
   const welcomeOverlay = document.getElementById('welcome-overlay');
   if(welcomeOverlay){
-    welcomeOverlay.addEventListener('mousedown',(e)=>{ if(e.target===welcomeOverlay) closeWelcomeModal(); });
+    welcomeOverlay.onmousedown=(e)=>{ if(e.target===welcomeOverlay) closeWelcomeModal(); };
     const welcomeNextBtn = document.getElementById('btn-welcome-next');
     if(welcomeNextBtn) welcomeNextBtn.onclick = advanceWelcomeStep;
     const welcomeBackBtn = document.getElementById('btn-welcome-back');
@@ -6441,14 +6469,14 @@ function attachEvents(){
     // toque que solo quiso tocar la tarjeta dispare un cambio de paso sin querer.
     const welcomeStepCard = document.querySelector('.welcome-step-card');
     if(welcomeStepCard){
-      welcomeStepCard.addEventListener('pointerdown',(e)=>{ welcomeSwipeStartX = e.clientX; });
-      welcomeStepCard.addEventListener('pointerup',(e)=>{
+      welcomeStepCard.onpointerdown=(e)=>{ welcomeSwipeStartX = e.clientX; };
+      welcomeStepCard.onpointerup=(e)=>{
         if(welcomeSwipeStartX===null) return;
         const dx = e.clientX - welcomeSwipeStartX;
         welcomeSwipeStartX = null;
         if(Math.abs(dx) < 40) return;
         if(dx < 0) advanceWelcomeStep(); else retreatWelcomeStep();
-      });
+      };
     }
   }
 
@@ -6466,7 +6494,7 @@ function attachEvents(){
 
   const categoriesOverlay=document.getElementById('categories-overlay');
   if(categoriesOverlay){
-    categoriesOverlay.addEventListener('mousedown',(e)=>{ if(e.target===categoriesOverlay) closeCategoriesModal(); });
+    categoriesOverlay.onmousedown=(e)=>{ if(e.target===categoriesOverlay) closeCategoriesModal(); };
     const btnCancelCategories=document.getElementById('btn-cancel-categories');
     if(btnCancelCategories) btnCancelCategories.onclick=closeCategoriesModal;
     document.querySelectorAll('[data-category-name]').forEach(inp=>{
@@ -6476,18 +6504,19 @@ function attachEvents(){
       btn.onclick=()=>{ draftCategories.splice(parseInt(btn.dataset.removeCategory,10),1); render(); };
     });
     // Reordenar categorías: presionar y arrastrar una fila (el input y la x quedan
-    // afuera del gesto, ver el chequeo de closest() más abajo). Se re-cablea de cero
-    // en cada render — como el resto de este bloque — así que no hace falta ningún
-    // guard de "adjuntar una sola vez": los listeners de document que arma un
-    // arrastre se sacan solos al soltar, y los de cada fila mueren con su nodo viejo
-    // en el próximo render.
+    // afuera del gesto, ver el chequeo de closest() más abajo). Handlers como
+    // propiedades on* (no addEventListener): desde que renderApp() parchea el DOM
+    // con morphdom, una fila puede SOBREVIVIR al render — asignar la propiedad pisa
+    // el handler viejo en vez de apilar uno nuevo, y el estado del gesto (pendingTimer)
+    // arranca limpio en cada re-cableado. Los listeners de document que arma un
+    // arrastre se siguen sacando solos al soltar.
     document.querySelectorAll('.category-edit-row[data-cat-id]').forEach(row=>{
       const list = row.closest('.category-edit-list');
       let pendingTimer = null, pendingStart = null;
       const cancelPending = (e)=>{
         if(pendingTimer && (!e || e.pointerId===pendingStart.pointerId)){ clearTimeout(pendingTimer); pendingTimer=null; }
       };
-      row.addEventListener('pointerdown', (e)=>{
+      row.onpointerdown=(e)=>{
         if(e.pointerType==='mouse' && e.button!==0) return;
         if(pendingTimer || e.target.closest('input, .stock-row-x-btn')) return;
         pendingStart = {x:e.clientX, y:e.clientY, pointerId:e.pointerId};
@@ -6495,13 +6524,13 @@ function attachEvents(){
           pendingTimer = null;
           beginCategoryDrag(row, list, pendingStart.pointerId, pendingStart.y);
         }, 350);
-      }, {passive:true});
-      row.addEventListener('pointermove', (e)=>{
+      };
+      row.onpointermove=(e)=>{
         if(!pendingTimer || e.pointerId!==pendingStart.pointerId) return;
         if(Math.abs(e.clientX-pendingStart.x)>10 || Math.abs(e.clientY-pendingStart.y)>10) cancelPending(e);
-      });
-      row.addEventListener('pointerup', cancelPending);
-      row.addEventListener('pointercancel', cancelPending);
+      };
+      row.onpointerup=cancelPending;
+      row.onpointercancel=cancelPending;
     });
     const newCategoryInput=document.getElementById('new-category-name');
     const addCategory=()=>{
@@ -6550,7 +6579,7 @@ function attachEvents(){
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
   if(alertSettingsOverlay){
-    alertSettingsOverlay.addEventListener('mousedown',(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } });
+    alertSettingsOverlay.onmousedown=(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } };
     const closeAlertSettingsBtn=document.getElementById('btn-close-alert-settings');
     if(closeAlertSettingsBtn) closeAlertSettingsBtn.onclick=()=>{ showAlertSettingsModal=false; render(); };
     const cancelAlertBtn=document.getElementById('btn-cancel-alert-settings');
@@ -6572,7 +6601,7 @@ function attachEvents(){
 
   const deleteAccountOverlay=document.getElementById('delete-account-overlay');
   if(deleteAccountOverlay){
-    deleteAccountOverlay.addEventListener('mousedown',(e)=>{ if(e.target===deleteAccountOverlay && !deleteAccountLoading) closeDeleteAccountModal(); });
+    deleteAccountOverlay.onmousedown=(e)=>{ if(e.target===deleteAccountOverlay && !deleteAccountLoading) closeDeleteAccountModal(); };
     const btnCancelDeleteAccount=document.getElementById('btn-cancel-delete-account');
     if(btnCancelDeleteAccount) btnCancelDeleteAccount.onclick=()=>{ if(!deleteAccountLoading) closeDeleteAccountModal(); };
     const btnContinueDeleteAccount=document.getElementById('btn-continue-delete-account');
@@ -6595,7 +6624,7 @@ function attachEvents(){
   if(btnSuggestedOrder) btnSuggestedOrder.onclick=()=>{ showSuggestedOrderModal=true; render(); };
   const suggestedOrderOverlay=document.getElementById('suggested-order-overlay');
   if(suggestedOrderOverlay){
-    suggestedOrderOverlay.addEventListener('mousedown',(e)=>{ if(e.target===suggestedOrderOverlay){ showSuggestedOrderModal=false; render(); } });
+    suggestedOrderOverlay.onmousedown=(e)=>{ if(e.target===suggestedOrderOverlay){ showSuggestedOrderModal=false; render(); } };
     const closeSuggestedBtn=document.getElementById('btn-close-suggested-order');
     if(closeSuggestedBtn) closeSuggestedBtn.onclick=()=>{ showSuggestedOrderModal=false; render(); };
   }
@@ -6604,7 +6633,7 @@ function attachEvents(){
   if(btnInventoryActivity) btnInventoryActivity.onclick=openActivityModal;
   const activityOverlay=document.getElementById('activity-overlay');
   if(activityOverlay){
-    activityOverlay.addEventListener('mousedown',(e)=>{ if(e.target===activityOverlay) closeActivityModal(); });
+    activityOverlay.onmousedown=(e)=>{ if(e.target===activityOverlay) closeActivityModal(); };
     const closeActivityBtn=document.getElementById('btn-close-activity');
     if(closeActivityBtn) closeActivityBtn.onclick=closeActivityModal;
   }
@@ -6619,7 +6648,7 @@ function attachEvents(){
   if(btnShowPendingOnly) btnShowPendingOnly.onclick=(e)=>{ e.stopPropagation(); showFullInventoryDespiteCycleCount=false; render(); };
   const cycleCountOverlay=document.getElementById('cycle-count-overlay');
   if(cycleCountOverlay){
-    cycleCountOverlay.addEventListener('mousedown',(e)=>{ if(e.target===cycleCountOverlay) closeCycleCountModal(); });
+    cycleCountOverlay.onmousedown=(e)=>{ if(e.target===cycleCountOverlay) closeCycleCountModal(); };
     const cancelCcBtn=document.getElementById('btn-close-cycle-count');
     if(cancelCcBtn) cancelCcBtn.onclick=closeCycleCountModal;
     const saveCcBtn=document.getElementById('btn-save-cycle-count');
@@ -6664,13 +6693,13 @@ function attachEvents(){
   });
   const dayReceiptsOverlay=document.getElementById('day-receipts-overlay');
   if(dayReceiptsOverlay){
-    dayReceiptsOverlay.addEventListener('mousedown',(e)=>{ if(e.target===dayReceiptsOverlay){ showDayReceipts=null; render(); } });
+    dayReceiptsOverlay.onmousedown=(e)=>{ if(e.target===dayReceiptsOverlay){ showDayReceipts=null; render(); } };
     const closeDayReceiptsBtn=document.getElementById('btn-close-day-receipts');
     if(closeDayReceiptsBtn) closeDayReceiptsBtn.onclick=()=>{ showDayReceipts=null; render(); };
   }
   const receiptDetailOverlay=document.getElementById('receipt-detail-overlay');
   if(receiptDetailOverlay){
-    receiptDetailOverlay.addEventListener('mousedown',(e)=>{ if(e.target===receiptDetailOverlay){ showReceiptDetail=null; render(); } });
+    receiptDetailOverlay.onmousedown=(e)=>{ if(e.target===receiptDetailOverlay){ showReceiptDetail=null; render(); } };
     const closeBtn=document.getElementById('btn-close-receipt-detail');
     if(closeBtn) closeBtn.onclick=()=>{ showReceiptDetail=null; render(); };
     const currentReceipt = receipts.find(x=>x.id===showReceiptDetail);
@@ -6725,7 +6754,7 @@ function attachEvents(){
   document.querySelectorAll('[data-history-item]').forEach(b=>{ b.onclick=()=>openPriceHistoryModal(b.dataset.historyItem); });
   const priceHistoryOverlay=document.getElementById('price-history-overlay');
   if(priceHistoryOverlay){
-    priceHistoryOverlay.addEventListener('mousedown',(e)=>{ if(e.target===priceHistoryOverlay) closePriceHistoryModal(); });
+    priceHistoryOverlay.onmousedown=(e)=>{ if(e.target===priceHistoryOverlay) closePriceHistoryModal(); };
     const closeHistoryBtn=document.getElementById('btn-close-price-history');
     if(closeHistoryBtn) closeHistoryBtn.onclick=closePriceHistoryModal;
   }
@@ -6770,7 +6799,7 @@ function attachEvents(){
   /* Modal ingrediente */
   const itemOverlay=document.getElementById('item-overlay');
   if(itemOverlay){
-    itemOverlay.addEventListener('mousedown',(e)=>{ if(e.target===itemOverlay) closeItemModal(); });
+    itemOverlay.onmousedown=(e)=>{ if(e.target===itemOverlay) closeItemModal(); };
     document.getElementById('btn-cancel-item').onclick=closeItemModal;
     const itemPhotoFile=document.getElementById('item-photo-file');
     const btnUploadItemPhoto=document.getElementById('btn-upload-item-photo');
@@ -6887,7 +6916,7 @@ function attachEvents(){
   /* Modal código de barras */
   const barcodeScanOverlay=document.getElementById('barcode-scan-overlay');
   if(barcodeScanOverlay){
-    barcodeScanOverlay.addEventListener('mousedown',(e)=>{ if(e.target===barcodeScanOverlay) closeBarcodeScanModal(); });
+    barcodeScanOverlay.onmousedown=(e)=>{ if(e.target===barcodeScanOverlay) closeBarcodeScanModal(); };
     const btnCloseBarcodeScan=document.getElementById('btn-close-barcode-scan');
     if(btnCloseBarcodeScan) btnCloseBarcodeScan.onclick=closeBarcodeScanModal;
     const btnBarcodeRetry=document.getElementById('btn-barcode-retry');
@@ -6900,7 +6929,7 @@ function attachEvents(){
   /* Modal escaneo de recibo */
   const scanOverlay=document.getElementById('scan-overlay');
   if(scanOverlay){
-    scanOverlay.addEventListener('mousedown',(e)=>{ if(e.target===scanOverlay) closeScanModal(); });
+    scanOverlay.onmousedown=(e)=>{ if(e.target===scanOverlay) closeScanModal(); };
     document.getElementById('btn-cancel-scan').onclick=()=>{
       // En modo lote, salir a mitad de la cola no pierde nada de lo ya guardado
       // (cada recibo se guarda al confirmarlo) — pero sí conviene decir qué quedó afuera.
