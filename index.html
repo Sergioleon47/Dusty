@@ -948,7 +948,9 @@ function activityVerb(entry){
   if(entry.type==='item_created') return `${t('activity_item_created')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='item_edited') return `${t('activity_item_edited')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='item_deleted') return `${t('activity_item_deleted')} "${escapeHtml(entry.itemName)}"`;
-  if(entry.type==='scan_applied') return t('activity_scan_applied').replace('{n}', entry.detail||'');
+  // entry.detail viene de logActivity y se sincroniza desde cualquier miembro del equipo,
+  // así que se escapa también en la rama scan_applied (antes solo se escapaba en las otras).
+  if(entry.type==='scan_applied') return t('activity_scan_applied').replace('{n}', escapeHtml(entry.detail||''));
   return escapeHtml(entry.detail||'');
 }
 
@@ -2839,7 +2841,10 @@ function stockIconSvg(item){
   //    ferretería, etc.), donde ningún ícono automático tiene sentido.
   const ownPhoto = item && typeof item==='object' ? itemPhotoSrc(item) : null;
   if(ownPhoto){
-    return `<img src="${ownPhoto}" alt="" loading="lazy" onerror="this.outerHTML=stockIconFallbackSvg('${key}')">`;
+    // escapeHtml en el src: la foto (url/mediaType) puede venir de un compañero de equipo
+    // vía Firestore; sin escapar, un " en esos campos rompe el atributo e inyecta onerror.
+    // key siempre sale de la whitelist de stockIconKey (constante), así que ahí no hay riesgo.
+    return `<img src="${escapeHtml(ownPhoto)}" alt="" loading="lazy" onerror="this.outerHTML=stockIconFallbackSvg('${key}')">`;
   }
   const photo = PRODUCT_PHOTOS[key];
   if(photo){
@@ -2933,7 +2938,7 @@ function stockAnalyticsCard(){
             <div class="stock-caption stock-caption-muted">${t('stock_no_data_caption')}</div>
             ` : `
             <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
-            <div class="stock-caption">${r.ing.qtyOnHand||0} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${r.target} ${escapeHtml(unitLabel(r.ing.unit))}</div>
+            <div class="stock-caption">${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
             `}
           </div>
           <button class="stock-row-x-btn" data-delete-stock-item="${r.ing.id}" title="${t('btn_delete')}">✕</button>
@@ -3070,7 +3075,7 @@ function stockRowHtml(r, ccDueIds){
       <div class="stock-main">
         <div class="stock-name">${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
         <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchases))}${marginBadge(i)}</div>
-        <div class="stock-caption">${i.qtyOnHand||0} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
+        <div class="stock-caption">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
       </div>
       <div class="stock-actions">
         <div class="stock-actions-btns">
@@ -3248,7 +3253,7 @@ function receiptCalendarWidget(){
     const clickAttr = multi ? `data-day-receipts="${dateStr}"` : r ? `data-view-receipt="${r.id}"` : '';
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${isToday?'today':''} ${isBlink?'blink':''}" ${clickAttr} ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:''}>
-        ${cover ? `<img src="${receiptImageSrc(cover)}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">`
           : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
           : `<span class="cal-day-num">${day}</span>`}
         ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
@@ -3287,11 +3292,11 @@ function dayReceiptsModal(){
           return `
           <div class="day-receipt-row" data-view-receipt="${r.id}">
             <div class="day-receipt-thumb">
-              ${cover ? `<img src="${receiptImageSrc(cover)}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
+              ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:13.5px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
-              <div style="font-size:11.5px;color:var(--ink-soft);">${r.itemCount} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);">${escapeHtml(r.itemCount)} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
             </div>
             <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:14px;flex-shrink:0;">${money(r.total)}</div>
           </div>`;
@@ -3348,11 +3353,11 @@ function recibosView(){
           const cover = imgs[0];
           return `
           <div class="dish-card" style="cursor:pointer;position:relative;" data-view-receipt="${r.id}">
-            ${cover ? `<img src="${receiptImageSrc(cover)}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:#FAFAF7;&quot;></div>'">` : `<div style="width:100%;height:140px;background:#FAFAF7;"></div>`}
+            ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:#FAFAF7;&quot;></div>'">` : `<div style="width:100%;height:140px;background:#FAFAF7;"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
               <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
-              <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${r.date} &middot; ${r.itemCount} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
+              <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${escapeHtml(r.date)} &middot; ${escapeHtml(r.itemCount)} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
               <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:15px;">${money(r.total)}</div>
             </div>
           </div>
@@ -3796,7 +3801,7 @@ function suggestedOrderModal(){
               <strong>${escapeHtml(r.ing.name)}</strong>
               <span>${need} ${escapeHtml(unitLabel(r.ing.unit))}</span>
             </div>
-            <div style="font-size:12px;color:var(--ink-soft);">${t('suggested_order_row_note')} ${r.ing.qtyOnHand||0} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${r.target} ${escapeHtml(unitLabel(r.ing.unit))}</div>
+            <div style="font-size:12px;color:var(--ink-soft);">${t('suggested_order_row_note')} ${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
           </div>`;
         }).join('')}
       </div>`}
@@ -3832,7 +3837,7 @@ function cycleCountModal(){
               <div class="mi-top">
                 <span class="mi-icon" style="background:var(--basil);">${lineIcon('box',12)}</span>
                 <strong style="flex:1;">${escapeHtml(i.name)}</strong>
-                <span>${t('cc_current')}: ${i.qtyOnHand||0} ${escapeHtml(unitLabel(i.unit))}</span>
+                <span>${t('cc_current')}: ${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))}</span>
               </div>
               <div class="mi-fields">
                 <input type="number" step="0.01" placeholder="${t('cc_counted_placeholder')}" data-cc-count="${i.id}" style="flex:1;">
@@ -3871,13 +3876,13 @@ function receiptDetailModal(){
   <div class="overlay" id="receipt-detail-overlay">
     <div class="modal wide">
       <h3 class="navy">${escapeHtml(r.supplier)||t('no_supplier_name')}</h3>
-      <div class="sub">${r.date} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
-      ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${receiptImageSrc(img)}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
+      <div class="sub">${escapeHtml(r.date)} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
+      ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${escapeHtml(receiptImageSrc(img))}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
       <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">${t('rd_applied_label')}</label>
       ${(r.appliedItems||[]).map(it=>`
         <div class="matched-item" style="cursor:default;">
           <div class="mi-top"><strong>${escapeHtml(it.rawName)}</strong><span>${money(it.totalPrice)}</span></div>
-          <div style="font-size:12px;color:var(--ink-soft);">${it.qty} ${escapeHtml(unitLabel(it.unit))} &middot; ${t('rd_applied_to')} ${escapeHtml(it.ingName)}</div>
+          <div style="font-size:12px;color:var(--ink-soft);">${escapeHtml(it.qty)} ${escapeHtml(unitLabel(it.unit))} &middot; ${t('rd_applied_to')} ${escapeHtml(it.ingName)}</div>
         </div>
       `).join('')}
       <div class="modal-actions">
@@ -4419,10 +4424,10 @@ function itemModal(){
           <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
             <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
           </div>
-          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${draftItem.costPerUnit}" placeholder="0.00"></div>
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         </div>
         <div class="field-row" style="margin-bottom:0;">
-          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" value="${draftItem.salePrice||''}" placeholder="0.00"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
           <div class="field" style="margin-bottom:0;"><label id="fi-profit-label">${t('lbl_profit_pct')}</label>
             ${(()=>{
               const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
@@ -4440,7 +4445,7 @@ function itemModal(){
           <div class="field"><label for="fi-sku">${t('lbl_sku')}</label><input id="fi-sku" type="text" value="${escapeHtml(draftItem.sku||'')}" placeholder="${t('ph_sku_example')}"></div>
           <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
         </div>
-        <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${draftItem.qtyOnHand||0}"></div>
+        <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
       </div>
 
       <div class="helper-note">${t('item_helper')}</div>
@@ -4794,8 +4799,8 @@ function scanModal(){
         ${scanDuplicateOf ? `
         <div class="scan-error" style="background:var(--saffron-soft);color:var(--saffron-ink);">
           ⚠ ${uiLang==='en'
-            ? `A receipt from <strong>${escapeHtml(scanDuplicateOf.supplier)||'this supplier'}</strong> already exists on ${scanDuplicateOf.date} for a similar total (${money(scanDuplicateOf.total)}). This could be the same receipt scanned twice.`
-            : `Ya existe un recibo de <strong>${escapeHtml(scanDuplicateOf.supplier)||'este proveedor'}</strong> el ${scanDuplicateOf.date} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.`}
+            ? `A receipt from <strong>${escapeHtml(scanDuplicateOf.supplier)||'this supplier'}</strong> already exists on ${escapeHtml(scanDuplicateOf.date)} for a similar total (${money(scanDuplicateOf.total)}). This could be the same receipt scanned twice.`
+            : `Ya existe un recibo de <strong>${escapeHtml(scanDuplicateOf.supplier)||'este proveedor'}</strong> el ${escapeHtml(scanDuplicateOf.date)} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.`}
           <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:600;font-size:12.5px;cursor:pointer;">
             <input type="checkbox" id="scan-dup-confirm" ${scanDuplicateConfirmed?'checked':''}> ${t('scan_dup_confirm_label')}
           </label>
@@ -4904,9 +4909,9 @@ function scanModal(){
                 <option value="__new__" ${item.matchedIngId==='__new__'?'selected':''}>${t('opt_add_new_ing')}</option>
                 ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})</option>`).join('')}
               </select>
-              <input data-scan-qty="${idx}" type="number" step="0.01" value="${item.qty}" style="flex:1;border:${confBorder};" placeholder="${t('ph_qty_short')}">
+              <input data-scan-qty="${idx}" type="number" step="0.01" value="${escapeHtml(item.qty)}" style="flex:1;border:${confBorder};" placeholder="${t('ph_qty_short')}">
               <select data-scan-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${item.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
-              <input data-scan-price="${idx}" type="number" step="0.01" value="${item.totalPrice}" style="flex:1;" placeholder="${t('ph_price_short')}">
+              <input data-scan-price="${idx}" type="number" step="0.01" value="${escapeHtml(item.totalPrice)}" style="flex:1;" placeholder="${t('ph_price_short')}">
             </div>
             ${isUnrecognized && categories.length>0 ? `
             <div class="field" style="margin-top:8px;">
@@ -5341,8 +5346,14 @@ function finishScanBatch(){
    el mismo camino ya probado que un recibo suelto, incluidas todas las alertas. */
 function applyParsedReceiptToScanState(parsed){
     scanSupplier = parsed.supplier || '';
-    scanDate = parsed.date || localDateStr();
+    // La fecha la lee la IA de la foto: si no es una YYYY-MM-DD real, se usa la de hoy en
+    // vez de guardar basura (que además rompería monthKey y el orden por fecha, y —sin el
+    // escape que ya agregamos en las vistas— sería un vector de XSS almacenado).
+    scanDate = isValidDateStr(parsed.date) ? parsed.date : localDateStr();
     scanInvoiceTotal = typeof parsed.invoice_total==='number' ? parsed.invoice_total : (parseFloat(parsed.invoice_total)||null);
+    // Solo se procesan items que sean objetos de verdad — un null o un string en el array
+    // (IA con salida rara, o respuesta manipulada) haría explotar el forEach de abajo.
+    const parsedItems = Array.isArray(parsed.items) ? parsed.items.filter(it=>it && typeof it==='object') : [];
 
     // Antes de mapear, combina líneas de este mismo recibo que Claude marcó como el
     // mismo producto NUEVO repetido (ej. una línea por caja y otra por el reempaque
@@ -5351,7 +5362,7 @@ function applyParsedReceiptToScanState(parsed){
     // con el inventario existente (esos siempre quedan como líneas propias).
     const mergedItems = [];
     const originalIdxToMergedIdx = new Map();
-    parsed.items.forEach((it, idx)=>{
+    parsedItems.forEach((it, idx)=>{
       const dupIdx = typeof it.duplicate_of==='number' ? it.duplicate_of : null;
       // originalIdxToMergedIdx guarda a qué entrada de mergedItems fue a parar CADA
       // índice original, se haya fusionado o no (antes solo se guardaba el de los que
@@ -5600,8 +5611,10 @@ function deleteReceipt(receiptId){
   // red, sin sesión, lo que sea) no interrumpe ni avisa nada, el recibo ya se borró
   // igual de lo que importa (Firestore/localStorage). Un archivo huérfano en
   // Storage no rompe nada, solo ocupa espacio de sobra.
-  const uid = syncUid();
-  if(uid && currentUser){
+  // ownerUid (no "uid") a propósito: uid es también el nombre de la función global que
+  // genera ids — sombrearla acá es una trampa para cualquier edición futura de esta función.
+  const ownerUid = syncUid();
+  if(ownerUid && currentUser){
     receiptImages(r).forEach(img=>{
       if(img.path) firebase.storage().ref(img.path).delete().catch(()=>{});
     });
@@ -5615,9 +5628,9 @@ function printReceipt(r){
   const w = window.open('', '_blank');
   if(!w) return; // ventana emergente bloqueada por el navegador
   const rows = (r.appliedItems||[]).map(it=>`
-    <tr><td>${escapeHtml(it.rawName)}</td><td>${it.qty} ${escapeHtml(unitLabel(it.unit))}</td><td>${money(it.totalPrice)}</td></tr>
+    <tr><td>${escapeHtml(it.rawName)}</td><td>${escapeHtml(it.qty)} ${escapeHtml(unitLabel(it.unit))}</td><td>${money(it.totalPrice)}</td></tr>
   `).join('');
-  const imgsHtml = receiptImages(r).map(img=>`<img src="${receiptImageSrc(img)}" alt="">`).join('');
+  const imgsHtml = receiptImages(r).map(img=>`<img src="${escapeHtml(receiptImageSrc(img))}" alt="">`).join('');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(r.supplier)||t('no_supplier_name')}</title>
     <style>
       body{font-family:-apple-system,sans-serif;padding:24px;color:#1C1C1E;max-width:480px;margin:0 auto;}
@@ -6658,6 +6671,9 @@ function attachEvents(){
         const img = await loadImageFromFile(file);
         const image = resizeToBase64(img, 1400, 0.9);
         const result = await identifyProductFromPhoto(image);
+        // Si el usuario cerró el modal mientras la IA respondía, closeItemModal ya puso
+        // draftItem en null — tocarlo acá tiraba un TypeError. Se descarta el resultado.
+        if(!draftItem){ productScanState='idle'; return; }
         if(result.name) draftItem.name = result.name;
         if(result.unit) draftItem.unit = result.unit;
         if(typeof result.cost_per_unit==='number') draftItem.costPerUnit = result.cost_per_unit;
@@ -6878,6 +6894,17 @@ document.addEventListener('keydown', (e)=>{
   if(showSuggestedOrderModal){ showSuggestedOrderModal=false; render(); return; }
   if(showReceiptDetail){ showReceiptDetail=null; render(); return; }
   if(showDayReceipts){ showDayReceipts=null; render(); return; }
+  // Estos faltaban: sin Escape, el modal de equipo además dejaba vivo su setInterval de
+  // refresco (teamModalRefreshTimer) porque solo closeTeamModal() lo limpia. El de barras
+  // apaga la cámara al cerrarse. El de idioma (langChoice) es la primera elección
+  // obligatoria de un usuario nuevo, así que a propósito NO se cierra con Escape.
+  if(showTeamModal){ closeTeamModal(); return; }
+  if(showAuthModal){ closeAuthModal(); return; }
+  if(showActivityModal){ closeActivityModal(); return; }
+  if(showCategoriesModal){ closeCategoriesModal(); return; }
+  if(showFeedbackModal){ closeFeedbackModal(); return; }
+  if(showBarcodeScanModal){ closeBarcodeScanModal(); return; }
+  if(showWelcomeModal){ closeWelcomeModal(); return; }
 });
 
 // Si había una subida pendiente por fallo de red, no hace falta esperar a que venza
