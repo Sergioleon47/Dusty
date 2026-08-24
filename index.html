@@ -633,6 +633,13 @@ let receipts = []; // historial: {id, images:[{base64,mediaType}, ...] (una o va
    en tiempo real puedan traerlo de vuelta — y un snapshot que igual llegue con uno de estos
    ids se lo filtra en applyRemoteInventorySnapshot como último resguardo. */
 let deletedInventoryIds = [];
+// Mismas "lápidas" que deletedInventoryIds, pero para recibos y compras — sin esto, un
+// recibo (o su compra) borrado en un dispositivo mientras otro estaba offline REAPARECÍA:
+// el otro dispositivo lo veía como "dato local que la nube todavía no tiene" y lo re-subía
+// (ver reconcileLocalOnlyData/missingRec), con las fotos apuntando a archivos de Storage ya
+// borrados. Se propaga por el mismo canal (dentro de meta) y se filtra en los snapshots.
+let deletedReceiptIds = [];
+let deletedPurchaseIds = [];
 // Nota: recibos guardados antes de la migración a Claude API pueden tener el formato viejo
 // de una sola foto (imageBase64 + mediaType) en vez de "images" — por eso receiptImages()
 // abajo soporta ambos formatos en vez de asumir que todos los recibos ya son el nuevo.
@@ -798,7 +805,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; aliasMap={};
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
               saveState();
               applyingRemoteSnapshot = false;
             }
@@ -992,6 +999,15 @@ async function uploadReceiptImages(receipt){
     // calcular "images: []" para este mismo recibo vía receiptForCloud() y lo pisaba
     // con un .set() sin merge — borrando la URL recién subida en la nube.
     receipt.images = uploadedImages;
+    // Si el usuario borró este recibo mientras las fotos estaban subiendo (subida lenta con
+    // mala señal), NO lo recreamos: un .set con merge:true sobre un doc borrado lo revive
+    // como recibo fantasma (solo el campo images, sin id/fecha/total) — y ese fantasma sin
+    // id es justo lo que rompía la sincronización entera. Si ya no está local ni tiene
+    // lápida vigente, se borran también las fotos recién subidas para no dejar huérfanas.
+    if(deletedReceiptIds.includes(receipt.id) || !receipts.some(x=>x.id===receipt.id)){
+      uploadedImages.forEach(u=>{ if(u && u.path) firebase.storage().ref(u.path).delete().catch(()=>{}); });
+      return;
+    }
     await receiptsRef(uid).doc(receipt.id).set({images: uploadedImages}, {merge:true});
   }catch(err){
     console.error('[Dusty] no se pudieron subir las fotos del recibo '+receipt.id+' (se reintenta en la próxima conexión):', err);
@@ -1067,13 +1083,21 @@ function syncAllToFirestore(){
     // caso en que se borra un producto ANTES de que llegue el primer snapshot de la sesión.
     deletedInventoryIds.forEach(id=>{ if(!invIds[id]) ops.push({ref:inventoryRef(uid).doc(id), del:true}); });
     const purIds = {};
-    purchases.forEach(p=>{ purIds[p.id]=true; ops.push({ref:purchasesRef(uid).doc(p.id), data:JSON.parse(JSON.stringify(p))}); });
+    purchases.forEach(p=>{ if(!p || !p.id) return; purIds[p.id]=true; ops.push({ref:purchasesRef(uid).doc(p.id), data:JSON.parse(JSON.stringify(p))}); });
     if(lastKnownRemotePurchaseIds) lastKnownRemotePurchaseIds.forEach(id=>{ if(!purIds[id]) ops.push({ref:purchasesRef(uid).doc(id), del:true}); });
+    // Igual que con inventario: borra explícitamente cualquier compra marcada como borrada,
+    // por si se borró antes de que llegara el primer snapshot de la sesión.
+    deletedPurchaseIds.forEach(id=>{ if(!purIds[id]) ops.push({ref:purchasesRef(uid).doc(id), del:true}); });
     const recIds = {};
-    receipts.forEach(r=>{ recIds[r.id]=true; ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}); });
+    // El guard "!r.id" es clave: un recibo fantasma (un doc recreado con merge:true tras
+    // borrarlo a mitad de subida de fotos) puede entrar al array sin id. Sin este guard,
+    // receiptsRef(uid).doc(undefined) tira una excepción síncrona que deja cloudSyncDirty
+    // en true para SIEMPRE -> la sincronización entera queda muerta hasta limpiar a mano.
+    receipts.forEach(r=>{ if(!r || !r.id) return; recIds[r.id]=true; ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}); });
     if(lastKnownRemoteReceiptIds) lastKnownRemoteReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
+    deletedReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
     ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
-      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget, categories
+      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories
     }))});
 
     const CHUNK = 450;
@@ -1160,7 +1184,7 @@ function applyRemotePurchasesSnapshot(snapshot){
   if(snapshot.metadata.hasPendingWrites || cloudSyncDirty) return;
   applyingRemoteSnapshot = true;
   lastKnownRemotePurchaseIds = snapshot.docs.map(d=>d.id);
-  const nextPurchases = snapshot.docs.map(d=>d.data());
+  const nextPurchases = snapshot.docs.map(d=>d.data()).filter(p=>!deletedPurchaseIds.includes(p.id));
   if(!sameJSON(nextPurchases, purchases)){
     purchases = nextPurchases;
     saveState(); scheduleCloudTriggeredRender();
@@ -1182,7 +1206,11 @@ function applyRemoteReceiptsSnapshot(snapshot){
     const local = oldReceipts.find(r=>r.id===remote.id);
     remote.images = (local && local.images && local.images.length>0) ? local.images : (remote.images || []);
     return remote;
-  });
+  })
+    // Filtra recibos con lápida (borrados en otro dispositivo) y recibos fantasma sin id
+    // (un doc recreado por una subida de fotos tardía tras borrarlo) — este último, además
+    // de no tener sentido mostrarlo, es justo el que rompía la sincronización en el sync.
+    .filter(r=>r && r.id && !deletedReceiptIds.includes(r.id));
   if(!sameJSON(nextReceipts, oldReceipts)){
     receipts = nextReceipts;
     saveState(); scheduleCloudTriggeredRender();
@@ -1202,7 +1230,7 @@ function applyRemoteMetaSnapshot(doc){
   // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
   // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
   const incomingMeta = doc.data();
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, businessName, monthlyBudget, categories};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories};
   if(sameJSON(incomingMeta, currentMeta)) return;
   applyingRemoteSnapshot = true;
   applyStateData(incomingMeta);
@@ -1223,7 +1251,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; aliasMap={};
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -1421,7 +1449,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; aliasMap={};
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -1472,10 +1500,30 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // dispositivo deje de existir en todos. Cualquier producto de la nube que aparezca en esta
     // lista se borra ahora mismo, antes de que los listeners en tiempo real puedan traerlo de
     // vuelta — esto es lo que arregla productos "borrados" que seguían reapareciendo.
-    const remoteDeletedIds = (metaSnap.exists && Array.isArray(metaSnap.data().deletedInventoryIds)) ? metaSnap.data().deletedInventoryIds : [];
+    const remoteMetaData = metaSnap.exists ? metaSnap.data() : {};
+    const remoteDeletedIds = Array.isArray(remoteMetaData.deletedInventoryIds) ? remoteMetaData.deletedInventoryIds : [];
     let deletedIdsChanged = false;
     remoteDeletedIds.forEach(id=>{ if(!deletedInventoryIds.includes(id)){ deletedInventoryIds.push(id); deletedIdsChanged = true; } });
     const deletedSet = new Set(deletedInventoryIds);
+
+    // Mismas lápidas para recibos y compras: se fusionan las de la nube con las locales, y
+    // cualquier recibo/compra de la nube que caiga en esas listas se borra ahora, antes de
+    // que los listeners lo traigan de vuelta. Sin esto, borrar un recibo con un compañero
+    // offline no se propagaba (solo el inventario tenía este mecanismo).
+    const remoteDeletedRecIds = Array.isArray(remoteMetaData.deletedReceiptIds) ? remoteMetaData.deletedReceiptIds : [];
+    remoteDeletedRecIds.forEach(id=>{ if(!deletedReceiptIds.includes(id)){ deletedReceiptIds.push(id); deletedIdsChanged = true; } });
+    const remoteDeletedPurIds = Array.isArray(remoteMetaData.deletedPurchaseIds) ? remoteMetaData.deletedPurchaseIds : [];
+    remoteDeletedPurIds.forEach(id=>{ if(!deletedPurchaseIds.includes(id)){ deletedPurchaseIds.push(id); deletedIdsChanged = true; } });
+    const deletedRecSet = new Set(deletedReceiptIds);
+    const deletedPurSet = new Set(deletedPurchaseIds);
+
+    // Si otro dispositivo borró un recibo/compra que este todavía tiene local, se lo saca
+    // de acá también (igual que se hace para inventario justo abajo).
+    if(receipts.some(r=>deletedRecSet.has(r.id)) || purchases.some(p=>deletedPurSet.has(p.id))){
+      receipts = receipts.filter(r=>!deletedRecSet.has(r.id));
+      purchases = purchases.filter(p=>!deletedPurSet.has(p.id));
+      saveState();
+    }
 
     // Si otro dispositivo borró un producto que este todavía tiene en su propia lista
     // local (porque no se había enterado), se lo saca de acá también — no solo de la nube.
@@ -1487,6 +1535,9 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const remoteInv = invSnap.docs.map(d=>d.data()).filter(i=>!deletedSet.has(i.id));
     const remoteInvIds = new Set(remoteInv.map(i=>i.id));
     const remoteTombstonedIds = invSnap.docs.map(d=>d.id).filter(id=>deletedSet.has(id));
+    // Recibos/compras que están en la nube pero tienen lápida -> se borran ahora mismo.
+    const remoteTombstonedRecIds = recSnap.docs.map(d=>d.id).filter(id=>deletedRecSet.has(id));
+    const remoteTombstonedPurIds = purSnap.docs.map(d=>d.id).filter(id=>deletedPurSet.has(id));
     const remotePurIds = new Set(purSnap.docs.map(d=>d.id));
     const remoteRecIds = new Set(recSnap.docs.map(d=>d.id));
 
@@ -1524,16 +1575,20 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // localSnapshot.purchases son los mismos objetos que "purchases" (slice() copia el
     // array, no cada compra) — el remapeo de arriba ya les llegó, así que este filtro
     // ya ve el ingId corregido.
-    const missingPur = localSnapshot.purchases.filter(p=>!remotePurIds.has(p.id) || remappedPurchaseIds.includes(p.id));
-    const missingRec = localSnapshot.receipts.filter(r=>!remoteRecIds.has(r.id));
+    // El "&& !deletedPurSet.has(p.id)" es la corrección clave: una compra que está en la
+    // lista de borradas NO se re-sube aunque falte en la nube — antes reaparecía. Ídem recibos.
+    const missingPur = localSnapshot.purchases.filter(p=>(!remotePurIds.has(p.id) || remappedPurchaseIds.includes(p.id)) && !deletedPurSet.has(p.id));
+    const missingRec = localSnapshot.receipts.filter(r=>!remoteRecIds.has(r.id) && !deletedRecSet.has(r.id));
     const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged;
-    if(newInv.length===0 && missingPur.length===0 && missingRec.length===0 && remoteTombstonedIds.length===0 && !needsMeta) return null;
+    if(newInv.length===0 && missingPur.length===0 && missingRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
     // Mismo límite de 500 operaciones por batch que syncAllToFirestore() — un primer
     // sincronizado grande (por ejemplo, activar la nube con cientos de productos ya
     // cargados localmente) también puede pasarse, así que se reparte igual.
     const ops = [];
     newInv.forEach(i=>ops.push({ref:inventoryRef(uid).doc(i.id), data:JSON.parse(JSON.stringify(i))}));
     remoteTombstonedIds.forEach(id=>ops.push({ref:inventoryRef(uid).doc(id), del:true}));
+    remoteTombstonedRecIds.forEach(id=>ops.push({ref:receiptsRef(uid).doc(id), del:true}));
+    remoteTombstonedPurIds.forEach(id=>ops.push({ref:purchasesRef(uid).doc(id), del:true}));
     missingPur.forEach(p=>ops.push({ref:purchasesRef(uid).doc(p.id), data:JSON.parse(JSON.stringify(p))}));
     missingRec.forEach(r=>ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}));
     if(needsMeta){
@@ -1560,7 +1615,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
-        deletedInventoryIds
+        deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds
       }))});
     }
     const CHUNK = 450;
@@ -1705,6 +1760,7 @@ const I18N = {
     import_invalid:'Ese archivo no es un respaldo válido de Dusty.',
     import_confirm:'Esto va a reemplazar todo el inventario, recibos y compras actuales con los del archivo. ¿Continuar?',
     import_success:'Respaldo importado correctamente.',
+    import_blocked_team:'Estás usando el inventario compartido de un equipo. Salí del equipo antes de importar un respaldo, para no sobrescribir los datos del equipo.',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer producto para empezar a llevar tu inventario.',
     sync_loading_title:'Cargando tu inventario…', sync_loading_sub:'Estamos trayendo tus datos desde la nube — no debería tardar mucho.',
     dash_empty_title:'Vamos a armar tu inventario', dash_empty_sub:'Escaneá tu primer recibo y Dusty carga los productos y precios solo, o agregá uno a mano si preferís empezar simple.',
@@ -1916,6 +1972,7 @@ const I18N = {
     import_invalid:'That file is not a valid Dusty backup.',
     import_confirm:'This will replace all current inventory, receipts and purchases with the ones in the file. Continue?',
     import_success:'Backup imported successfully.',
+    import_blocked_team:'You are using a team\'s shared inventory. Leave the team before importing a backup, so you don\'t overwrite the team\'s data.',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first product to start tracking your inventory.',
     sync_loading_title:'Loading your inventory…', sync_loading_sub:"We're pulling your data from the cloud — this shouldn't take long.",
     dash_empty_title:'Let\'s build your inventory', dash_empty_sub:'Scan your first receipt and Dusty loads the products and prices on its own, or add one by hand if you\'d rather keep it simple.',
@@ -2132,11 +2189,9 @@ function cycleCountBatch(){
 function cycleCountDueIds(){
   return isCycleCountDue() ? new Set(cycleCountBatch().map(i=>i.id)) : new Set();
 }
-function escapeHtml(str){
-  if(str===null||str===undefined) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-// receiptImages ahora vive en patron-core.js.
+// escapeHtml, money e isValidDateStr ahora viven en patron-core.js (con tests) — son
+// la defensa central contra el XSS entre miembros de un equipo y contra que un dato mal
+// tipado (un total en texto) tire render() entero. receiptImages también vive allá.
 /* La foto que el usuario subió a mano para un producto (pensada para productos
    que no son comida, donde ningún ícono automático tiene sentido) — local en
    base64 mientras no haya sincronización en la nube, URL de Storage una vez que
@@ -2155,7 +2210,8 @@ function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
-      cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds,
+      cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+      deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
       businessName, monthlyBudget, categories
     }));
     scheduleCloudSync();
@@ -2181,6 +2237,8 @@ function applyStateData(data){
   if(typeof data.cycleCountLastDate==='string') cycleCountLastDate = data.cycleCountLastDate;
   if(typeof data.cycleCountCursor==='number') cycleCountCursor = data.cycleCountCursor;
   if(Array.isArray(data.deletedInventoryIds)) deletedInventoryIds = data.deletedInventoryIds;
+  if(Array.isArray(data.deletedReceiptIds)) deletedReceiptIds = data.deletedReceiptIds;
+  if(Array.isArray(data.deletedPurchaseIds)) deletedPurchaseIds = data.deletedPurchaseIds;
   if(typeof data.businessName==='string') businessName = data.businessName;
   if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
   if(Array.isArray(data.categories)) categories = data.categories;
@@ -2211,7 +2269,8 @@ function loadState(){
 function exportData(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
-    cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, monthlyBudget, categories,
+    cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+    businessName, monthlyBudget, categories,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -2240,8 +2299,28 @@ function importData(file){
     try{ data = JSON.parse(reader.result); }
     catch(e){ alert(t('import_invalid')); return; }
     if(!data || !Array.isArray(data.inventory) || !Array.isArray(data.receipts)){ alert(t('import_invalid')); return; }
+    // Importar mientras estás dentro del inventario de un equipo escribiría este backup
+    // PERSONAL sobre el árbol del dueño y borraría (por diff) todo lo del equipo que no
+    // esté en el backup — un miembro podía aniquilar el inventario compartido con un
+    // import. Se bloquea con un aviso claro en vez de arriesgarlo.
+    if(joinedOwnerUid){ alert(t('import_blocked_team')); return; }
+    // Validación de forma: cada producto/recibo/compra debe ser un objeto con id. Un solo
+    // elemento inválido (null, o sin id) rompía el render o el sync (doc(undefined)).
+    const validItems = (arr)=> Array.isArray(arr) && arr.every(x=>x && typeof x==='object' && typeof x.id==='string');
+    if(!validItems(data.inventory) || !validItems(data.receipts) || (data.purchases!==undefined && !validItems(data.purchases))){
+      alert(t('import_invalid')); return;
+    }
     if(!confirm(t('import_confirm'))) return;
     applyStateData(data);
+    // El backup es la fuente de verdad de lo que existe: si algún producto/recibo/compra
+    // del backup tenía lápida de una sesión anterior, se le quita (el usuario lo está
+    // restaurando a propósito) — sin esto, reaparecía un instante y el sync lo borraba solo.
+    const restoredInv = new Set(data.inventory.map(i=>i.id));
+    const restoredRec = new Set(data.receipts.map(r=>r.id));
+    const restoredPur = new Set((data.purchases||[]).map(p=>p.id));
+    deletedInventoryIds = deletedInventoryIds.filter(id=>!restoredInv.has(id));
+    deletedReceiptIds = deletedReceiptIds.filter(id=>!restoredRec.has(id));
+    deletedPurchaseIds = deletedPurchaseIds.filter(id=>!restoredPur.has(id));
     saveState();
     render();
     alert(t('import_success'));
@@ -3652,7 +3731,7 @@ async function performAccountDeletion(){
     detachTeamListener();
     stopPresenceHeartbeat();
     try{ await firebase.auth().signOut(); }catch(e){}
-    inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; aliasMap={};
+    inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
     joinedOwnerUid=null; joinedOwnerEmail=''; lastSyncedUid=null;
     try{
       localStorage.removeItem('patron_had_session');
@@ -3992,7 +4071,7 @@ function applyJoinedTeam(ownerUid, ownerEmail){
   // Esta limpieza es una transición de árbol de datos, no una edición real — no debe
   // disparar una subida a la nube con estado vacío (ver nota completa en joinTeam()).
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; aliasMap={};
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
   joinedOwnerUid = ownerUid; joinedOwnerEmail = ownerEmail;
   lastSyncedUid = ownerUid;
   saveState();
@@ -5509,9 +5588,14 @@ function deleteReceipt(receiptId){
         if(ghostItem) logActivity('item_deleted', ghostItem.name);
       });
     }
+    // Lápidas de las compras borradas: sin esto, un compañero offline las re-subía al
+    // reconectar (missingPur en reconcileLocalOnlyData) y el recibo "resucitaba" con ellas.
+    r.purchaseIds.forEach(pid=>{ if(!deletedPurchaseIds.includes(pid)) deletedPurchaseIds.push(pid); });
     purchases = purchases.filter(p=>!idSet.has(p.id));
   }
   receipts = receipts.filter(x=>x.id!==receiptId);
+  // Lápida del recibo borrado — mismo motivo: evita que reaparezca desde otro dispositivo.
+  if(!deletedReceiptIds.includes(receiptId)) deletedReceiptIds.push(receiptId);
   // Borra las fotos de Storage si llegaron a subirse — best-effort: si falla (sin
   // red, sin sesión, lo que sea) no interrumpe ni avisa nada, el recibo ya se borró
   // igual de lo que importa (Firestore/localStorage). Un archivo huérfano en

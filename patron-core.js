@@ -10,7 +10,45 @@
 // así que quedan disponibles como funciones globales normales para el resto de la
 // app — nada cambia en cómo se despliega (siguen siendo archivos estáticos sueltos).
 
-function money(n){ return '$'+(isNaN(n)?'0.00':n.toFixed(2)); }
+// Antes: '$'+(isNaN(n)?'0.00':n.toFixed(2)). El problema: isNaN('50') es false (JS
+// convierte el string a número para el chequeo), pero '50'.toFixed no existe -> tiraba
+// un TypeError que reventaba render() ENTERO y mandaba a la pantalla de crash. Y un
+// recibo con el total como texto (algo que el parser de IA puede devolver, o un import
+// manual) llega igual a todos los del equipo por la nube. Ahora se coacciona a número
+// primero y se acepta solo un número finito de verdad; cualquier otra cosa cae a $0.00.
+function money(n){
+  const v = typeof n==='number' ? n : Number(n);
+  return '$'+(Number.isFinite(v) ? v.toFixed(2) : '0.00');
+}
+
+// Escapa texto para meterlo dentro de HTML sin que rompa la etiqueta ni inyecte código.
+// Vive acá (y no en index.html) para poder testearla: es la defensa central contra el
+// XSS entre miembros de un equipo (un compañero puede escribir nombres de producto,
+// notas, o datos que la IA leyó de un recibo, y todo eso se sincroniza y se renderiza en
+// la sesión de los demás). Escapar " y ' además de <>& es lo que cierra el vector de
+// "romper el atributo" (ej. src="..." onerror=...) — no solo el de inyectar una etiqueta.
+function escapeHtml(str){
+  if(str===null || str===undefined) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ¿Es una fecha con forma YYYY-MM-DD válida (y un día/mes reales, no 2026-13-40)? La
+// fecha de un recibo la puede devolver la IA leyendo la foto (o venir de un compañero de
+// equipo), así que no se confía a ciegas: una fecha basura no solo se vería en pantalla,
+// también rompe monthKey()/el orden por fecha (new Date('basura') -> NaN). Los llamadores
+// caen a la fecha de hoy cuando esto da false.
+function isValidDateStr(d){
+  if(typeof d!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  const [y,m,day] = d.split('-').map(Number);
+  if(m<1 || m>12 || day<1 || day>31) return false;
+  const dt = new Date(y, m-1, day);
+  return dt.getFullYear()===y && dt.getMonth()===m-1 && dt.getDate()===day;
+}
 
 /* Fecha/mes de "hoy" en hora LOCAL — a diferencia de toISOString() (que da la fecha en UTC),
    esto evita que a alguien en América se le adelante un día al escanear o registrar de noche. */
@@ -119,7 +157,7 @@ function sameJSON(a, b){ return stableStringify(a)===stableStringify(b); }
 // así que esto no hace nada ahí y las funciones quedan como globales normales.
 if(typeof module!=='undefined' && module.exports){
   module.exports = {
-    money, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
+    money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
     profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON
   };

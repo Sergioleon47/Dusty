@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  money, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
+  money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
   receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
   profitMarginPct, sameJSON
 } = require('./patron-core.js');
@@ -19,6 +19,39 @@ test('money formatea números y cae en $0.00 si no es un número', () => {
   assert.equal(money(0), '$0.00');
   assert.equal(money(NaN), '$0.00');
   assert.equal(money(undefined), '$0.00');
+});
+
+test('money con un total en TEXTO no tira la app (bug real: reventaba render entero)', () => {
+  // isNaN('50') es false, pero '50'.toFixed no existe -> TypeError. El parser de IA
+  // (o un import) puede devolver el total como string y llega a todo el equipo por la nube.
+  assert.equal(money('50'), '$50.00');
+  assert.equal(money('12.5'), '$12.50');
+  assert.equal(money(''), '$0.00');
+  assert.equal(money('abc'), '$0.00');
+  assert.equal(money(null), '$0.00');
+  assert.equal(money(Infinity), '$0.00');
+  assert.equal(money(-3.2), '$-3.20');
+});
+
+test('escapeHtml neutraliza los 5 caracteres peligrosos y tolera null/undefined', () => {
+  assert.equal(escapeHtml('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(escapeHtml('a" onerror="evil'), 'a&quot; onerror=&quot;evil'); // breakout de atributo
+  assert.equal(escapeHtml("O'Brien & Co"), 'O&#39;Brien &amp; Co');
+  assert.equal(escapeHtml(null), '');
+  assert.equal(escapeHtml(undefined), '');
+  assert.equal(escapeHtml(42), '42'); // números pasan a string sin romper
+});
+
+test('isValidDateStr acepta solo YYYY-MM-DD con día/mes reales', () => {
+  assert.equal(isValidDateStr('2026-08-23'), true);
+  assert.equal(isValidDateStr('2026-02-29'), false); // 2026 no es bisiesto
+  assert.equal(isValidDateStr('2024-02-29'), true);  // 2024 sí
+  assert.equal(isValidDateStr('2026-13-01'), false);
+  assert.equal(isValidDateStr('2026-08-40'), false);
+  assert.equal(isValidDateStr('23/08/2026'), false);
+  assert.equal(isValidDateStr('<img src=x>'), false);
+  assert.equal(isValidDateStr(''), false);
+  assert.equal(isValidDateStr(undefined), false);
 });
 
 test('localDateStr/localMonthStr usan la fecha local, no UTC', () => {
