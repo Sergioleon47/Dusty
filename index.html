@@ -501,6 +501,37 @@
   /* Corta cualquier animation: de entrada — se usa en redibujados de fondo que NO
      son un cambio real de pantalla (ver welcomeStepAnimated), para que no "parpadeen". */
   .no-anim{animation:none !important;}
+  /* Escenas animadas del tutorial de bienvenida (ver welcomeScene()): cada paso
+     reemplaza su icono estático por una mini-ilustración en movimiento de lo que
+     ese paso promete. Son ambientales y en loop — a propósito NO las corta
+     .no-anim (que aplica al card, no a sus hijos): un redibujado de fondo las
+     reinicia y listo, es un salto menor comparado con congelarlas del todo. */
+  .ws-scene{position:relative;height:96px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;}
+  /* Paso 1: mini recibo con el mismo haz del escáner real (misma identidad visual
+     que .scan-anim — el tutorial anticipa exactamente lo que van a ver después). */
+  .ws-receipt{position:relative;width:64px;height:84px;background:#fff;border-radius:6px;box-shadow:var(--shadow);overflow:hidden;padding:11px 9px 0;}
+  .ws-receipt i{display:block;height:5px;border-radius:3px;background:var(--line);margin-bottom:8px;}
+  .ws-receipt i:nth-child(1){width:70%;}
+  .ws-receipt i:nth-child(2){width:100%;}
+  .ws-receipt i:nth-child(3){width:85%;}
+  .ws-receipt i:nth-child(4){width:60%;}
+  .ws-receipt .ws-beam{position:absolute;left:0;right:0;height:26px;top:-15%;
+    background:linear-gradient(to bottom, rgba(91,157,217,0), rgba(91,157,217,0.35) 42%, rgba(255,255,255,0.9) 50%, rgba(91,157,217,0.35) 58%, rgba(91,157,217,0));
+    animation:scanBeam 1.8s ease-in-out infinite alternate;}
+  /* Paso 2: la campana se sacude cada tanto (transform-origin arriba, como colgada)
+     y el badge rojo late justo después del sacudón — causa y efecto. */
+  .ws-bell-wrap{position:relative;width:56px;height:56px;border-radius:50%;background:var(--saffron-ink);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);}
+  .ws-bell-wrap svg{transform-origin:50% 15%;animation:wsBellSwing 2.6s ease-in-out infinite;}
+  @keyframes wsBellSwing{ 0%,55%,100%{transform:rotate(0);} 62%{transform:rotate(14deg);} 70%{transform:rotate(-11deg);} 78%{transform:rotate(7deg);} 86%{transform:rotate(-3deg);} 92%{transform:rotate(0);} }
+  .ws-badge{position:absolute;top:1px;right:1px;width:14px;height:14px;border-radius:50%;background:var(--tomato);border:2.5px solid #fff;animation:wsBadgePulse 2.6s ease-in-out infinite;}
+  @keyframes wsBadgePulse{ 0%,55%,100%{transform:scale(1);} 66%{transform:scale(1.4);} 78%{transform:scale(1);} }
+  /* Paso 3: tres avatares del equipo flotando escalonados — vivos, no una foto fija. */
+  .ws-avatar{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:var(--shadow);animation:wsBob 2.2s ease-in-out infinite;}
+  .ws-avatar.a1{background:var(--navy);z-index:3;}
+  .ws-avatar.a2{background:var(--basil-ink);margin-left:-10px;z-index:2;animation-delay:.25s;}
+  .ws-avatar.a3{background:var(--saffron-ink);margin-left:-10px;z-index:1;animation-delay:.5s;}
+  @keyframes wsBob{ 0%,100%{transform:translateY(2px);} 35%{transform:translateY(-5px);} 70%{transform:translateY(2px);} }
+  @media (prefers-reduced-motion: reduce){ .ws-scene *{animation:none !important;} }
   .settings-card{background:#F7F7F5;border-radius:12px;padding:16px;margin-bottom:14px;}
   .settings-card .helper-note{margin-top:8px;}
 
@@ -4008,10 +4039,18 @@ function langChoiceModal(){
 // el usuario realmente hace ("escaneo" + "se actualiza solo" son un solo momento, igual
 // que "te avisamos" + "presupuesto" son las dos caras de "controlamos los números").
 const WELCOME_STEPS = [
-  {icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)',        titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
-  {icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'},
-  {icon:'share',  bg:'var(--tomato-soft)',  fg:'var(--tomato-ink)', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'}
+  {scene:'scan', icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)',        titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
+  {scene:'bell', icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'},
+  {scene:'team', icon:'share',  bg:'var(--tomato-soft)',  fg:'var(--tomato-ink)', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'}
 ];
+/* Mini-ilustración animada de cada paso del tutorial (estilos .ws-* en el CSS) —
+   reemplaza al icono estático de antes por una escena en movimiento de lo que el
+   paso promete: el recibo escaneándose, la campana sonando, el equipo presente. */
+function welcomeScene(scene){
+  if(scene==='scan') return `<div class="ws-scene"><div class="ws-receipt"><i></i><i></i><i></i><i></i><div class="ws-beam"></div></div></div>`;
+  if(scene==='bell') return `<div class="ws-scene"><span class="ws-bell-wrap">${lineIcon('bell',26)}<span class="ws-badge"></span></span></div>`;
+  return `<div class="ws-scene"><span class="ws-avatar a1"></span><span class="ws-avatar a2"></span><span class="ws-avatar a3"></span></div>`;
+}
 function closeWelcomeModal(){
   showWelcomeModal = false;
   welcomeStep = 0;
@@ -4052,7 +4091,7 @@ function welcomeModal(){
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
       <div class="welcome-step-card${animClass}${dirClass}" style="background:${step.bg};">
-        <span class="welcome-step-icon" style="background:${step.fg};">${lineIcon(step.icon,28)}</span>
+        ${welcomeScene(step.scene)}
         <strong class="welcome-step-title">${t(step.titleKey)}</strong>
         <div class="welcome-step-sub">${t(step.subKey)}</div>
       </div>
