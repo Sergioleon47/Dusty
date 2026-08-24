@@ -5887,6 +5887,18 @@ function animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, onSettled)
    la barra de abajo (sin velocidad inicial, el resorte solo tira hacia el destino)
    como al soltar un gesto de deslizar (con la velocidad real del dedo — ver
    attachViewSwipeHandlers). */
+/* Vibración sutil al comprometerse un cambio de pestaña (tap en la barra o soltar
+   un swipe que superó el umbral) — el toquecito táctil que las apps nativas dan al
+   "encajar" una pantalla. En el navegador o sin el plugin es un no-op silencioso.
+   Se dispara al COMPROMETERSE el cambio (cuando arranca el resorte), no al
+   asentarse: la sensación tiene que coincidir con el momento de la decisión del
+   dedo, no llegar medio segundo tarde. */
+function hapticTabTick(){
+  try{
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if(H) H.impact({style:'LIGHT'}).catch(()=>{});
+  }catch(e){}
+}
 function switchToTab(tab, initialVelocityPxPerSec){
   const track = document.querySelector('.view-track');
   if(!track){
@@ -5906,6 +5918,7 @@ function switchToTab(tab, initialVelocityPxPerSec){
     animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{ flushPendingRenderIfAny(); });
     return;
   }
+  hapticTabTick();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
     activeTab = tab;
