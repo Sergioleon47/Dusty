@@ -2453,7 +2453,10 @@ function render(){
     // Si llega otro render mientras esta transición sigue en curso, el navegador
     // descarta la vieja solo (startViewTransition se auto-cancela) — no hace falta
     // coordinar nada a mano.
-    document.startViewTransition(()=>{ renderNow(); });
+    // Cuando la transición se saltea (app en segundo plano, otra transición la
+    // pisa), el cambio de DOM se aplica igual pero la promesa `ready` rechaza — y
+    // sin este catch cada salteo aparece como "Uncaught (in promise)" en consola.
+    document.startViewTransition(()=>{ renderNow(); }).ready.catch(()=>{});
   } else {
     renderNow();
   }
@@ -3393,7 +3396,7 @@ function recibosView(){
           const imgs = receiptImages(r);
           const cover = imgs[0];
           return `
-          <div class="dish-card" style="cursor:pointer;position:relative;" data-view-receipt="${r.id}">
+          <div class="dish-card" style="cursor:pointer;position:relative;${showReceiptDetail===r.id?'':`view-transition-name:${receiptVtName(r.id)};`}" data-view-receipt="${r.id}">
             ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:#FAFAF7;&quot;></div>'">` : `<div style="width:100%;height:140px;background:#FAFAF7;"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
@@ -3910,12 +3913,22 @@ function cycleCountModal(){
   </div>`;
 }
 
+/* Nombre de view-transition para la transición "hero" tarjeta→detalle de un recibo:
+   la tarjeta de la grilla y el modal de detalle del MISMO recibo comparten este
+   nombre, así el navegador anima una expandiéndose hasta la otra al abrir (y al
+   revés al cerrar) en vez del fundido genérico. Regla clave: el nombre debe ser
+   único en pantalla en cada instante — por eso la tarjeta se queda SIN nombre
+   mientras su detalle está abierto (ver el ternario en la grilla), porque tarjeta
+   y modal conviven en el DOM y un nombre duplicado hace que el navegador salte la
+   transición entera. Los ids locales son uid('r') (siempre identificador CSS
+   válido); el replace es por si un dato viejo de la nube trae otra cosa. */
+function receiptVtName(id){ return 'receipt-'+String(id).replace(/[^a-zA-Z0-9_-]/g,''); }
 function receiptDetailModal(){
   const r = receipts.find(x=>x.id===showReceiptDetail);
   if(!r) return '';
   return `
   <div class="overlay" id="receipt-detail-overlay">
-    <div class="modal wide">
+    <div class="modal wide" style="view-transition-name:${receiptVtName(r.id)};">
       <h3 class="navy">${escapeHtml(r.supplier)||t('no_supplier_name')}</h3>
       <div class="sub">${escapeHtml(r.date)} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
       ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${escapeHtml(receiptImageSrc(img))}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
