@@ -414,6 +414,11 @@
      todas las ventanas emergentes de la app, sean grandes o chicas. */
   .modal{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .65s var(--ease-spring);}
   @keyframes overlayFadeIn{ from{opacity:0;} to{opacity:1;} }
+  /* Fundido de la View Transition al abrir/cerrar modales (ver render()) — el cross-fade
+     por defecto del navegador dura 250ms; un toque más corto para que el cierre se
+     sienta ágil y la apertura no compita con el pop del modal (modalPopIn arriba). */
+  ::view-transition-old(root),
+  ::view-transition-new(root){ animation-duration: 200ms; }
   @keyframes modalPopIn{
     from{opacity:0;transform:scaleY(0.82) scaleX(0.96) translateY(-10px);}
     60%{opacity:1;}
@@ -2401,6 +2406,8 @@ function spendForMonth(key){
    endGestureImpl en attachViewSwipeHandlers). */
 let swipeGestureActive = false;
 let renderPendingAfterGesture = false;
+let lastOverlaySig = null;
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 function render(){
   // trackAnimating cubre el resorte de asentado (tap en la barra de abajo, o el
   // "suelto el dedo y termina de acomodarse" de un swipe) — swipeGestureActive por
@@ -2423,6 +2430,35 @@ function render(){
   // recién va a CREAR el <div id="barcode-reader">, así que frenar ese primer
   // render por el estado dejaría el modal sin aparecer nunca.
   if(swipeGestureActive || trackAnimating || barcodeScannerInstance){ renderPendingAfterGesture = true; return; }
+  /* Abrir o cerrar un modal se anima con la View Transitions API del navegador:
+     se compara qué modales están visibles contra el render anterior, y solo si eso
+     cambió se envuelve el redibujado en startViewTransition() — el navegador saca
+     una captura del estado viejo y funde hacia el nuevo. Los renders de fondo
+     (snapshots de Firestore, latidos de presencia, tipeo dentro de un modal) tienen
+     la misma firma y siguen siendo instantáneos, sin fundido que "parpadee" solo.
+     El modal de código de barras queda afuera a propósito (no participa de la
+     firma): openBarcodeScanModal() y el botón de reintento dependen de que el
+     <div id="barcode-reader"> exista APENAS render() retorna (ver el comentario en
+     openBarcodeScanModal), y startViewTransition aplica el cambio de DOM un
+     instante después, de forma asíncrona — ese instante alcanza para que la
+     promesa de la librería gane la carrera y arranque la cámara contra un div que
+     todavía no existe. */
+  const overlaySig = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayReceipts,
+    showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
+    showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
+    showActivityModal, showTeamModal].map(v=>v?1:0).join('');
+  const overlayChanged = lastOverlaySig !== null && overlaySig !== lastOverlaySig;
+  lastOverlaySig = overlaySig;
+  if(overlayChanged && document.startViewTransition && !reducedMotionQuery.matches){
+    // Si llega otro render mientras esta transición sigue en curso, el navegador
+    // descarta la vieja solo (startViewTransition se auto-cancela) — no hace falta
+    // coordinar nada a mano.
+    document.startViewTransition(()=>{ renderNow(); });
+  } else {
+    renderNow();
+  }
+}
+function renderNow(){
   try{
     renderApp();
   }catch(err){
