@@ -2209,6 +2209,7 @@ function itemPhotoSrc(item){
 const STORAGE_KEY = 'patron_data_v1';
 const LEGACY_STORAGE_KEY = 'platocost_data_v1'; // nombre viejo del producto — ver loadState()
 function saveState(){
+  let localOk = true;
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
@@ -2216,8 +2217,6 @@ function saveState(){
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
       businessName, monthlyBudget, categories
     }));
-    scheduleCloudSync();
-    return true;
   }catch(e){
     // El motivo más común es que el almacenamiento del navegador se llenó (las fotos de
     // recibos son lo que más espacio ocupa). Antes esto fallaba en silencio — el cambio se
@@ -2225,8 +2224,14 @@ function saveState(){
     // el usuario pueda liberar espacio (borrando recibos viejos) antes de perder algo más.
     console.warn('No se pudo guardar en localStorage (¿espacio lleno?)', e);
     alert(t('storage_full_warning'));
-    return false;
+    localOk = false;
   }
+  // Clave: scheduleCloudSync() se llama AUNQUE localStorage haya fallado. Antes estaba
+  // dentro del try, después del setItem — si el almacenamiento estaba lleno, el cambio no
+  // solo no se guardaba local, tampoco subía a la nube (que sí tiene espacio), y se perdía
+  // al cerrar la app. Ahora la nube — la vía de escape real — recibe el cambio igual.
+  scheduleCloudSync();
+  return localOk;
 }
 function applyStateData(data){
   if(Array.isArray(data.inventory)) inventory = data.inventory;
