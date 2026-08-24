@@ -50,7 +50,30 @@ service cloud.firestore {
     // alguien del equipo), pero NINGÚN miembro puede tocar la membresía de otro.
     match /users/{uid}/members/{memberId} {
       allow read: if request.auth != null && (request.auth.uid == uid || request.auth.uid == memberId);
-      allow create, update: if request.auth != null && request.auth.uid == memberId;
+
+      // UNIRSE a un equipo exige PROBAR que se conoce un código de invitación válido de
+      // ESTE dueño — no alcanza con que memberId sea uno mismo. El documento de membresía
+      // que se crea debe traer el campo `code`, y ese código (en inviteCodes/) debe
+      // pertenecer justamente a `uid`. Antes esta regla solo pedía `request.auth.uid ==
+      // memberId`, así que CUALQUIER cuenta podía auto-agregarse al equipo de cualquier
+      // otra con solo conocer su uid (que se filtra por la lectura abierta de inviteCodes),
+      // ganando lectura/escritura total de su inventario, recibos y fotos — y un miembro
+      // expulsado podía volver a agregarse al instante. El código es el secreto que la UI
+      // ya pedía; ahora la regla lo hace obligatorio de verdad.
+      allow create: if request.auth != null
+        && request.auth.uid == memberId
+        && request.resource.data.code is string
+        && exists(/databases/$(database)/documents/inviteCodes/$(request.resource.data.code))
+        && get(/databases/$(database)/documents/inviteCodes/$(request.resource.data.code)).data.ownerUid == uid;
+
+      // El latido de presencia (lastActive, ver sendPresenceHeartbeat) actualiza la PROPIA
+      // membresía YA existente con un merge — no vale re-pedir el código en cada latido, y
+      // como es un update sobre un doc que ya existe, no puede usarse para "entrar" (eso
+      // siempre pasa por create, de arriba). Si al miembro ya lo expulsaron, su doc dejó de
+      // existir y este merge se convierte en un create → cae en la regla de arriba y queda
+      // bloqueado: por fin la expulsión no se puede deshacer sola.
+      allow update: if request.auth != null && request.auth.uid == memberId;
+
       allow delete: if request.auth != null && (request.auth.uid == uid || request.auth.uid == memberId);
     }
 

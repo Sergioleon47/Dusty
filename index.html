@@ -1384,8 +1384,11 @@ function joinTeam(){
     // el estado local — porque de lo contrario el vaciado de más abajo borraría para
     // siempre datos de esta cuenta que nunca llegaron a ningún lado.
     clearTimeout(cloudSyncDebounceTimer);
+    // `code` va en el propio documento de membresía: las reglas de Firestore ahora exigen
+    // que quien se une pruebe que conoce un código de invitación válido de este dueño (ver
+    // firestore.rules, match .../members/{memberId}). Sin este campo, la creación se rechaza.
     return syncAllToFirestore().then(()=>membersRef(ownerUid).doc(currentUser.uid).set({
-      email: currentUserLabel(), joinedAt: new Date().toISOString()
+      email: currentUserLabel(), joinedAt: new Date().toISOString(), code
     })).then(()=>joinedRef(currentUser.uid).set({ownerUid, ownerEmail})).then(()=>{
       // Se corta la sincronización actual y se arranca de cero apuntando al inventario
       // del dueño — a propósito NO se corre reconcileLocalOnlyData acá: lo que este
@@ -4015,7 +4018,9 @@ function submitQuickJoin(){
       // (tooltip de sincronizado, reportar un problema, lista de miembros si esta
       // cuenta después invita a alguien más).
       return cred.user.updateProfile({ displayName: name }).then(()=>
-        membersRef(ownerUid).doc(cred.user.uid).set({ email: name, joinedAt: new Date().toISOString() })
+        // `code` obligatorio: las reglas exigen probar un código de invitación válido de
+        // este dueño para crear la membresía (mismo motivo que en joinTeam()).
+        membersRef(ownerUid).doc(cred.user.uid).set({ email: name, joinedAt: new Date().toISOString(), code })
       )
         .then(()=>joinedRef(cred.user.uid).set({ownerUid, ownerEmail}))
         .then(()=>{
