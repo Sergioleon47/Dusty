@@ -2455,7 +2455,7 @@ function spendForMonth(key){
    endGestureImpl en attachViewSwipeHandlers). */
 let swipeGestureActive = false;
 let renderPendingAfterGesture = false;
-let lastOverlaySig = null;
+let lastOverlayFlags = null;
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 function render(){
   // trackAnimating cubre el resorte de asentado (tap en la barra de abajo, o el
@@ -2479,26 +2479,41 @@ function render(){
   // recién va a CREAR el <div id="barcode-reader">, así que frenar ese primer
   // render por el estado dejaría el modal sin aparecer nunca.
   if(swipeGestureActive || trackAnimating || barcodeScannerInstance){ renderPendingAfterGesture = true; return; }
-  /* Abrir o cerrar un modal se anima con la View Transitions API del navegador:
-     se compara qué modales están visibles contra el render anterior, y solo si eso
-     cambió se envuelve el redibujado en startViewTransition() — el navegador saca
-     una captura del estado viejo y funde hacia el nuevo. Los renders de fondo
-     (snapshots de Firestore, latidos de presencia, tipeo dentro de un modal) tienen
-     la misma firma y siguen siendo instantáneos, sin fundido que "parpadee" solo.
-     El modal de código de barras queda afuera a propósito (no participa de la
-     firma): openBarcodeScanModal() y el botón de reintento dependen de que el
+  /* CERRAR un modal (o abrir/cerrar el detalle de recibo) se anima con la View
+     Transitions API del navegador: startViewTransition() saca una captura del
+     estado viejo y funde hacia el nuevo. Solo al cerrar, a propósito: al ABRIR el
+     modal ya trae su propia entrada por CSS (overlayFadeIn + modalPopIn), así que
+     la View Transition no sumaba nada — y sí costaba: la captura congela el frame
+     justo en el instante del tap, y ese enganchón se veía como un "flick" al tocar
+     el botón de la cámara. El cierre no tiene animación CSS propia (era un corte
+     seco), ahí la transición es la que pone el fundido. La excepción es el detalle
+     de recibo en ambas direcciones, porque su gracia es el morph tarjeta↔modal
+     (view-transition-name compartido, ver receiptVtName()).
+     Los renders de fondo (snapshots de Firestore, latidos de presencia, tipeo
+     dentro de un modal) no cambian ninguna bandera y siguen siendo instantáneos.
+     El modal de código de barras queda afuera a propósito (no participa de las
+     banderas): openBarcodeScanModal() y el botón de reintento dependen de que el
      <div id="barcode-reader"> exista APENAS render() retorna (ver el comentario en
      openBarcodeScanModal), y startViewTransition aplica el cambio de DOM un
      instante después, de forma asíncrona — ese instante alcanza para que la
      promesa de la librería gane la carrera y arranque la cámara contra un div que
      todavía no existe. */
-  const overlaySig = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayReceipts,
+  const overlayFlags = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayReceipts,
     showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
-    showActivityModal, showTeamModal].map(v=>v?1:0).join('');
-  const overlayChanged = lastOverlaySig !== null && overlaySig !== lastOverlaySig;
-  lastOverlaySig = overlaySig;
-  if(overlayChanged && document.startViewTransition && !reducedMotionQuery.matches){
+    showActivityModal, showTeamModal];
+  const RECEIPT_DETAIL_FLAG = 2; // índice de !!showReceiptDetail en overlayFlags
+  let overlayClosed = false, receiptDetailToggled = false;
+  if(lastOverlayFlags){
+    overlayFlags.forEach((v,i)=>{
+      if(v !== lastOverlayFlags[i]){
+        if(i === RECEIPT_DETAIL_FLAG) receiptDetailToggled = true;
+        if(!v) overlayClosed = true;
+      }
+    });
+  }
+  lastOverlayFlags = overlayFlags;
+  if((overlayClosed || receiptDetailToggled) && document.startViewTransition && !reducedMotionQuery.matches){
     // Si llega otro render mientras esta transición sigue en curso, el navegador
     // descarta la vieja solo (startViewTransition se auto-cancela) — no hace falta
     // coordinar nada a mano.
