@@ -325,6 +325,10 @@ function welcomeModal(){
         <strong class="welcome-step-title">${t(step.titleKey)}</strong>
         <div class="welcome-step-sub">${t(step.subKey)}</div>
       </div>
+      <div class="welcome-progress-row">
+        <div class="welcome-progress-track"><div class="welcome-progress-fill" style="width:${Math.round((welcomeStep+1)/WELCOME_STEPS.length*100)}%;"></div></div>
+        <span class="welcome-progress-pct">${Math.round((welcomeStep+1)/WELCOME_STEPS.length*100)}%</span>
+      </div>
       <div class="welcome-dots">
         ${WELCOME_STEPS.map((s,i)=>`<span class="welcome-dot${i===welcomeStep?' active':''}" data-jump-step="${i}" style="background:${i===welcomeStep?s.fg:'var(--line)'};"></span>`).join('')}
       </div>

@@ -449,6 +449,15 @@
     from{opacity:0;transform:translateX(-22px) scale(0.98);}
     to{opacity:1;transform:translateX(0) scale(1);}
   }
+  /* Barra que se llena a medida que avanza el tutorial — los puntitos de abajo dicen
+     "en qué paso estoy y puedo saltar a cualquiera", esta dice "cuánto me falta para
+     terminar", que los puntitos solos no comunican bien pasados 3-4 pasos. El ancho
+     se anima con transition (no con la animación de entrada del paso) para que se
+     vea corriendo suave incluso si el usuario salta varios pasos de una. */
+  .welcome-progress-row{display:flex;align-items:center;gap:10px;margin:14px 0 16px;}
+  .welcome-progress-track{flex:1;height:4px;border-radius:99px;background:var(--bg);overflow:hidden;}
+  .welcome-progress-fill{height:100%;border-radius:99px;background:var(--basil);transition:width .35s var(--ease-soft);}
+  .welcome-progress-pct{font-family:'IBM Plex Mono';font-size:11.5px;font-weight:700;color:var(--basil-ink);min-width:32px;text-align:right;font-variant-numeric:tabular-nums;}
   .welcome-dots{display:flex;justify-content:center;gap:9px;margin-bottom:4px;}
   .welcome-dot{width:7px;height:7px;border-radius:50%;cursor:pointer;padding:6px;margin:-6px;background-clip:content-box;transition:transform .25s ease,background .25s ease;}
   .welcome-dot.active{transform:scale(1.35);}
