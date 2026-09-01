@@ -372,14 +372,14 @@ function dashboardView(){
         <div class="budget-bar-track"><div class="budget-bar-fill ${budgetStatus(pct)}" style="width:${Math.min(Math.max(pct,3),100)}%;"></div></div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;">
           <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(monthlyBudget)}</strong> (${pct}%)</span>
-          <button class="link-btn" id="btn-edit-budget" style="padding:0;font-size:11.5px;">${t('dash_edit_budget')}</button>
+          <button class="link-btn" id="btn-edit-budget" style="padding:10px 0 10px 10px;margin:-10px 0;font-size:12.5px;">${t('dash_edit_budget')}</button>
         </div>`;
       })() : `
-        <button id="btn-edit-budget" style="all:unset;cursor:pointer;display:flex;align-items:baseline;gap:6px;margin-top:10px;">
+        <button id="btn-edit-budget" style="all:unset;cursor:pointer;display:flex;align-items:baseline;gap:6px;margin-top:10px;padding:10px 10px 10px 0;margin-bottom:-10px;">
           <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
           <span style="font-size:16px;font-weight:800;color:var(--navy);">${money(0)}</span>
         </button>`}
-      <button class="link-btn" id="btn-open-monthly-spend" style="padding:0;margin-top:8px;">${t('dash_see_all_months')}</button>
+      <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;">
       <div class="scan-fab-mini scan-fab-mini-lg">

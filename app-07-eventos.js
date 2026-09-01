@@ -39,11 +39,10 @@ function attachEvents(){
   if(btnCloudSync) btnCloudSync.onclick=()=>{ openTeamModal(); };
   const btnCloudSignIn=document.getElementById('btn-cloud-sign-in');
   if(btnCloudSignIn) btnCloudSignIn.onclick=()=>{
-    btnCloudSignIn.classList.add('loading');
-    ensurePatronFirebaseReady().then(()=>{
-      openAuthModal();
-      btnCloudSignIn.classList.remove('loading');
-    });
+    // El modal no necesita el SDK para dibujarse — se abre al toque y Firebase
+    // se precalienta atrás (los botones de adentro ya esperan la carga solos).
+    ensurePatronFirebaseReady().catch(()=>{});
+    openAuthModal();
   };
 
   /* Modal de equipo (compartir inventario) */
@@ -523,7 +522,7 @@ function attachEvents(){
     const btnScanProduct=document.getElementById('btn-scan-product');
     const itemScanPhotoFile=document.getElementById('item-scan-photo-file');
     if(btnScanProduct && itemScanPhotoFile) btnScanProduct.onclick=()=>{
-      if(!currentUser){ ensurePatronFirebaseReady().then(()=>openAuthModal(t('scan_requires_account'))); return; }
+      if(!currentUser){ ensurePatronFirebaseReady().catch(()=>{}); openAuthModal(t('scan_requires_account')); return; }
       itemScanPhotoFile.click();
     };
     if(itemScanPhotoFile) itemScanPhotoFile.onchange=async (e)=>{
@@ -581,8 +580,33 @@ function attachEvents(){
     if(fiCostInp) fiCostInp.oninput=handleProfitFieldInput;
     if(fiSalePriceInp) fiSalePriceInp.oninput=handleProfitFieldInput;
     document.getElementById('btn-save-item').onclick=()=>{
-      const name=document.getElementById('fi-name').value.trim();
-      if(!name) return;
+      const nameInput=document.getElementById('fi-name');
+      const name=nameInput.value.trim();
+      if(!name){
+        // Feedback directo en el DOM (sin render(), que re-dispararía la animación
+        // de entrada del modal): borde rojo + mensaje debajo del campo + foco. El
+        // error se limpia solo apenas se empieza a escribir un nombre.
+        nameInput.setAttribute('aria-invalid','true');
+        let errEl=document.getElementById('fi-name-error');
+        if(!errEl){
+          errEl=document.createElement('div');
+          errEl.id='fi-name-error';
+          errEl.className='field-error';
+          nameInput.insertAdjacentElement('afterend', errEl);
+        }
+        errEl.textContent=t('item_name_required');
+        nameInput.oninput=()=>{
+          if(nameInput.value.trim()){
+            nameInput.removeAttribute('aria-invalid');
+            const e=document.getElementById('fi-name-error');
+            if(e) e.remove();
+            nameInput.oninput=null;
+          }
+        };
+        nameInput.scrollIntoView({block:'center', behavior:'smooth'});
+        nameInput.focus({preventScroll:true});
+        return;
+      }
       const item={
         id:draftItem.id, name,
         unit:document.getElementById('fi-unit').value,
@@ -865,7 +889,7 @@ try{
 try{
   if(localStorage.getItem('patron_had_session')){
     cloudSyncPending = true;
-    ensurePatronFirebaseReady();
+    ensurePatronFirebaseReady().catch(()=>{});
     // Resguardo: si por lo que sea (sin red, Firestore caído, un error que no se
     // esperaba) el primer snapshot nunca llega, no dejamos a alguien mirando la
     // pantalla de "cargando" para siempre -- después de un rato razonable se apaga

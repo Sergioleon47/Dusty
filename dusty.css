@@ -22,7 +22,11 @@
     --sky-ink:color-mix(in oklch, var(--sky), black 32%);
     --saffron-ink:color-mix(in oklch, var(--saffron), black 38%);
     --basil-ink:color-mix(in oklch, var(--basil), black 38%);
-    --navy-ink:color-mix(in oklch, var(--navy), black 20%);
+    /* 28% en vez de 20%: el naranja de marca puro (#E8562C) sobre el fondo gris
+       claro da ~3:1 de contraste — legal para íconos grandes, corto para TEXTO
+       chico (WCAG AA pide 4.5:1). Esta tinta es la que usan links y textos de
+       marca, así que se oscurece hasta pasar el umbral. */
+    --navy-ink:color-mix(in oklch, var(--navy), black 28%);
     --focus-ring:color-mix(in oklch, var(--navy), transparent 55%);
     /* Sombras con un tinte muy leve de marca en vez de negro puro — se sienten
        "diseñadas" en vez de una sombra CSS por defecto, sin llegar a notarse como
@@ -105,7 +109,7 @@
      tiene su propio tinte de fondo desde el principio (como los botones de barra de
      iOS/Android), y se oscurece un poco al tocar para dar respuesta táctil real —
      no un simple gris que cambia de color al pasar el mouse. */
-  .lang-toggle{width:38px;height:38px;border-radius:50%;border:1px solid transparent;background:var(--bg);color:var(--ink-soft);font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;transition:transform .15s ease, filter .2s ease;}
+  .lang-toggle{width:44px;height:44px;border-radius:50%;border:1px solid transparent;background:var(--bg);color:var(--ink-soft);font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;transition:transform .15s ease, filter .2s ease;}
   .lang-toggle:active{transform:scale(0.9);filter:brightness(0.96);}
   #btn-export-data, #btn-import-data, #btn-lang-toggle{background:var(--navy-wash);color:var(--navy);}
   #btn-feedback{background:var(--tomato-soft);color:var(--tomato);}
@@ -186,7 +190,7 @@
 
   .price-updated{display:inline-block;background:var(--basil-soft);color:var(--basil);font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px;}
 
-  .link-btn{background:none;border:none;color:var(--navy);font-weight:600;font-size:12.5px;cursor:pointer;padding:4px 6px;transition:opacity .15s ease;}
+  .link-btn{background:none;border:none;color:var(--navy-ink);font-weight:600;font-size:13px;cursor:pointer;padding:8px;transition:opacity .15s ease;}
   .link-btn:hover{text-decoration:underline;}
   .link-btn:active{opacity:.5;}
 
@@ -338,7 +342,7 @@
   .mini-cal-day{font-size:6.5px;line-height:9px;text-align:center;color:var(--ink-soft);aspect-ratio:1;}
   .mini-cal-day.has-receipt{background:var(--saffron);color:#fff;border-radius:50%;font-weight:700;}
   .mini-cal-day.today{box-shadow:inset 0 0 0 1px var(--tomato);border-radius:50%;}
-  .cal-nav-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-size:18px;line-height:1;cursor:pointer;transition:transform .2s ease,border-color .2s ease,color .2s ease;}
+  .cal-nav-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-size:20px;line-height:1;cursor:pointer;transition:transform .2s ease,border-color .2s ease,color .2s ease;}
   .cal-nav-btn:hover{border-color:var(--navy);color:var(--navy);}
   .cal-nav-btn:active{transform:scale(0.92);}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
@@ -578,6 +582,10 @@
   .scan-anim .corner.br{bottom:10px;right:10px;border-left:none;border-top:none;border-bottom-right-radius:6px;}
   @media (prefers-reduced-motion: reduce){ .scan-anim .beam{display:none;} }
   .scan-error{background:var(--tomato-soft);color:var(--tomato-ink);padding:12px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;}
+  /* Error de validación inline de un campo (ej. guardar producto sin nombre) —
+     lo inserta el handler directo en el DOM, debajo del input en cuestión. */
+  .field-error{color:var(--tomato-ink);font-size:12.5px;font-weight:600;margin-top:6px;}
+  .field input[aria-invalid="true"], input[aria-invalid="true"]{border-color:var(--tomato);}
   /* Control tipo segmentado (estilo iOS) para elegir si las fotos son páginas de un
      mismo recibo o recibos distintos. */
   .scan-mode{display:flex;background:#EFEFEA;border-radius:10px;padding:3px;gap:3px;margin-bottom:12px;}
@@ -613,5 +621,5 @@
     .stat-label{white-space:normal;font-size:10.5px;}
     .stat-value{font-size:21px;}
     .scan-card{padding:6px 0;}
-    .link-btn{padding:4px 5px;font-size:11.5px;}
+    .link-btn{padding:8px 6px;font-size:12.5px;}
   }

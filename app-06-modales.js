@@ -813,7 +813,10 @@ function ensureBarcodeLibReady(){
 }
 function openBarcodeScanModal(){
   if(!currentUser){
-    ensurePatronFirebaseReady().then(()=>openAuthModal(t('scan_requires_account')));
+    // Igual que en openScanModal: el modal se abre al instante, Firebase se
+    // precalienta atrás.
+    ensurePatronFirebaseReady().catch(()=>{});
+    openAuthModal(t('scan_requires_account'));
     return;
   }
   barcodeScanState='scanning'; barcodeScanError='';
@@ -1064,7 +1067,14 @@ function openScanModal(){
   // encontrara la URL podía escanear recibos sin límite y sin haber iniciado sesión
   // nunca, y la factura de la API le llegaba igual al dueño de la app.
   if(!currentUser){
-    ensurePatronFirebaseReady().then(()=>openAuthModal(t('scan_requires_account')));
+    // El modal de login es pura UI (no toca Firebase hasta que se toca un botón
+    // adentro, y esos botones ya llaman a ensurePatronFirebaseReady por su cuenta) —
+    // esperar la carga del SDK acá dejaba el tap sin NINGUNA respuesta visible por
+    // los segundos que tardara la descarga. Se abre al instante y la carga se
+    // precalienta en segundo plano (si falla por falta de red no pasa nada acá:
+    // los botones del modal reintentan la carga solos y muestran su propio error).
+    ensurePatronFirebaseReady().catch(()=>{});
+    openAuthModal(t('scan_requires_account'));
     return;
   }
   scanRequestId++;

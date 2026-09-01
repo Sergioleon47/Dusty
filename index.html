@@ -2,7 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Sin user-scalable=no ni maximum-scale: bloquear el pellizco para hacer zoom es
+     una barrera de accesibilidad real (WCAG 1.4.4) y Android SÍ lo respeta (iOS lo
+     ignora hace años). Efecto secundario asumido: Safari de iOS vuelve a hacer su
+     auto-zoom al enfocar inputs de menos de 16px — molesto pero reversible con un
+     pellizco; la alternativa (nadie con vista cansada puede agrandar NADA en
+     Android, la plataforma principal) es peor. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Dusty — Inventario</title>
 <meta name="description" content="Scan receipts, track inventory, stay on budget, and catch price changes automatically — for stores, restaurants, and anyone reselling on their own.">
 <meta name="theme-color" content="#E8562C">

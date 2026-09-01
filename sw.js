@@ -6,7 +6,10 @@
 
 // v2: index.html se dividió en dusty.css + app-01..07-*.js — el bump fuerza a los
 // clientes con el shell viejo cacheado a precachear el juego de archivos nuevo.
-const CACHE_NAME = 'patron-shell-v2';
+// v3: cambios cruzados entre app-02/03/05/06/07 + dusty.css (validación de guardado,
+// login instantáneo, base64 de recibos) — el bump evita que quede cacheada una
+// mezcla de versiones viejas y nuevas de archivos que se llaman entre sí.
+const CACHE_NAME = 'patron-shell-v3';
 
 const PRECACHE_URLS = [
   '/',
