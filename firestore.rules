@@ -78,16 +78,20 @@ service cloud.firestore {
     }
 
     // inviteCodes es la única forma de que alguien, sabiendo un código, encuentre a
-    // qué uid pertenece para poder unirse. La lectura queda abierta a CUALQUIERA,
-    // sin sesión iniciada — a propósito: alguien que recién recibió un código de
-    // invitación (flujo de nombre+PIN) todavía no tiene cuenta en ese momento, así
-    // que exigir sesión acá bloquearía ese flujo por completo. No es un problema de
-    // privacidad real: hace falta saber el código exacto (1 en ~1000 millones de
-    // combinaciones) para leer algo, y de todos modos solo expone a qué cuenta
-    // pertenece — no da acceso a ningún dato del inventario por sí solo. Crear o
-    // borrar un código sigue requiriendo ser el dueño de esa cuenta.
+    // qué uid pertenece para poder unirse. La lectura de UN documento queda abierta
+    // a CUALQUIERA, sin sesión iniciada — a propósito: alguien que recién recibió un
+    // código de invitación (flujo de nombre+PIN) todavía no tiene cuenta en ese
+    // momento, así que exigir sesión acá bloquearía ese flujo por completo. La
+    // privacidad depende de que haga falta saber el código exacto (1 en ~1000
+    // millones de combinaciones), y eso solo es verdad con `get`: un `allow read`
+    // también habilita `list`, o sea descargar la colección ENTERA de una — con los
+    // ownerUid/ownerEmail de todos los equipos — y con cualquier código cosechado
+    // así, unirse al equipo que sea (la regla de create de members valida contra
+    // estos mismos docs). El cliente nunca lista esta colección (solo hace
+    // .doc(code).get()), así que cerrar `list` no rompe ningún flujo.
     match /inviteCodes/{code} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if false;
       allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
       allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
     }
