@@ -769,7 +769,7 @@ function recibosView(){
           const cover = imgs[0];
           return `
           <div class="dish-card" style="cursor:pointer;position:relative;${showReceiptDetail===r.id?'':`view-transition-name:${receiptVtName(r.id)};`}" data-view-receipt="${r.id}">
-            ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:#FAFAF7;&quot;></div>'">` : `<div style="width:100%;height:140px;background:#FAFAF7;"></div>`}
+            ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
               <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -884,7 +884,7 @@ function priceHistoryModal(){
     const changePct = first>0 ? ((last-first)/first)*100 : 0;
     const up = changePct>3, down = changePct<-3;
     const color = up?'var(--tomato-ink)':down?'var(--basil)':'var(--ink-soft)';
-    const bg = up?'var(--tomato-soft)':down?'var(--basil-soft)':'#FAFAF7';
+    const bg = up?'var(--tomato-soft)':down?'var(--basil-soft)':'var(--inset)';
     const arrow = up?'▲':down?'▼':'→';
     const phrase = (up||down)
       ? `${arrow} ${up?t('ph_up'):t('ph_down')} ${Math.abs(changePct).toFixed(0)}% ${t('ph_since_first')} (${points[0].date})`
@@ -965,7 +965,7 @@ function monthlySpendChart(monthsAsc, currentMonthKey){
     const x = padL + i*slot + (slot-barW)/2;
     const y = padT + innerH - barH;
     const isCurrent = m===currentMonthKey;
-    const fill = isCurrent ? `url(#${barGradId})` : '#B7C4CC';
+    const fill = isCurrent ? `url(#${barGradId})` : '#3c434d';
     return `
       <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH,2).toFixed(1)}" rx="4" fill="${fill}">
         <title>${escapeHtml(monthLabel(m, uiLang))} · ${money(spend)}</title>
@@ -1076,7 +1076,7 @@ function alertSettingsModal(){
 
       ${currentUser ? `
       <div class="settings-card" style="background:var(--tomato-soft);">
-        <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:#EBC2B8;background:#fff;">${t('delete_account_btn')}</button>
+        <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:color-mix(in srgb, var(--tomato) 35%, var(--panel));">${t('delete_account_btn')}</button>
       </div>
       ` : ''}
 

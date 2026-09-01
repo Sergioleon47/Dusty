@@ -17,7 +17,10 @@
 // v7: el trial anónimo ya no secuestra dispositivos que tuvieron cuenta real.
 // v8: un solo escáner de productos (lote + identificador unificados).
 // v9: órbita de iconos alrededor del botón de escanear del dashboard.
-const CACHE_NAME = 'patron-shell-v10';
+// v11: tema oscuro completo (dusty.css + estilos inline en app-03/04/05/06 +
+// manifest/theme-color) — el bump evita quedar con el CSS oscuro y vistas viejas
+// claras (o al revés) mezcladas desde caché.
+const CACHE_NAME = 'patron-shell-v11';
 
 const PRECACHE_URLS = [
   '/',

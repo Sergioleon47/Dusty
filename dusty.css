@@ -1,45 +1,68 @@
   :root{
-    --bg:#F0F2F5; --panel:#FFFFFF; --ink:#1C1E21; --ink-soft:#45474B; --line:#DDDFE2;
-    /* Paleta "Dusty" (inspirada en el avión Dusty Crophopper de Planes): naranja
-       cálido como color de marca/acciones principales, celeste como su pareja en
-       los degradés de marca (logo, barra inferior, badges) — "avión contra el
-       cielo". --basil se queda en verde a propósito: es el color SEMÁNTICO de
-       "todo bien" (stock ok, precio bajó, presencia activa) en toda la app, no
-       tiene que ver con la marca — cambiarlo confundiría esos indicadores. */
-    --navy:#E8562C; --navy-soft:#F0703F; --tomato:#E5484D; --saffron:#F5A623; --basil:#25D366;
-    --basil-soft:#E5F9EA; --tomato-soft:#FCE7E7; --saffron-soft:#FDF0DA; --navy-wash:#FCE7DE;
-    --sky:#5AAAD6; --sky-bright:#7EC8ED; --sky-soft:#E5F1F9;
+    /* color-scheme:dark le avisa al navegador que la app ES oscura — los controles
+       nativos (select desplegado, scrollbars, autofill, date pickers) se dibujan
+       oscuros solos, en vez de aparecer como parches blancos del sistema. */
+    color-scheme:dark;
+    /* Tema oscuro "Dusty Night": fondo casi negro azulado, paneles apenas más
+       claros, y dos acentos — el naranja de marca (#ff6b35) para acciones/CTAs/
+       elementos activos, y el verde (#3ddc97) que sigue siendo el color SEMÁNTICO
+       de "todo bien" (stock ok, precio bajó, presencia activa) y confirmaciones.
+       Los nombres históricos se conservan para no tocar cientos de usos en CSS+JS:
+       --navy ES el naranja de marca, --basil el verde, y --sky (que era el celeste
+       de los degradés claros) ahora apunta a la familia verde — escanear/activo. */
+    --bg:#0f1115; --panel:#181b21; --ink:#f2f2f2; --ink-soft:#8a8f98; --line:#262b34;
+    /* Texto secundario "medio": para frases largas o explicaciones que importan,
+       donde el muted #8a8f98 se queda corto de presencia sobre fondo oscuro. */
+    --ink-mid:#c6cad1;
+    /* Texto/íconos SOBRE rellenos de acento (naranja/verde/ámbar/rojo llenos):
+       oscuro, no blanco — blanco sobre #ff6b35 da ~2.8:1 (falla WCAG AA); esta
+       tinta oscura pasa 4.5:1 sobre los cuatro acentos. */
+    --on-accent:#101318;
+    --navy:#ff6b35; --navy-soft:#ff8a5c; --tomato:#ff5c5c; --saffron:#f5a623; --basil:#3ddc97;
+    /* "soft"/"wash" en oscuro = el acento mezclado hacia el panel (tinte opaco,
+       no un pastel claro) — mismo rol de siempre: fondo de chips y avisos. */
+    --basil-soft:color-mix(in srgb, var(--basil) 15%, var(--panel));
+    --tomato-soft:color-mix(in srgb, var(--tomato) 15%, var(--panel));
+    --saffron-soft:color-mix(in srgb, var(--saffron) 15%, var(--panel));
+    --navy-wash:color-mix(in srgb, var(--navy) 15%, var(--panel));
+    --sky:var(--basil); --sky-bright:#7fe9bb; --sky-soft:color-mix(in srgb, var(--basil) 12%, var(--panel));
     --radius:14px;
-    --stock-ok:#25D366; --stock-warn:#F5A623; --stock-crit:#E5484D;
+    --stock-ok:var(--basil); --stock-warn:var(--saffron); --stock-crit:var(--tomato);
+    /* Superficies intermedias del tema oscuro: --inset se hunde respecto al panel
+       (inputs, tarjetas de configuración dentro de modales); --raised sobresale
+       (botones redondos, thumbs); --raised-2 es su estado hover/presionado. */
+    --inset:#12151b; --raised:#20242c; --raised-2:#272c35;
     /* Variantes hover/press calculadas con color-mix() en vez de hex sueltos
-       repetidos por todo el archivo (var(--saffron-press), var(--tomato-ink), var(--basil-ink)...) — un solo lugar
-       para ajustar "cuánto se oscurece al tocar" en toda la app. */
+       repetidos por todo el archivo — un solo lugar para ajustar "cuánto se
+       oscurece al tocar" en toda la app. */
     --navy-press:color-mix(in oklch, var(--navy), black 18%);
     --saffron-press:color-mix(in oklch, var(--saffron), black 20%);
     --tomato-press:color-mix(in oklch, var(--tomato), black 18%);
     --basil-press:color-mix(in oklch, var(--basil), black 18%);
-    --tomato-ink:color-mix(in oklch, var(--tomato), black 32%);
-    --sky-ink:color-mix(in oklch, var(--sky), black 32%);
-    --saffron-ink:color-mix(in oklch, var(--saffron), black 38%);
-    --basil-ink:color-mix(in oklch, var(--basil), black 38%);
-    /* 28% en vez de 20%: el naranja de marca puro (#E8562C) sobre el fondo gris
-       claro da ~3:1 de contraste — legal para íconos grandes, corto para TEXTO
-       chico (WCAG AA pide 4.5:1). Esta tinta es la que usan links y textos de
-       marca, así que se oscurece hasta pasar el umbral. */
-    --navy-ink:color-mix(in oklch, var(--navy), black 28%);
-    --focus-ring:color-mix(in oklch, var(--navy), transparent 55%);
-    /* Sombras con un tinte muy leve de marca en vez de negro puro — se sienten
-       "diseñadas" en vez de una sombra CSS por defecto, sin llegar a notarse como
-       color. Tres niveles de elevación: pills/botones chicos, tarjetas, modales. */
-    --shadow-sm:0 1px 2px rgba(42,22,14,0.10);
-    --shadow:0 1px 2px rgba(42,22,14,0.07), 0 8px 24px rgba(42,22,14,0.09);
-    --shadow-lg:0 12px 20px rgba(42,22,14,0.10), 0 24px 64px rgba(42,22,14,0.20);
+    /* Las tintas "-ink" en el tema claro se OSCURECÍAN para ganar contraste; en
+       oscuro es al revés: se aclaran para que el texto de acento pase 4.5:1 sobre
+       los tintes soft y los paneles. */
+    --tomato-ink:color-mix(in oklch, var(--tomato), white 30%);
+    --sky-ink:color-mix(in oklch, var(--basil), white 25%);
+    --saffron-ink:color-mix(in oklch, var(--saffron), white 28%);
+    --basil-ink:color-mix(in oklch, var(--basil), white 25%);
+    --navy-ink:color-mix(in oklch, var(--navy), white 22%);
+    --focus-ring:color-mix(in oklch, var(--navy), transparent 45%);
+    /* Sombras: en oscuro el negro puro sí funciona (ya no hace falta el tinte de
+       marca del tema claro); van más cargadas porque compiten con un fondo oscuro.
+       Tres niveles de elevación: pills/botones chicos, tarjetas, modales. */
+    --shadow-sm:0 1px 2px rgba(0,0,0,0.45);
+    --shadow:0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.35);
+    --shadow-lg:0 12px 20px rgba(0,0,0,0.5), 0 24px 64px rgba(0,0,0,0.6);
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
   *{box-sizing:border-box;}
   html{touch-action:manipulation;}
-  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, var(--sky-bright) 0%, var(--navy) 52%, var(--bg) 86%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
+  /* En oscuro el degradé de marca a toda pantalla del tema claro sería un foco
+     encendido — queda solo un resplandor naranja tenue arriba, suficiente para que
+     el header se sienta "de marca" sin quemar el fondo #0f1115. */
+  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, rgba(255,107,53,0.22) 0%, rgba(255,107,53,0.07) 45%, rgba(255,107,53,0) 72%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
   /* Foco de teclado consistente en toda la app (accesibilidad + look pulido) —
      antes solo los inputs de formulario tenían anillo de foco definido. */
@@ -91,9 +114,9 @@
   .brand-mark{
     width:42px;height:42px;border-radius:11px;flex-shrink:0;
     background:
-      repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy),var(--sky));
-    display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px),
+      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,#e0501d);
+    display:flex;align-items:center;justify-content:center;color:var(--on-accent);font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
   }
   .brand-name{font-size:20px;font-weight:700;}
   /* Cuando este dispositivo está viendo el inventario compartido de otra cuenta (no
@@ -109,7 +132,7 @@
      tiene su propio tinte de fondo desde el principio (como los botones de barra de
      iOS/Android), y se oscurece un poco al tocar para dar respuesta táctil real —
      no un simple gris que cambia de color al pasar el mouse. */
-  .lang-toggle{width:44px;height:44px;border-radius:50%;border:1px solid transparent;background:var(--bg);color:var(--ink-soft);font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;transition:transform .15s ease, filter .2s ease;}
+  .lang-toggle{width:44px;height:44px;border-radius:50%;border:1px solid transparent;background:var(--panel);color:var(--ink-soft);font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);flex-shrink:0;transition:transform .15s ease, filter .2s ease;}
   .lang-toggle:active{transform:scale(0.9);filter:brightness(0.96);}
   #btn-export-data, #btn-import-data, #btn-lang-toggle{background:var(--navy-wash);color:var(--navy);}
   #btn-feedback{background:var(--tomato-soft);color:var(--tomato);}
@@ -126,17 +149,19 @@
   /* Cuando no hay sesión, el botón de la nube se ve como un ícono chico más entre
      otros y pasa desapercibido — en ese estado se agranda a una píldora con texto
      para que sea obvio que ahí se crea una cuenta. */
-  .cloud-signin-btn{height:38px;padding:0 16px 0 12px;border-radius:19px;border:none;background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;box-shadow:var(--shadow);transition:transform .2s ease, opacity .3s ease;font-family:'Inter';white-space:nowrap;}
+  .cloud-signin-btn{height:38px;padding:0 16px 0 12px;border-radius:19px;border:none;background:var(--navy);color:var(--on-accent);font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;box-shadow:var(--shadow);transition:transform .2s ease, opacity .3s ease;font-family:'Inter';white-space:nowrap;}
   .cloud-signin-btn:active{transform:scale(0.95);}
   .cloud-signin-btn.loading{opacity:0.6;pointer-events:none;}
   .cloud-signin-btn.loading svg{animation:spin .8s linear infinite;}
 
-  /* BOTTOM NAV */
-  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(115deg,var(--navy),var(--sky));border-top:1px solid rgba(255,255,255,0.15);display:flex;z-index:40;box-shadow:0 -4px 18px rgba(232,86,44,0.3);padding-bottom:env(safe-area-inset-bottom);}
-  .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:rgba(255,255,255,0.65);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
+  /* BOTTOM NAV — en oscuro deja de ser un degradé de marca (gritaba demasiado
+     contra #0f1115) y pasa a ser una barra oscura elevada con la pestaña activa
+     en el naranja de acento: el patrón estándar de nav inferior en dark UIs. */
+  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb, var(--panel) 86%, black);border-top:1px solid var(--line);display:flex;z-index:40;box-shadow:0 -6px 24px rgba(0,0,0,0.55);padding-bottom:env(safe-area-inset-bottom);}
+  .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:var(--ink-soft);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
   .bottom-nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-  .bottom-nav-item.active{color:#fff;}
-  .bottom-nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:0 0 3px 3px;background:#DCF8C6;}
+  .bottom-nav-item.active{color:var(--navy);}
+  .bottom-nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--navy);}
   .bottom-nav-item:active{transform:scale(0.95);}
 
   .scan-card{cursor:pointer;}
@@ -146,7 +171,7 @@
   .scan-card:active .scan-fab-mini{transform:scale(0.94);}
   .scan-fab-mini svg{position:relative;z-index:2;width:100%;height:100%;filter:drop-shadow(0 2px 5px rgba(32,33,36,0.25));}
   .scan-fab-ring{
-    position:absolute;inset:0;border-radius:50%;background:rgba(90,170,214,0.35);
+    position:absolute;inset:0;border-radius:50%;background:rgba(61,220,151,0.28);
     animation:fabPulse 1.8s cubic-bezier(0.3,0.6,0.4,1) infinite; z-index:1;
   }
   .scan-fab-ring.delay{animation-delay:.6s;}
@@ -159,7 +184,7 @@
   /* Burbujas blancas con emoji (no íconos de línea): en el teléfono los emoji se
      dibujan como ilustraciones a color con volumen — el look "realista" de la
      referencia que trajo el usuario, sin sumar ni un asset. */
-  .so-bubble{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--panel);box-shadow:0 1px 5px rgba(32,33,36,.16);font-size:15px;line-height:1;}
+  .so-bubble{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--raised);box-shadow:0 1px 5px rgba(0,0,0,.4);font-size:15px;line-height:1;}
   @keyframes orbitSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   @keyframes orbitSpinRev{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
   @media (prefers-reduced-motion: reduce){
@@ -183,9 +208,9 @@
   .btn{border:none;border-radius:10px;padding:10px 16px;font-weight:600;font-size:13.5px;cursor:pointer;transition:transform .2s var(--ease-soft), filter .2s var(--ease-soft), opacity .3s ease, background .3s ease;font-family:'Inter';}
   .btn:active{transform:scale(0.97);filter:brightness(0.96);}
   .btn:disabled{opacity:.5;cursor:not-allowed;}
-  .btn-primary{background:var(--saffron);color:var(--ink);}
+  .btn-primary{background:var(--saffron);color:var(--on-accent);}
   .btn-primary:hover{background:var(--saffron-press);}
-  .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .btn-ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line);}
   .btn-ghost:hover{border-color:var(--navy);}
   .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px;}
   .btn-icon{display:inline-flex;align-items:center;gap:7px;position:relative;}
@@ -202,9 +227,9 @@
   .inv-header-actions::-webkit-scrollbar{display:none;}
   .inv-row-btn{position:relative;flex:0 0 auto;text-align:center;white-space:nowrap;line-height:1;padding:12px;font-size:12.5px;}
 
-  .alert-banner{background:var(--tomato-soft);border:1px solid #F2C6C8;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:var(--tomato-ink);font-size:13.5px;font-weight:600;transition:transform .12s ease;}
+  .alert-banner{background:var(--tomato-soft);border:1px solid color-mix(in srgb, var(--tomato) 35%, var(--panel));border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;color:var(--tomato-ink);font-size:13.5px;font-weight:600;transition:transform .12s ease;}
   #cc-banner:active{transform:scale(0.98);}
-  .alert-banner .count{background:var(--tomato);color:#fff;border-radius:20px;padding:2px 9px;font-size:12px;}
+  .alert-banner .count{background:var(--tomato);color:var(--on-accent);border-radius:20px;padding:2px 9px;font-size:12px;}
 
   .mono-cell{font-family:'IBM Plex Mono';}
 
@@ -240,7 +265,7 @@
      color (rotando por una paleta, solo decorativo, sin significado semántico como
      en el resto de la app) en vez de un renglón de formulario plano. */
   .category-edit-row{display:flex;gap:10px;align-items:center;background:var(--bg);border-radius:16px;padding:6px 8px 6px 6px;transition:background .15s ease, box-shadow .15s ease;}
-  .category-edit-row:focus-within{background:#fff;box-shadow:0 0 0 2px var(--line);}
+  .category-edit-row:focus-within{background:var(--raised);box-shadow:0 0 0 2px var(--line);}
   .category-edit-row.add-row{background:transparent;border:2px dashed var(--line);}
   .cat-bubble{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;font-family:'Space Grotesk';}
   .category-edit-row input{flex:1;min-width:0;border:none;background:transparent;font-size:15px;font-weight:700;padding:11px 6px;color:var(--ink);outline:none;font-family:'Inter';}
@@ -252,7 +277,7 @@
      mismo en el que van a aparecer de izquierda a derecha en esa fila de chips, así que
      "arriba" en esta lista vertical mueve un puesto hacia la izquierda allá. */
   .category-edit-row[data-cat-id]{cursor:grab;}
-  .category-edit-row.dragging{transition:none;box-shadow:var(--shadow-lg);background:#fff;opacity:.97;cursor:grabbing;}
+  .category-edit-row.dragging{transition:none;box-shadow:var(--shadow-lg);background:var(--raised);opacity:.97;cursor:grabbing;}
   .category-edit-list.reordering{touch-action:none;}
   .stock-card-title{font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-family:'Space Grotesk';margin:0 0 6px;}
   /* Todas las filas de inventario (Dashboard e Inventario) usan esta misma clase — ya
@@ -267,13 +292,16 @@
      (ver más abajo), así que el botón de editar terminaba tapado a medias por esa
      línea en vez de tener aire respecto a ella. */
   .stock-row{display:flex;align-items:center;gap:16px;padding:16px 10px;background:var(--panel);position:relative;}
-  .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:#fff;overflow:hidden;transition:transform .12s ease;}
+  /* El fondo del anillo es --raised (no blanco): los dibujos de comida son fills de
+     color con brillos blancos encima — sobre un gris oscuro elevado siguen leyendo
+     bien y el anillo deja de ser un lunar blanco en cada fila. */
+  .stock-icon-ring{width:46px;height:46px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid var(--stock-ok);background:var(--raised);overflow:hidden;transition:transform .12s ease;}
   .stock-icon-ring[data-photo-item]:active{transform:scale(0.9);}
   .stock-icon-ring svg{width:30px;height:30px;display:block;filter:drop-shadow(0 1px 1.5px rgba(28,30,33,0.18));}
   .stock-icon-ring img{width:100%;height:100%;object-fit:cover;display:block;}
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
   .stock-icon-ring.crit{border-color:var(--stock-crit);}
-  .stock-icon-ring.none{border-color:#C7CAD1;}
+  .stock-icon-ring.none{border-color:#3a414b;}
   .stock-main{flex:1;min-width:0;}
   /* overflow-wrap:anywhere — nombres de producto sin espacios (SKUs, nombres pegados)
      se salían de .stock-main y quedaban flotando encima de los botones de
@@ -281,16 +309,16 @@
      no alcanza para esto: evita que el ITEM empuje el ancho del row, pero no evita
      que el TEXTO adentro se desborde visualmente si no hay dónde partir la palabra. */
   .stock-name{font-size:12.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px;overflow-wrap:anywhere;}
-  .stock-bar-track{background:#E9EAEC;border-radius:20px;height:20px;overflow:hidden;position:relative;}
+  .stock-bar-track{background:var(--line);border-radius:20px;height:20px;overflow:hidden;position:relative;}
   .stock-bar-fill{height:100%;border-radius:20px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;min-width:34px;transition:width .4s ease;}
-  .stock-bar-fill span{color:#fff;font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono';white-space:nowrap;}
+  .stock-bar-fill span{color:var(--on-accent);font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono';white-space:nowrap;}
   .stock-bar-fill.ok{background:var(--stock-ok);}
   .stock-bar-fill.warn{background:var(--stock-warn);}
   .stock-bar-fill.crit{background:var(--stock-crit);}
 
   /* Barra de presupuesto — versión angosta de .stock-bar-track/.stock-bar-fill,
      sin el badge de texto adentro (acá el número va afuera, en su propia línea). */
-  .budget-bar-track{background:#E9EAEC;border-radius:20px;height:7px;overflow:hidden;margin-top:10px;}
+  .budget-bar-track{background:var(--line);border-radius:20px;height:7px;overflow:hidden;margin-top:10px;}
   .budget-bar-fill{height:100%;border-radius:20px;transition:width .4s ease;}
   .budget-bar-fill.ok{background:var(--stock-ok);}
   .budget-bar-fill.warn{background:var(--stock-warn);}
@@ -300,16 +328,16 @@
   .stock-caption-muted{font-style:italic;}
   .stock-actions{flex-shrink:0;text-align:center;}
   .stock-actions-btns{display:flex;gap:6px;}
-  .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:#fff;transition:transform .2s ease;}
+  .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--on-accent);transition:transform .2s ease;}
   .stock-icon-btn:active{transform:scale(0.9);}
-  .stock-icon-btn svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .stock-icon-btn svg{width:16px;height:16px;stroke:var(--on-accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .stock-icon-btn.edit{background:var(--navy);}
   .inv-row-meta{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px;}
   .stock-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0 20px;padding-top:16px;border-top:1px solid var(--line);flex-wrap:wrap;}
   .stock-summary-label{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
   .stock-summary-value{font-size:20px;font-weight:700;color:var(--stock-crit);font-family:'Space Grotesk';margin-top:2px;}
   .stock-summary-right{text-align:right;}
-  .stock-suggest-btn{background:var(--stock-ok);color:#fff;border:none;border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;margin-top:4px;cursor:pointer;transition:transform .15s ease,filter .15s ease;}
+  .stock-suggest-btn{background:var(--stock-ok);color:var(--on-accent);border:none;border-radius:20px;padding:9px 18px;font-size:12px;font-weight:700;margin-top:4px;cursor:pointer;transition:transform .15s ease,filter .15s ease;}
   .stock-suggest-btn:hover{opacity:.9;}
   .stock-suggest-btn:active{transform:scale(0.96);filter:brightness(0.94);}
   .cc-due-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--tomato);border:2px solid var(--panel);}
@@ -319,8 +347,8 @@
      celular, mirando una lista. Ahora también pulsa un tinte de fondo (mismo rojo)
      para que el movimiento se note sin tener que fijarse en el borde. */
   @keyframes cc-due-pulse{
-    0%, 100%{box-shadow:inset 0 0 0 2px rgba(229,72,77,0.3); background:rgba(229,72,77,0.05);}
-    50%{box-shadow:inset 0 0 0 2px rgba(229,72,77,0.85); background:rgba(229,72,77,0.14);}
+    0%, 100%{box-shadow:inset 0 0 0 2px rgba(255,92,92,0.3); background:rgba(255,92,92,0.05);}
+    50%{box-shadow:inset 0 0 0 2px rgba(255,92,92,0.85); background:rgba(255,92,92,0.14);}
   }
   /* La animación va en .stock-row (el hijo), no en .stock-row-static (el padre):
      .stock-row tiene su propio background:var(--panel) opaco que, al pintarse
@@ -328,14 +356,14 @@
      podía confirmar por getComputedStyle) pero nunca se veía en pantalla. */
   .stock-row-static.cc-due-blink .stock-row{animation:cc-due-pulse 1.6s ease-in-out infinite;border-radius:10px;}
   @media (prefers-reduced-motion: reduce){
-    .stock-row-static.cc-due-blink .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(229,72,77,0.5);background:rgba(229,72,77,0.08);}
+    .stock-row-static.cc-due-blink .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(255,92,92,0.5);background:rgba(255,92,92,0.08);}
   }
   /* Igual que cc-due-blink pero disparado a mano al tocar "Alertas críticas" — dos
      pulsos y se apaga solo (ver btn-critical-alerts en attachEvents), en vez de
      quedar prendido todo el tiempo como cc-due-blink. */
   .stock-row-static.crit-flash .stock-row{animation:cc-due-pulse 1.2s ease-in-out 2;border-radius:10px;}
   @media (prefers-reduced-motion: reduce){
-    .stock-row-static.crit-flash .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(229,72,77,0.5);background:rgba(229,72,77,0.08);}
+    .stock-row-static.crit-flash .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(255,92,92,0.5);background:rgba(255,92,92,0.08);}
   }
 
   /* Tarjetas de recibos (grid con foto de portada), pestaña Recibos */
@@ -356,13 +384,13 @@
   .cal-year-month{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 5px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-family:'Inter';cursor:pointer;transition:transform .2s ease,border-color .2s ease;}
   .cal-year-month:hover{border-color:var(--navy);}
   .cal-year-month:active{transform:scale(0.96);}
-  .cal-year-month.current{background:#fff;box-shadow:inset 0 0 0 2px var(--navy);}
+  .cal-year-month.current{background:var(--raised);box-shadow:inset 0 0 0 2px var(--navy);}
   .mini-cal-title{font-size:10.5px;font-weight:700;color:var(--ink);text-transform:capitalize;}
   .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;width:100%;}
   .mini-cal-day{font-size:6.5px;line-height:9px;text-align:center;color:var(--ink-soft);aspect-ratio:1;}
-  .mini-cal-day.has-receipt{background:var(--saffron);color:#fff;border-radius:50%;font-weight:700;}
+  .mini-cal-day.has-receipt{background:var(--saffron);color:var(--on-accent);border-radius:50%;font-weight:700;}
   .mini-cal-day.today{box-shadow:inset 0 0 0 1px var(--tomato);border-radius:50%;}
-  .cal-nav-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-size:20px;line-height:1;cursor:pointer;transition:transform .2s ease,border-color .2s ease,color .2s ease;}
+  .cal-nav-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--raised);color:var(--ink-soft);font-size:20px;line-height:1;cursor:pointer;transition:transform .2s ease,border-color .2s ease,color .2s ease;}
   .cal-nav-btn:hover{border-color:var(--navy);color:var(--navy);}
   .cal-nav-btn:active{transform:scale(0.92);}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
@@ -382,20 +410,20 @@
   .cal-day.has-receipt{cursor:pointer;transition:transform .2s ease;}
   .cal-day.has-receipt:hover{transform:scale(1.06);}
   .cal-day.has-receipt:active{transform:scale(0.94);}
-  .cal-day-badge{position:absolute;top:2px;right:2px;background:var(--tomato);color:#fff;font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:8px;}
+  .cal-day-badge{position:absolute;top:2px;right:2px;background:var(--tomato);color:var(--on-accent);font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:8px;}
   .day-receipt-row{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px;cursor:pointer;transition:background .2s ease,transform .12s ease;}
-  .day-receipt-row:hover{background:#E7E9EC;}
-  .day-receipt-row:active{transform:scale(0.98);background:#E7E9EC;}
-  .day-receipt-thumb{width:40px;height:40px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .day-receipt-row:hover{background:var(--raised);}
+  .day-receipt-row:active{transform:scale(0.98);background:var(--raised);}
+  .day-receipt-thumb{width:40px;height:40px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--raised);display:flex;align-items:center;justify-content:center;font-size:18px;}
   .day-receipt-thumb img{width:100%;height:100%;object-fit:cover;}
 
   /* MODAL */
-  .overlay{position:fixed;inset:0;background:rgba(28,30,33,0.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;animation:overlayFadeIn .4s ease;}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.62);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;animation:overlayFadeIn .4s ease;}
   /* Se "despliega" desde arriba hacia abajo (transform-origin:top + scaleY) en vez de
      escalar parejo desde el centro — se siente como que el cuadrito se abre hacia
      abajo (piensa en un ajuste rápido, o el modal de configuración), consistente en
      todas las ventanas emergentes de la app, sean grandes o chicas. */
-  .modal{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .65s var(--ease-spring);}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .65s var(--ease-spring);}
   @keyframes overlayFadeIn{ from{opacity:0;} to{opacity:1;} }
   /* Fundido de la View Transition al abrir/cerrar modales (ver render()) — el cross-fade
      por defecto del navegador dura 250ms; un toque más corto para que el cierre se
@@ -412,7 +440,7 @@
      position:sticky lo deja pegado arriba a la derecha del modal aunque el usuario
      esté scrolleado en el medio, en vez de obligarlo a llegar hasta "Cancelar" al
      final para poder salir. */
-  .modal-close-btn{position:sticky;top:0;float:right;margin:-16px -8px 0 12px;width:30px;height:30px;border-radius:50%;border:none;background:var(--bg);color:var(--ink-soft);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:background .15s ease,transform .1s ease;}
+  .modal-close-btn{position:sticky;top:0;float:right;margin:-16px -8px 0 12px;width:30px;height:30px;border-radius:50%;border:none;background:var(--raised);color:var(--ink-mid);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:background .15s ease,transform .1s ease;}
   .modal-close-btn:active{transform:scale(0.9);}
   .modal h3{margin:0 0 4px;font-size:18px;}
   /* Antes todos los títulos de modal eran del mismo negro parejo que el resto del
@@ -436,13 +464,16 @@
 
   /* Cotegito de "no leído" (como el de mensajes) — un número en rojo sobre el botón
      que abre el historial, para que se note sin tener que entrar a mirar. */
-  .count-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:10px;background:var(--tomato);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px #fff;}
+  .count-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:10px;background:var(--tomato);color:var(--on-accent);font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--panel);}
 
-  .modal .sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:18px;}
+  /* --ink-mid (no el muted): el "sub" de un modal suele explicar qué hace — es
+     texto que importa, y el muted sobre panel oscuro lo dejaba demasiado apagado. */
+  .modal .sub{font-size:12.5px;color:var(--ink-mid);margin-bottom:18px;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
-  .field input,.field select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;font-family:'Inter';background:#FAFAF9;}
-  .field input:focus,.field select:focus{outline:2px solid var(--navy-soft);border-color:var(--navy);background:#fff;}
+  .field input,.field select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;font-family:'Inter';background:var(--inset);color:var(--ink);}
+  .field input::placeholder{color:var(--ink-soft);}
+  .field input:focus,.field select:focus{outline:2px solid var(--focus-ring);border-color:var(--navy);background:var(--raised);}
   .field-row{display:flex;gap:10px;}
   .field-row .field{flex:1;}
   .modal-actions{display:flex;gap:10px;margin-top:20px;}
@@ -459,9 +490,9 @@
   .welcome-step-card{border-radius:14px;padding:26px 20px;text-align:center;margin:16px 0;animation:welcomeStepInFwd .4s var(--ease-soft);cursor:grab;touch-action:pan-y;}
   .welcome-step-card:active{cursor:grabbing;}
   .welcome-step-card.dir-back{animation-name:welcomeStepInBack;}
-  .welcome-step-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;color:#fff;margin-bottom:14px;box-shadow:var(--shadow);}
+  .welcome-step-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;color:var(--on-accent);margin-bottom:14px;box-shadow:var(--shadow);}
   .welcome-step-title{display:block;font-size:16px;margin-bottom:6px;}
-  .welcome-step-sub{font-size:13px;color:var(--ink-soft);line-height:1.45;}
+  .welcome-step-sub{font-size:13px;color:var(--ink-mid);line-height:1.45;}
   /* Entra deslizando desde el lado del que "viene" (derecha al avanzar, izquierda al
      retroceder o saltar hacia atrás con los puntitos) en vez de solo aparecer — se
      siente como pasar páginas de verdad, no como un cambio de contenido genérico. */
@@ -508,34 +539,34 @@
   .ws-receipt i:nth-child(3){width:85%;}
   .ws-receipt i:nth-child(4){width:60%;}
   .ws-receipt .ws-beam{position:absolute;left:0;right:0;height:26px;top:-15%;
-    background:linear-gradient(to bottom, rgba(91,157,217,0), rgba(91,157,217,0.35) 42%, rgba(255,255,255,0.9) 50%, rgba(91,157,217,0.35) 58%, rgba(91,157,217,0));
+    background:linear-gradient(to bottom, rgba(61,220,151,0), rgba(61,220,151,0.35) 42%, rgba(255,255,255,0.9) 50%, rgba(61,220,151,0.35) 58%, rgba(61,220,151,0));
     animation:scanBeam 1.8s ease-in-out infinite alternate;}
   /* Paso 2: la campana se sacude cada tanto (transform-origin arriba, como colgada)
      y el badge rojo late justo después del sacudón — causa y efecto. */
-  .ws-bell-wrap{position:relative;width:56px;height:56px;border-radius:50%;background:var(--saffron-ink);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);}
+  .ws-bell-wrap{position:relative;width:56px;height:56px;border-radius:50%;background:var(--saffron);color:var(--on-accent);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);}
   .ws-bell-wrap svg{transform-origin:50% 15%;animation:wsBellSwing 2.6s ease-in-out infinite;}
   @keyframes wsBellSwing{ 0%,55%,100%{transform:rotate(0);} 62%{transform:rotate(14deg);} 70%{transform:rotate(-11deg);} 78%{transform:rotate(7deg);} 86%{transform:rotate(-3deg);} 92%{transform:rotate(0);} }
-  .ws-badge{position:absolute;top:1px;right:1px;width:14px;height:14px;border-radius:50%;background:var(--tomato);border:2.5px solid #fff;animation:wsBadgePulse 2.6s ease-in-out infinite;}
+  .ws-badge{position:absolute;top:1px;right:1px;width:14px;height:14px;border-radius:50%;background:var(--tomato);border:2.5px solid var(--panel);animation:wsBadgePulse 2.6s ease-in-out infinite;}
   @keyframes wsBadgePulse{ 0%,55%,100%{transform:scale(1);} 66%{transform:scale(1.4);} 78%{transform:scale(1);} }
   /* Paso 3: tres avatares del equipo flotando escalonados — vivos, no una foto fija. */
-  .ws-avatar{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:var(--shadow);animation:wsBob 2.2s ease-in-out infinite;}
+  .ws-avatar{width:34px;height:34px;border-radius:50%;border:3px solid var(--panel);box-shadow:var(--shadow);animation:wsBob 2.2s ease-in-out infinite;}
   .ws-avatar.a1{background:var(--navy);z-index:3;}
   .ws-avatar.a2{background:var(--basil-ink);margin-left:-10px;z-index:2;animation-delay:.25s;}
   .ws-avatar.a3{background:var(--saffron-ink);margin-left:-10px;z-index:1;animation-delay:.5s;}
   @keyframes wsBob{ 0%,100%{transform:translateY(2px);} 35%{transform:translateY(-5px);} 70%{transform:translateY(2px);} }
   @media (prefers-reduced-motion: reduce){ .ws-scene *{animation:none !important;} }
-  .settings-card{background:#F7F7F5;border-radius:12px;padding:16px;margin-bottom:14px;}
+  .settings-card{background:var(--inset);border-radius:12px;padding:16px;margin-bottom:14px;}
   .settings-card .helper-note{margin-top:8px;}
 
   .ing-list-mini{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:180px;overflow-y:auto;}
-  .ing-list-mini-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 10px;background:#FAFAF7;border-radius:8px;}
+  .ing-list-mini-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:8px 10px;background:var(--inset);border-radius:8px;}
   .remove-x{background:none;border:none;color:var(--tomato);cursor:pointer;font-size:15px;padding:0 4px;transition:transform .12s ease,opacity .12s ease;}
   .remove-x:active{transform:scale(0.85);opacity:.6;}
   [data-remove-scan-page]{transition:transform .12s ease;}
   [data-remove-scan-page]:active{transform:scale(0.85);}
 
   .empty-state{text-align:center;padding:50px 20px;color:var(--ink-soft);}
-  .empty-state .em-icon-badge{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
+  .empty-state .em-icon-badge{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
 
   /* DASHBOARD — primeros pasos (inventario todavía vacío). Mismo degradé navy→basil
      que .brand-mark/.scan-fab-mini (para que se sienta parte de la misma marca, no un
@@ -546,15 +577,15 @@
   .dash-empty-badge{
     width:64px;height:64px;margin:0 auto 16px;border-radius:18px;
     background:
-      repeating-linear-gradient(45deg, rgba(255,255,255,0.14) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy),var(--sky));
-    display:flex;align-items:center;justify-content:center;color:#fff;
-    box-shadow:0 6px 18px rgba(232,86,44,0.35);
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px),
+      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,#e0501d);
+    display:flex;align-items:center;justify-content:center;color:var(--on-accent);
+    box-shadow:0 6px 18px rgba(255,107,53,0.3);
     animation:dash-empty-breathe 2.6s ease-in-out infinite;
   }
   .dash-empty-badge svg{stroke-width:1.6;}
   .dash-empty-card h3{margin:0 0 6px;font-size:17px;}
-  .dash-empty-card p{margin:0 auto 20px;font-size:13.5px;color:var(--ink-soft);max-width:320px;line-height:1.5;}
+  .dash-empty-card p{margin:0 auto 20px;font-size:13.5px;color:var(--ink-mid);max-width:320px;line-height:1.5;}
   .dash-empty-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
   @keyframes dash-empty-breathe{
     0%,100%{transform:scale(1);}
@@ -570,7 +601,7 @@
   }
 
   /* RECEIPT SCAN */
-  .drop-zone{border:2px dashed #BFDDF0;border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:var(--sky-soft);margin-bottom:16px;transition:transform .12s ease,border-color .15s ease;}
+  .drop-zone{border:2px dashed color-mix(in srgb, var(--basil) 40%, var(--panel));border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:var(--sky-soft);margin-bottom:16px;transition:transform .12s ease,border-color .15s ease;}
   .drop-zone:hover{border-color:var(--sky);}
   .drop-zone:active{transform:scale(0.98);border-color:var(--sky);}
   .drop-zone .dz-icon{display:flex;justify-content:center;color:var(--sky);margin-bottom:6px;}
@@ -582,17 +613,17 @@
      alrededor. */
   .receipt-preview{width:100%;height:200px;object-fit:contain;border-radius:10px;margin-bottom:14px;border:1px solid var(--line);background:var(--bg);}
   .scan-status{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--saffron-soft);border-radius:10px;font-size:13px;font-weight:600;color:var(--saffron-ink);margin-bottom:14px;}
-  .spinner{width:16px;height:16px;border:2.5px solid #F5DCC0;border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+  .spinner{width:16px;height:16px;border:2.5px solid color-mix(in srgb, var(--saffron) 30%, var(--panel));border-top-color:var(--saffron-ink);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
   @keyframes spin{to{transform:rotate(360deg);}}
   /* Mientras la IA lee el recibo: la foto en pantalla con un haz de luz que la barre
      de arriba a abajo y de vuelta (como un escáner de documentos de verdad), esquinas
      de visor y todo — en vez de dejar al usuario mirando un spinner pelado sin ver
      qué se está leyendo. El haz anima `top` en %, que se mide contra la altura del
      contenedor: así funciona con fotos de cualquier alto sin medir nada en JS. */
-  .scan-anim{position:relative;border-radius:12px;overflow:hidden;margin-bottom:12px;background:#1C1E21;}
+  .scan-anim{position:relative;border-radius:12px;overflow:hidden;margin-bottom:12px;background:#0a0c0f;}
   .scan-anim img{display:block;width:100%;max-height:300px;object-fit:contain;opacity:0.85;}
   .scan-anim .beam{position:absolute;left:0;right:0;height:64px;top:-15%;pointer-events:none;
-    background:linear-gradient(to bottom, rgba(91,157,217,0), rgba(91,157,217,0.30) 42%, rgba(255,255,255,0.85) 50%, rgba(91,157,217,0.30) 58%, rgba(91,157,217,0));
+    background:linear-gradient(to bottom, rgba(61,220,151,0), rgba(61,220,151,0.30) 42%, rgba(255,255,255,0.85) 50%, rgba(61,220,151,0.30) 58%, rgba(61,220,151,0));
     animation:scanBeam 2.4s ease-in-out infinite alternate;}
   @keyframes scanBeam{ from{top:-15%;} to{top:100%;} }
   .scan-anim .corner{position:absolute;width:22px;height:22px;border:2.5px solid rgba(255,255,255,0.9);pointer-events:none;}
@@ -608,22 +639,22 @@
   .field input[aria-invalid="true"], input[aria-invalid="true"]{border-color:var(--tomato);}
   /* Control tipo segmentado (estilo iOS) para elegir si las fotos son páginas de un
      mismo recibo o recibos distintos. */
-  .scan-mode{display:flex;background:#EFEFEA;border-radius:10px;padding:3px;gap:3px;margin-bottom:12px;}
+  .scan-mode{display:flex;background:var(--inset);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px;}
   .scan-mode button{flex:1;border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-soft);padding:8px 6px;border-radius:8px;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease,transform .12s ease;line-height:1.25;}
-  .scan-mode button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.12);}
+  .scan-mode button.on{background:var(--raised);color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.4);}
   .scan-mode button:active{transform:scale(0.95);}
   .scan-queue-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--navy-wash);color:var(--navy-ink);border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:700;margin-bottom:12px;}
   .scan-queue-bar .dots{display:flex;gap:4px;}
-  .scan-queue-bar .dots i{width:6px;height:6px;border-radius:50%;background:#9CCFC8;display:block;}
+  .scan-queue-bar .dots i{width:6px;height:6px;border-radius:50%;background:color-mix(in srgb, var(--navy) 35%, var(--panel));display:block;}
   .scan-queue-bar .dots i.done{background:var(--navy);}
-  .scan-queue-bar .dots i.now{background:var(--navy);box-shadow:0 0 0 3px rgba(232,86,44,.2);}
+  .scan-queue-bar .dots i.now{background:var(--navy);box-shadow:0 0 0 3px rgba(255,107,53,.25);}
 
   .matched-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
   .matched-item .mi-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
   .matched-item .mi-top strong{color:var(--ink);font-size:13px;}
-  .mi-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .mi-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--on-accent);}
   .mi-fields{display:flex;gap:8px;}
-  .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:#fff;}
+  .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--inset);color:var(--ink);}
 
   @media (max-width:720px){
     #app{padding:calc(16px + env(safe-area-inset-top)) 14px 90px;}

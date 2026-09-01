@@ -15,4 +15,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
     res.end(data);
   });
-}).listen(8934, () => console.log('listening on 8934'));
+}).listen(process.env.PORT || 8934, () => console.log('listening on ' + (process.env.PORT || 8934)));

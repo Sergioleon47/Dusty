@@ -235,7 +235,7 @@ function renderCrashScreen(err){
         <svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--tomato);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-bottom:12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <div style="font-weight:800;font-size:18px;color:var(--ink);margin-bottom:8px;">${copy.title}</div>
         <div style="font-size:14px;color:var(--ink-soft);line-height:1.5;margin-bottom:20px;">${copy.body}</div>
-        <button id="btn-render-crash-reload" style="background:var(--navy);color:#fff;border:none;border-radius:14px;padding:12px 24px;font-weight:700;font-size:14px;cursor:pointer;">${copy.btn}</button>
+        <button id="btn-render-crash-reload" style="background:var(--navy);color:var(--on-accent);border:none;border-radius:14px;padding:12px 24px;font-weight:700;font-size:14px;cursor:pointer;">${copy.btn}</button>
       </div>
     </div>`;
   const btn = document.getElementById('btn-render-crash-reload');

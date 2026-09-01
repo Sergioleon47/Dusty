@@ -700,7 +700,7 @@ function priceChangeBadge(pct){
   // corrida, un "1" leído donde decía "100") que un cambio de precio de verdad.
   // Mostrar "14141%" como si fuera un hecho es peor que no mostrar nada: se marca
   // como algo para revisar a mano en vez de repetir un número que casi seguro está mal.
-  if(Math.abs(pct)>300) return `<span style="color:#8C6D1F;font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_implausible_hint')}">⚠ ${t('price_implausible')}</span>`;
+  if(Math.abs(pct)>300) return `<span style="color:var(--saffron-ink);font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_implausible_hint')}">⚠ ${t('price_implausible')}</span>`;
   const up = pct>0.5, down = pct<-0.5;
   const color = up?'var(--tomato)':down?'var(--basil)':'var(--ink-soft)';
   const arrow = up?'▲':down?'▼':'→';

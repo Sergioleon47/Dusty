@@ -92,7 +92,7 @@ function deleteAccountModal(){
         ${isOwner ? `<div class="scan-error" style="margin-top:-6px;">⚠ ${t('delete_account_warning_team').replace('{n}', teamMembers.length)}</div>` : ''}
         <div class="modal-actions">
           <button class="btn btn-ghost" id="btn-cancel-delete-account">${t('btn_cancel')}</button>
-          <button class="btn btn-primary" id="btn-continue-delete-account" style="background:var(--tomato);color:#fff;">${t('delete_account_continue_btn')}</button>
+          <button class="btn btn-primary" id="btn-continue-delete-account" style="background:var(--tomato);color:var(--on-accent);">${t('delete_account_continue_btn')}</button>
         </div>
       ` : `
         <div class="sub">${t('delete_account_reauth_sub')}</div>
@@ -102,7 +102,7 @@ function deleteAccountModal(){
         `}
         <div class="modal-actions">
           <button class="btn btn-ghost" id="btn-cancel-delete-account" ${deleteAccountLoading?'disabled':''}>${t('btn_cancel')}</button>
-          <button class="btn btn-primary" id="btn-confirm-delete-account" style="background:var(--tomato);color:#fff;" ${deleteAccountLoading?'disabled':''}>${deleteAccountLoading ? t('auth_loading') : (isGoogle ? t('delete_account_google_reauth_btn') : t('delete_account_confirm_btn'))}</button>
+          <button class="btn btn-primary" id="btn-confirm-delete-account" style="background:var(--tomato);color:var(--on-accent);" ${deleteAccountLoading?'disabled':''}>${deleteAccountLoading ? t('auth_loading') : (isGoogle ? t('delete_account_google_reauth_btn') : t('delete_account_confirm_btn'))}</button>
         </div>
       `}
     </div>
@@ -221,7 +221,7 @@ function receiptDetailModal(){
         </div>
       `).join('')}
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-delete-receipt" style="color:var(--tomato);border-color:#EBC2B8;">${t('btn_delete')}</button>
+        <button class="btn btn-ghost" id="btn-delete-receipt" style="color:var(--tomato);border-color:color-mix(in srgb, var(--tomato) 35%, var(--panel));">${t('btn_delete')}</button>
         <button class="btn btn-ghost btn-icon" id="btn-print-receipt">${lineIcon('printer',15)} ${t('btn_print')}</button>
         <button class="btn btn-ghost btn-icon" id="btn-share-receipt">${lineIcon('share',15)} ${t('btn_share')}</button>
         <button class="btn btn-primary" id="btn-close-receipt-detail">${t('btn_close')}</button>
@@ -669,7 +669,7 @@ function teamModal(){
       <h3 class="basil">${t('team_title')}</h3>
       ${joinedOwnerUid ? `
         <div class="settings-card" style="background:var(--basil-soft);">
-          ${settingsCardHeader('cloud','#fff','var(--basil-ink)',t('team_title'))}
+          ${settingsCardHeader('cloud','var(--basil-soft)','var(--basil-ink)',t('team_title'))}
           <p style="font-size:13px;color:var(--basil-ink);margin:0;">${t('team_viewing_shared').replace('{email}', escapeHtml(joinedOwnerEmail))}</p>
         </div>
         <button type="button" class="btn btn-ghost" id="btn-leave-team" style="width:100%;" ${teamLoading?'disabled':''}>${t('team_leave_btn')}</button>
@@ -1190,11 +1190,11 @@ function scanModal(){
             const warning = scanPageWarnings[idx];
             return `
             <div style="position:relative;">
-              <img src="data:${img.mediaType};base64,${img.base64}" alt="" style="width:92px;height:92px;object-fit:cover;border-radius:8px;border:1px solid ${warning?'#D9A72E':'var(--line)'};display:block;">
-              <button data-remove-scan-page="${idx}" title="${t('btn_remove_photo')}" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--tomato);color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer;">✕</button>
-              ${warning ? `<div style="position:absolute;bottom:3px;left:3px;background:rgba(217,167,46,0.92);color:#fff;font-size:12px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;" title="${t('scan_quality_'+warning)}">!</div>` : ''}
+              <img src="data:${img.mediaType};base64,${img.base64}" alt="" style="width:92px;height:92px;object-fit:cover;border-radius:8px;border:1px solid ${warning?'var(--saffron)':'var(--line)'};display:block;">
+              <button data-remove-scan-page="${idx}" title="${t('btn_remove_photo')}" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--tomato);color:var(--on-accent);border:none;font-size:12px;line-height:1;cursor:pointer;">✕</button>
+              ${warning ? `<div style="position:absolute;bottom:3px;left:3px;background:var(--saffron);color:var(--on-accent);font-size:12px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;" title="${t('scan_quality_'+warning)}">!</div>` : ''}
               <div style="text-align:center;font-size:10.5px;color:var(--ink-soft);margin-top:3px;">${t('scan_page')} ${idx+1}</div>
-              ${warning ? `<div style="text-align:center;font-size:9.5px;color:#8C6D1F;max-width:92px;">${t('scan_quality_'+warning)}</div>` : ''}
+              ${warning ? `<div style="text-align:center;font-size:9.5px;color:var(--saffron-ink);max-width:92px;">${t('scan_quality_'+warning)}</div>` : ''}
             </div>
           `;
           }).join('')}
@@ -1335,7 +1335,7 @@ function scanModal(){
           // verde = ya emparejado con un producto que ya tenés.
           const miIcon = `<span class="mi-icon" style="background:${isUnrecognized?'var(--saffron)':'var(--basil)'};">${lineIcon(isUnrecognized?'box':'chart',12)}</span>`;
           return `
-          <div class="matched-item" style="${isUnrecognized?'border-color:#F5DCC0;background:var(--saffron-soft);':''}">
+          <div class="matched-item" style="${isUnrecognized?'border-color:color-mix(in srgb, var(--saffron) 40%, var(--panel));background:var(--saffron-soft);':''}">
             <div class="mi-top">
               ${miIcon}
               <input data-scan-name="${idx}" type="text" value="${escapeHtml(item.rawName)}" placeholder="${t('ph_product_name')}" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:13px;padding:2px 0;">
@@ -1704,7 +1704,7 @@ function productBatchModal(){
           const thumb = it.photo ? `<img src="data:${it.photo.mediaType};base64,${it.photo.base64}" alt="" style="width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
                                  : `<span class="mi-icon" style="background:var(--sky);">${lineIcon('box',12)}</span>`;
           return `
-          <div class="matched-item" style="${it.selected?'':'opacity:.55;'}${it.dupOfId?'border-color:#F5DCC0;background:var(--saffron-soft);':''}">
+          <div class="matched-item" style="${it.selected?'':'opacity:.55;'}${it.dupOfId?'border-color:color-mix(in srgb, var(--saffron) 40%, var(--panel));background:var(--saffron-soft);':''}">
             <div class="mi-top">
               <input data-pb-selected="${idx}" type="checkbox" ${it.selected?'checked':''} style="width:18px;height:18px;flex-shrink:0;accent-color:var(--navy);">
               ${thumb}
