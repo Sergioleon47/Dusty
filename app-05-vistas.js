@@ -393,10 +393,10 @@ function dashboardView(){
            la órbita entera gira. aria-hidden: es puro adorno, el botón ya se
            anuncia solo. -->
       <div class="scan-orbit" aria-hidden="true">
-        ${[['receipt','var(--sky-soft)','var(--sky-ink)',0],['box','var(--saffron-soft)','var(--saffron-ink)',72],['barcode','var(--navy-wash)','var(--navy-ink)',144],['bolt','var(--basil-soft)','var(--basil-ink)',216],['tag','var(--tomato-soft)','var(--tomato-ink)',288]].map(([ic,bg,fg,deg])=>`
+        ${[['🧾',0],['📦',72],['🛒',144],['💡',216],['🏷️',288]].map(([emoji,deg])=>`
         <span class="so-arm" style="transform:rotate(${deg}deg) translate(var(--so-r));">
           <span class="so-unrot" style="transform:rotate(${-deg}deg);">
-            <span class="so-bubble" style="background:${bg};color:${fg};">${lineIcon(ic,13)}</span>
+            <span class="so-bubble">${emoji}</span>
           </span>
         </span>`).join('')}
       </div>

@@ -17,7 +17,7 @@
 // v7: el trial anónimo ya no secuestra dispositivos que tuvieron cuenta real.
 // v8: un solo escáner de productos (lote + identificador unificados).
 // v9: órbita de iconos alrededor del botón de escanear del dashboard.
-const CACHE_NAME = 'patron-shell-v9';
+const CACHE_NAME = 'patron-shell-v10';
 
 const PRECACHE_URLS = [
   '/',

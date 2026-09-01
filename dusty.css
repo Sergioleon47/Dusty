@@ -153,10 +153,13 @@
   /* Órbita de "todo lo que Dusty escanea" alrededor del botón de escanear del
      dashboard (ver el comentario en el markup, app-05). El radio vive en --so-r
      para poder achicarlo por media query sin tocar los transforms inline. */
-  .scan-orbit{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;animation:orbitSpin 40s linear infinite;--so-r:56px;}
+  .scan-orbit{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;animation:orbitSpin 40s linear infinite;--so-r:54px;}
   .so-arm{position:absolute;display:flex;}
   .so-unrot{display:flex;animation:orbitSpinRev 40s linear infinite;}
-  .so-bubble{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(32,33,36,.14);}
+  /* Burbujas blancas con emoji (no íconos de línea): en el teléfono los emoji se
+     dibujan como ilustraciones a color con volumen — el look "realista" de la
+     referencia que trajo el usuario, sin sumar ni un asset. */
+  .so-bubble{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--panel);box-shadow:0 1px 5px rgba(32,33,36,.16);font-size:15px;line-height:1;}
   @keyframes orbitSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   @keyframes orbitSpinRev{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
   @media (prefers-reduced-motion: reduce){
