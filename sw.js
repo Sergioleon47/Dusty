@@ -11,7 +11,10 @@
 // mezcla de versiones viejas y nuevas de archivos que se llaman entre sí.
 // v4: trial sin cuenta (sesión anónima + modal "guardá tu cuenta") — cambios
 // cruzados entre app-02/03/04/06/07, mismo motivo de siempre para el bump.
-const CACHE_NAME = 'patron-shell-v4';
+// v5: escaneo de productos en lote (inventario desde una foto) — de nuevo
+// cambios cruzados entre app-01/03/04/05/06/07.
+// v6: identificador por cámara ("¿qué producto es?").
+const CACHE_NAME = 'patron-shell-v6';
 
 const PRECACHE_URLS = [
   '/',

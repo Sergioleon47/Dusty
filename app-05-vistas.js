@@ -427,6 +427,7 @@ function dashboardEmptyState(){
     <p>${t('dash_empty_sub')}</p>
     <div class="dash-empty-actions">
       <button class="btn btn-primary" id="btn-dash-empty-scan">${t('dash_empty_scan_btn')}</button>
+      <button class="btn btn-ghost" id="btn-dash-empty-batch">${t('pb_open_btn')}</button>
       <button class="btn btn-ghost" id="btn-dash-empty-manual">${t('dash_empty_manual_btn')}</button>
     </div>
   </div>`;
@@ -502,6 +503,8 @@ function inventarioView(){
     <div>${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p>`)}</div>
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
+      <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
+      <button class="btn btn-ghost inv-row-btn" id="btn-id-scan">${t('ids_open_btn')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-cycle-count">
         ${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}
       </button>

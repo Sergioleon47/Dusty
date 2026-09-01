@@ -34,7 +34,9 @@ function render(){
   // barcodeScanState==='scanning' — ese estado se pone ANTES del primer render que
   // recién va a CREAR el <div id="barcode-reader">, así que frenar ese primer
   // render por el estado dejaría el modal sin aparecer nunca.
-  if(swipeGestureActive || trackAnimating || barcodeScannerInstance){ renderPendingAfterGesture = true; return; }
+  // idScanStream: misma protección que barcodeScannerInstance pero para el <video>
+  // del identificador por cámara (getUserMedia manejado a mano en app-06).
+  if(swipeGestureActive || trackAnimating || barcodeScannerInstance || idScanStream){ renderPendingAfterGesture = true; return; }
   /* CERRAR un modal (o abrir/cerrar el detalle de recibo) se anima con la View
      Transitions API del navegador: startViewTransition() saca una captura del
      estado viejo y funde hacia el nuevo. Solo al cerrar, a propósito: al ABRIR el
@@ -57,7 +59,7 @@ function render(){
   const overlayFlags = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayReceipts,
     showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
-    showActivityModal, showTeamModal];
+    showActivityModal, showTeamModal, showProductBatchModal, showIdScanModal];
   const RECEIPT_DETAIL_FLAG = 2; // índice de !!showReceiptDetail en overlayFlags
   let overlayClosed = false, receiptDetailToggled = false;
   if(lastOverlayFlags){
@@ -141,6 +143,8 @@ function renderApp(){
     ${showCategoriesModal ? categoriesModal() : ''}
     ${showActivityModal ? activityModal() : ''}
     ${showScanModal ? scanModal() : ''}
+    ${showProductBatchModal ? productBatchModal() : ''}
+    ${showIdScanModal ? idScanModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
     ${showDayReceipts ? dayReceiptsModal() : ''}
     ${showPriceHistoryModal ? priceHistoryModal() : ''}

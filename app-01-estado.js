@@ -98,6 +98,23 @@ let draftItem=null;
 // elaborado con páginas/lote/duplicados) porque acá solo hace falta un in/out simple:
 // una foto entra, el formulario se completa solo o se avisa que no se pudo.
 let productScanState='idle', productScanError='';
+// Token de petición del escaneo de producto individual — mismo truco que
+// scanRequestId en recibos: si el usuario dispara un segundo escaneo antes de que
+// vuelva el primero, la respuesta vieja se descarta en vez de pisar el formulario.
+let productScanRequestId=0;
+/* Escaneo de productos EN LOTE ("armá tu inventario con una foto"): una sola foto
+   con varios productos a la vista → la IA identifica cada uno → lista de
+   confirmación con checkbox por ítem → se agregan todos juntos al inventario.
+   Es el camino para armar inventario SIN recibos, sin cargar uno a uno.
+   pbItems: [{name, unit, cost, sku, categoryId, confidence, selected, dupOfId}] */
+let showProductBatchModal=false, pbState='idle', pbItems=[], pbError='', pbRequestId=0;
+/* Identificador por cámara ("¿qué producto es este?"): cámara abierta dentro de la
+   app, un tap captura el cuadro y la IA dice qué es — si ya está en el inventario
+   abre directo ese producto, si es nuevo lo ofrece precargado para agregar.
+   NO es reconocimiento continuo a propósito: cada análisis es una llamada paga a
+   la IA (1 escaneo del cupo), analizar cada cuadro de video quemaría el cupo en
+   segundos. idScanState: 'camera' | 'loading' | 'matched' | 'new' | 'error' */
+let showIdScanModal=false, idScanState='camera', idScanError='', idScanResult=null, idScanMatchedId=null, idScanRequestId=0;
 // Modal de código de barras: separado del modal de producto para poder tener la
 // cámara ocupando toda la ventana mientras escanea, sin competir con el resto del
 // formulario detrás.

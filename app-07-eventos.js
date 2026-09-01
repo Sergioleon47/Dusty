@@ -387,6 +387,96 @@ function attachEvents(){
   if(btnDashEmptyScan) btnDashEmptyScan.onclick=openScanModal;
   const btnDashEmptyManual=document.getElementById('btn-dash-empty-manual');
   if(btnDashEmptyManual) btnDashEmptyManual.onclick=()=>openItemModal(null);
+  const btnDashEmptyBatch=document.getElementById('btn-dash-empty-batch');
+  if(btnDashEmptyBatch) btnDashEmptyBatch.onclick=openProductBatchModal;
+  const btnScanProducts=document.getElementById('btn-scan-products');
+  if(btnScanProducts) btnScanProducts.onclick=openProductBatchModal;
+  const btnIdScan=document.getElementById('btn-id-scan');
+  if(btnIdScan) btnIdScan.onclick=openIdScanModal;
+
+  /* Modal identificador por cámara ("¿qué producto es este?") */
+  const idScanOverlay=document.getElementById('id-scan-overlay');
+  if(idScanOverlay){
+    idScanOverlay.onmousedown=(e)=>{ if(e.target===idScanOverlay) closeIdScanModal(); };
+    document.getElementById('btn-cancel-id-scan').onclick=closeIdScanModal;
+    const btnIdCapture=document.getElementById('btn-id-scan-capture');
+    if(btnIdCapture) btnIdCapture.onclick=()=>{
+      const frame=captureIdScanFrame();
+      if(frame) runIdScan(frame);
+      // Sin cuadro (la cámara nunca arrancó — permiso negado, sin cámara): el
+      // respaldo es la cámara nativa del sistema.
+      else document.getElementById('id-scan-file')?.click();
+    };
+    const btnIdNative=document.getElementById('btn-id-scan-native');
+    const idScanFile=document.getElementById('id-scan-file');
+    if(btnIdNative && idScanFile) btnIdNative.onclick=()=>{ idScanFile.click(); };
+    if(idScanFile) idScanFile.onchange=async (e)=>{
+      const file=e.target.files[0];
+      e.target.value='';
+      if(!file || !/^image\//.test(file.type)) return;
+      try{
+        const img = await loadImageFromFile(file);
+        runIdScan(img);
+      }catch(err){
+        idScanState='error'; idScanError=err.message||t('product_scan_error'); render();
+      }
+    };
+    const btnIdAgain=document.getElementById('btn-id-scan-again');
+    if(btnIdAgain) btnIdAgain.onclick=()=>{
+      idScanState='camera'; idScanError=''; idScanResult=null; idScanMatchedId=null; render();
+      startIdScanCamera();
+    };
+    const btnIdOpenItem=document.getElementById('btn-id-scan-open-item');
+    if(btnIdOpenItem) btnIdOpenItem.onclick=()=>{
+      const item=inventory.find(i=>i.id===idScanMatchedId);
+      closeIdScanModal();
+      if(item) openItemModal(item);
+    };
+    const btnIdAddItem=document.getElementById('btn-id-scan-add-item');
+    if(btnIdAddItem) btnIdAddItem.onclick=addIdScanResultAsItem;
+  }
+
+  /* Modal de escaneo de productos en lote (inventario desde una foto) */
+  const pbOverlay=document.getElementById('product-batch-overlay');
+  if(pbOverlay){
+    pbOverlay.onmousedown=(e)=>{ if(e.target===pbOverlay) closeProductBatchModal(); };
+    document.getElementById('btn-cancel-pb').onclick=closeProductBatchModal;
+    const pbFile=document.getElementById('pb-photo-file');
+    const pbGalleryFile=document.getElementById('pb-photo-file-gallery');
+    const pbDropZone=document.getElementById('pb-drop-zone');
+    if(pbDropZone && pbFile) pbDropZone.onclick=()=>pbFile.click();
+    const btnPbGallery=document.getElementById('btn-pb-gallery');
+    if(btnPbGallery && pbGalleryFile) btnPbGallery.onclick=()=>pbGalleryFile.click();
+    const onPbFile=(e)=>{
+      const file=e.target.files[0];
+      e.target.value='';
+      processProductBatchPhoto(file);
+    };
+    if(pbFile) pbFile.onchange=onPbFile;
+    if(pbGalleryFile) pbGalleryFile.onchange=onPbFile;
+    const btnPbRetry=document.getElementById('btn-pb-retry');
+    if(btnPbRetry) btnPbRetry.onclick=()=>{ pbState='idle'; pbError=''; render(); };
+    const btnApplyPb=document.getElementById('btn-apply-pb');
+    if(btnApplyPb) btnApplyPb.onclick=applyProductBatch;
+    // Los campos de cada fila escriben directo en pbItems — el checkbox re-renderiza
+    // (cambia la opacidad de la fila y el contador del botón), el resto no re-dibuja
+    // nada para no pisar el tipeo (misma razón que handleProfitFieldInput).
+    document.querySelectorAll('[data-pb-selected]').forEach(cb=>{
+      cb.onchange=()=>{ const it=pbItems[+cb.getAttribute('data-pb-selected')]; if(it){ it.selected=cb.checked; render(); } };
+    });
+    document.querySelectorAll('[data-pb-name]').forEach(inp=>{
+      inp.oninput=()=>{ const it=pbItems[+inp.getAttribute('data-pb-name')]; if(it) it.name=inp.value; };
+    });
+    document.querySelectorAll('[data-pb-unit]').forEach(sel=>{
+      sel.onchange=()=>{ const it=pbItems[+sel.getAttribute('data-pb-unit')]; if(it) it.unit=sel.value; };
+    });
+    document.querySelectorAll('[data-pb-cost]').forEach(inp=>{
+      inp.oninput=()=>{ const it=pbItems[+inp.getAttribute('data-pb-cost')]; if(it) it.cost=inp.value; };
+    });
+    document.querySelectorAll('[data-pb-category]').forEach(sel=>{
+      sel.onchange=()=>{ const it=pbItems[+sel.getAttribute('data-pb-category')]; if(it) it.categoryId=sel.value||null; };
+    });
+  }
 
   document.querySelectorAll('[data-view-receipt]').forEach(card=>{
     card.onclick=()=>{ showReceiptDetail=card.dataset.viewReceipt; showDayReceipts=null; render(); };
@@ -535,11 +625,16 @@ function attachEvents(){
       const file=e.target.files[0];
       itemScanPhotoFile.value='';
       if(!file || !/^image\//.test(file.type)) return;
+      // Token de petición: si se dispara un segundo escaneo antes de que vuelva el
+      // primero, la respuesta vieja se descarta — sin esto, una respuesta lenta y
+      // vieja podía pisar el formulario que ya había rellenado una más nueva.
+      const scanReq = ++productScanRequestId;
       productScanState='loading'; productScanError=''; render();
       try{
         const img = await loadImageFromFile(file);
         const image = resizeToBase64(img, 1400, 0.9);
         const result = await identifyProductFromPhoto(image);
+        if(scanReq !== productScanRequestId) return;
         // Si el usuario cerró el modal mientras la IA respondía, closeItemModal ya puso
         // draftItem en null — tocarlo acá tiraba un TypeError. Se descarta el resultado.
         if(!draftItem){ productScanState='idle'; return; }
@@ -559,6 +654,7 @@ function attachEvents(){
         productScanState='idle';
         render();
       }catch(err){
+        if(scanReq !== productScanRequestId) return;
         productScanState='error'; productScanError = err.message || t('product_scan_error');
         render();
       }

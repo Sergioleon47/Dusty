@@ -1400,6 +1400,393 @@ function resizeToBase64(img, maxSide, quality){
   return {base64: dataUrl.split(',')[1], mediaType: 'image/jpeg'};
 }
 
+/* ================= ESCANEO DE PRODUCTOS EN LOTE =================
+   "Armá tu inventario con una foto": una sola foto con varios productos a la
+   vista (estante, mesa, alacena) → la IA identifica cada uno por separado →
+   lista de confirmación editable → se agregan todos juntos al inventario.
+   Es el camino para armar inventario SIN recibos y sin cargar uno a uno.
+   Cuesta 1 escaneo del cupo por FOTO (no por producto), igual que un recibo. */
+
+// La imagen original de la foto del lote se guarda acá (no en el estado global:
+// un elemento <img> no es serializable ni le hace falta a render()) para poder
+// recortar la miniatura de cada producto con la "box" que devuelve la IA.
+let pbSourceImg = null;
+
+// Recorta la zona de un producto (box en fracciones 0..1) con un poco de aire
+// alrededor y la devuelve como miniatura — mismo tamaño/calidad que la foto que
+// sube "Subir foto" a mano, así el ícono queda igual que el de un alta manual.
+function cropToBase64(img, box, maxSide, quality){
+  try{
+    const pad = 0.08; // 8% de aire alrededor del recorte
+    let x = (box.x - pad) * img.width;
+    let y = (box.y - pad) * img.height;
+    let w = (box.w + pad*2) * img.width;
+    let h = (box.h + pad*2) * img.height;
+    x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+    w = Math.min(img.width - x, Math.round(w)); h = Math.min(img.height - y, Math.round(h));
+    if(w < 20 || h < 20) return null; // recorte demasiado chico para servir de ícono
+    const scale = Math.min(1, maxSide / Math.max(w, h));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(w*scale); canvas.height = Math.round(h*scale);
+    canvas.getContext('2d').drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    return {base64: dataUrl.split(',')[1], mediaType: 'image/jpeg'};
+  }catch(e){
+    return null; // sin miniatura no pasa nada: el producto entra sin foto
+  }
+}
+
+// Hermana de identifyProductFromPhoto pero con multi:true — el servidor devuelve
+// {products:[...]} con un objeto por producto detectado. Mismo cupo, mismos errores.
+async function identifyProductsFromPhoto(image){
+  if(!currentUser){
+    try{ await ensureTrialAccount(); }
+    catch(e){ throw new Error(t('err_scan_no_connection')); }
+  }
+  let idToken;
+  try{
+    idToken = await currentUser.getIdToken();
+  }catch(tokenErr){
+    throw new Error(t('err_scan_auth_required'));
+  }
+  let response;
+  try{
+    response = await fetch('/.netlify/functions/identify-product', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
+      body: JSON.stringify({
+        image: image,
+        multi: true,
+        ownerUid: syncUid(),
+        categoryNames: categories.map(c=>c.name)
+      })
+    });
+  }catch(netErr){
+    throw new Error(t('err_scan_no_connection'));
+  }
+  let parsed;
+  try{
+    parsed = await response.json();
+  }catch(parseErr){
+    throw new Error(t('err_function_not_found_product'));
+  }
+  if(response.status===429 && parsed.quotaExceeded){
+    if(currentUser && currentUser.isAnonymous){
+      closeProductBatchModal();
+      openUpgradeModal(t('trial_scans_over_note'));
+      throw new Error(t('trial_scans_over_note'));
+    }
+    throw new Error(t('err_scan_quota_exceeded'));
+  }
+  if(!response.ok || parsed.error){
+    throw new Error(parsed.error || t('product_scan_error'));
+  }
+  return Array.isArray(parsed.products) ? parsed.products : [];
+}
+
+function openProductBatchModal(){
+  if(!currentUser){
+    // Mismo trato que el escaneo de recibos: trial anónimo en segundo plano,
+    // el modal abre al instante.
+    ensureTrialAccount().catch(()=>{});
+  }
+  pbRequestId++;
+  pbState='idle'; pbItems=[]; pbError=''; pbSourceImg=null;
+  showProductBatchModal=true; render();
+}
+function closeProductBatchModal(){ pbRequestId++; showProductBatchModal=false; pbSourceImg=null; render(); }
+
+async function processProductBatchPhoto(file){
+  if(!file || !/^image\//.test(file.type)) return;
+  const requestId = ++pbRequestId;
+  pbState='loading'; pbError=''; render();
+  try{
+    const img = await loadImageFromFile(file);
+    const image = resizeToBase64(img, 1400, 0.9);
+    const products = await identifyProductsFromPhoto(image);
+    // Si mientras la IA pensaba el usuario cerró el modal o disparó otra foto,
+    // esta respuesta ya es vieja — se descarta sin tocar nada.
+    if(requestId !== pbRequestId || !showProductBatchModal) return;
+    pbSourceImg = img;
+    pbItems = products.map(p=>{
+      // Si ya existe un producto con ese nombre, se marca y arranca DESmarcado —
+      // el objetivo del lote es armar inventario, no duplicarlo.
+      const dup = inventory.find(i=>i.name.trim().toLowerCase()===p.name.trim().toLowerCase());
+      const catMatch = p.category ? categories.find(c=>c.name===p.category) : null;
+      return {
+        name: p.name,
+        unit: ['lb','kg','oz','g','ml','l','unidad','caja','servicio'].includes(p.unit) ? p.unit : 'unidad',
+        cost: typeof p.cost_per_unit==='number' ? p.cost_per_unit : '',
+        sku: p.sku || '',
+        categoryId: catMatch ? catMatch.id : null,
+        confidence: p.confidence || 'baja',
+        photo: p.box ? cropToBase64(img, p.box, 300, 0.75) : null,
+        selected: !dup,
+        dupOfId: dup ? dup.id : null
+      };
+    });
+    pbState = pbItems.length>0 ? 'review' : 'empty';
+    render();
+  }catch(err){
+    if(requestId !== pbRequestId) return;
+    pbState='error'; pbError = err.message || t('product_scan_error');
+    render();
+  }
+}
+
+function applyProductBatch(){
+  const chosen = pbItems.filter(it=>it.selected && it.name.trim());
+  if(chosen.length===0) return;
+  // Límite del trial: mismo criterio que el alta manual (openItemModal), pero
+  // contando el lote entero antes de agregar nada — o entra todo, o se ofrece
+  // guardar la cuenta; agregar "solo algunos" en silencio confundiría más.
+  if(isTrialUser() && inventory.length + chosen.length > TRIAL_INVENTORY_LIMIT){
+    closeProductBatchModal();
+    openUpgradeModal(t('trial_inventory_limit_note'));
+    return;
+  }
+  chosen.forEach(it=>{
+    const item = {
+      id: uid('i'), name: it.name.trim(), unit: it.unit,
+      costPerUnit: parseFloat(it.cost)||0, updated:false,
+      qtyOnHand: 0, photo: it.photo||null, salePrice: 0,
+      sku: (it.sku||'').trim(), supplier: '', categoryId: it.categoryId||null
+    };
+    if(currentUser){ item.lastEditedBy = currentUserLabel(); item.lastEditedAt = new Date().toISOString(); }
+    inventory.push(item);
+    logActivity('item_created', item.name);
+  });
+  saveState();
+  closeProductBatchModal();
+}
+
+/* ================= IDENTIFICADOR POR CÁMARA ("¿qué producto es este?") =================
+   Apuntás la cámara a un producto físico, un tap, y la IA dice QUÉ es:
+   - si ya está en tu inventario → te muestra ese producto (stock/costo) y lo abrís directo;
+   - si es nuevo → te lo ofrece precargado para agregarlo.
+   La cámara vive en un <video> manejado a mano (getUserMedia) — mismo trato que el
+   lector de código de barras: mientras idScanStream exista, render() pospone
+   redibujados (ver el guard en app-04-render.js) para no arrancarle el <video>. */
+let idScanStream = null;
+
+function stopIdScanCamera(){
+  if(!idScanStream) return;
+  const s = idScanStream;
+  idScanStream = null;
+  try{ s.getTracks().forEach(tr=>tr.stop()); }catch(e){}
+}
+
+function openIdScanModal(){
+  if(!currentUser){
+    ensureTrialAccount().catch(()=>{});
+  }
+  idScanRequestId++;
+  idScanState='camera'; idScanError=''; idScanResult=null; idScanMatchedId=null;
+  showIdScanModal=true; render();
+  startIdScanCamera();
+}
+
+function startIdScanCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    // Sin getUserMedia (navegador viejo, contexto sin permisos): directo al
+    // respaldo de cámara nativa vía <input capture> — se dispara desde el botón.
+    idScanState='camera'; render();
+    return;
+  }
+  const requestId = idScanRequestId;
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
+    // Si el modal se cerró mientras el navegador pedía permiso, apagar y salir.
+    const video = document.getElementById('id-scan-video');
+    if(requestId !== idScanRequestId || !showIdScanModal || !video){
+      try{ stream.getTracks().forEach(tr=>tr.stop()); }catch(e){}
+      return;
+    }
+    idScanStream = stream;
+    video.srcObject = stream;
+    video.play().catch(()=>{});
+  }).catch(()=>{
+    // Permiso negado o sin cámara: el modal queda en modo "sacar foto" con la
+    // cámara nativa del sistema (input capture) como único camino — no es un error.
+    render();
+  });
+}
+
+function closeIdScanModal(){
+  idScanRequestId++;
+  stopIdScanCamera();
+  showIdScanModal=false; render();
+}
+
+// Captura el cuadro actual del <video> como imagen — el "tap del escáner".
+function captureIdScanFrame(){
+  const video = document.getElementById('id-scan-video');
+  if(!video || !idScanStream || !video.videoWidth) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  return canvas;
+}
+
+async function runIdScan(source){
+  // source: un canvas (cuadro capturado del video) o un Image (foto del input de respaldo)
+  const requestId = ++idScanRequestId;
+  stopIdScanCamera();
+  idScanState='loading'; idScanError=''; render();
+  try{
+    const image = resizeToBase64(source, 1400, 0.9);
+    const result = await identifyProductFromPhoto(image);
+    if(requestId !== idScanRequestId || !showIdScanModal) return;
+    idScanResult = result;
+    // La miniatura para "agregar como nuevo": el mismo cuadro, chico — igual que
+    // hace el escaneo dentro del formulario.
+    idScanResult._photo = resizeToBase64(source, 300, 0.75);
+    const matched = result.matched_inventory_name
+      ? inventory.find(i=>i.name.trim().toLowerCase()===result.matched_inventory_name.trim().toLowerCase())
+      : null;
+    idScanMatchedId = matched ? matched.id : null;
+    idScanState = matched ? 'matched' : 'new';
+    render();
+  }catch(err){
+    if(requestId !== idScanRequestId) return;
+    // El 429 del trial ya cerró/abrió lo suyo dentro de identifyProductFromPhoto;
+    // si el modal sigue abierto, es un error normal para mostrar acá.
+    if(!showIdScanModal) return;
+    idScanState='error'; idScanError = err.message || t('product_scan_error');
+    render();
+  }
+}
+
+// "Agregar al inventario" desde el resultado: abre el formulario de siempre con
+// todo precargado — así el alta pasa por el mismo camino (validación, guardado).
+function addIdScanResultAsItem(){
+  const r = idScanResult;
+  closeIdScanModal();
+  openItemModal(null);
+  if(!draftItem || !r) return;
+  if(r.name) draftItem.name = r.name;
+  if(r.unit && ['lb','kg','oz','g','ml','l','unidad','caja','servicio'].includes(r.unit)) draftItem.unit = r.unit;
+  if(typeof r.cost_per_unit==='number') draftItem.costPerUnit = r.cost_per_unit;
+  if(r.sku) draftItem.sku = r.sku;
+  if(r.category){
+    const match = categories.find(c=>c.name===r.category);
+    if(match) draftItem.categoryId = match.id;
+  }
+  if(r._photo) draftItem.photo = r._photo;
+  render();
+}
+
+function idScanModal(){
+  const matchedItem = idScanMatchedId ? inventory.find(i=>i.id===idScanMatchedId) : null;
+  return `
+  <div class="overlay" id="id-scan-overlay">
+    <div class="modal">
+      <h3 class="sky">${t('ids_title')}</h3>
+
+      ${idScanState==='camera' ? `
+        <div class="sub">${t('ids_sub')}</div>
+        <div style="position:relative;border-radius:12px;overflow:hidden;background:#111;min-height:220px;display:flex;align-items:center;justify-content:center;">
+          <video id="id-scan-video" autoplay playsinline muted style="width:100%;max-height:340px;object-fit:cover;display:block;"></video>
+          <button id="btn-id-scan-capture" title="${t('ids_capture')}" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:58px;height:58px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;"></button>
+        </div>
+        <button type="button" id="btn-id-scan-native" style="display:block;margin:10px auto 0;background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 8px;">${t('ids_use_native_camera')}</button>
+      ` : ''}
+      <input type="file" id="id-scan-file" accept="image/*" capture="environment" style="display:none;">
+
+      ${idScanState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('ids_loading')}</div>` : ''}
+      ${idScanState==='error' ? `<div class="scan-error">⚠ ${escapeHtml(idScanError)}</div>` : ''}
+
+      ${idScanState==='matched' && matchedItem ? `
+        <div class="helper-note" style="background:var(--basil-soft);color:var(--basil-ink);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;">✓ ${t('ids_found_in_inventory')}</div>
+        <div class="matched-item">
+          <div class="mi-top">
+            ${matchedItem.photo ? `<img src="data:${matchedItem.photo.mediaType};base64,${matchedItem.photo.base64}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span class="mi-icon" style="background:var(--basil);">${lineIcon('box',12)}</span>`}
+            <strong style="flex:1;">${escapeHtml(matchedItem.name)}</strong>
+          </div>
+          <div style="font-size:12.5px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;">
+            <span>${t('ids_stock')}: <strong style="color:var(--ink);">${matchedItem.qtyOnHand||0} ${escapeHtml(unitLabel(matchedItem.unit))}</strong></span>
+            <span>${t('ids_cost')}: <strong style="color:var(--ink);">${money(matchedItem.costPerUnit)}</strong></span>
+          </div>
+        </div>
+      ` : ''}
+
+      ${idScanState==='new' && idScanResult ? `
+        <div class="helper-note" style="background:var(--saffron-soft);color:var(--saffron-ink);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;">${t('ids_not_in_inventory')}</div>
+        <div class="matched-item">
+          <div class="mi-top">
+            ${idScanResult._photo ? `<img src="data:${idScanResult._photo.mediaType};base64,${idScanResult._photo.base64}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span class="mi-icon" style="background:var(--saffron);">${lineIcon('box',12)}</span>`}
+            <strong style="flex:1;">${escapeHtml(idScanResult.name||'')}</strong>
+          </div>
+          ${idScanResult.confidence==='baja' ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;">⚠ ${t('pb_low_confidence')}</div>` : ''}
+        </div>
+      ` : ''}
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-id-scan">${t(idScanState==='matched'||idScanState==='new' ? 'btn_close' : 'btn_cancel')}</button>
+        ${idScanState==='matched'||idScanState==='new'||idScanState==='error' ? `<button class="btn btn-ghost" id="btn-id-scan-again">${t('ids_scan_again')}</button>` : ''}
+        ${idScanState==='matched' && matchedItem ? `<button class="btn btn-primary" id="btn-id-scan-open-item">${t('ids_open_item')}</button>` : ''}
+        ${idScanState==='new' && idScanResult ? `<button class="btn btn-primary" id="btn-id-scan-add-item">${t('ids_add_item')}</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function productBatchModal(){
+  const selectedCount = pbItems.filter(it=>it.selected && it.name.trim()).length;
+  return `
+  <div class="overlay" id="product-batch-overlay">
+    <div class="modal wide">
+      <h3 class="sky">${t('pb_title')}</h3>
+      <div class="sub">${t('pb_sub')}</div>
+
+      ${pbState==='idle' ? `
+        <div class="drop-zone" id="pb-drop-zone">
+          <div class="dz-icon">${lineIcon('camera',26)}</div>
+          <div style="font-weight:600;font-size:13.5px;">${t('pb_tap_photo')}</div>
+        </div>
+        <button type="button" id="btn-pb-gallery" style="display:block;margin:-8px auto 16px;background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 8px;">${t('scan_upload_gallery_btn')}</button>
+      ` : ''}
+      <input type="file" id="pb-photo-file" accept="image/*" capture="environment" style="display:none;">
+      <input type="file" id="pb-photo-file-gallery" accept="image/*" style="display:none;">
+
+      ${pbState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('pb_loading')}</div>` : ''}
+      ${pbState==='error' ? `<div class="scan-error">⚠ ${escapeHtml(pbError)}</div><button class="btn btn-ghost btn-sm" id="btn-pb-retry">${t('pb_retry')}</button>` : ''}
+      ${pbState==='empty' ? `<div class="scan-error">⚠ ${t('pb_none_found')}</div><button class="btn btn-ghost btn-sm" id="btn-pb-retry">${t('pb_retry')}</button>` : ''}
+
+      ${pbState==='review' ? `
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('pb_review_hint').replace('{n}', pbItems.length)}</div>
+        ${pbItems.map((it,idx)=>{
+          const thumb = it.photo ? `<img src="data:${it.photo.mediaType};base64,${it.photo.base64}" alt="" style="width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
+                                 : `<span class="mi-icon" style="background:var(--sky);">${lineIcon('box',12)}</span>`;
+          return `
+          <div class="matched-item" style="${it.selected?'':'opacity:.55;'}${it.dupOfId?'border-color:#F5DCC0;background:var(--saffron-soft);':''}">
+            <div class="mi-top">
+              <input data-pb-selected="${idx}" type="checkbox" ${it.selected?'checked':''} style="width:18px;height:18px;flex-shrink:0;accent-color:var(--navy);">
+              ${thumb}
+              <input data-pb-name="${idx}" type="text" value="${escapeHtml(it.name)}" placeholder="${t('ph_product_name')}" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:13px;padding:2px 0;min-width:0;">
+            </div>
+            ${it.dupOfId ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('pb_already_in_inventory')}</div>` : ''}
+            ${it.confidence==='baja' && !it.dupOfId ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('pb_low_confidence')}</div>` : ''}
+            <div class="mi-fields">
+              <select data-pb-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${it.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
+              <input data-pb-cost="${idx}" type="number" step="0.01" value="${escapeHtml(it.cost)}" style="flex:1;" placeholder="${t('pb_cost_ph')}">
+              ${categories.length>0 ? `
+              <select data-pb-category="${idx}" style="flex:1.4;">
+                <option value="">${t('category_none_option')}</option>
+                ${categories.map(c=>`<option value="${c.id}" ${it.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+              </select>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      ` : ''}
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-pb">${t('btn_cancel')}</button>
+        ${pbState==='review' ? `<button class="btn btn-primary" id="btn-apply-pb" ${selectedCount===0?'disabled':''}>${t('pb_add_btn').replace('{n}', selectedCount)}</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
 /* Chequeo rápido de calidad de foto, todo en el celular, antes de gastar una llamada a
    Claude — para avisar "esta foto se ve difícil de leer" ANTES de mandarla, no después.
    Es solo un aviso (no bloquea nada): mide oscuridad, poco contraste (típico de un flash
@@ -1640,7 +2027,11 @@ async function identifyProductFromPhoto(image){
       body: JSON.stringify({
         image: image,
         ownerUid: syncUid(),
-        categoryNames: categories.map(c=>c.name)
+        categoryNames: categories.map(c=>c.name),
+        // Para que el servidor pueda emparejar contra lo que ya está cargado
+        // (matched_inventory_name) — el identificador por cámara lo usa para abrir
+        // directo el producto existente; el formulario de alta simplemente lo ignora.
+        inventoryNames: inventory.map(i=>i.name)
       })
     });
   }catch(netErr){

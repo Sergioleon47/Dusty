@@ -15,8 +15,9 @@ const {
   currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
 } = require('./lib/patron-admin');
 
-function buildPrompt(categoryNames) {
+function buildPrompt(categoryNames, inventoryNames) {
   const hasCategories = Array.isArray(categoryNames) && categoryNames.length > 0;
+  const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
   return `Eres un sistema experto en identificar productos de insumos de restaurante o comercio a partir de UNA foto del producto físico (su empaque, etiqueta, o el producto en sí — no una factura).
 
 Analiza la imagen y devolvé JSON puro (sin markdown, sin backticks, sin texto extra antes o después) con este formato exacto:
@@ -26,8 +27,14 @@ Analiza la imagen y devolvé JSON puro (sin markdown, sin backticks, sin texto e
   "cost_per_unit": number o null,
   "sku": "string o null",
   "category": "string exacto de la lista de abajo, o null",
-  "confidence": "alta" | "media" | "baja"
+  "confidence": "alta" | "media" | "baja",
+  "matched_inventory_name": "string o null"
 }
+
+${hasInventory ? `SOBRE "matched_inventory_name":
+Esta es la lista de productos que el usuario YA tiene cargados en su inventario:
+${inventoryNames.map(n => `- ${n}`).join('\n')}
+Si el producto de la foto ES el mismo que uno de esa lista (usá tu criterio: abreviaturas, marcas, tamaños — no comparación literal), poné el nombre EXACTO tal cual aparece en la lista. Si no corresponde a ninguno, null.` : `El usuario no tiene productos en su inventario todavía, así que "matched_inventory_name" va a ser null.`}
 
 REGLAS:
 - "name" es SIEMPRE en inglés, sea cual sea el idioma del empaque (regla fija del negocio: los nombres de producto en el sistema siempre quedan en inglés).
@@ -39,6 +46,44 @@ ${hasCategories ? `SOBRE "category":
 Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
 ${categoryNames.map(n => `- ${n}`).join('\n')}
 Elegí la que mejor le quede (usá tu criterio, no comparación literal). Si corresponde, poné el nombre EXACTO tal cual aparece en esa lista. Si ninguna le queda bien, poné "category": null.` : `El usuario no tiene categorías de inventario creadas todavía, así que "category" va a ser null.`}`;
+}
+
+// Modo LOTE: la misma foto puede tener VARIOS productos distintos a la vista (un
+// estante, una mesa con las compras, la alacena) y el objetivo es armar inventario
+// de una — un objeto por producto, no un solo "mejor candidato".
+function buildMultiPrompt(categoryNames) {
+  const hasCategories = Array.isArray(categoryNames) && categoryNames.length > 0;
+  return `Eres un sistema experto en identificar productos de insumos de restaurante o comercio a partir de una foto donde pueden verse VARIOS productos físicos distintos a la vez (un estante, una mesa, una alacena, las compras apoyadas).
+
+Identificá CADA producto DISTINTO que se vea con claridad razonable y devolvé JSON puro (sin markdown, sin backticks, sin texto extra antes o después) con este formato exacto:
+{
+  "products": [
+    {
+      "name": "string (en inglés, nombre claro y natural — ej. 'Chicken Tenders', 'Aluminum Pan (9 in)')",
+      "unit": "string: lb, kg, oz, g, ml, l, o unidad (usá 'unidad' para piezas sueltas sin peso)",
+      "cost_per_unit": number o null,
+      "sku": "string o null",
+      "category": "string exacto de la lista de abajo, o null",
+      "confidence": "alta" | "media" | "baja",
+      "box": {"x": number, "y": number, "w": number, "h": number} o null
+    }
+  ]
+}
+
+REGLAS:
+- UN objeto por producto DISTINTO. Varias unidades idénticas del mismo producto (ej. 6 latas iguales) son UN solo objeto, no seis.
+- "box": dónde está ESE producto dentro de la foto, como fracciones de 0 a 1 del ancho/alto totales (x,y = esquina superior izquierda). Es para recortar una miniatura que sirva de ícono, así que un recorte aproximado que encuadre el producto con un poco de aire alrededor es perfecto. Si no podés ubicarlo con seguridad, "box": null.
+- "name" es SIEMPRE en inglés, sea cual sea el idioma del empaque (regla fija del negocio).
+- "cost_per_unit" solo si ESE producto tiene un precio visible (etiqueta de góndola, sticker) — no lo inventes; si no, null.
+- "sku": solo si aparece impreso para ese producto; si no, null.
+- Productos parcialmente tapados o borrosos: incluilos con tu mejor estimación y "confidence": "baja" — el usuario confirma cada uno antes de guardar.
+- No incluyas cosas que claramente no son inventario (personas, muebles del local, decoración).
+- Máximo 25 productos. Si no se reconoce NINGÚN producto, devolvé {"products": []}.
+
+${hasCategories ? `SOBRE "category":
+Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
+${categoryNames.map(n => `- ${n}`).join('\n')}
+Elegí para cada producto la que mejor le quede (criterio, no comparación literal), con el nombre EXACTO de esa lista, o null si ninguna le queda bien.` : `El usuario no tiene categorías de inventario creadas todavía, así que "category" va a ser null en todos.`}`;
 }
 
 exports.handler = async (event) => {
@@ -60,13 +105,23 @@ exports.handler = async (event) => {
   }
   const callerUid = caller.uid;
 
-  let image, categoryNames, ownerUid;
+  let image, categoryNames, inventoryNames, ownerUid, multi = false;
   try {
     const parsed = JSON.parse(event.body || '{}');
     if (parsed.image && typeof parsed.image.base64 === 'string') image = parsed.image;
     if (Array.isArray(parsed.categoryNames)) {
       categoryNames = parsed.categoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50);
     }
+    // Nombres del inventario actual: para que el modo individual pueda decir "este
+    // producto ES el que ya tenés cargado como X" (matched_inventory_name) — mismo
+    // criterio que extract-receipt.js usa para emparejar líneas de factura.
+    if (Array.isArray(parsed.inventoryNames)) {
+      inventoryNames = parsed.inventoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
+    }
+    // multi=true: la foto puede tener varios productos y la respuesta es
+    // {products:[...]}. Sin el flag se comporta exactamente como siempre (un solo
+    // objeto), así que los clientes viejos siguen funcionando igual.
+    multi = parsed.multi === true;
     ownerUid = typeof parsed.ownerUid === 'string' && parsed.ownerUid ? parsed.ownerUid : callerUid;
   } catch (e) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido' }) };
@@ -74,6 +129,13 @@ exports.handler = async (event) => {
 
   if (!image) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen' }) };
+  }
+  // El cliente ya reduce la foto antes de mandarla (~1400px); si llega algo mucho
+  // más grande es un cliente roto o alguien pegándole a mano a la función. Cortarlo
+  // acá da un error claro en vez de viajar megas hasta la API de Claude para que
+  // falle allá con un 502 confuso (el límite real de la API es 5MB por imagen).
+  if (image.base64.length > 7000000) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'La imagen es demasiado grande — volvé a intentar desde la app' }) };
   }
 
   try {
@@ -100,14 +162,16 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 1000,
+        // El modo lote puede devolver hasta 25 productos con su box — necesita más
+        // espacio de salida que el objeto único de siempre.
+        max_tokens: multi ? 4000 : 1000,
         thinking: { type: 'disabled' },
         messages: [
           {
             role: 'user',
             content: [
               { type: 'image', source: { type: 'base64', media_type: image.mediaType || 'image/jpeg', data: image.base64 } },
-              { type: 'text', text: buildPrompt(categoryNames) }
+              { type: 'text', text: multi ? buildMultiPrompt(categoryNames) : buildPrompt(categoryNames, inventoryNames) }
             ]
           }
         ]
@@ -144,6 +208,32 @@ exports.handler = async (event) => {
           debugPreview: textBlock.text.slice(0, 300)
         }) };
       }
+    }
+
+    if (multi) {
+      // Normalizar: siempre {products:[...]} con como mucho 25 entradas válidas,
+      // aunque el modelo se desvíe un poco del formato (objeto suelto, box rota).
+      let products = Array.isArray(productData.products) ? productData.products
+        : (productData.name ? [productData] : []);
+      products = products
+        .filter(p => p && typeof p.name === 'string' && p.name.trim())
+        .slice(0, 25)
+        .map(p => {
+          const b = p.box;
+          const boxOk = b && ['x','y','w','h'].every(k => typeof b[k] === 'number' && isFinite(b[k]))
+            && b.w > 0.01 && b.h > 0.01 && b.x >= 0 && b.y >= 0 && b.x + b.w <= 1.05 && b.y + b.h <= 1.05;
+          return {
+            name: p.name.trim(),
+            unit: typeof p.unit === 'string' ? p.unit : 'unidad',
+            cost_per_unit: typeof p.cost_per_unit === 'number' && isFinite(p.cost_per_unit) ? p.cost_per_unit : null,
+            sku: typeof p.sku === 'string' && p.sku.trim() ? p.sku.trim() : null,
+            category: typeof p.category === 'string' && p.category.trim() ? p.category : null,
+            confidence: ['alta','media','baja'].includes(p.confidence) ? p.confidence : 'baja',
+            box: boxOk ? { x: b.x, y: b.y, w: b.w, h: b.h } : null
+          };
+        });
+      await recordScanUsage(ownerUid, 1, currentBillingPeriod());
+      return { statusCode: 200, body: JSON.stringify({ products }) };
     }
 
     await recordScanUsage(ownerUid, 1, currentBillingPeriod());
