@@ -11,7 +11,7 @@
 // y cuenta contra el mismo límite — separarlo dejaría un hueco para gastar sin
 // tope una vez agotado el cupo de recibos.
 const {
-  isAllowedOrigin, verifyCaller,
+  isAllowedOrigin, verifyCallerInfo,
   currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
 } = require('./lib/patron-admin');
 
@@ -54,10 +54,11 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'Falta configurar ANTHROPIC_API_KEY en Netlify' }) };
   }
 
-  const callerUid = await verifyCaller(event);
-  if (!callerUid) {
+  const caller = await verifyCallerInfo(event);
+  if (!caller) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Iniciá sesión para escanear un producto' }) };
   }
+  const callerUid = caller.uid;
 
   let image, categoryNames, ownerUid;
   try {
@@ -80,7 +81,7 @@ exports.handler = async (event) => {
     if (!hasAccess) {
       return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
     }
-    const quota = await checkScanQuota(ownerUid);
+    const quota = await checkScanQuota(ownerUid, caller.isAnonymous);
     if (!quota.allowed) {
       return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
     }

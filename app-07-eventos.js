@@ -42,7 +42,10 @@ function attachEvents(){
     // El modal no necesita el SDK para dibujarse — se abre al toque y Firebase
     // se precalienta atrás (los botones de adentro ya esperan la carga solos).
     ensurePatronFirebaseReady().catch(()=>{});
-    openAuthModal();
+    // Sesión anónima del trial: el mismo botón ofrece GUARDAR la cuenta (convertirla
+    // en real conservando los datos) en vez del login común.
+    if(currentUser && currentUser.isAnonymous) openUpgradeModal();
+    else openAuthModal();
   };
 
   /* Modal de equipo (compartir inventario) */
@@ -116,6 +119,7 @@ function attachEvents(){
     document.getElementById('btn-submit-auth').onclick=()=>{
       if(authMode==='join'){ submitQuickJoin(); return; }
       if(authMode==='pinlogin'){ submitPinLogin(); return; }
+      if(authMode==='upgrade'){ submitUpgrade(); return; }
       const email=document.getElementById('auth-email').value.trim();
       const password=document.getElementById('auth-password').value;
       if(!email || !password){ authError=t('auth_err_need_both'); render(); return; }
@@ -522,7 +526,9 @@ function attachEvents(){
     const btnScanProduct=document.getElementById('btn-scan-product');
     const itemScanPhotoFile=document.getElementById('item-scan-photo-file');
     if(btnScanProduct && itemScanPhotoFile) btnScanProduct.onclick=()=>{
-      if(!currentUser){ ensurePatronFirebaseReady().catch(()=>{}); openAuthModal(t('scan_requires_account')); return; }
+      // Trial anónimo: la cuenta se crea en segundo plano mientras el usuario elige
+      // la foto; identifyProductFromPhoto() la espera antes de llamar a la API.
+      if(!currentUser){ ensureTrialAccount().catch(()=>{}); }
       itemScanPhotoFile.click();
     };
     if(itemScanPhotoFile) itemScanPhotoFile.onchange=async (e)=>{

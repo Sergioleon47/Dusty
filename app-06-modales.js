@@ -346,6 +346,42 @@ function welcomeModal(){
 // (ver openScanModal). Sin esto, alguien que nunca vio la app se encontraba con un
 // login pelado, sin entender qué lo disparó.
 function openAuthModal(note){ authMode='signin'; authError=''; authContextNote=note||''; authLoading=false; authEmail=''; authPassword=''; authName=''; authPin=''; authPinConfirm=''; authJoinCode=''; showAuthModal=true; render(); }
+/* "Guardá tu cuenta": convierte la cuenta anónima del trial en una real con solo
+   nombre + email + PIN (el PIN es el password de Firebase, mínimo 6 — mismo criterio
+   que las cuentas de equipo por PIN). linkWithCredential conserva el MISMO uid, así
+   que todo lo escaneado/cargado durante la prueba queda intacto, sin migrar nada.
+   Se abre cuando el trial toca un límite (escaneos o inventario) o desde el botón
+   del header cuando la sesión es anónima. */
+function openUpgradeModal(note){ authMode='upgrade'; authError=''; authContextNote=note||''; authLoading=false; authEmail=''; authPassword=''; authName=''; authPin=''; authPinConfirm=''; authJoinCode=''; showAuthModal=true; render(); }
+function submitUpgrade(){
+  const name=(document.getElementById('auth-name')?.value||'').trim();
+  const email=(document.getElementById('auth-email')?.value||'').trim();
+  if(!name){ authError=t('auth_err_need_name'); render(); return; }
+  if(!email){ authError=t('auth_err_need_email'); render(); return; }
+  if(authPin.length<6){ authError=t('auth_err_pin_short'); render(); return; }
+  if(authPin!==authPinConfirm){ authError=t('auth_err_pin_mismatch'); render(); return; }
+  authLoading=true; authError=''; render();
+  // Si nunca escaneó (llegó acá por el límite de inventario, sin cuenta anónima
+  // todavía), se crea la anónima primero — un solo camino de conversión para todos.
+  ensureTrialAccount().then(user=>{
+    const cred = firebase.auth.EmailAuthProvider.credential(email, authPin);
+    return user.linkWithCredential(cred)
+      .then(()=>user.updateProfile({displayName:name}))
+      // El objeto en memoria no siempre refleja el link al instante — se refresca
+      // para que isAnonymous pase a false y la UI (header, límites) lo vea ya.
+      .then(()=>user.reload())
+      .then(()=>{ currentUser=firebase.auth().currentUser; });
+  }).then(()=>{
+    showAuthModal=false; authError=''; authContextNote='';
+    authEmail=''; authPin=''; authPinConfirm=''; authName='';
+  }).catch(err=>{
+    if(err && err.code==='auth/email-already-in-use') authError=t('trial_email_in_use');
+    else if(err && err.code==='auth/invalid-email') authError=t('auth_err_invalid_email');
+    else authError=authErrorMessage(err && err.code);
+  }).then(()=>{
+    authLoading=false; render();
+  });
+}
 function closeAuthModal(){ showAuthModal=false; authError=''; authContextNote=''; authEmail=''; authPassword=''; authName=''; authPin=''; authPinConfirm=''; authJoinCode=''; render(); }
 /* PIN de equipo: en vez de pedirle un email a alguien que solo necesita entrar al
    inventario compartido de otra persona, se arma una cuenta real de Firebase Auth
@@ -533,6 +569,28 @@ function signInWithGoogle(){
   });
 }
 function authModal(){
+  if(authMode==='upgrade'){
+    return `
+    <div class="overlay" id="auth-overlay">
+      <div class="modal">
+        <h3 class="navy">${t('trial_upgrade_title')}</h3>
+        ${authContextNote ? `<div class="helper-note" style="background:var(--navy-wash);color:var(--navy-ink);border-radius:8px;padding:10px 12px;margin-bottom:12px;">${escapeHtml(authContextNote)}</div>` : ''}
+        <p style="font-size:13px;color:var(--ink-soft);">${t('trial_upgrade_sub')}</p>
+        ${authError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(authError)}</div>` : ''}
+        <div class="field"><label>${t('team_pin_name_label')}</label><input id="auth-name" type="text" value="${escapeHtml(authName)}" placeholder="${t('team_pin_name_placeholder')}" autocomplete="name"></div>
+        <div class="field"><label>Email</label><input id="auth-email" type="email" value="${escapeHtml(authEmail)}" placeholder="tu@email.com" autocomplete="email"></div>
+        <div class="field"><label>${t('team_pin_label')}</label><input id="auth-pin" type="password" inputmode="numeric" value="${escapeHtml(authPin)}" placeholder="••••••" autocomplete="new-password"></div>
+        <div class="field"><label>${t('team_pin_confirm_label')}</label><input id="auth-pin-confirm" type="password" inputmode="numeric" value="${escapeHtml(authPinConfirm)}" placeholder="••••••" autocomplete="new-password"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="btn-cancel-auth">${t('btn_cancel')}</button>
+          <button class="btn btn-primary" id="btn-submit-auth" ${authLoading?'disabled':''}>${authLoading ? t('auth_loading') : t('trial_upgrade_btn')}</button>
+        </div>
+        <div style="text-align:center;margin-top:12px;font-size:12.5px;color:var(--ink-soft);">
+          ${t('auth_have_account')} <a href="#" id="btn-switch-signin" style="color:var(--navy-ink);font-weight:600;">${t('btn_login')}</a>
+        </div>
+      </div>
+    </div>`;
+  }
   if(authMode==='join' || authMode==='pinlogin'){
     return `
     <div class="overlay" id="auth-overlay">
@@ -711,6 +769,14 @@ function feedbackModal(){
 
 /* ================= MODAL: INGREDIENTE ================= */
 function openItemModal(item){
+  // Límite del trial: sin cuenta real, el inventario llega hasta TRIAL_INVENTORY_LIMIT
+  // productos. Se frena ACÁ (antes de abrir el formulario) y no en "Guardar", para no
+  // hacerle tipear un producto entero a alguien que no va a poder guardarlo. Editar
+  // los que ya existen sigue permitido siempre.
+  if(!item && isTrialUser() && inventory.length>=TRIAL_INVENTORY_LIMIT){
+    openUpgradeModal(t('trial_inventory_limit_note'));
+    return;
+  }
   draftItem = item ? {...item} : {id:uid('i'), name:'', unit:'lb', costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:'', categoryId:null};
   editingItem = item ? item.id : null;
   showItemModal = true; render();
@@ -813,11 +879,8 @@ function ensureBarcodeLibReady(){
 }
 function openBarcodeScanModal(){
   if(!currentUser){
-    // Igual que en openScanModal: el modal se abre al instante, Firebase se
-    // precalienta atrás.
-    ensurePatronFirebaseReady().catch(()=>{});
-    openAuthModal(t('scan_requires_account'));
-    return;
+    // Igual que en openScanModal: trial anónimo en segundo plano, el modal abre ya.
+    ensureTrialAccount().catch(()=>{});
   }
   barcodeScanState='scanning'; barcodeScanError='';
   showBarcodeScanModal=true; render();
@@ -1067,15 +1130,13 @@ function openScanModal(){
   // encontrara la URL podía escanear recibos sin límite y sin haber iniciado sesión
   // nunca, y la factura de la API le llegaba igual al dueño de la app.
   if(!currentUser){
-    // El modal de login es pura UI (no toca Firebase hasta que se toca un botón
-    // adentro, y esos botones ya llaman a ensurePatronFirebaseReady por su cuenta) —
-    // esperar la carga del SDK acá dejaba el tap sin NINGUNA respuesta visible por
-    // los segundos que tardara la descarga. Se abre al instante y la carga se
-    // precalienta en segundo plano (si falla por falta de red no pasa nada acá:
-    // los botones del modal reintentan la carga solos y muestran su propio error).
-    ensurePatronFirebaseReady().catch(()=>{});
-    openAuthModal(t('scan_requires_account'));
-    return;
+    // Trial sin fricción: en vez de frenar con un login, se arranca una cuenta
+    // anónima en segundo plano (ver ensureTrialAccount) y el modal de escaneo se
+    // abre YA. La llamada real a la API (callReceiptReader) espera a que la cuenta
+    // esté lista — para cuando el usuario terminó de sacar la foto, casi siempre
+    // ya está. Si la creación falla (sin red), el propio flujo de escaneo muestra
+    // su error de conexión de siempre.
+    ensureTrialAccount().catch(()=>{});
   }
   scanRequestId++;
   scanState='idle'; scanImages=[]; scanImagesHiRes=[]; scanSourceFiles=[]; scanPageWarnings=[]; scanExtracted=[]; scanErrorMsg='';
@@ -1479,13 +1540,17 @@ async function buildImagesForReading(){
    documento y devuelve un recibo; con multi=true se leen como una mesa con varios recibos
    apoyados y devuelve {receipts:[...]}. Los errores salen ya traducidos. */
 async function callReceiptReader(images, multi){
-  // openScanModal() ya exige haber iniciado sesión antes de llegar acá, pero eso solo
-  // vive en el navegador — el servidor no tenía forma de saber quién pedía el escaneo
-  // ni de aplicarle un cupo por plan. Mandamos el ID token de Firebase (prueba
-  // verificable de identidad, no un uid suelto que cualquiera podría inventar) más la
-  // cuenta "dueña" del inventario (syncUid(): la propia si sos el dueño, o la del
-  // equipo si te uniste a uno) para que el cupo se cuente sobre la cuenta correcta.
-  if(!currentUser){ throw new Error(t('err_scan_auth_required')); }
+  // El servidor exige identidad para aplicar el cupo por plan: mandamos el ID token
+  // de Firebase (prueba verificable, no un uid suelto que cualquiera podría inventar)
+  // más la cuenta "dueña" del inventario (syncUid(): la propia si sos el dueño, o la
+  // del equipo si te uniste a uno) para que el cupo se cuente sobre la cuenta correcta.
+  // Sin sesión todavía (primer escaneo de la vida): se espera acá a la cuenta anónima
+  // del trial que openScanModal() dejó creándose en segundo plano — a esta altura el
+  // usuario ya sacó la foto, así que casi siempre ya está lista.
+  if(!currentUser){
+    try{ await ensureTrialAccount(); }
+    catch(e){ throw new Error(t('err_scan_no_connection')); }
+  }
   let idToken;
   try{
     idToken = await currentUser.getIdToken();
@@ -1535,6 +1600,14 @@ async function callReceiptReader(images, multi){
     throw new Error(t('err_function_not_found'));
   }
   if(response.status===429 && parsed.quotaExceeded){
+    // Cupo del TRIAL agotado (cuenta anónima): en vez de un error seco, se abre el
+    // modal de "guardá tu cuenta" — es el momento exacto en que el usuario ya vio
+    // el valor de la app y tiene un motivo concreto para registrarse.
+    if(currentUser && currentUser.isAnonymous){
+      closeScanModal();
+      openUpgradeModal(t('trial_scans_over_note'));
+      throw new Error(t('trial_scans_over_note'));
+    }
     throw new Error(t('err_scan_quota_exceeded'));
   }
   if(!response.ok || parsed.error){
@@ -1547,7 +1620,11 @@ async function callReceiptReader(images, multi){
    en vez de una factura — misma cuenta, mismo cupo mensual de escaneos (ver
    identify-product.js), mismo tipo de errores ya traducidos. */
 async function identifyProductFromPhoto(image){
-  if(!currentUser){ throw new Error(t('err_scan_auth_required')); }
+  // Mismo trato que callReceiptReader: sin sesión, se espera la cuenta anónima del trial.
+  if(!currentUser){
+    try{ await ensureTrialAccount(); }
+    catch(e){ throw new Error(t('err_scan_no_connection')); }
+  }
   let idToken;
   try{
     idToken = await currentUser.getIdToken();
@@ -1577,6 +1654,12 @@ async function identifyProductFromPhoto(image){
     throw new Error(t('err_function_not_found_product'));
   }
   if(response.status===429 && parsed.quotaExceeded){
+    // Mismo trato que en callReceiptReader: al usuario del trial se le ofrece
+    // guardar su cuenta en vez de un error seco.
+    if(currentUser && currentUser.isAnonymous){
+      openUpgradeModal(t('trial_scans_over_note'));
+      throw new Error(t('trial_scans_over_note'));
+    }
     throw new Error(t('err_scan_quota_exceeded'));
   }
   if(!response.ok || parsed.error){

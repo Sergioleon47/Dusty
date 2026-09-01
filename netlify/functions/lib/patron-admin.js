@@ -49,13 +49,26 @@ function isAllowedOrigin(event) {
 // quién pide algo, un uid suelto en el body lo podría escribir a mano cualquiera.
 // Devuelve el uid si el token es válido, o null si no vino token o no es válido.
 async function verifyCaller(event) {
+  const info = await verifyCallerInfo(event);
+  return info ? info.uid : null;
+}
+
+// Versión con detalle: además del uid dice si la sesión es ANÓNIMA (el trial sin
+// registro que arranca el cliente con signInAnonymously) — el cupo de esas cuentas
+// es chico y de por vida, no mensual (ver checkScanQuota). Se mira el token y no
+// un flag del body porque el body lo escribe el cliente y cualquiera podría
+// mentir "no soy trial"; el sign_in_provider del token lo firma Firebase.
+async function verifyCallerInfo(event) {
   const header = event.headers.authorization || event.headers.Authorization || '';
   const idToken = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!idToken) return null;
   try {
     getFirebaseApp();
     const decoded = await admin.auth().verifyIdToken(idToken);
-    return decoded.uid;
+    return {
+      uid: decoded.uid,
+      isAnonymous: !!(decoded.firebase && decoded.firebase.sign_in_provider === 'anonymous')
+    };
   } catch (e) {
     return null;
   }
@@ -72,6 +85,11 @@ const PLAN_SCAN_LIMITS = { starter: 30, pro: 60, negocio: 120, equipo: 300 };
 // implementado aún) caen acá — un tope razonable en vez de ilimitado, para no
 // dejar la puerta abierta mientras se decide/cobra el plan de cada quien.
 const DEFAULT_SCAN_LIMIT = 60;
+// Trial sin registro (cuenta anónima de Firebase): tope TOTAL de por vida, no
+// mensual — la idea es probar la app, no vivir gratis rotando meses. Cuando la
+// cuenta se convierte en real (email+PIN), el token deja de ser anónimo y pasa
+// al cupo mensual normal de arriba, sin resetear nada.
+const TRIAL_SCAN_LIMIT = 5;
 
 function currentBillingPeriod() {
   const d = new Date();
@@ -87,12 +105,20 @@ async function callerCanUseAccount(callerUid, ownerUid) {
   return memberDoc.exists;
 }
 
-async function checkScanQuota(ownerUid) {
+async function checkScanQuota(ownerUid, callerIsAnonymous) {
   const db = admin.firestore();
   const ref = db.doc(`users/${ownerUid}/meta/billing`);
   const period = currentBillingPeriod();
   const snap = await ref.get();
   const data = snap.exists ? snap.data() : {};
+  // Cuenta anónima (trial): cupo TOTAL de por vida contra scansTotal, sin importar
+  // el mes. Solo aplica cuando escanea contra su propia cuenta — un anónimo nunca
+  // puede ser miembro de un equipo (unirse crea una cuenta real), así que en la
+  // práctica ownerUid siempre es su propio uid acá.
+  if (callerIsAnonymous) {
+    const total = data.scansTotal || 0;
+    return { allowed: total < TRIAL_SCAN_LIMIT, limit: TRIAL_SCAN_LIMIT, used: total, period };
+  }
   const limit = (data.plan && PLAN_SCAN_LIMITS[data.plan]) || DEFAULT_SCAN_LIMIT;
   const used = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
   return { allowed: used < limit, limit, used, period };
@@ -114,6 +140,9 @@ async function recordScanUsage(ownerUid, count, period) {
       tx.set(ref, {
         scansUsed: prevUsed + count,
         scansPeriod: period,
+        // Acumulado de por vida: es contra lo que se mide el cupo del trial
+        // (cuentas anónimas), y de paso sirve como métrica de uso real.
+        scansTotal: (data.scansTotal || 0) + count,
         plan: data.plan || null
       }, { merge: true });
     });
@@ -123,6 +152,6 @@ async function recordScanUsage(ownerUid, count, period) {
 }
 
 module.exports = {
-  admin, getFirebaseApp, isAllowedOrigin, verifyCaller, ALLOWED_ORIGIN_PATTERNS,
+  admin, getFirebaseApp, isAllowedOrigin, verifyCaller, verifyCallerInfo, ALLOWED_ORIGIN_PATTERNS,
   currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
 };

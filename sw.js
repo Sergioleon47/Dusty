@@ -9,7 +9,9 @@
 // v3: cambios cruzados entre app-02/03/05/06/07 + dusty.css (validación de guardado,
 // login instantáneo, base64 de recibos) — el bump evita que quede cacheada una
 // mezcla de versiones viejas y nuevas de archivos que se llaman entre sí.
-const CACHE_NAME = 'patron-shell-v3';
+// v4: trial sin cuenta (sesión anónima + modal "guardá tu cuenta") — cambios
+// cruzados entre app-02/03/04/06/07, mismo motivo de siempre para el bump.
+const CACHE_NAME = 'patron-shell-v4';
 
 const PRECACHE_URLS = [
   '/',

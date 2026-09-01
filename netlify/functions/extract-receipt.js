@@ -23,7 +23,7 @@
 // lib/patron-admin.js, compartidas con delete-account.js e identify-product.js —
 // ver ese archivo para el porqué.
 const {
-  isAllowedOrigin, verifyCaller,
+  isAllowedOrigin, verifyCallerInfo,
   currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
 } = require('./lib/patron-admin');
 
@@ -157,10 +157,11 @@ exports.handler = async (event) => {
   // Acá verificamos el ID token de Firebase que mandó -> es la única forma real
   // de saber quién es, porque un uid suelto en el body cualquiera lo podría
   // escribir a mano.
-  const callerUid = await verifyCaller(event);
-  if (!callerUid) {
+  const caller = await verifyCallerInfo(event);
+  if (!caller) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Iniciá sesión para escanear recibos' }) };
   }
+  const callerUid = caller.uid;
 
   // Acepta tanto el formato nuevo ("images": [{base64, mediaType}, ...], una o
   // varias páginas) como el formato viejo de una sola imagen, por compatibilidad.
@@ -206,7 +207,7 @@ exports.handler = async (event) => {
     if (!hasAccess) {
       return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
     }
-    const quota = await checkScanQuota(ownerUid);
+    const quota = await checkScanQuota(ownerUid, caller.isAnonymous);
     if (!quota.allowed) {
       return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
     }

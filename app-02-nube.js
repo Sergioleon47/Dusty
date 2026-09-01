@@ -154,6 +154,31 @@ function ensurePatronFirebaseReady(){
   return firebaseLoadPromise;
 }
 
+/* ---- Trial sin cuenta: sesión anónima de Firebase ---- */
+// Escanear le pega a la API de Claude (cuesta plata), así que necesita SÍ o SÍ un
+// uid contra el que contar el cupo — pero pedirle a alguien que recién conoce la
+// app que se registre ANTES de ver el valor mataba la primera impresión. Solución:
+// una cuenta anónima de Firebase, invisible para el usuario (cero formularios),
+// contra la que el servidor cuenta un cupo de prueba (ver TRIAL_SCAN_LIMIT en
+// netlify/functions/lib/patron-admin.js). Cuando el trial se acaba, la cuenta se
+// CONVIERTE en una real con email+PIN vía linkWithCredential — mismo uid, así que
+// todo lo que escaneó/cargó durante la prueba se conserva sin migrar nada.
+// isTrialUser(): sin cuenta, o con cuenta anónima — los límites del trial aplican
+// igual en los dos casos (el primero es solo "todavía ni escaneó nada").
+const TRIAL_INVENTORY_LIMIT = 30;
+function isTrialUser(){ return !currentUser || currentUser.isAnonymous; }
+let trialSigninPromise = null;
+function ensureTrialAccount(){
+  if(currentUser) return Promise.resolve(currentUser);
+  if(trialSigninPromise) return trialSigninPromise;
+  trialSigninPromise = ensurePatronFirebaseReady()
+    .then(()=>firebase.auth().signInAnonymously())
+    .then(cred=>cred.user)
+    // No se cachea un intento fallido (ej. sin red): el próximo tap reintenta.
+    .catch(err=>{ trialSigninPromise=null; throw err; });
+  return trialSigninPromise;
+}
+
 /* ---- Referencias a las colecciones de Firestore de este usuario ---- */
 function inventoryRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('inventory'); }
 function purchasesRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('purchases'); }
