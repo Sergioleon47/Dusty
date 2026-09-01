@@ -474,7 +474,9 @@ function attachEvents(){
       inp.oninput=()=>{ const it=pbItems[+inp.getAttribute('data-pb-cost')]; if(it) it.cost=inp.value; };
     });
     document.querySelectorAll('[data-pb-category]').forEach(sel=>{
-      sel.onchange=()=>{ const it=pbItems[+sel.getAttribute('data-pb-category')]; if(it) it.categoryId=sel.value||null; };
+      // Mismo criterio que data-scan-category en recibos: elegir (aunque sea "Sin
+      // categoría") apaga el aviso de "no estamos seguros".
+      sel.onchange=()=>{ const it=pbItems[+sel.getAttribute('data-pb-category')]; if(it){ it.categoryId=sel.value||null; it.categoryTouched=true; render(); } };
     });
   }
 
@@ -834,7 +836,9 @@ function attachEvents(){
     // silencio. El value queda vacío ("") a propósito para "sin categoría", nunca
     // "__new__" ni ningún otro sentinel — coincide con category_none_option de abajo.
     document.querySelectorAll('[data-scan-category]').forEach(sel=>{
-      sel.onchange=()=>{ scanExtracted[parseInt(sel.dataset.scanCategory)].suggestedCategoryId=sel.value||null; render(); };
+      // categoryTouched: una vez que la persona eligió (aunque sea "Sin categoría"),
+      // el aviso de "no estamos seguros" deja de mostrarse — ya no es verdad.
+      sel.onchange=()=>{ const it=scanExtracted[parseInt(sel.dataset.scanCategory)]; it.suggestedCategoryId=sel.value||null; it.categoryTouched=true; render(); };
     });
     document.querySelectorAll('[data-scan-qty]').forEach(inp=>{
       inp.onchange=()=>{ const it=scanExtracted[parseInt(inp.dataset.scanQty)]; it.qty=parseFloat(inp.value)||0; it.qtyVerified=true; it.confidence='alta'; render(); };

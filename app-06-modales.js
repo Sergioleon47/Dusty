@@ -1347,7 +1347,7 @@ function scanModal(){
                 <option value="">${t('category_none_option')}</option>
                 ${categories.map(c=>`<option value="${c.id}" ${item.suggestedCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
               </select>
-              ${!item.suggestedCategoryId ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
+              ${!item.suggestedCategoryId && !item.categoryTouched ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
             </div>` : ''}
             ${priceAlert}
             ${qtyAlert}
@@ -1775,6 +1775,7 @@ function productBatchModal(){
                 ${categories.map(c=>`<option value="${c.id}" ${it.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
               </select>` : ''}
             </div>
+            ${categories.length>0 && !it.categoryId && !it.categoryTouched && !it.dupOfId && it.selected ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:8px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
           </div>`;
         }).join('')}
       ` : ''}
