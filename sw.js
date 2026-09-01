@@ -25,7 +25,9 @@
 // shell viejo cacheado cargaría las vistas nuevas sin el parser y rompería.
 // v13: recordatorio de pago mensual al escanear recibos de servicio (Fase 2 Nudgy)
 // — cambios cruzados en app-01/03/06/07 + dusty.css.
-const CACHE_NAME = 'patron-shell-v13';
+// v14: defaults inteligentes en formularios (unidad más usada, placeholder de
+// presupuesto con el gasto real) — app-03/05/06/07.
+const CACHE_NAME = 'patron-shell-v14';
 
 const PRECACHE_URLS = [
   '/',

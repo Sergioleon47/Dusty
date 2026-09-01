@@ -874,7 +874,15 @@ function attachEvents(){
     });
     const addScanItemBtn=document.getElementById('btn-add-scan-item');
     if(addScanItemBtn) addScanItemBtn.onclick=()=>{
-      scanExtracted.push({rawName:'', qty:1, totalPrice:0, unit:'unidad', matchedIngId:'__new__', qtyVerified:true, confidence:'alta', mergedCount:1});
+      // La unidad por defecto de una fila agregada a mano copia a sus vecinas del
+      // MISMO recibo (si la factura vino toda en lb, lo que faltó leer casi seguro
+      // también es lb); sin vecinas, la más usada del inventario; sin nada, 'unidad'.
+      const unitCounts={};
+      scanExtracted.forEach(it=>{ if(it && it.unit) unitCounts[it.unit]=(unitCounts[it.unit]||0)+1; });
+      let defUnit=null, n=0;
+      Object.keys(unitCounts).forEach(u=>{ if(unitCounts[u]>n){ n=unitCounts[u]; defUnit=u; } });
+      if(!defUnit || defUnit==='servicio') defUnit=mostUsedInventoryUnit('unidad');
+      scanExtracted.push({rawName:'', qty:1, totalPrice:0, unit:defUnit, matchedIngId:'__new__', qtyVerified:true, confidence:'alta', mergedCount:1});
       render();
     };
 

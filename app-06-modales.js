@@ -780,7 +780,9 @@ function openItemModal(item){
     openUpgradeModal(t('trial_inventory_limit_note'));
     return;
   }
-  draftItem = item ? {...item} : {id:uid('i'), name:'', unit:'lb', costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:'', categoryId:null};
+  // unit arranca en la unidad más usada del propio inventario (el hábito real del
+  // negocio), no en un 'lb' fijo — un campo menos que corregir en cada alta.
+  draftItem = item ? {...item} : {id:uid('i'), name:'', unit:mostUsedInventoryUnit('lb'), costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:'', categoryId:null};
   editingItem = item ? item.id : null;
   showItemModal = true; render();
 }

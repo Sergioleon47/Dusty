@@ -266,6 +266,7 @@ const I18N = {
     scan_pay_reminder_label:'Recordarme este pago cada mes',
     scan_pay_reminder_sub:'Se marca en el calendario todos los meses, el día {d} — lo ves en la pestaña Recibos.',
     scan_pay_reminder_exists:'Ya hay un recordatorio mensual para {s} en el calendario.',
+    budget_placeholder_suggested:'Ej. {n} — venís gastando {s} al mes',
     price_unit_mismatch:'unidad distinta', price_unit_mismatch_hint:'Las últimas dos compras de este producto se registraron en unidades distintas (ej. libras vs. cajas), así que no se puede comparar el precio de forma confiable.',
     price_implausible:'revisar precio', price_implausible_hint:'Este cambio es demasiado grande para ser un precio real (probablemente una cantidad o un precio mal leído en algún recibo viejo) — abrí el historial de precios de este producto para encontrar y corregir la compra con el dato raro.',
     ph_excluded_units:'{n} compra(s) en otra unidad no se incluyen acá, para no comparar precios que no son compatibles.',
@@ -525,6 +526,7 @@ const I18N = {
     scan_pay_reminder_label:'Remind me of this payment every month',
     scan_pay_reminder_sub:'Marked on the calendar every month on day {d} — see it in the Receipts tab.',
     scan_pay_reminder_exists:'There is already a monthly reminder for {s} on the calendar.',
+    budget_placeholder_suggested:'e.g. {n} — you spend about {s} a month',
     price_unit_mismatch:'unit changed', price_unit_mismatch_hint:"The last two purchases of this product were logged in different units (e.g. pounds vs. cases), so the price can't be compared reliably.",
     price_implausible:'check price', price_implausible_hint:"This change is too large to be a real price (probably a misread quantity or price on an old receipt) — open this product's price history to find and fix the purchase with the odd number.",
     ph_excluded_units:"{n} purchase(s) in a different unit aren't included here, to avoid comparing prices that aren't compatible.",
@@ -772,6 +774,19 @@ function allMonths(){
    si algo no se leyó bien). Por ahora el gasto se basa 100% en recibos. */
 function spendForMonth(key){
   return receipts.filter(r=>monthKey(r.date)===key).reduce((s,r)=>s+(r.total||0),0);
+}
+
+/* La unidad con la que este negocio REALMENTE trabaja: la más repetida en su
+   inventario. Un abarrotes que carga todo por "unidad" no debería ver "lb"
+   preseleccionado en cada producto nuevo (y viceversa para una cocina que pesa
+   todo). Con inventario vacío se usa el fallback que se pida — el alta manual
+   mantiene 'lb' (el default histórico) y la fila manual del escaneo 'unidad'. */
+function mostUsedInventoryUnit(fallback){
+  const counts = {};
+  inventory.forEach(i=>{ if(i.unit) counts[i.unit] = (counts[i.unit]||0)+1; });
+  let best = fallback, n = 0;
+  Object.keys(counts).forEach(u=>{ if(counts[u]>n){ n = counts[u]; best = u; } });
+  return best;
 }
 
 /* ---------- Notas de calendario (Fase 1 Nudgy — el parser vive en nudgy-core.js) ---------- */

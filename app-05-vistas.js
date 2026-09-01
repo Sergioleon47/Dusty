@@ -1094,7 +1094,25 @@ function alertSettingsModal(){
         ${settingsCardHeader('chart','var(--basil-soft)','var(--basil-ink)',t('budget_title'))}
         <div class="field">
           <label>${t('budget_label')}</label>
-          <input id="budget-input" type="number" min="0" step="1" placeholder="${t('budget_placeholder')}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">
+          ${(()=>{
+            /* Placeholder inteligente: si nunca definió presupuesto pero YA hay
+               gasto registrado, se le sugiere su propio gasto reciente redondeado
+               hacia arriba — un número real de SU negocio en vez de un "Ej. 2000"
+               inventado. Es placeholder (no value) a propósito: prellenar el input
+               guardaría un presupuesto que nunca eligió con solo tocar "Guardar". */
+            let ph = t('budget_placeholder');
+            const noBudget = draftMonthlyBudget===null || draftMonthlyBudget===undefined || draftMonthlyBudget==='';
+            if(noBudget){
+              const prev = spendForMonth(shiftMonthStr(localMonthStr(), -1));
+              const curr = spendForMonth(localMonthStr());
+              const base = prev>0 ? prev : curr;
+              if(base>0){
+                const sugerido = Math.ceil(base/50)*50;
+                ph = t('budget_placeholder_suggested').replace('{n}', sugerido).replace('{s}', money(base));
+              }
+            }
+            return `<input id="budget-input" type="number" min="0" step="1" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">`;
+          })()}
         </div>
         <div class="helper-note" style="margin-bottom:0;">${t('budget_helper')}</div>
       </div>
