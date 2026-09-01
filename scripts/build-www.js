@@ -13,6 +13,7 @@ const FILES = [
   'index.html',
   'dusty.css',
   'patron-core.js',
+  'nudgy-core.js',
   'morphdom-umd.min.js',
   'app-01-estado.js',
   'app-02-nube.js',

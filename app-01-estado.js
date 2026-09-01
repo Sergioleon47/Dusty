@@ -39,7 +39,25 @@ try{ receiptSearchQuery = localStorage.getItem('patron_receipt_search') || ''; }
 // con el mes actual la primera vez que se dibuja el calendario (ver receiptCalendarWidget).
 let calendarViewMonth = null;
 try{ calendarViewMonth = localStorage.getItem('patron_cal_month') || null; }catch(e){}
-let showDayReceipts = null; // "YYYY-MM-DD" del día tocado en el calendario cuando tiene más de un recibo, o null
+/* "YYYY-MM-DD" del día tocado en el calendario, o null. Antes solo se abría para
+   días con MÁS de un recibo (para elegir cuál); ahora que los días también tienen
+   notas, tocar CUALQUIER día abre este modal unificado — recibos del día + notas +
+   caja para escribir una nota nueva. Un día con un solo recibo pasa de 1 toque a 2
+   para llegar al detalle, a cambio de un modelo mental único: "tocá el día". */
+let showDayModal = null;
+/* Notas del calendario (Fase 1 de la integración con Nudgy — ver nudgy-core.js):
+   {id, text, date:'YYYY-MM-DD'|null, hour, minute, recurring, icon, createdAt, by}.
+   date null = nota puramente recurrente ("pagar la renta cada mes") — qué días
+   pinta lo decide recurringMatchesDay() a partir de recurring + createdAt.
+   Viajan dentro del doc meta/settings (como categories), así el equipo entero ve
+   el mismo calendario. deletedCalNoteIds son sus "lápidas", mismo mecanismo que
+   deletedInventoryIds: sin ellas, una nota borrada acá reviviría cuando otro
+   dispositivo que no se enteró vuelva a subir su copia de meta. */
+let calNotes = [];
+let deletedCalNoteIds = [];
+// Borrador de la nota que se está escribiendo en el modal de día — vive fuera del
+// input para sobrevivir a un render() disparado por la nube a mitad de tipeo.
+let dayNoteDraft = '';
 let calendarShowYearPicker = false; // true cuando se tocó el mes/año arriba del calendario, para elegir otro mes del mismo año de un tirón
 let calendarAmountQuery = ''; // texto del buscador por monto, al lado de "Escanear recibo"
 let calendarBlinkDates = []; // fechas "YYYY-MM-DD" que coinciden con calendarAmountQuery — esos días parpadean en el calendario

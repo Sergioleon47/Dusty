@@ -389,6 +389,9 @@
   .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;width:100%;}
   .mini-cal-day{font-size:6.5px;line-height:9px;text-align:center;color:var(--ink-soft);aspect-ratio:1;}
   .mini-cal-day.has-receipt{background:var(--saffron);color:var(--on-accent);border-radius:50%;font-weight:700;}
+  /* Días con nota en la vista de año: verde (el color semántico de "activo") para
+     distinguirlos del ámbar de los recibos sin inventar un tercer color. */
+  .mini-cal-day.has-note{background:color-mix(in srgb, var(--basil) 40%, var(--panel));color:var(--on-accent);border-radius:50%;font-weight:700;}
   .mini-cal-day.today{box-shadow:inset 0 0 0 1px var(--tomato);border-radius:50%;}
   .cal-nav-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--raised);color:var(--ink-soft);font-size:20px;line-height:1;cursor:pointer;transition:transform .2s ease,border-color .2s ease,color .2s ease;}
   .cal-nav-btn:hover{border-color:var(--navy);color:var(--navy);}
@@ -396,8 +399,18 @@
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
   .cal-grid.cal-weekdays{margin-bottom:8px;}
   .cal-weekday{text-align:center;font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;padding:2px 0;}
-  .cal-day{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg);}
-  .cal-day.empty{background:none;}
+  /* Todas las celdas con fecha son tocables (abren el modal del día con recibos +
+     notas), no solo las que tienen recibo — ver dayModal() en app-05. */
+  .cal-day{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg);cursor:pointer;transition:transform .2s ease;}
+  .cal-day:active{transform:scale(0.94);}
+  .cal-day.empty{background:none;cursor:default;}
+  .cal-day.empty:active{transform:none;}
+  /* Burbujita con el emoji de la primera nota del día (parser de Nudgy) — abajo a
+     la izquierda para no chocar con la insignia ×N de recibos (arriba a la derecha). */
+  .cal-day-note-dot{position:absolute;bottom:1px;left:1px;display:flex;align-items:center;gap:1px;background:var(--raised);border-radius:9px;padding:1px 4px;font-size:9.5px;line-height:1.3;box-shadow:0 1px 3px rgba(0,0,0,.45);}
+  .cal-day-note-dot i{font-style:normal;font-size:8.5px;font-weight:700;color:var(--basil);font-family:'IBM Plex Mono';}
+  .cal-day.has-note:not(.has-receipt){box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--basil) 45%, var(--bg));}
+  .cal-day.has-note.today{box-shadow:inset 0 0 0 2px var(--saffron);}
   .cal-day.today{box-shadow:inset 0 0 0 2px var(--saffron);}
   .cal-day.blink{animation:calBlink 1s ease-in-out infinite;}
   @keyframes calBlink{
@@ -416,6 +429,21 @@
   .day-receipt-row:active{transform:scale(0.98);background:var(--raised);}
   .day-receipt-thumb{width:40px;height:40px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--raised);display:flex;align-items:center;justify-content:center;font-size:18px;}
   .day-receipt-thumb img{width:100%;height:100%;object-fit:cover;}
+
+  /* Notas de calendario dentro del modal de día (Fase 1 Nudgy) */
+  .cal-note-section-title{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin:2px 0 8px;}
+  .cal-note-row{display:flex;align-items:center;gap:10px;background:var(--inset);border-radius:10px;padding:9px 10px;}
+  .cal-note-emoji{font-size:17px;flex-shrink:0;line-height:1;}
+  .cal-note-text{font-size:13.5px;font-weight:600;overflow-wrap:anywhere;}
+  .cal-note-when{font-size:11.5px;color:var(--basil-ink);font-weight:600;margin-top:2px;}
+  .cal-note-composer{display:flex;gap:8px;margin-top:14px;}
+  .cal-note-composer input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;font-family:'Inter';background:var(--inset);color:var(--ink);}
+  .cal-note-composer input::placeholder{color:var(--ink-soft);}
+  .cal-note-composer input:focus{outline:2px solid var(--focus-ring);border-color:var(--navy);background:var(--raised);}
+  /* Vista previa en vivo del parser ("Cada mes, 9:00 am") — la idea estrella de
+     Nudgy: mostrar qué se entendió ANTES de guardar. Se actualiza por tecla tocando
+     el DOM directo, sin render() (ver attachEvents). */
+  .cal-note-preview{margin-top:8px;font-size:12px;font-weight:700;color:var(--basil-ink);background:var(--basil-soft);border-radius:8px;padding:7px 10px;}
 
   /* MODAL */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.62);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;animation:overlayFadeIn .4s ease;}

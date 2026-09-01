@@ -16,7 +16,7 @@ function makeKeyboardClickable(el){
 }
 function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
-  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-day-receipts], [data-photo-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
+  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
@@ -458,16 +458,53 @@ function attachEvents(){
   }
 
   document.querySelectorAll('[data-view-receipt]').forEach(card=>{
-    card.onclick=()=>{ showReceiptDetail=card.dataset.viewReceipt; showDayReceipts=null; render(); };
+    card.onclick=()=>{ showReceiptDetail=card.dataset.viewReceipt; showDayModal=null; render(); };
   });
-  document.querySelectorAll('[data-day-receipts]').forEach(cell=>{
-    cell.onclick=()=>{ showDayReceipts=cell.dataset.dayReceipts; render(); };
+  // Cualquier día del calendario abre el modal unificado del día (recibos + notas).
+  document.querySelectorAll('[data-cal-day]').forEach(cell=>{
+    cell.onclick=()=>{ showDayModal=cell.dataset.calDay; dayNoteDraft=''; render(); };
   });
-  const dayReceiptsOverlay=document.getElementById('day-receipts-overlay');
-  if(dayReceiptsOverlay){
-    dayReceiptsOverlay.onmousedown=(e)=>{ if(e.target===dayReceiptsOverlay){ showDayReceipts=null; render(); } };
-    const closeDayReceiptsBtn=document.getElementById('btn-close-day-receipts');
-    if(closeDayReceiptsBtn) closeDayReceiptsBtn.onclick=()=>{ showDayReceipts=null; render(); };
+  const dayModalOverlay=document.getElementById('day-modal-overlay');
+  if(dayModalOverlay){
+    dayModalOverlay.onmousedown=(e)=>{ if(e.target===dayModalOverlay){ showDayModal=null; dayNoteDraft=''; render(); } };
+    const closeDayModalBtn=document.getElementById('btn-close-day-modal');
+    if(closeDayModalBtn) closeDayModalBtn.onclick=()=>{ showDayModal=null; dayNoteDraft=''; render(); };
+    // Compositor de notas: la vista previa se actualiza tocando el DOM directo en
+    // cada tecla (sin render() — un redibujado completo por tecla haría perder el
+    // foco del teclado en el celular); render() recién al agregar o borrar.
+    const noteInput=document.getElementById('day-note-input');
+    const notePreview=document.getElementById('day-note-preview');
+    const notePreviewText=document.getElementById('day-note-preview-text');
+    if(noteInput){
+      // dayNoteDraft es la fuente de verdad, no el atributo value del HTML:
+      // morphdom actualiza ATRIBUTOS pero no pisa la PROPIEDAD .value de un input
+      // que el usuario ya tocó — sin esta línea, agregar una nota dejaba el texto
+      // recién guardado adentro del input en vez de limpiarlo.
+      noteInput.value = dayNoteDraft;
+      noteInput.oninput=()=>{
+        dayNoteDraft=noteInput.value;
+        const previewStr = calNotePreviewText(dayNoteDraft);
+        if(notePreviewText) notePreviewText.textContent=previewStr;
+        if(notePreview) notePreview.style.display=previewStr?'':'none';
+      };
+      noteInput.onkeydown=(e)=>{ if(e.key==='Enter') addDayNote(); };
+    }
+    const addNoteBtn=document.getElementById('btn-add-day-note');
+    if(addNoteBtn) addNoteBtn.onclick=addDayNote;
+    document.querySelectorAll('[data-delete-note]').forEach(btn=>{
+      btn.onclick=()=>{
+        const id=btn.dataset.deleteNote;
+        const deleted=calNotes.find(n=>n.id===id);
+        calNotes=calNotes.filter(n=>n.id!==id);
+        // Lápida: sin esto, otro dispositivo que no se enteró re-subiría su copia
+        // de meta con la nota adentro y la revivía (mismo bug ya arreglado para
+        // productos/recibos, ver deletedInventoryIds).
+        if(!deletedCalNoteIds.includes(id)) deletedCalNoteIds.push(id);
+        saveState();
+        if(deleted) logActivity('note_deleted', deleted.text);
+        render();
+      };
+    });
   }
   const receiptDetailOverlay=document.getElementById('receipt-detail-overlay');
   if(receiptDetailOverlay){
@@ -857,6 +894,24 @@ function attachEvents(){
 
 function closeItemModal(){ showItemModal=false; editingItem=null; draftItem=null; render(); }
 
+/* Guarda la nota escrita en el modal de día. El parser de Nudgy (buildCalNote)
+   decide si es una nota fija de ese día, una fecha que el texto pide explícita
+   ("mañana", "el 15 de octubre") o una recurrencia ("cada mes") — el texto del
+   usuario se guarda tal cual lo escribió, nunca se reformatea (regla de Nudgy). */
+function addDayNote(){
+  const raw = dayNoteDraft.trim();
+  if(!raw || !showDayModal) return;
+  const built = buildCalNote(raw, showDayModal);
+  calNotes.push(Object.assign(built, {
+    id: uid('note'),
+    createdAt: new Date().toISOString()
+  }));
+  dayNoteDraft='';
+  saveState();
+  logActivity('note_created', built.text);
+  render();
+}
+
 document.addEventListener('keydown', (e)=>{
   if(e.key !== 'Escape') return;
   if(showItemModal){ closeItemModal(); return; }
@@ -868,7 +923,7 @@ document.addEventListener('keydown', (e)=>{
   if(showDeleteAccountModal){ if(!deleteAccountLoading) closeDeleteAccountModal(); return; }
   if(showSuggestedOrderModal){ showSuggestedOrderModal=false; render(); return; }
   if(showReceiptDetail){ showReceiptDetail=null; render(); return; }
-  if(showDayReceipts){ showDayReceipts=null; render(); return; }
+  if(showDayModal){ showDayModal=null; dayNoteDraft=''; render(); return; }
   // Estos faltaban: sin Escape, el modal de equipo además dejaba vivo su setInterval de
   // refresco (teamModalRefreshTimer) porque solo closeTeamModal() lo limpia. El de barras
   // apaga la cámara al cerrarse. El de idioma (langChoice) es la primera elección

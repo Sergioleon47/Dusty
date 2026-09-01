@@ -252,6 +252,16 @@ const I18N = {
     scan_qty_review:'Confianza media en esta lectura — conviene revisarla',
     scan_category_unsure:'No estamos seguros en qué categoría va — elegí una',
     price_alerts_title:'Cambios de precio recientes',
+    // Notas de calendario (parser de lenguaje natural portado de Nudgy — nudgy-core.js)
+    day_modal_notes_title:'Notas', day_modal_empty:'Sin recibos ni notas este día — escribí la primera abajo.',
+    note_input_placeholder:'Nota nueva… ej. "pagar la luz cada mes", "proveedor el lunes 8am"',
+    note_add_btn:'Agregar', note_delete_title:'Eliminar nota',
+    note_prev_daily:'Todos los días', note_prev_weekly:'Cada', note_prev_yearly:'Cada año el',
+    note_prev_every_n_days:'Cada {n} días', note_prev_every_month:'Cada mes', note_prev_every_n_months:'Cada {n} meses',
+    note_prev_every_year:'Cada año', note_prev_every_n_years:'Cada {n} años',
+    note_prev_every_hour:'Cada hora', note_prev_every_n_hours:'Cada {n} horas',
+    note_prev_until:'hasta',
+    activity_note_created:'agregó la nota', activity_note_deleted:'eliminó la nota',
     price_unit_mismatch:'unidad distinta', price_unit_mismatch_hint:'Las últimas dos compras de este producto se registraron en unidades distintas (ej. libras vs. cajas), así que no se puede comparar el precio de forma confiable.',
     price_implausible:'revisar precio', price_implausible_hint:'Este cambio es demasiado grande para ser un precio real (probablemente una cantidad o un precio mal leído en algún recibo viejo) — abrí el historial de precios de este producto para encontrar y corregir la compra con el dato raro.',
     ph_excluded_units:'{n} compra(s) en otra unidad no se incluyen acá, para no comparar precios que no son compatibles.',
@@ -497,6 +507,16 @@ const I18N = {
     scan_qty_review:'Medium confidence on this reading — worth double-checking',
     scan_category_unsure:"We're not sure which category this goes in — pick one",
     price_alerts_title:'Recent price changes',
+    // Calendar notes (natural-language parser ported from Nudgy — nudgy-core.js)
+    day_modal_notes_title:'Notes', day_modal_empty:'No receipts or notes this day — write the first one below.',
+    note_input_placeholder:'New note… e.g. "pay electricity every month", "supplier on monday 8am"',
+    note_add_btn:'Add', note_delete_title:'Delete note',
+    note_prev_daily:'Every day', note_prev_weekly:'Every', note_prev_yearly:'Every year on',
+    note_prev_every_n_days:'Every {n} days', note_prev_every_month:'Every month', note_prev_every_n_months:'Every {n} months',
+    note_prev_every_year:'Every year', note_prev_every_n_years:'Every {n} years',
+    note_prev_every_hour:'Every hour', note_prev_every_n_hours:'Every {n} hours',
+    note_prev_until:'until',
+    activity_note_created:'added the note', activity_note_deleted:'deleted the note',
     price_unit_mismatch:'unit changed', price_unit_mismatch_hint:"The last two purchases of this product were logged in different units (e.g. pounds vs. cases), so the price can't be compared reliably.",
     price_implausible:'check price', price_implausible_hint:"This change is too large to be a real price (probably a misread quantity or price on an old receipt) — open this product's price history to find and fix the purchase with the odd number.",
     ph_excluded_units:"{n} purchase(s) in a different unit aren't included here, to avoid comparing prices that aren't compatible.",
@@ -569,7 +589,7 @@ function saveState(){
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-      businessName, monthlyBudget, categories
+      businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds
     }));
   }catch(e){
     // El motivo más común es que el almacenamiento del navegador se llenó (las fotos de
@@ -603,6 +623,10 @@ function applyStateData(data){
   if(typeof data.businessName==='string') businessName = data.businessName;
   if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
   if(Array.isArray(data.categories)) categories = data.categories;
+  // Las lápidas de notas se aplican ANTES de las notas: un snapshot de la nube que
+  // todavía traiga una nota borrada en este dispositivo llega ya filtrado.
+  if(Array.isArray(data.deletedCalNoteIds)) deletedCalNoteIds = data.deletedCalNoteIds;
+  if(Array.isArray(data.calNotes)) calNotes = data.calNotes.filter(n=>n && n.id && !deletedCalNoteIds.includes(n.id));
 }
 function loadState(){
   try{
@@ -631,7 +655,7 @@ function exportData(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, categories,
+    businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -740,5 +764,61 @@ function allMonths(){
    si algo no se leyó bien). Por ahora el gasto se basa 100% en recibos. */
 function spendForMonth(key){
   return receipts.filter(r=>monthKey(r.date)===key).reduce((s,r)=>s+(r.total||0),0);
+}
+
+/* ---------- Notas de calendario (Fase 1 Nudgy — el parser vive en nudgy-core.js) ---------- */
+function calNoteTimeStr(h, mnt){
+  if(h==null) return '';
+  const suffix = h>=12 ? 'pm' : 'am';
+  let h12 = h%12; if(h12===0) h12 = 12;
+  return h12 + ':' + String(mnt||0).padStart(2,'0') + ' ' + suffix;
+}
+// Nombres cortos de día para "cada lun, mié" — los WEEKDAY_NAMES de patron-core son
+// de UNA letra (cabecera del calendario) y "cada L, M" no se entiende.
+const CAL_NOTE_WEEKDAYS = { es:['dom','lun','mar','mié','jue','vie','sáb'], en:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] };
+/* Descripción corta de CUÁNDO cae una nota ("Cada mes", "Cada lun, jue, 8:00 am",
+   "15 Oct, 3:30 pm"). La vista previa en vivo del compositor y la línea gris bajo
+   cada nota guardada usan esta MISMA función — así nunca cuentan historias
+   distintas antes y después de guardar. */
+function calNoteWhenText(n){
+  const time = calNoteTimeStr(n.hour, n.minute);
+  if(n.recurring){
+    const r = n.recurring;
+    let base = '';
+    if(r.type==='daily') base = t('note_prev_daily');
+    else if(r.type==='weekly') base = t('note_prev_weekly')+' '+r.weekdays.map(w=>CAL_NOTE_WEEKDAYS[uiLang][w]).join(', ');
+    else if(r.type==='yearly') base = t('note_prev_yearly')+' '+r.day+' '+MONTH_NAMES[uiLang][r.month];
+    else if(r.type==='everyNDays') base = t('note_prev_every_n_days').replace('{n}', r.n);
+    else if(r.type==='everyNMonths') base = r.n===1 ? t('note_prev_every_month') : t('note_prev_every_n_months').replace('{n}', r.n);
+    else if(r.type==='everyNYears') base = r.n===1 ? t('note_prev_every_year') : t('note_prev_every_n_years').replace('{n}', r.n);
+    else if(r.type==='everyNHours') base = r.n===1 ? t('note_prev_every_hour') : t('note_prev_every_n_hours').replace('{n}', r.n);
+    if(!base) return '';
+    if(time) base += ', '+time;
+    if(r.until){
+      const u = new Date(r.until);
+      base += ' ('+t('note_prev_until')+' '+u.getDate()+' '+MONTH_NAMES[uiLang][u.getMonth()]+')';
+    }
+    if(r.untilHour!=null) base += ' ('+t('note_prev_until')+' '+calNoteTimeStr(r.untilHour, r.untilMinute||0)+')';
+    return base;
+  }
+  if(n.date){
+    const d = calDateFromStr(n.date);
+    let base = d.getDate()+' '+MONTH_NAMES[uiLang][d.getMonth()];
+    if(d.getFullYear()!==new Date().getFullYear()) base += ' '+d.getFullYear();
+    if(time) base += ', '+time;
+    return base;
+  }
+  return time;
+}
+// Vista previa en vivo del compositor: qué entendió el parser del texto a medio
+// escribir, ANTES de guardar — la idea estrella de Nudgy, intacta.
+function calNotePreviewText(raw){
+  if(!raw || !raw.trim()) return '';
+  let built;
+  try{ built = buildCalNote(raw, showDayModal); }catch(e){ return ''; }
+  // Si lo único que se entendió es "queda anclada al día abierto", no hay nada
+  // nuevo que anunciar — la vista previa solo aparece cuando el parser detectó algo.
+  if(!built.recurring && built.date===showDayModal && built.hour==null) return '';
+  return calNoteWhenText(built);
 }
 

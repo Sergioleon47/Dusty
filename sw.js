@@ -20,13 +20,17 @@
 // v11: tema oscuro completo (dusty.css + estilos inline en app-03/04/05/06 +
 // manifest/theme-color) — el bump evita quedar con el CSS oscuro y vistas viejas
 // claras (o al revés) mezcladas desde caché.
-const CACHE_NAME = 'patron-shell-v11';
+// v12: notas de calendario con parser de lenguaje natural (nudgy-core.js NUEVO en
+// el precache + cambios cruzados en app-01..07) — sin el bump, un cliente con el
+// shell viejo cacheado cargaría las vistas nuevas sin el parser y rompería.
+const CACHE_NAME = 'patron-shell-v12';
 
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/dusty.css',
   '/patron-core.js',
+  '/nudgy-core.js',
   '/morphdom-umd.min.js',
   '/app-01-estado.js',
   '/app-02-nube.js',

@@ -76,7 +76,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[];
               saveState();
               applyingRemoteSnapshot = false;
             }
@@ -89,7 +89,8 @@ function ensurePatronFirebaseReady(){
               inventory: inventory.slice(), purchases: purchases.slice(), receipts: receipts.slice(),
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
-              categories: categories ? categories.slice() : categories
+              categories: categories ? categories.slice() : categories,
+              calNotes: calNotes.slice()
             };
             // Importante: los listeners en tiempo real recién se conectan DESPUÉS de que
             // termine (o falle) la reconciliación — así el primer snapshot que llega ya
@@ -279,6 +280,8 @@ function activityVerb(entry){
   // entry.detail viene de logActivity y se sincroniza desde cualquier miembro del equipo,
   // así que se escapa también en la rama scan_applied (antes solo se escapaba en las otras).
   if(entry.type==='scan_applied') return t('activity_scan_applied').replace('{n}', escapeHtml(entry.detail||''));
+  if(entry.type==='note_created') return `${t('activity_note_created')} "${escapeHtml(entry.itemName)}"`;
+  if(entry.type==='note_deleted') return `${t('activity_note_deleted')} "${escapeHtml(entry.itemName)}"`;
   return escapeHtml(entry.detail||'');
 }
 
@@ -445,7 +448,7 @@ function syncAllToFirestore(){
     if(lastKnownRemoteReceiptIds) lastKnownRemoteReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
     deletedReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
     ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
-      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories
+      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds
     }))});
 
     const CHUNK = 450;
@@ -578,7 +581,7 @@ function applyRemoteMetaSnapshot(doc){
   // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
   // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
   const incomingMeta = doc.data();
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds};
   if(sameJSON(incomingMeta, currentMeta)) return;
   applyingRemoteSnapshot = true;
   applyStateData(incomingMeta);
@@ -599,7 +602,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[];
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -797,7 +800,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[];
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -862,6 +865,15 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     remoteDeletedRecIds.forEach(id=>{ if(!deletedReceiptIds.includes(id)){ deletedReceiptIds.push(id); deletedIdsChanged = true; } });
     const remoteDeletedPurIds = Array.isArray(remoteMetaData.deletedPurchaseIds) ? remoteMetaData.deletedPurchaseIds : [];
     remoteDeletedPurIds.forEach(id=>{ if(!deletedPurchaseIds.includes(id)){ deletedPurchaseIds.push(id); deletedIdsChanged = true; } });
+    // Lápidas de notas de calendario: mismo mecanismo que las de arriba — una nota
+    // borrada en cualquier dispositivo deja de existir en todos.
+    const remoteDeletedNoteIds = Array.isArray(remoteMetaData.deletedCalNoteIds) ? remoteMetaData.deletedCalNoteIds : [];
+    remoteDeletedNoteIds.forEach(id=>{ if(!deletedCalNoteIds.includes(id)){ deletedCalNoteIds.push(id); deletedIdsChanged = true; } });
+    const deletedNoteSet = new Set(deletedCalNoteIds);
+    if(calNotes.some(n=>deletedNoteSet.has(n.id))){
+      calNotes = calNotes.filter(n=>!deletedNoteSet.has(n.id));
+      saveState();
+    }
     const deletedRecSet = new Set(deletedReceiptIds);
     const deletedPurSet = new Set(deletedPurchaseIds);
 
@@ -927,7 +939,16 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // lista de borradas NO se re-sube aunque falte en la nube — antes reaparecía. Ídem recibos.
     const missingPur = localSnapshot.purchases.filter(p=>(!remotePurIds.has(p.id) || remappedPurchaseIds.includes(p.id)) && !deletedPurSet.has(p.id));
     const missingRec = localSnapshot.receipts.filter(r=>!remoteRecIds.has(r.id) && !deletedRecSet.has(r.id));
-    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged;
+    // Notas de calendario: viven DENTRO de meta (no en su propia subcolección), así
+    // que "subir las que faltan" es fusionar por id — la nube manda por cada id que
+    // ya tiene, lo local solo agrega las que la nube no conocía (creadas offline en
+    // este dispositivo), y las que tienen lápida no entran de ningún lado. Mismo
+    // espíritu que mergedAliasMap, más abajo.
+    const remoteNotes = (Array.isArray(remoteMetaData.calNotes) ? remoteMetaData.calNotes : []).filter(n=>n && n.id && !deletedNoteSet.has(n.id));
+    const remoteNoteIds = new Set(remoteNotes.map(n=>n.id));
+    const localOnlyNotes = (localSnapshot.calNotes||[]).filter(n=>n && n.id && !remoteNoteIds.has(n.id) && !deletedNoteSet.has(n.id));
+    const mergedCalNotes = remoteNotes.concat(localOnlyNotes);
+    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0;
     if(newInv.length===0 && missingPur.length===0 && missingRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
     // Mismo límite de 500 operaciones por batch que syncAllToFirestore() — un primer
     // sincronizado grande (por ejemplo, activar la nube con cientos de productos ya
@@ -963,7 +984,8 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
-        deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds
+        calNotes: mergedCalNotes,
+        deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds
       }))});
     }
     const CHUNK = 450;

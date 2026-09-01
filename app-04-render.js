@@ -56,7 +56,7 @@ function render(){
      instante después, de forma asíncrona — ese instante alcanza para que la
      promesa de la librería gane la carrera y arranque la cámara contra un div que
      todavía no existe. */
-  const overlayFlags = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayReceipts,
+  const overlayFlags = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayModal,
     showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
     showActivityModal, showTeamModal, showProductBatchModal];
@@ -145,7 +145,7 @@ function renderApp(){
     ${showScanModal ? scanModal() : ''}
     ${showProductBatchModal ? productBatchModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
-    ${showDayReceipts ? dayReceiptsModal() : ''}
+    ${showDayModal ? dayModal() : ''}
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}

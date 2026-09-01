@@ -613,8 +613,11 @@ function yearPickerWidget(){
     for(let d=1; d<=daysInMonth; d++){
       const dateStr = mk+'-'+String(d).padStart(2,'0');
       const hasReceipt = receiptDatesInYear.has(dateStr);
+      // Los días con nota se tiñen de verde en los 12 calendaritos — así la vista
+      // de año también sirve para ubicar pagos/recordatorios, no solo recibos.
+      const hasNote = calNotes.length>0 && calNotesOnDate(calNotes, dateStr).length>0;
       const isToday = dateStr===todayStr;
-      dayCells += `<span class="mini-cal-day ${hasReceipt?'has-receipt':''} ${isToday?'today':''}">${d}</span>`;
+      dayCells += `<span class="mini-cal-day ${hasReceipt?'has-receipt':''} ${!hasReceipt&&hasNote?'has-note':''} ${isToday?'today':''}">${d}</span>`;
     }
     return `
     <button class="cal-year-month ${isCurrent?'current':''}" data-cal-select-month="${mk}">
@@ -634,12 +637,12 @@ function yearPickerWidget(){
 }
 
 /* Calendario del mes que se muestra arriba de la lista de recibos: cada día con
-   un recibo muestra su miniatura, tocarlo lo agranda reusando el mismo modal de
-   detalle que ya abre la lista de tarjetas de abajo (mismo atributo data-view-receipt,
-   así que el cableado de clicks no se duplica). Si un día tiene MÁS de un recibo, la
-   celda muestra el primero con una insignia "×N" encima, y tocarla abre una lista
-   corta (dayReceiptsModal) para elegir cuál — así ningún recibo queda inaccesible
-   desde el calendario, aunque dos lleguen el mismo día. */
+   un recibo muestra su miniatura; los días con notas (parser de Nudgy) llevan una
+   burbujita con el emoji de la primera. Tocar CUALQUIER día abre el modal
+   unificado del día (dayModal): sus recibos, sus notas y el compositor para
+   escribir una nueva — un solo modelo mental en vez de tres comportamientos
+   distintos por celda. Un día con varios recibos muestra el primero con la
+   insignia "×N"; se elige cuál abrir desde el mismo modal. */
 function receiptCalendarWidget(){
   if(!calendarViewMonth) calendarViewMonth = localMonthStr();
   if(calendarShowYearPicker) return yearPickerWidget();
@@ -666,13 +669,18 @@ function receiptCalendarWidget(){
     const isToday = dateStr===todayStr;
     const cover = r ? receiptImages(r)[0] : null;
     const isBlink = calendarBlinkDates.includes(dateStr);
-    const clickAttr = multi ? `data-day-receipts="${dateStr}"` : r ? `data-view-receipt="${r.id}"` : '';
+    // Notas del día (fijas + recurrentes, parser de Nudgy) — se marcan con el emoji
+    // de la primera en una burbujita, sin competir con la miniatura del recibo.
+    const dayNotes = calNotesOnDate(calNotes, dateStr);
+    // Tocar CUALQUIER día abre el modal unificado del día (recibos + notas +
+    // compositor) — antes cada celda decidía entre 3 comportamientos distintos.
     cells.push(`
-      <div class="cal-day ${r?'has-receipt':''} ${isToday?'today':''} ${isBlink?'blink':''}" ${clickAttr} ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:''}>
+      <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
         ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">`
           : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
           : `<span class="cal-day-num">${day}</span>`}
         ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
+        ${dayNotes.length ? `<span class="cal-day-note-dot">${dayNotes[0].icon||'📌'}${dayNotes.length>1?`<i>${dayNotes.length}</i>`:''}</span>` : ''}
       </div>
     `);
   }
@@ -693,16 +701,25 @@ function receiptCalendarWidget(){
   </div>`;
 }
 
-function dayReceiptsModal(){
-  if(!showDayReceipts) return '';
-  const dayReceipts = receipts.filter(r=>r.date===showDayReceipts);
-  if(dayReceipts.length===0) return '';
+/* Modal unificado de un día del calendario: recibos de ese día (si hay), notas
+   (fijas o recurrentes que caigan ahí) y el compositor de nota nueva con la vista
+   previa en vivo del parser de Nudgy — mientras escribís, muestra qué entendió
+   ("Cada mes, 9:00 am") ANTES de guardar. */
+function dayModal(){
+  if(!showDayModal) return '';
+  const dayReceipts = receipts.filter(r=>r.date===showDayModal);
+  const dayNotes = calNotesOnDate(calNotes, showDayModal);
+  const d = calDateFromStr(showDayModal);
+  const weekday = CAL_NOTE_WEEKDAYS[uiLang][d.getDay()];
+  const title = weekday.charAt(0).toUpperCase()+weekday.slice(1)+' '+d.getDate()+' '+MONTH_NAMES[uiLang][d.getMonth()]+' '+d.getFullYear();
+  const previewNow = calNotePreviewText(dayNoteDraft);
   return `
-  <div class="overlay" id="day-receipts-overlay">
+  <div class="overlay" id="day-modal-overlay">
     <div class="modal">
-      <h3 class="navy">${t('day_receipts_title')}</h3>
-      <div class="sub">${showDayReceipts}</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
+      <h3 class="navy">${title}</h3>
+      ${dayReceipts.length===0 && dayNotes.length===0 ? `<div class="sub">${t('day_modal_empty')}</div>` : ''}
+      ${dayReceipts.length ? `
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:${dayNotes.length?'16px':'4px'};">
         ${dayReceipts.map(r=>{
           const cover = receiptImages(r)[0];
           return `
@@ -717,9 +734,27 @@ function dayReceiptsModal(){
             <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:14px;flex-shrink:0;">${money(r.total)}</div>
           </div>`;
         }).join('')}
+      </div>` : ''}
+      ${dayNotes.length ? `
+      <div class="cal-note-section-title">${t('day_modal_notes_title')}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${dayNotes.map(n=>`
+        <div class="cal-note-row">
+          <span class="cal-note-emoji">${n.icon||'📌'}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="cal-note-text">${escapeHtml(n.text)}</div>
+            ${calNoteWhenText(n) ? `<div class="cal-note-when">${escapeHtml(calNoteWhenText(n))}</div>` : ''}
+          </div>
+          <button class="stock-row-x-btn" data-delete-note="${n.id}" title="${t('note_delete_title')}">✕</button>
+        </div>`).join('')}
+      </div>` : ''}
+      <div class="cal-note-composer">
+        <input id="day-note-input" type="text" value="${escapeHtml(dayNoteDraft)}" placeholder="${t('note_input_placeholder')}" autocomplete="off">
+        <button class="btn btn-primary btn-sm" id="btn-add-day-note">${t('note_add_btn')}</button>
       </div>
+      <div id="day-note-preview" class="cal-note-preview" style="${previewNow?'':'display:none;'}">✨ <span id="day-note-preview-text">${escapeHtml(previewNow)}</span></div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-close-day-receipts" style="width:100%;">${t('btn_close')}</button>
+        <button class="btn btn-ghost" id="btn-close-day-modal" style="width:100%;">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;
