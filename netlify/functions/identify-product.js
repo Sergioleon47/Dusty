@@ -51,8 +51,9 @@ Elegí la que mejor le quede (usá tu criterio, no comparación literal). Si cor
 // Modo LOTE: la misma foto puede tener VARIOS productos distintos a la vista (un
 // estante, una mesa con las compras, la alacena) y el objetivo es armar inventario
 // de una — un objeto por producto, no un solo "mejor candidato".
-function buildMultiPrompt(categoryNames) {
+function buildMultiPrompt(categoryNames, inventoryNames) {
   const hasCategories = Array.isArray(categoryNames) && categoryNames.length > 0;
+  const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
   return `Eres un sistema experto en identificar productos de insumos de restaurante o comercio a partir de una foto donde pueden verse VARIOS productos físicos distintos a la vez (un estante, una mesa, una alacena, las compras apoyadas).
 
 Identificá CADA producto DISTINTO que se vea con claridad razonable y devolvé JSON puro (sin markdown, sin backticks, sin texto extra antes o después) con este formato exacto:
@@ -65,7 +66,8 @@ Identificá CADA producto DISTINTO que se vea con claridad razonable y devolvé 
       "sku": "string o null",
       "category": "string exacto de la lista de abajo, o null",
       "confidence": "alta" | "media" | "baja",
-      "box": {"x": number, "y": number, "w": number, "h": number} o null
+      "box": {"x": number, "y": number, "w": number, "h": number} o null,
+      "matched_inventory_name": "string o null"
     }
   ]
 }
@@ -79,6 +81,11 @@ REGLAS:
 - Productos parcialmente tapados o borrosos: incluilos con tu mejor estimación y "confidence": "baja" — el usuario confirma cada uno antes de guardar.
 - No incluyas cosas que claramente no son inventario (personas, muebles del local, decoración).
 - Máximo 25 productos. Si no se reconoce NINGÚN producto, devolvé {"products": []}.
+
+${hasInventory ? `SOBRE "matched_inventory_name":
+Esta es la lista de productos que el usuario YA tiene cargados en su inventario:
+${inventoryNames.map(n => `- ${n}`).join('\n')}
+Si un producto de la foto ES el mismo que uno de esa lista (criterio: abreviaturas, marcas, tamaños — no comparación literal), poné el nombre EXACTO tal cual aparece en la lista. Si no corresponde a ninguno, null.` : `El usuario no tiene productos en su inventario todavía, así que "matched_inventory_name" va a ser null en todos.`}
 
 ${hasCategories ? `SOBRE "category":
 Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
@@ -171,7 +178,7 @@ exports.handler = async (event) => {
             role: 'user',
             content: [
               { type: 'image', source: { type: 'base64', media_type: image.mediaType || 'image/jpeg', data: image.base64 } },
-              { type: 'text', text: multi ? buildMultiPrompt(categoryNames) : buildPrompt(categoryNames, inventoryNames) }
+              { type: 'text', text: multi ? buildMultiPrompt(categoryNames, inventoryNames) : buildPrompt(categoryNames, inventoryNames) }
             ]
           }
         ]
@@ -229,7 +236,8 @@ exports.handler = async (event) => {
             sku: typeof p.sku === 'string' && p.sku.trim() ? p.sku.trim() : null,
             category: typeof p.category === 'string' && p.category.trim() ? p.category : null,
             confidence: ['alta','media','baja'].includes(p.confidence) ? p.confidence : 'baja',
-            box: boxOk ? { x: b.x, y: b.y, w: b.w, h: b.h } : null
+            box: boxOk ? { x: b.x, y: b.y, w: b.w, h: b.h } : null,
+            matched_inventory_name: typeof p.matched_inventory_name === 'string' && p.matched_inventory_name.trim() ? p.matched_inventory_name : null
           };
         });
       await recordScanUsage(ownerUid, 1, currentBillingPeriod());

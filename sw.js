@@ -15,7 +15,8 @@
 // cambios cruzados entre app-01/03/04/05/06/07.
 // v6: identificador por cámara ("¿qué producto es?").
 // v7: el trial anónimo ya no secuestra dispositivos que tuvieron cuenta real.
-const CACHE_NAME = 'patron-shell-v7';
+// v8: un solo escáner de productos (lote + identificador unificados).
+const CACHE_NAME = 'patron-shell-v8';
 
 const PRECACHE_URLS = [
   '/',

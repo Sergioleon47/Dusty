@@ -391,71 +391,48 @@ function attachEvents(){
   if(btnDashEmptyBatch) btnDashEmptyBatch.onclick=openProductBatchModal;
   const btnScanProducts=document.getElementById('btn-scan-products');
   if(btnScanProducts) btnScanProducts.onclick=openProductBatchModal;
-  const btnIdScan=document.getElementById('btn-id-scan');
-  if(btnIdScan) btnIdScan.onclick=openIdScanModal;
 
-  /* Modal identificador por cámara ("¿qué producto es este?") */
-  const idScanOverlay=document.getElementById('id-scan-overlay');
-  if(idScanOverlay){
-    idScanOverlay.onmousedown=(e)=>{ if(e.target===idScanOverlay) closeIdScanModal(); };
-    document.getElementById('btn-cancel-id-scan').onclick=closeIdScanModal;
-    const btnIdCapture=document.getElementById('btn-id-scan-capture');
-    if(btnIdCapture) btnIdCapture.onclick=()=>{
-      const frame=captureIdScanFrame();
-      if(frame) runIdScan(frame);
-      // Sin cuadro (la cámara nunca arrancó — permiso negado, sin cámara): el
-      // respaldo es la cámara nativa del sistema.
-      else document.getElementById('id-scan-file')?.click();
-    };
-    const btnIdNative=document.getElementById('btn-id-scan-native');
-    const idScanFile=document.getElementById('id-scan-file');
-    if(btnIdNative && idScanFile) btnIdNative.onclick=()=>{ idScanFile.click(); };
-    if(idScanFile) idScanFile.onchange=async (e)=>{
-      const file=e.target.files[0];
-      e.target.value='';
-      if(!file || !/^image\//.test(file.type)) return;
-      try{
-        const img = await loadImageFromFile(file);
-        runIdScan(img);
-      }catch(err){
-        idScanState='error'; idScanError=err.message||t('product_scan_error'); render();
-      }
-    };
-    const btnIdAgain=document.getElementById('btn-id-scan-again');
-    if(btnIdAgain) btnIdAgain.onclick=()=>{
-      idScanState='camera'; idScanError=''; idScanResult=null; idScanMatchedId=null; render();
-      startIdScanCamera();
-    };
-    const btnIdOpenItem=document.getElementById('btn-id-scan-open-item');
-    if(btnIdOpenItem) btnIdOpenItem.onclick=()=>{
-      const item=inventory.find(i=>i.id===idScanMatchedId);
-      closeIdScanModal();
-      if(item) openItemModal(item);
-    };
-    const btnIdAddItem=document.getElementById('btn-id-scan-add-item');
-    if(btnIdAddItem) btnIdAddItem.onclick=addIdScanResultAsItem;
-  }
-
-  /* Modal de escaneo de productos en lote (inventario desde una foto) */
+  /* Modal del escáner de productos (lote + identificador, un solo flujo) */
   const pbOverlay=document.getElementById('product-batch-overlay');
   if(pbOverlay){
     pbOverlay.onmousedown=(e)=>{ if(e.target===pbOverlay) closeProductBatchModal(); };
     document.getElementById('btn-cancel-pb').onclick=closeProductBatchModal;
     const pbFile=document.getElementById('pb-photo-file');
     const pbGalleryFile=document.getElementById('pb-photo-file-gallery');
-    const pbDropZone=document.getElementById('pb-drop-zone');
-    if(pbDropZone && pbFile) pbDropZone.onclick=()=>pbFile.click();
+    const btnPbCapture=document.getElementById('btn-pb-capture');
+    if(btnPbCapture) btnPbCapture.onclick=()=>{
+      const frame=captureScannerFrame();
+      if(frame) processProductBatchSource(frame);
+      // Sin cuadro (la cámara nunca arrancó — permiso negado, sin cámara): el
+      // respaldo es la cámara nativa del sistema.
+      else pbFile?.click();
+    };
+    const btnPbNative=document.getElementById('btn-pb-native');
+    if(btnPbNative && pbFile) btnPbNative.onclick=()=>pbFile.click();
     const btnPbGallery=document.getElementById('btn-pb-gallery');
     if(btnPbGallery && pbGalleryFile) btnPbGallery.onclick=()=>pbGalleryFile.click();
-    const onPbFile=(e)=>{
+    const onPbFile=async (e)=>{
       const file=e.target.files[0];
       e.target.value='';
-      processProductBatchPhoto(file);
+      if(!file || !/^image\//.test(file.type)) return;
+      try{
+        const img = await loadImageFromFile(file);
+        processProductBatchSource(img);
+      }catch(err){
+        stopScannerCamera();
+        pbState='error'; pbError=err.message||t('product_scan_error'); render();
+      }
     };
     if(pbFile) pbFile.onchange=onPbFile;
     if(pbGalleryFile) pbGalleryFile.onchange=onPbFile;
-    const btnPbRetry=document.getElementById('btn-pb-retry');
-    if(btnPbRetry) btnPbRetry.onclick=()=>{ pbState='idle'; pbError=''; render(); };
+    const btnPbAgain=document.getElementById('btn-pb-again');
+    if(btnPbAgain) btnPbAgain.onclick=restartScannerCamera;
+    const btnPbOpenItem=document.getElementById('btn-pb-open-item');
+    if(btnPbOpenItem) btnPbOpenItem.onclick=()=>{
+      const item=inventory.find(i=>i.id===pbMatchedId);
+      closeProductBatchModal();
+      if(item) openItemModal(item);
+    };
     const btnApplyPb=document.getElementById('btn-apply-pb');
     if(btnApplyPb) btnApplyPb.onclick=applyProductBatch;
     // Los campos de cada fila escriben directo en pbItems — el checkbox re-renderiza
@@ -902,10 +879,9 @@ document.addEventListener('keydown', (e)=>{
   if(showCategoriesModal){ closeCategoriesModal(); return; }
   if(showFeedbackModal){ closeFeedbackModal(); return; }
   if(showBarcodeScanModal){ closeBarcodeScanModal(); return; }
-  // Los dos escáneres nuevos: el identificador APAGA su cámara al cerrarse — si se
-  // cerrara por cualquier otro camino sin apagar, idScanStream quedaría vivo y el
-  // guard de render() dejaría la app entera sin redibujar nunca más.
-  if(showIdScanModal){ closeIdScanModal(); return; }
+  // El escáner de productos APAGA su cámara al cerrarse — si se cerrara por
+  // cualquier otro camino sin apagar, scannerCamStream quedaría vivo y el guard
+  // de render() dejaría la app entera sin redibujar nunca más.
   if(showProductBatchModal){ closeProductBatchModal(); return; }
   if(showWelcomeModal){ closeWelcomeModal(); return; }
 });

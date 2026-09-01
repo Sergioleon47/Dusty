@@ -106,15 +106,15 @@ let productScanRequestId=0;
    con varios productos a la vista → la IA identifica cada uno → lista de
    confirmación con checkbox por ítem → se agregan todos juntos al inventario.
    Es el camino para armar inventario SIN recibos, sin cargar uno a uno.
-   pbItems: [{name, unit, cost, sku, categoryId, confidence, selected, dupOfId}] */
-let showProductBatchModal=false, pbState='idle', pbItems=[], pbError='', pbRequestId=0;
-/* Identificador por cámara ("¿qué producto es este?"): cámara abierta dentro de la
-   app, un tap captura el cuadro y la IA dice qué es — si ya está en el inventario
-   abre directo ese producto, si es nuevo lo ofrece precargado para agregar.
-   NO es reconocimiento continuo a propósito: cada análisis es una llamada paga a
-   la IA (1 escaneo del cupo), analizar cada cuadro de video quemaría el cupo en
-   segundos. idScanState: 'camera' | 'loading' | 'matched' | 'new' | 'error' */
-let showIdScanModal=false, idScanState='camera', idScanError='', idScanResult=null, idScanMatchedId=null, idScanRequestId=0;
+   Es TAMBIÉN el identificador "¿qué producto es este?": si la foto trae UN solo
+   producto y ya está en el inventario, en vez de la lista muestra la ficha de ese
+   producto (pbState 'matched', pbMatchedId) — un único escáner para todo, pedido
+   del usuario para no llenar el encabezado de botones. NO es reconocimiento
+   continuo a propósito: cada análisis es una llamada paga a la IA (1 escaneo del
+   cupo por foto), analizar cada cuadro de video quemaría el cupo en segundos.
+   pbState: 'camera' | 'loading' | 'review' | 'matched' | 'empty' | 'error'
+   pbItems: [{name, unit, cost, sku, categoryId, confidence, photo, selected, dupOfId}] */
+let showProductBatchModal=false, pbState='camera', pbItems=[], pbError='', pbRequestId=0, pbMatchedId=null;
 // Modal de código de barras: separado del modal de producto para poder tener la
 // cámara ocupando toda la ventana mientras escanea, sin competir con el resto del
 // formulario detrás.
