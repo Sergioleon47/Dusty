@@ -141,6 +141,15 @@ function ensurePatronFirebaseReady(){
         }
         render();
       });
+    })
+    // Si la carga de los SDK falla (ej. la app se abrió sin red), la promesa
+    // rechazada NO puede quedar cacheada: cada llamada posterior devolvería el
+    // mismo rechazo aunque la conexión ya haya vuelto, y el login/escaneo
+    // quedarían muertos hasta recargar la página. Se resetea para que el
+    // próximo intento vuelva a cargar los scripts desde cero.
+    .catch(err=>{
+      firebaseLoadPromise = null;
+      throw err;
     });
   return firebaseLoadPromise;
 }
@@ -267,7 +276,20 @@ async function uploadReceiptImages(receipt){
     // syncAllToFirestore() (disparado por cualquier cambio no relacionado) volvía a
     // calcular "images: []" para este mismo recibo vía receiptForCloud() y lo pisaba
     // con un .set() sin merge — borrando la URL recién subida en la nube.
-    receipt.images = uploadedImages;
+    //
+    // Se asigna "pages" (los objetos originales, que conservan su base64 y ganaron
+    // url/path en el map de arriba) y NO "uploadedImages" (las copias limpias que
+    // van a Firestore): asignar las copias limpias tiraba el base64 local apenas
+    // terminaba la subida, y las fotos que este mismo dispositivo escaneó pasaban
+    // a depender de la red — justo lo que receiptImageSrc() ("el base64 local
+    // siempre gana") promete evitar. A Firestore sigue viajando solo la versión
+    // sin base64 (receiptForCloud y el set de abajo usan uploadedImages).
+    receipt.images = pages;
+    // Con el array "images" ya armado, la foto suelta del formato viejo queda
+    // redundante — borrarla evita guardar el mismo base64 DOS veces en localStorage
+    // (con fotos de varios MB, es la diferencia entre entrar o no en la cuota).
+    delete receipt.imageBase64;
+    delete receipt.mediaType;
     // Si el usuario borró este recibo mientras las fotos estaban subiendo (subida lenta con
     // mala señal), NO lo recreamos: un .set con merge:true sobre un doc borrado lo revive
     // como recibo fantasma (solo el campo images, sin id/fecha/total) — y ese fantasma sin
@@ -277,6 +299,11 @@ async function uploadReceiptImages(receipt){
       uploadedImages.forEach(u=>{ if(u && u.path) firebase.storage().ref(u.path).delete().catch(()=>{}); });
       return;
     }
+    // Persistir las url/path recién ganadas: como ahora las páginas conservan su
+    // base64 para siempre, si estas referencias no llegan a localStorage el próximo
+    // arranque vería "base64 sin url" y catchUpReceiptPhotoUploads() volvería a
+    // subir TODAS las fotos en cada apertura de la app.
+    saveState();
     await receiptsRef(uid).doc(receipt.id).set({images: uploadedImages}, {merge:true});
   }catch(err){
     console.error('[Dusty] no se pudieron subir las fotos del recibo '+receipt.id+' (se reintenta en la próxima conexión):', err);
