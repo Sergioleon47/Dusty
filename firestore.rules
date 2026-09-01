@@ -32,8 +32,20 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
       );
     }
-    match /users/{uid}/meta/{document=**} {
-      allow read, create, update, delete: if request.auth != null && (
+    // En meta/ viven settings, joined y team (los escribe el cliente) — y también
+    // "billing" (plan y contador de escaneos), que escribe ÚNICAMENTE el Admin SDK
+    // desde las Netlify functions (el Admin SDK saltea estas reglas). El wildcard
+    // de antes dejaba que cualquier cuenta se escribiera a sí misma plan:"equipo"
+    // y multiplicara su cupo de escaneos gratis — y como las reglas se combinan
+    // con OR (ver el comentario largo de arriba), una regla "más específica" para
+    // billing no podía revocarlo: la exclusión tiene que vivir en ESTA condición.
+    // Leer billing sí se permite (una futura pantalla de "tu plan" lo necesita).
+    match /users/{uid}/meta/{doc} {
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+      allow create, update, delete: if doc != 'billing' && request.auth != null && (
         request.auth.uid == uid ||
         exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
       );
