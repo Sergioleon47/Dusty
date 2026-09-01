@@ -14,7 +14,8 @@
 // v5: escaneo de productos en lote (inventario desde una foto) — de nuevo
 // cambios cruzados entre app-01/03/04/05/06/07.
 // v6: identificador por cámara ("¿qué producto es?").
-const CACHE_NAME = 'patron-shell-v6';
+// v7: el trial anónimo ya no secuestra dispositivos que tuvieron cuenta real.
+const CACHE_NAME = 'patron-shell-v7';
 
 const PRECACHE_URLS = [
   '/',

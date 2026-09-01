@@ -620,7 +620,11 @@ function attachEvents(){
     if(btnScanProduct && itemScanPhotoFile) btnScanProduct.onclick=()=>{
       // Trial anónimo: la cuenta se crea en segundo plano mientras el usuario elige
       // la foto; identifyProductFromPhoto() la espera antes de llamar a la API.
-      if(!currentUser){ ensureTrialAccount().catch(()=>{}); }
+      // Cuenta real desconectada → login de siempre (ver everHadRealAccount).
+      if(!currentUser){
+        if(everHadRealAccount()){ ensurePatronFirebaseReady().catch(()=>{}); openAuthModal(t('scan_requires_account')); return; }
+        ensureTrialAccount().catch(()=>{});
+      }
       itemScanPhotoFile.click();
     };
     if(itemScanPhotoFile) itemScanPhotoFile.onchange=async (e)=>{
@@ -898,6 +902,11 @@ document.addEventListener('keydown', (e)=>{
   if(showCategoriesModal){ closeCategoriesModal(); return; }
   if(showFeedbackModal){ closeFeedbackModal(); return; }
   if(showBarcodeScanModal){ closeBarcodeScanModal(); return; }
+  // Los dos escáneres nuevos: el identificador APAGA su cámara al cerrarse — si se
+  // cerrara por cualquier otro camino sin apagar, idScanStream quedaría vivo y el
+  // guard de render() dejaría la app entera sin redibujar nunca más.
+  if(showIdScanModal){ closeIdScanModal(); return; }
+  if(showProductBatchModal){ closeProductBatchModal(); return; }
   if(showWelcomeModal){ closeWelcomeModal(); return; }
 });
 

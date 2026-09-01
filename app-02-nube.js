@@ -54,7 +54,11 @@ function ensurePatronFirebaseReady(){
       firebase.auth().onAuthStateChanged(user=>{
         currentUser = user;
         if(user){
-          try{ localStorage.setItem('patron_had_session','1'); }catch(e){}
+          try{
+            localStorage.setItem('patron_had_session','1');
+            // Ver everHadRealAccount(): solo cuentas REALES dejan la marca permanente.
+            if(!user.isAnonymous) localStorage.setItem('patron_ever_real_account','1');
+          }catch(e){}
           showAuthModal = false; authError=''; authLoading=false;
           // Antes de reconciliar hay que saber si esta cuenta se unió al inventario
           // compartido de otra persona (ver sección de equipo más abajo) — si es así,
@@ -163,13 +167,36 @@ function ensurePatronFirebaseReady(){
 // netlify/functions/lib/patron-admin.js). Cuando el trial se acaba, la cuenta se
 // CONVIERTE en una real con email+PIN vía linkWithCredential — mismo uid, así que
 // todo lo que escaneó/cargó durante la prueba se conserva sin migrar nada.
-// isTrialUser(): sin cuenta, o con cuenta anónima — los límites del trial aplican
-// igual en los dos casos (el primero es solo "todavía ni escaneó nada").
+// patron_ever_real_account: marca PERMANENTE de que este dispositivo alguna vez
+// entró con una cuenta real (no anónima). A diferencia de patron_had_session (que
+// se borra al cerrar sesión), esta nunca se borra — salvo al eliminar la cuenta.
+// Es la que evita el peor accidente del trial: alguien con cuenta real que quedó
+// desconectado tocaba "Escanear" y la app le creaba EN SILENCIO una cuenta anónima
+// vacía — de golpe "desaparecían" sus recibos e inventario (seguían en la nube,
+// pero el dispositivo estaba mirando otra cuenta). Con la marca, ese caso vuelve
+// al login de siempre; el trial anónimo queda solo para dispositivos que jamás
+// tuvieron cuenta.
+function everHadRealAccount(){
+  try{ return !!localStorage.getItem('patron_ever_real_account'); }catch(e){ return false; }
+}
+// isTrialUser(): con cuenta anónima, o sin cuenta EN UN DISPOSITIVO QUE NUNCA TUVO
+// una real — a alguien con cuenta real desconectado no le aplican los límites del
+// trial ni sus mensajes de "guardá tu cuenta" (ya la tiene: le toca "iniciá sesión").
 const TRIAL_INVENTORY_LIMIT = 30;
-function isTrialUser(){ return !currentUser || currentUser.isAnonymous; }
+function isTrialUser(){
+  if(currentUser) return currentUser.isAnonymous;
+  return !everHadRealAccount();
+}
 let trialSigninPromise = null;
 function ensureTrialAccount(){
   if(currentUser) return Promise.resolve(currentUser);
+  // Red de seguridad (los call sites ya chequean antes de llamar): jamás crear una
+  // cuenta anónima en un dispositivo que tuvo cuenta real.
+  if(everHadRealAccount()){
+    const e = new Error('real account exists on this device');
+    e.code = 'trial/real-account-exists';
+    return Promise.reject(e);
+  }
   if(trialSigninPromise) return trialSigninPromise;
   trialSigninPromise = ensurePatronFirebaseReady()
     .then(()=>firebase.auth().signInAnonymously())

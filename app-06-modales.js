@@ -62,6 +62,9 @@ async function performAccountDeletion(){
     joinedOwnerUid=null; joinedOwnerEmail=''; lastSyncedUid=null;
     try{
       localStorage.removeItem('patron_had_session');
+      // La marca permanente de "este dispositivo tuvo cuenta real" sí se borra al
+      // ELIMINAR la cuenta (ya no existe) — es el único lugar donde corresponde.
+      localStorage.removeItem('patron_ever_real_account');
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
     }catch(e){}
@@ -879,7 +882,12 @@ function ensureBarcodeLibReady(){
 }
 function openBarcodeScanModal(){
   if(!currentUser){
-    // Igual que en openScanModal: trial anónimo en segundo plano, el modal abre ya.
+    // Igual que en openScanModal: cuenta real desconectada → login; si no, trial.
+    if(everHadRealAccount()){
+      ensurePatronFirebaseReady().catch(()=>{});
+      openAuthModal(t('scan_requires_account'));
+      return;
+    }
     ensureTrialAccount().catch(()=>{});
   }
   barcodeScanState='scanning'; barcodeScanError='';
@@ -1130,6 +1138,14 @@ function openScanModal(){
   // encontrara la URL podía escanear recibos sin límite y sin haber iniciado sesión
   // nunca, y la factura de la API le llegaba igual al dueño de la app.
   if(!currentUser){
+    // Dispositivo que ya tuvo cuenta real y está desconectado: login de siempre,
+    // NUNCA el trial anónimo — forkearlo en silencio a una cuenta vacía hacía
+    // "desaparecer" sus recibos e inventario (ver everHadRealAccount).
+    if(everHadRealAccount()){
+      ensurePatronFirebaseReady().catch(()=>{});
+      openAuthModal(t('scan_requires_account'));
+      return;
+    }
     // Trial sin fricción: en vez de frenar con un login, se arranca una cuenta
     // anónima en segundo plano (ver ensureTrialAccount) y el modal de escaneo se
     // abre YA. La llamada real a la API (callReceiptReader) espera a que la cuenta
@@ -1441,7 +1457,7 @@ function cropToBase64(img, box, maxSide, quality){
 async function identifyProductsFromPhoto(image){
   if(!currentUser){
     try{ await ensureTrialAccount(); }
-    catch(e){ throw new Error(t('err_scan_no_connection')); }
+    catch(e){ throw new Error(t(e && e.code==='trial/real-account-exists' ? 'err_scan_auth_required' : 'err_scan_no_connection')); }
   }
   let idToken;
   try{
@@ -1486,8 +1502,13 @@ async function identifyProductsFromPhoto(image){
 
 function openProductBatchModal(){
   if(!currentUser){
-    // Mismo trato que el escaneo de recibos: trial anónimo en segundo plano,
-    // el modal abre al instante.
+    // Mismo trato que el escaneo de recibos: cuenta real desconectada → login;
+    // si no, trial anónimo en segundo plano y el modal abre al instante.
+    if(everHadRealAccount()){
+      ensurePatronFirebaseReady().catch(()=>{});
+      openAuthModal(t('scan_requires_account'));
+      return;
+    }
     ensureTrialAccount().catch(()=>{});
   }
   pbRequestId++;
@@ -1578,6 +1599,12 @@ function stopIdScanCamera(){
 
 function openIdScanModal(){
   if(!currentUser){
+    // Mismo criterio que los otros escáneres (ver openScanModal).
+    if(everHadRealAccount()){
+      ensurePatronFirebaseReady().catch(()=>{});
+      openAuthModal(t('scan_requires_account'));
+      return;
+    }
     ensureTrialAccount().catch(()=>{});
   }
   idScanRequestId++;
@@ -1937,7 +1964,7 @@ async function callReceiptReader(images, multi){
   // usuario ya sacó la foto, así que casi siempre ya está lista.
   if(!currentUser){
     try{ await ensureTrialAccount(); }
-    catch(e){ throw new Error(t('err_scan_no_connection')); }
+    catch(e){ throw new Error(t(e && e.code==='trial/real-account-exists' ? 'err_scan_auth_required' : 'err_scan_no_connection')); }
   }
   let idToken;
   try{
@@ -2011,7 +2038,7 @@ async function identifyProductFromPhoto(image){
   // Mismo trato que callReceiptReader: sin sesión, se espera la cuenta anónima del trial.
   if(!currentUser){
     try{ await ensureTrialAccount(); }
-    catch(e){ throw new Error(t('err_scan_no_connection')); }
+    catch(e){ throw new Error(t(e && e.code==='trial/real-account-exists' ? 'err_scan_auth_required' : 'err_scan_no_connection')); }
   }
   let idToken;
   try{
