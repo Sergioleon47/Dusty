@@ -16,7 +16,8 @@
 // v6: identificador por cámara ("¿qué producto es?").
 // v7: el trial anónimo ya no secuestra dispositivos que tuvieron cuenta real.
 // v8: un solo escáner de productos (lote + identificador unificados).
-const CACHE_NAME = 'patron-shell-v8';
+// v9: órbita de iconos alrededor del botón de escanear del dashboard.
+const CACHE_NAME = 'patron-shell-v9';
 
 const PRECACHE_URLS = [
   '/',

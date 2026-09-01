@@ -15,6 +15,9 @@ const LINE_ICONS = {
   printer: `<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>`,
   share: `<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>`,
   chart: `<line x1="6" y1="20" x2="6" y2="15"/><line x1="12" y1="20" x2="12" y2="9"/><line x1="18" y1="20" x2="18" y2="4"/>`,
+  barcode: `<line x1="4" y1="5" x2="4" y2="19"/><line x1="8" y1="5" x2="8" y2="19"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/><line x1="20" y1="5" x2="20" y2="19"/>`,
+  bolt: `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`,
+  tag: `<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/>`,
 };
 function lineIcon(name, size){
   const s = size||18;
@@ -381,7 +384,22 @@ function dashboardView(){
         </button>`}
       <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
     </div>
-    <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;">
+    <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+      <!-- Órbita decorativa: todo lo que Dusty puede escanear girando despacio
+           alrededor del botón (recibos, productos, códigos de barras, servicios,
+           precios). Tres capas de span por burbuja: la de afuera la posiciona en
+           su ángulo, la del medio deshace ese ángulo (estático), y la de adentro
+           contra-rota animada — así los íconos quedan siempre derechos mientras
+           la órbita entera gira. aria-hidden: es puro adorno, el botón ya se
+           anuncia solo. -->
+      <div class="scan-orbit" aria-hidden="true">
+        ${[['receipt','var(--sky-soft)','var(--sky-ink)',0],['box','var(--saffron-soft)','var(--saffron-ink)',72],['barcode','var(--navy-wash)','var(--navy-ink)',144],['bolt','var(--basil-soft)','var(--basil-ink)',216],['tag','var(--tomato-soft)','var(--tomato-ink)',288]].map(([ic,bg,fg,deg])=>`
+        <span class="so-arm" style="transform:rotate(${deg}deg) translate(var(--so-r));">
+          <span class="so-unrot" style="transform:rotate(${-deg}deg);">
+            <span class="so-bubble" style="background:${bg};color:${fg};">${lineIcon(ic,13)}</span>
+          </span>
+        </span>`).join('')}
+      </div>
       <div class="scan-fab-mini scan-fab-mini-lg">
         <div class="scan-fab-ring"></div>
         <div class="scan-fab-ring delay"></div>

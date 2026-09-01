@@ -150,6 +150,18 @@
     animation:fabPulse 1.8s cubic-bezier(0.3,0.6,0.4,1) infinite; z-index:1;
   }
   .scan-fab-ring.delay{animation-delay:.6s;}
+  /* Órbita de "todo lo que Dusty escanea" alrededor del botón de escanear del
+     dashboard (ver el comentario en el markup, app-05). El radio vive en --so-r
+     para poder achicarlo por media query sin tocar los transforms inline. */
+  .scan-orbit{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;animation:orbitSpin 40s linear infinite;--so-r:56px;}
+  .so-arm{position:absolute;display:flex;}
+  .so-unrot{display:flex;animation:orbitSpinRev 40s linear infinite;}
+  .so-bubble{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(32,33,36,.14);}
+  @keyframes orbitSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  @keyframes orbitSpinRev{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
+  @media (prefers-reduced-motion: reduce){
+    .scan-orbit, .so-unrot{animation:none;}
+  }
   @keyframes fabPulse{
     0%{transform:scale(1);opacity:.65;}
     100%{transform:scale(1.9);opacity:0;}
