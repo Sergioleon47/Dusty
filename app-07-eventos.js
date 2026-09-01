@@ -886,6 +886,10 @@ function attachEvents(){
     if(invoiceTotalInp) invoiceTotalInp.oninput=(e)=>{ const v=parseFloat(e.target.value); scanInvoiceTotal=isNaN(v)?null:v; };
     const dupCheck=document.getElementById('scan-dup-confirm');
     if(dupCheck) dupCheck.onchange=(e)=>{ scanDuplicateConfirmed=e.target.checked; render(); };
+    // Sin render(): solo guarda la decisión — redibujar acá haría perder el scroll
+    // de una lista de confirmación larga por marcar/desmarcar un checkbox.
+    const payReminderChk=document.getElementById('scan-pay-reminder');
+    if(payReminderChk) payReminderChk.onchange=(e)=>{ scanPayReminder=e.target.checked; };
 
     const applyBtn=document.getElementById('btn-apply-scan');
     if(applyBtn) applyBtn.onclick=applyScanResults;

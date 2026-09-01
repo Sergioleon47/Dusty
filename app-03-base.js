@@ -262,6 +262,10 @@ const I18N = {
     note_prev_every_hour:'Cada hora', note_prev_every_n_hours:'Cada {n} horas',
     note_prev_until:'hasta',
     activity_note_created:'agregó la nota', activity_note_deleted:'eliminó la nota',
+    // Fase 2: recordatorio de pago al escanear un recibo de servicio
+    scan_pay_reminder_label:'Recordarme este pago cada mes',
+    scan_pay_reminder_sub:'Se marca en el calendario todos los meses, el día {d} — lo ves en la pestaña Recibos.',
+    scan_pay_reminder_exists:'Ya hay un recordatorio mensual para {s} en el calendario.',
     price_unit_mismatch:'unidad distinta', price_unit_mismatch_hint:'Las últimas dos compras de este producto se registraron en unidades distintas (ej. libras vs. cajas), así que no se puede comparar el precio de forma confiable.',
     price_implausible:'revisar precio', price_implausible_hint:'Este cambio es demasiado grande para ser un precio real (probablemente una cantidad o un precio mal leído en algún recibo viejo) — abrí el historial de precios de este producto para encontrar y corregir la compra con el dato raro.',
     ph_excluded_units:'{n} compra(s) en otra unidad no se incluyen acá, para no comparar precios que no son compatibles.',
@@ -517,6 +521,10 @@ const I18N = {
     note_prev_every_hour:'Every hour', note_prev_every_n_hours:'Every {n} hours',
     note_prev_until:'until',
     activity_note_created:'added the note', activity_note_deleted:'deleted the note',
+    // Fase 2: payment reminder when scanning a service receipt
+    scan_pay_reminder_label:'Remind me of this payment every month',
+    scan_pay_reminder_sub:'Marked on the calendar every month on day {d} — see it in the Receipts tab.',
+    scan_pay_reminder_exists:'There is already a monthly reminder for {s} on the calendar.',
     price_unit_mismatch:'unit changed', price_unit_mismatch_hint:"The last two purchases of this product were logged in different units (e.g. pounds vs. cases), so the price can't be compared reliably.",
     price_implausible:'check price', price_implausible_hint:"This change is too large to be a real price (probably a misread quantity or price on an old receipt) — open this product's price history to find and fix the purchase with the odd number.",
     ph_excluded_units:"{n} purchase(s) in a different unit aren't included here, to avoid comparing prices that aren't compatible.",

@@ -153,4 +153,9 @@ try{ lastSeenActivityAt = localStorage.getItem('patron_activity_seen'); }catch(e
 let showActivityModal = false;
 let scanDuplicateOf=null; // receipt existente si se detecta posible duplicado
 let scanDuplicateConfirmed=false;
+/* Fase 2 Nudgy: si el recibo escaneado es de un SERVICIO (luz, internet, renta —
+   la IA lo marca con un único item de unidad "servicio"), la pantalla de
+   confirmación ofrece crear un recordatorio de pago mensual en el calendario,
+   pre-marcado. Se resetea por recibo en applyParsedReceiptToScanState. */
+let scanPayReminder = true;
 

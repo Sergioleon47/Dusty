@@ -1372,6 +1372,7 @@ function scanModal(){
         }).join('')}
         ${scanExtracted.length===0 ? `<div style="font-size:12.5px;color:var(--ink-soft);padding:10px 2px;">${t('scan_no_products_left')}</div>` : ''}
         <button class="btn btn-ghost btn-sm" id="btn-add-scan-item" style="margin-top:4px;">${t('btn_add_product_manually')}</button>
+        ${scanPayReminderHtml()}
       ` : ''}
 
       <div class="modal-actions">
@@ -2135,6 +2136,10 @@ function finishScanBatch(){
    el mismo camino ya probado que un recibo suelto, incluidas todas las alertas. */
 function applyParsedReceiptToScanState(parsed){
     scanSupplier = parsed.supplier || '';
+    // Cada recibo nuevo (incluido cada uno de la cola en modo lote) arranca con la
+    // oferta de recordatorio de pago pre-marcada — es POR recibo, no una preferencia
+    // global: desmarcarla en la boleta de luz no debe apagarla para la de internet.
+    scanPayReminder = true;
     // La fecha la lee la IA de la foto: si no es una YYYY-MM-DD real, se usa la de hoy en
     // vez de guardar basura (que además rompería monthKey y el orden por fecha, y —sin el
     // escape que ya agregamos en las vistas— sería un vector de XSS almacenado).
@@ -2260,8 +2265,42 @@ function applyParsedReceiptToScanState(parsed){
     scanDuplicateConfirmed = false;
 }
 
+/* Fase 2 Nudgy: ¿este escaneo es un recibo de servicio, y ya existe (o no) un
+   recordatorio mensual para este proveedor? La IA marca los servicios con un único
+   item de unidad "servicio" (ver el prompt en netlify/functions/extract-receipt.js),
+   así que la detección es leer eso — sin heurísticas de nombres acá. El "ya existe"
+   se decide por paySupplierKey (proveedor normalizado) guardado en la nota: escanear
+   la boleta de luz del mes que viene no debe crear un segundo recordatorio igual. */
+function scanServiceInfo(){
+  const svc = scanExtracted.find(it=>it && it.unit==='servicio');
+  if(!svc) return null;
+  const supplier = (scanSupplier||'').trim();
+  const key = (supplier || svc.rawName || '').toLowerCase().trim();
+  const existing = key ? calNotes.find(n=>n.paySupplierKey===key && n.recurring) : null;
+  return {supplier: supplier || (svc.rawName||''), key, existing};
+}
+function scanPayReminderHtml(){
+  const info = scanServiceInfo();
+  if(!info || !info.key) return '';
+  if(info.existing){
+    return `<div class="status-pill-success" style="margin:10px 0 0;">✓ ${t('scan_pay_reminder_exists').replace('{s}', escapeHtml(info.supplier))}</div>`;
+  }
+  const day = parseInt(scanDate.slice(8,10),10);
+  return `
+  <label class="scan-pay-reminder">
+    <input type="checkbox" id="scan-pay-reminder" ${scanPayReminder?'checked':''}>
+    <span>
+      <span class="spr-title">🔔 ${t('scan_pay_reminder_label')}</span>
+      <span class="spr-sub">${t('scan_pay_reminder_sub').replace('{d}', day)}</span>
+    </span>
+  </label>`;
+}
+
 function applyScanResults(){
   if(scanDuplicateOf && !scanDuplicateConfirmed) return; // seguridad extra, el botón ya debería estar deshabilitado
+  // La info de servicio se captura ANTES del forEach de abajo — después de guardar,
+  // partes del estado del escaneo ya pueden haber rotado (modo lote).
+  const payInfo = scanServiceInfo();
 
   const appliedItems = [];
   const createdPurchaseIds = [];
@@ -2336,6 +2375,19 @@ function applyScanResults(){
     // plano — si falla (sin red, etc.) el recibo ya quedó guardado igual, y la
     // próxima conexión reintenta solo (ver catchUpReceiptPhotoUploads).
     if(currentUser) uploadReceiptImages(newReceipt);
+  }
+  /* Fase 2 Nudgy: recibo de servicio confirmado + oferta aceptada → recordatorio
+     mensual en el calendario, anclado al DÍA DEL RECIBO (la boleta llega más o
+     menos el mismo día cada mes) — reusa entera la infraestructura de notas de la
+     Fase 1: pinta el calendario, sincroniza al equipo y aparece en el historial. */
+  if(appliedItems.length>0 && payInfo && !payInfo.existing && payInfo.key && scanPayReminder){
+    const label = (uiLang==='en' ? 'Pay ' : 'Pagar ') + payInfo.supplier;
+    calNotes.push({
+      id: uid('note'), text: label, date: null, hour: null, minute: null,
+      recurring: {type:'everyNMonths', n:1}, anchorDate: scanDate, icon: '💳',
+      paySupplierKey: payInfo.key, createdAt: new Date().toISOString()
+    });
+    logActivity('note_created', label);
   }
   saveState();
   if(appliedItems.length>0) logActivity('scan_applied', '', String(appliedItems.length));

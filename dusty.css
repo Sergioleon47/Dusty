@@ -444,6 +444,12 @@
      Nudgy: mostrar qué se entendió ANTES de guardar. Se actualiza por tecla tocando
      el DOM directo, sin render() (ver attachEvents). */
   .cal-note-preview{margin-top:8px;font-size:12px;font-weight:700;color:var(--basil-ink);background:var(--basil-soft);border-radius:8px;padding:7px 10px;}
+  /* Oferta de recordatorio de pago (Fase 2) en la confirmación del escaneo — un
+     label entero tocable, no solo el checkbox de 18px. */
+  .scan-pay-reminder{display:flex;align-items:flex-start;gap:10px;background:var(--basil-soft);border:1px solid color-mix(in srgb, var(--basil) 30%, var(--panel));border-radius:10px;padding:11px 12px;margin-top:12px;cursor:pointer;}
+  .scan-pay-reminder input{width:18px;height:18px;flex-shrink:0;margin:1px 0 0;accent-color:var(--basil);cursor:pointer;}
+  .scan-pay-reminder .spr-title{display:block;font-size:13px;font-weight:700;color:var(--basil-ink);}
+  .scan-pay-reminder .spr-sub{display:block;font-size:11.5px;color:var(--ink-mid);margin-top:2px;line-height:1.4;}
 
   /* MODAL */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.62);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;animation:overlayFadeIn .4s ease;}

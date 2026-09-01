@@ -23,7 +23,9 @@
 // v12: notas de calendario con parser de lenguaje natural (nudgy-core.js NUEVO en
 // el precache + cambios cruzados en app-01..07) — sin el bump, un cliente con el
 // shell viejo cacheado cargaría las vistas nuevas sin el parser y rompería.
-const CACHE_NAME = 'patron-shell-v12';
+// v13: recordatorio de pago mensual al escanear recibos de servicio (Fase 2 Nudgy)
+// — cambios cruzados en app-01/03/06/07 + dusty.css.
+const CACHE_NAME = 'patron-shell-v13';
 
 const PRECACHE_URLS = [
   '/',
