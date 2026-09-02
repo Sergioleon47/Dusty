@@ -737,15 +737,6 @@
   @media (prefers-reduced-motion: reduce){
     .shelf-scan-fab::after{animation:none;opacity:.5;}
   }
-  /* Gemelo naranja del FAB del escáner: abre el hub de Producción. Mismo tamaño y
-     mismo palpitar, solo cambia el acento — la simetría entre ambos es a propósito
-     (pedido del usuario). El delay desfasa la respiración medio ciclo para que no
-     palpiten al unísono como una alarma. */
-  .shelf-scan-fab.prod{background:linear-gradient(145deg, var(--navy-soft), var(--navy) 65%);}
-  .shelf-scan-fab.prod::after{
-    border-color:color-mix(in srgb, var(--navy) 45%, transparent);
-    animation-delay:1.4s;
-  }
 
   /* Fila de receta en la tarjeta de Producción — misma anatomía que las filas de
      stock (anillo + nombre + caption) para que se lean como parte de la misma app. */

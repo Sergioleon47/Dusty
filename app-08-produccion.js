@@ -100,25 +100,18 @@ function matchStockReading(p){
 }
 
 /* ---------- VISTA: sección en Inventario ---------- */
-/* Los dos botones REDONDOS gemelos junto al título de Inventario (pedido del
-   usuario: sin tarjetas ni banners — mismo tamaño, mismos efectos de palpitar,
-   bien simétricos). El verde abre el escáner de estante; el naranja de marca abre
-   el hub de Producción (las recetas viven en su propio modal desde acá). El
-   title/aria-label conservan la explicación que antes iba en texto visible. */
+/* El escáner de estante como ÚNICO botón redondo junto al título de Inventario
+   (mismo lenguaje que el FAB del Dashboard). Producción entra como un botón normal
+   más en la fila de acciones (ver inv-header-actions en app-05) — sin elementos
+   visuales nuevos compitiendo con el FAB. */
 function shelfScanFab(){
   if(inventory.length === 0) return '';
   return `
-  <span style="display:flex;gap:12px;align-items:center;flex-shrink:0;">
-    <button type="button" class="shelf-scan-fab prod" id="btn-production-hub"
-      title="${t('prod_section_title')}" aria-label="${t('prod_section_title')}">
-      ${lineIcon('tag',22)}
-    </button>
-    <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
-      title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
-      aria-label="${t('shelf_banner_title')}">
-      ${lineIcon('camera',22)}
-    </button>
-  </span>`;
+  <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
+    title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
+    aria-label="${t('shelf_banner_title')}">
+    ${lineIcon('camera',22)}
+  </button>`;
 }
 
 /* Hub de Producción: la tarjeta que antes vivía en la pestaña, ahora como modal —
