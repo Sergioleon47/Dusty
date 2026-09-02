@@ -1,6 +1,9 @@
 # Plan: rediseño de la sincronización (escrituras por-doc + merge de lápidas)
 
-**Fecha:** 2026-09-01 · **Estado:** planificado, sin empezar
+**Fecha:** 2026-09-01 · **Estado:** etapa D + los 3 satélites HECHOS (2026-09-02,
+commit 91bcd2c); quedan A → B → C → E (el corazón: dirty set + escrituras
+por-doc + reconcile por contenido + snapshots granulares), a hacer en una
+sesión propia con el protocolo de prueba de dos perfiles de abajo.
 **Motivación:** la auditoría del 2026-09-01 encontró que el sync actual puede
 perder ediciones en silencio. Los tres problemas comparten una sola raíz:
 **el estado se sincroniza por reemplazo completo, sin comparar contenido.**
