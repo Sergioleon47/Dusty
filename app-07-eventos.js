@@ -7,9 +7,17 @@
 // cualquier onclick que ya se les haya asignado en attachEvents() sigue funcionando
 // igual con Enter/Espacio.
 function makeKeyboardClickable(el){
-  if(el.hasAttribute('tabindex')) return;
+  // Los atributos se re-ponen SIEMPRE: las plantillas no los emiten, así que
+  // morphdom se los quita al nodo conservado en cada parcheo (morphAttrs borra
+  // todo atributo que no esté en el HTML nuevo). Por eso mismo el guard de "ya
+  // cableado" NO puede vivir en el atributo tabindex — vivía ahí, y como morphdom
+  // lo borraba, cada render volvía a pasar el guard y apilaba OTRO listener de
+  // keydown en el mismo nodo (Enter disparaba N clicks tras N renders). El guard
+  // vive ahora en una propiedad del nodo, que morphdom no toca.
   el.setAttribute('tabindex','0');
   if(!el.hasAttribute('role')) el.setAttribute('role','button');
+  if(el.__kbClickable) return;
+  el.__kbClickable = true;
   el.addEventListener('keydown', e=>{
     if(e.key==='Enter' || e.key===' '){ e.preventDefault(); el.click(); }
   });
