@@ -760,6 +760,10 @@ function dayModal(){
   </div>`;
 }
 
+// Tamaño de la ventana de recibos (ver recibosView) — arranca en un paso y crece
+// de a pasos con "Mostrar más". El buscador la resetea (app-07).
+const RECEIPTS_WINDOW_STEP = 60;
+let receiptsShownLimit = RECEIPTS_WINDOW_STEP;
 function recibosView(){
   const query = receiptSearchQuery.trim().toLowerCase();
   const filtered = receipts.filter(r=>{
@@ -770,10 +774,18 @@ function recibosView(){
   });
   const sorted = [...filtered].sort((a,b)=>new Date(b.date)-new Date(a.date));
 
+  /* Ventana: solo se renderizan los primeros N recibos (cada tarjeta son ~10 nodos
+     de DOM y las recientes llevan su foto en base64 dentro del HTML — con cientos
+     de recibos, construir TODO en cada render se sentía pesado en el teléfono).
+     "Mostrar más" agranda la ventana de a tandas; el buscador resetea la ventana
+     (ver el handler del buscador en app-07). */
+  const windowed = sorted.slice(0, receiptsShownLimit);
+  const hiddenCount = sorted.length - windowed.length;
+
   // Agrupados por mes (más reciente primero) para que se puedan ubicar rápido en vez
   // de scrollear una sola lista larga, igual que ya se hace con el gasto mensual.
   const groups = [];
-  sorted.forEach(r=>{
+  windowed.forEach(r=>{
     const key = monthKey(r.date);
     let g = groups.find(g=>g.key===key);
     if(!g){ g = {key, label: monthLabel(key, uiLang), receipts: [], total: 0}; groups.push(g); }
@@ -815,7 +827,11 @@ function recibosView(){
         `;
         }).join('')}
       </div>
-    `).join(''))
+    `).join('') + (hiddenCount>0 ? `
+    <div style="text-align:center;margin:18px 0 6px;">
+      <button type="button" class="btn btn-ghost" id="btn-show-more-receipts">${t('rec_show_more').replace('{n}', Math.min(hiddenCount, RECEIPTS_WINDOW_STEP))}</button>
+      <div class="helper-note" style="margin-top:6px;">${t('rec_showing_n').replace('{shown}', windowed.length).replace('{total}', sorted.length)}</div>
+    </div>` : ''))
   }
   `;
 }

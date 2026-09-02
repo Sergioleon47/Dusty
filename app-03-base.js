@@ -330,6 +330,7 @@ const I18N = {
     shelf_conf_alta:'confianza alta', shelf_conf_media:'revisar', shelf_conf_baja:'verificá esto',
     shelf_fill_note:'~{p}% del envase', shelf_sticker_note:'con marca {c}',
     shelf_increase_blocked:'La lectura ({n}) es mayor que el stock registrado ({c}) — este escáner solo descuenta. Si el stock real es mayor, editá el producto a mano.',
+    rec_show_more:'Mostrar {n} más', rec_showing_n:'Mostrando {shown} de {total} recibos',
     srv_auth_required:'Iniciá sesión para escanear.',
     srv_bad_request:'La app mandó un pedido inválido — actualizá la página e intentá de nuevo.',
     srv_too_many_pages:'Máximo 5 páginas por recibo.',
@@ -658,6 +659,7 @@ const I18N = {
     shelf_conf_alta:'high confidence', shelf_conf_media:'double-check', shelf_conf_baja:'verify this',
     shelf_fill_note:'~{p}% of container', shelf_sticker_note:'marked {c}',
     shelf_increase_blocked:'The reading ({n}) is higher than the recorded stock ({c}) — this scanner only deducts. If your real stock is higher, edit the product by hand.',
+    rec_show_more:'Show {n} more', rec_showing_n:'Showing {shown} of {total} receipts',
     srv_auth_required:'Sign in to scan.',
     srv_bad_request:'The app sent an invalid request — refresh the page and try again.',
     srv_too_many_pages:'A receipt can have at most 5 pages.',
@@ -953,6 +955,18 @@ function importData(file){
     deletedPurchaseIds = deletedPurchaseIds.filter(id=>!restoredPur.has(id));
     const restoredRecipes = new Set((data.recipes||[]).map(r=>r.id));
     deletedRecipeIds = deletedRecipeIds.filter(id=>!restoredRecipes.has(id));
+    // Des-entierro en la NUBE (ver pendingUntombstone en app-02): quitar la lápida
+    // local no alcanza con lápidas por unión — la copia de la nube la re-agregaba
+    // y el doc restaurado se re-borraba solo en segundos. Se anotan TODOS los ids
+    // del backup (arrayRemove de un id que no está es un no-op) y el próximo sync
+    // los saca de los arrays remotos.
+    markRestoredIds({
+      deletedInventoryIds: Array.from(restoredInv),
+      deletedReceiptIds: Array.from(restoredRec),
+      deletedPurchaseIds: Array.from(restoredPur),
+      deletedCalNoteIds: (data.calNotes||[]).map(n=>n && n.id).filter(Boolean),
+      deletedRecipeIds: Array.from(restoredRecipes)
+    });
     saveState();
     render();
     showToast(t('import_success'), 'success');

@@ -22,8 +22,78 @@ function makeKeyboardClickable(el){
     if(e.key==='Enter' || e.key===' '){ e.preventDefault(); el.click(); }
   });
 }
+/* ===== Accesibilidad de modales, genérica para los ~24 (sin tocar plantillas) =====
+   - role="dialog" + aria-modal en cada .modal (atributos idempotentes por render;
+     morphdom puede quitarlos al parchear, así que se re-aplican como los tabindex
+     de makeKeyboardClickable).
+   - Al ABRIR un modal, el foco entra a su primer control y se recuerda dónde
+     estaba; al cerrarse el último modal, el foco vuelve ahí — sin esto, un usuario
+     de teclado/lector de pantalla quedaba "detrás" del overlay.
+   - Trampa de Tab (listener de document, una sola vez): con un modal abierto, Tab
+     circula solo entre los controles del modal DE ARRIBA. */
+let lastOverlayCount = 0;
+let focusBeforeModal = null;
+function modalFocusables(overlay){
+  return [...overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter(el=>!el.disabled && el.offsetParent!==null);
+}
+function topOverlay(){
+  const all = document.querySelectorAll('.overlay');
+  return all.length ? all[all.length-1] : null;
+}
+function manageModalA11y(){
+  const overlays = document.querySelectorAll('.overlay');
+  overlays.forEach(ov=>{
+    const modal = ov.querySelector('.modal');
+    if(modal){
+      modal.setAttribute('role','dialog');
+      modal.setAttribute('aria-modal','true');
+    }
+  });
+  const count = overlays.length;
+  if(count > lastOverlayCount){
+    // Se abrió un modal: recordar el foco de la página y entrar al modal.
+    if(lastOverlayCount === 0) focusBeforeModal = document.activeElement;
+    const top = topOverlay();
+    const focusables = top ? modalFocusables(top) : [];
+    // Preferir el primer campo de texto (lo que el usuario vino a hacer); si no,
+    // el primer control que no sea el botón de cerrar.
+    const target = focusables.find(el=>/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
+      || focusables.find(el=>!el.classList.contains('modal-close-btn'))
+      || focusables[0];
+    if(target && (!document.activeElement || !top.contains(document.activeElement))){
+      try{ target.focus({preventScroll:true}); }catch(e){}
+    }
+  } else if(count === 0 && lastOverlayCount > 0){
+    // Se cerró el último modal: devolver el foco a donde estaba.
+    if(focusBeforeModal && document.contains(focusBeforeModal)){
+      try{ focusBeforeModal.focus({preventScroll:true}); }catch(e){}
+    }
+    focusBeforeModal = null;
+  }
+  lastOverlayCount = count;
+}
+let modalTabTrapAttached = false;
+function attachModalTabTrap(){
+  if(modalTabTrapAttached) return;
+  modalTabTrapAttached = true;
+  document.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Tab') return;
+    const top = topOverlay();
+    if(!top) return;
+    const focusables = modalFocusables(top);
+    if(focusables.length === 0) return;
+    const first = focusables[0], last = focusables[focusables.length-1];
+    const inside = top.contains(document.activeElement);
+    if(!inside){ e.preventDefault(); first.focus(); return; }
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  });
+}
 function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
+  manageModalA11y();
+  attachModalTabTrap();
   document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   attachCategoryChipDragHandlers();
@@ -543,12 +613,15 @@ function attachEvents(){
   document.querySelectorAll('[data-cal-select-month]').forEach(btn=>{
     btn.onclick=()=>{ setCalendarMonth(btn.dataset.calSelectMonth); calendarShowYearPicker=false; render(); };
   });
+  const btnShowMoreReceipts=document.getElementById('btn-show-more-receipts');
+  if(btnShowMoreReceipts) btnShowMoreReceipts.onclick=()=>{ receiptsShownLimit += RECEIPTS_WINDOW_STEP; render(); };
   const receiptSearchInp=document.getElementById('receipt-search');
   if(receiptSearchInp) receiptSearchInp.oninput=(e)=>{
     // render() reemplaza el innerHTML entero (recrea el <input>), así que sin esto
     // el cursor/foco se perdería en cada letra que se escribe en la búsqueda
     const cursorPos = e.target.selectionStart;
     receiptSearchQuery = e.target.value;
+    receiptsShownLimit = RECEIPTS_WINDOW_STEP; // buscar resetea la ventana de recibos
     try{
       if(receiptSearchQuery) localStorage.setItem('patron_receipt_search', receiptSearchQuery);
       else localStorage.removeItem('patron_receipt_search');
