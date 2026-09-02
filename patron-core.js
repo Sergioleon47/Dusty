@@ -220,8 +220,15 @@ function detectedQtyFromReading(reading, capacityFull){
    objetos y arrays anidados también (fotos de recibos, items aplicados, etc). */
 function stableStringify(x){
   if(x===null || typeof x!=='object') return JSON.stringify(x);
-  if(Array.isArray(x)) return '['+x.map(stableStringify).join(',')+']';
-  const keys = Object.keys(x).sort();
+  // Mismas reglas que JSON.stringify para undefined — clave para el sync por hash:
+  // un doc local con {path: undefined} viaja a Firestore SIN esa clave (el
+  // JSON.parse(JSON.stringify()) del upload la elimina), así que hashear el texto
+  // "undefined" hacía que local y nube nunca coincidieran → el doc quedaba "sucio"
+  // para siempre: se re-subía en cada guardado y rechazaba eternamente las
+  // ediciones de los compañeros. Claves con undefined se saltan; en arrays,
+  // undefined se vuelve null.
+  if(Array.isArray(x)) return '['+x.map(v=>v===undefined ? 'null' : stableStringify(v)).join(',')+']';
+  const keys = Object.keys(x).filter(k=>x[k]!==undefined).sort();
   return '{'+keys.map(k=>JSON.stringify(k)+':'+stableStringify(x[k])).join(',')+'}';
 }
 function sameJSON(a, b){ return stableStringify(a)===stableStringify(b); }

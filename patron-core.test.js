@@ -264,3 +264,16 @@ test('valueHash: mismo contenido con claves en otro orden = mismo hash (Firestor
   assert.equal(hash53('dusty'), hash53('dusty'));
   assert.equal(typeof hash53('x'), 'number');
 });
+
+test('stableStringify trata undefined igual que JSON.stringify (clave del sync por hash)', () => {
+  const { sameJSON, valueHash } = require('./patron-core.js');
+  // Una clave con undefined NO debe distinguir dos docs que en la nube son idénticos
+  const local = { url:'u', mediaType:'image/jpeg', path: undefined };
+  const cloud = JSON.parse(JSON.stringify(local)); // así viaja al upload: sin "path"
+  assert.equal(valueHash(local), valueHash(cloud));
+  assert.ok(sameJSON(local, cloud));
+  // En arrays, undefined se comporta como null (igual que JSON.stringify)
+  assert.equal(valueHash([1, undefined, 3]), valueHash([1, null, 3]));
+  // Pero un valor REAL distinto sí distingue
+  assert.notEqual(valueHash({a:1}), valueHash({a:2}));
+});
