@@ -58,9 +58,20 @@ PRESUPUESTO MENSUAL
 Ponés un monto y seguís el avance del mes en tiempo real, con el gasto ya
 categorizado automáticamente.
 
+REGISTRÁ LO QUE SALE, NO SOLO LO QUE ENTRA
+Guardá recetas/modelos de lo que producís y al registrar una producción los
+insumos se descuentan solos. ¿Salidas sueltas? Sacale una foto al estante —
+o a una nota escrita a mano ("Harina −2") — y el escáner de salidas descuenta
+cada línea, siempre con tu confirmación.
+
+PROBALA SIN REGISTRARTE
+Escaneá tus primeros recibos sin crear cuenta — si te sirve, la guardás con
+tu email y un PIN en dos toques.
+
 TRABAJÁ EN EQUIPO
 Compartí un código de invitación y quien lo use ve y actualiza el mismo
-inventario, recibos y presupuesto que vos — todo sincronizado al instante.
+inventario, recibos y presupuesto que vos — todo sincronizado al instante,
+sin pisarse entre compañeros.
 
 FUNCIONA SIN CONEXIÓN
 Una vez cargada, la app abre y muestra tu inventario aunque no tengas señal.
@@ -93,9 +104,20 @@ MONTHLY BUDGET
 Set an amount and track the month's progress in real time, with spending
 already categorized automatically.
 
+TRACK WHAT GOES OUT, NOT JUST WHAT COMES IN
+Save recipes/models of what you make and logging a production run deducts
+the supplies on its own. Loose outflows? Snap your shelf — or a handwritten
+note ("Flour −2") — and the outflow scanner deducts each line, always with
+your confirmation.
+
+TRY IT WITHOUT SIGNING UP
+Scan your first receipts with no account — if it clicks, save it with your
+email and a PIN in two taps.
+
 WORK AS A TEAM
 Share an invite code and whoever uses it sees and updates the same
-inventory, receipts, and budget as you — all synced instantly.
+inventory, receipts, and budget as you — all synced instantly, without
+teammates overwriting each other.
 
 WORKS OFFLINE
 Once loaded, the app opens and shows your inventory even without a signal.
@@ -138,8 +160,24 @@ sexual, sustancias, apuestas, etc., y Dusty no tiene nada de eso.
 
 ---
 
-## Assets gráficos que faltan (no puedo generarlos yo)
+## Assets gráficos
 
-- **Ícono de la app (512x512)** — ya lo tenés, es el mismo `icon-512.png` del proyecto.
-- **Feature graphic (1024x500)** — falta crear.
-- **Capturas de pantalla** — mínimo 2, recomendado 4-8. Las podemos sacar del emulador cuando quieras (yo puedo tomarlas con adb).
+- **Ícono de la app (512x512)** — listo: `icon-512.png` del proyecto.
+- **Feature graphic (1024x500)** — listo: `store-screenshots/feature-graphic.png`.
+- **Capturas de pantalla** — en `store-screenshots/` (tomadas del emulador con datos de demostración; mínimo 2, ideal 4-8).
+
+---
+
+## Mensaje listo para invitar testers (copiar/pegar a WhatsApp)
+
+> ¡Hola! Te invito a probar Dusty, mi app de inventario y gastos. Son 2 pasos:
+> 1) Abrí este link y tocá "Become a tester" / "Convertirme en tester":
+>    https://play.google.com/apps/testing/com.dusty.inventory
+> 2) Después instalala desde Play Store acá:
+>    https://play.google.com/store/apps/details?id=com.dusty.inventory
+> Cuando la tengas, mandame un pantallazo 🙌 Y si podés, escaneá un recibo
+> real y contame si te leyó bien los precios.
+
+(Los dos links salen de Play Console → Closed testing → Alpha → Testers.
+El paso 1 es el que arranca el reloj de 14 días: cuenta cuando ACEPTAN,
+no cuando les llega el mensaje.)
