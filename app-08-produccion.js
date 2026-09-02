@@ -100,48 +100,61 @@ function matchStockReading(p){
 }
 
 /* ---------- VISTA: sección en Inventario ---------- */
-/* El escáner de estante como botón REDONDO junto al título de Inventario (pedido
-   del usuario: mismo lenguaje que el FAB de escanear del Dashboard, sin banner
-   grande) — el title/aria-label conservan la explicación que antes iba en texto. */
+/* Los dos botones REDONDOS gemelos junto al título de Inventario (pedido del
+   usuario: sin tarjetas ni banners — mismo tamaño, mismos efectos de palpitar,
+   bien simétricos). El verde abre el escáner de estante; el naranja de marca abre
+   el hub de Producción (las recetas viven en su propio modal desde acá). El
+   title/aria-label conservan la explicación que antes iba en texto visible. */
 function shelfScanFab(){
   if(inventory.length === 0) return '';
   return `
-  <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
-    title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
-    aria-label="${t('shelf_banner_title')}">
-    ${lineIcon('camera',22)}
-  </button>`;
+  <span style="display:flex;gap:12px;align-items:center;flex-shrink:0;">
+    <button type="button" class="shelf-scan-fab prod" id="btn-production-hub"
+      title="${t('prod_section_title')}" aria-label="${t('prod_section_title')}">
+      ${lineIcon('tag',22)}
+    </button>
+    <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
+      title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
+      aria-label="${t('shelf_banner_title')}">
+      ${lineIcon('camera',22)}
+    </button>
+  </span>`;
 }
 
-function productionSection(){
-  if(inventory.length === 0) return '';
+/* Hub de Producción: la tarjeta que antes vivía en la pestaña, ahora como modal —
+   recetas con producir/editar, nueva receta y el historial de salidas. */
+let showProductionHub = false;
+function productionHubModal(){
   return `
-  <div class="stock-card" style="margin-bottom:18px;${recipes.length===0?'padding-bottom:16px;':''}">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-      <h3 class="stock-card-title" style="margin:0;">${t('prod_section_title')}</h3>
-      <span style="display:flex;gap:8px;align-items:center;">
+  <div class="overlay" id="production-hub-overlay">
+    <div class="modal">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <h3 class="navy" style="margin:0;">${t('prod_section_title')}</h3>
         ${outflows.length>0 ? `<button type="button" class="link-btn" id="btn-open-outflows" style="padding:6px 4px;">${t('prod_outflows_link')}</button>` : ''}
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-new-recipe">${t('prod_new_recipe')}</button>
-      </span>
+      </div>
+      ${recipes.length===0 ? `<div class="helper-note" style="margin:14px 0 4px;">${t('prod_no_recipes')}</div>` : recipes.map(r=>{
+        const cost = recipeCostTotal(r.components, inventory);
+        const photo = recipePhotoSrc(r);
+        return `
+        <div class="prod-recipe-row">
+          <div class="stock-icon-ring" style="width:40px;height:40px;flex-shrink:0;">
+            ${photo ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy">` : lineIcon('tag',18)}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="stock-name">${escapeHtml(r.name)}</div>
+            <div class="stock-caption">${money(cost.total)} ${t('prod_cost_each')} · ${t('prod_components_n').replace('{n}', (r.components||[]).length)}${cost.missing>0 ? ` · <span style="color:var(--saffron-ink);">⚠</span>` : ''}</div>
+          </div>
+          <button type="button" class="stock-icon-btn edit" data-edit-recipe="${r.id}" title="${t('btn_edit')}">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" data-produce-recipe="${r.id}">${t('prod_produce_btn')}</button>
+        </div>`;
+      }).join('')}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-production-hub">${t('btn_close')}</button>
+        <button class="btn btn-primary" id="btn-new-recipe">${t('prod_new_recipe')}</button>
+      </div>
     </div>
-    ${recipes.length===0 ? '' : recipes.map(r=>{
-      const cost = recipeCostTotal(r.components, inventory);
-      const photo = recipePhotoSrc(r);
-      return `
-      <div class="prod-recipe-row">
-        <div class="stock-icon-ring" style="width:40px;height:40px;flex-shrink:0;">
-          ${photo ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy">` : lineIcon('tag',18)}
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div class="stock-name">${escapeHtml(r.name)}</div>
-          <div class="stock-caption">${money(cost.total)} ${t('prod_cost_each')} · ${t('prod_components_n').replace('{n}', (r.components||[]).length)}${cost.missing>0 ? ` · <span style="color:var(--saffron-ink);">⚠</span>` : ''}</div>
-        </div>
-        <button type="button" class="stock-icon-btn edit" data-edit-recipe="${r.id}" title="${t('btn_edit')}">
-          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </button>
-        <button type="button" class="btn btn-primary btn-sm" data-produce-recipe="${r.id}">${t('prod_produce_btn')}</button>
-      </div>`;
-    }).join('')}
   </div>`;
 }
 
@@ -664,15 +677,24 @@ function applyShelfAdjust(){
 function attachProductionEvents(){
   const btnShelfScan=document.getElementById('btn-shelf-scan');
   if(btnShelfScan) btnShelfScan.onclick=openShelfModal;
+  const btnProductionHub=document.getElementById('btn-production-hub');
+  if(btnProductionHub) btnProductionHub.onclick=()=>{ showProductionHub=true; render(); };
+  const hubOverlay=document.getElementById('production-hub-overlay');
+  if(hubOverlay){
+    hubOverlay.onmousedown=(e)=>{ if(e.target===hubOverlay){ showProductionHub=false; render(); } };
+    document.getElementById('btn-close-production-hub').onclick=()=>{ showProductionHub=false; render(); };
+  }
+  // Estos tres viven DENTRO del hub — al abrirse su destino, el hub se cierra para
+  // no apilar dos modales.
   const btnNewRecipe=document.getElementById('btn-new-recipe');
-  if(btnNewRecipe) btnNewRecipe.onclick=()=>openRecipeModal(null);
+  if(btnNewRecipe) btnNewRecipe.onclick=()=>{ showProductionHub=false; openRecipeModal(null); };
   const btnOpenOutflows=document.getElementById('btn-open-outflows');
-  if(btnOpenOutflows) btnOpenOutflows.onclick=()=>{ showOutflowsModal=true; render(); };
+  if(btnOpenOutflows) btnOpenOutflows.onclick=()=>{ showProductionHub=false; showOutflowsModal=true; render(); };
   document.querySelectorAll('[data-edit-recipe]').forEach(b=>{
-    b.onclick=()=>openRecipeModal(recipeById(b.dataset.editRecipe));
+    b.onclick=()=>{ showProductionHub=false; openRecipeModal(recipeById(b.dataset.editRecipe)); };
   });
   document.querySelectorAll('[data-produce-recipe]').forEach(b=>{
-    b.onclick=()=>openProduceModal(b.dataset.produceRecipe);
+    b.onclick=()=>{ showProductionHub=false; openProduceModal(b.dataset.produceRecipe); };
   });
 
   /* Modal receta */

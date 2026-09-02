@@ -961,6 +961,7 @@ document.addEventListener('keydown', (e)=>{
   if(showProduceModal){ closeProduceModal(); return; }
   if(showRecipeModal){ closeRecipeModal(); return; }
   if(showOutflowsModal){ showOutflowsModal=false; render(); return; }
+  if(showProductionHub){ showProductionHub=false; render(); return; }
   if(showWelcomeModal){ closeWelcomeModal(); return; }
 });
 

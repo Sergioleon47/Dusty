@@ -62,7 +62,7 @@ function render(){
     showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
     showActivityModal, showTeamModal, showProductBatchModal,
-    showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal];
+    showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal, showProductionHub];
   const RECEIPT_DETAIL_FLAG = 2; // índice de !!showReceiptDetail en overlayFlags
   let overlayClosed = false, receiptDetailToggled = false;
   if(lastOverlayFlags){
@@ -168,6 +168,7 @@ function renderApp(){
     ${showProduceModal ? produceModal() : ''}
     ${showShelfModal ? shelfScanModal() : ''}
     ${showOutflowsModal ? outflowsModal() : ''}
+    ${showProductionHub ? productionHubModal() : ''}
     ${bottomNav()}
   `;
   /* Parcheo del DOM con morphdom en vez de app.innerHTML = html. El reemplazo

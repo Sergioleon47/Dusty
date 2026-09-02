@@ -540,11 +540,8 @@ function inventarioView(){
       <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
     </div>
   </div>
-  ${/* Producción (app-08): las salidas del inventario viven en esta pestaña. Con
-       filtro de categoría activo se esconde — el usuario vino a ver ESA categoría
-       puntual, no las acciones generales. El escáner de estante vive arriba, como
-       botón redondo junto al título. */''}
-  ${!filterCategory ? productionSection() : ''}
+  ${/* Producción y escáner de estante (app-08) viven arriba como los dos botones
+       redondos junto al título — las recetas se abren en su propio modal (hub). */''}
   ${filterCategory ? `
   <div class="alert-banner" id="category-filter-banner" style="background:var(--navy-wash);border-color:transparent;color:var(--navy-ink);justify-content:space-between;">
     <span>${t('inv_filtered_by_category').replace('{name}', escapeHtml(filterCategory.name))}</span>
