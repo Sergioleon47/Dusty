@@ -515,6 +515,14 @@ function orderCalcTotal(){
   },0);
 }
 function ocFmtQty(n){ return String(Math.round(n*100)/100); }
+// El pedido como texto plano listo para WhatsApp/SMS/email — el menú de compartir
+// del sistema (o el portapapeles como plan B) se encarga del "a dónde".
+function orderCalcText(){
+  const name = businessName.trim() || 'Dusty';
+  const lines = orderCalcProducts().filter(i=>orderCalcQty[i.id])
+    .map(i=>`• ${ocFmtQty(orderCalcQty[i.id])} ${unitLabel(i.unit||'unidad')} ${i.name}`);
+  return `${t('oc_order_title').replace('{name}', name)} (${localDateStr()})\n\n${lines.join('\n')}\n\n${t('oc_est_total')}: ${money(orderCalcTotal())}`;
+}
 function orderCalcKey(i){
   return `<button type="button" class="oc-key" data-oc-add="${i.id}">
     <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;">${stockIconSvg(i)}</span>
@@ -566,6 +574,11 @@ function orderCalcPanel(){
       <span class="oc-total-label" style="flex:1;">${t('oc_total')}</span>
       <span class="oc-total">${money(orderCalcTotal())}</span>
     </div>
+    ${lines ? `
+    <div class="oc-send-row">
+      ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-primary" id="oc-share" style="flex:1;">${t('oc_send')}</button>` : ''}
+      <button type="button" class="btn btn-ghost" id="oc-copy" style="flex:1;">${t('oc_copy')}</button>
+    </div>` : ''}
     ${prods.length > ORDER_CALC_KEYS_VISIBLE ? `
     <div class="field" style="margin-bottom:10px;"><input id="oc-search" type="text" value="${escapeHtml(orderCalcSearch)}" placeholder="${t('oc_search_ph')}"></div>` : ''}
     <div class="oc-scroll">
@@ -626,6 +639,14 @@ function attachOrderCalcEvents(){
   };
   const clear = document.getElementById('oc-clear');
   if(clear) clear.onclick = ()=>{ orderCalcQty = {}; orderCalcEditingId = null; render(); };
+  const share = document.getElementById('oc-share');
+  if(share) share.onclick = ()=>{ navigator.share({ title:'Dusty', text: orderCalcText() }).catch(()=>{}); };
+  const copy = document.getElementById('oc-copy');
+  if(copy) copy.onclick = ()=>{
+    navigator.clipboard.writeText(orderCalcText())
+      .then(()=>showToast(t('oc_copied')))
+      .catch(()=>{});
+  };
 }
 
 function inventarioView(){
