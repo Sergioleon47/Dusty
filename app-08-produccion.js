@@ -50,42 +50,17 @@ function recordOutflow(entry){
 // trial agota el cupo, tira un Error con .trialQuota=true y cada llamador decide
 // qué modal cerrar antes de ofrecer guardar la cuenta.
 async function readStockFromPhoto(image){
-  if(!currentUser){
-    try{ await ensureTrialAccount(); }
-    catch(e){ throw new Error(t(e && e.code==='trial/real-account-exists' ? 'err_scan_auth_required' : 'err_scan_no_connection')); }
-  }
-  let idToken;
-  try{ idToken = await currentUser.getIdToken(); }
-  catch(tokenErr){ throw new Error(t('err_scan_auth_required')); }
-  let response;
-  try{
-    response = await fetch('/.netlify/functions/identify-product', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
-      body: JSON.stringify({
-        image,
-        stock: true,
-        ownerUid: syncUid(),
-        inventoryNames: inventory.map(i => i.name)
-      })
-    });
-  }catch(netErr){
-    throw new Error(t('err_scan_no_connection'));
-  }
-  let parsed;
-  try{ parsed = await response.json(); }
-  catch(parseErr){ throw new Error(t('err_function_not_found_product')); }
-  if(response.status===429 && parsed.quotaExceeded){
-    if(currentUser && currentUser.isAnonymous){
-      const err = new Error(t('trial_scans_over_note'));
-      err.trialQuota = true;
-      throw err;
-    }
-    throw new Error(t('err_scan_quota_exceeded'));
-  }
-  if(!response.ok || parsed.error){
-    throw new Error(parsed.error || t('product_scan_error'));
-  }
+  // Usa el núcleo compartido callDustyAI (app-06) — sin onTrialQuota a propósito:
+  // acá NO se abre ningún modal desde adentro; el Error lleva .trialQuota y cada
+  // llamador decide qué cerrar antes de ofrecer guardar la cuenta.
+  const parsed = await callDustyAI('/.netlify/functions/identify-product', {
+    image: image,
+    stock: true,
+    inventoryNames: inventory.map(i => i.name)
+  }, {
+    notFoundKey: 'err_function_not_found_product',
+    genericKey: 'product_scan_error'
+  });
   return Array.isArray(parsed.products) ? parsed.products : [];
 }
 

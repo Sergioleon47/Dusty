@@ -1887,19 +1887,22 @@ async function buildImagesForReading(){
   }
 }
 
-/* Manda un grupo de fotos a nuestra Netlify Function, que a su vez le pregunta a Claude
-   (con visión) qué dice. La API key vive solo en el servidor de Netlify, nunca en este
-   archivo ni en el navegador. Con multi=false las fotos se leen como páginas de UN mismo
-   documento y devuelve un recibo; con multi=true se leen como una mesa con varios recibos
-   apoyados y devuelve {receipts:[...]}. Los errores salen ya traducidos. */
-async function callReceiptReader(images, multi){
-  // El servidor exige identidad para aplicar el cupo por plan: mandamos el ID token
-  // de Firebase (prueba verificable, no un uid suelto que cualquiera podría inventar)
-  // más la cuenta "dueña" del inventario (syncUid(): la propia si sos el dueño, o la
-  // del equipo si te uniste a uno) para que el cupo se cuente sobre la cuenta correcta.
-  // Sin sesión todavía (primer escaneo de la vida): se espera acá a la cuenta anónima
-  // del trial que openScanModal() dejó creándose en segundo plano — a esta altura el
-  // usuario ya sacó la foto, así que casi siempre ya está lista.
+/* Núcleo COMPARTIDO de todas las llamadas de IA (leer recibos, identificar un
+   producto, leer stock del estante): cuenta trial si hace falta → ID token de
+   Firebase (prueba verificable de identidad; el servidor aplica el cupo por plan
+   sobre syncUid(), la cuenta dueña del inventario) → fetch a la Netlify Function →
+   parse → cupo/errores ya traducidos. Antes vivía copiado tres veces (acá dos, y
+   readStockFromPhoto en app-08) y las copias ya estaban divergiendo en el manejo
+   del 429 — cualquier cambio de auth/cupo/errores ahora se hace UNA sola vez.
+   La API key de Claude vive solo en el servidor de Netlify, nunca en el navegador.
+   opts.notFoundKey/genericKey: mensajes específicos del dominio.
+   opts.onTrialQuota: qué hacer cuando una cuenta anónima agota el trial (cada
+   llamador decide qué modal cerrar/abrir antes de ofrecer guardar la cuenta);
+   con o sin callback, el Error tirado lleva .trialQuota = true. */
+async function callDustyAI(path, body, opts){
+  // Sin sesión todavía (primer escaneo de la vida): se espera acá a la cuenta
+  // anónima del trial que quedó creándose en segundo plano al abrir el modal —
+  // a esta altura el usuario ya sacó la foto, así que casi siempre ya está lista.
   if(!currentUser){
     try{ await ensureTrialAccount(); }
     catch(e){ throw new Error(t(e && e.code==='trial/real-account-exists' ? 'err_scan_auth_required' : 'err_scan_no_connection')); }
@@ -1910,119 +1913,81 @@ async function callReceiptReader(images, multi){
   }catch(tokenErr){
     throw new Error(t('err_scan_auth_required'));
   }
-
   let response;
   try{
-    response = await fetch('/.netlify/functions/extract-receipt', {
+    response = await fetch(path, {
       method: 'POST',
       headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
-      body: JSON.stringify({
-        images: images,
-        multi: multi===true ? true : undefined,
-        ownerUid: syncUid(),
-        // Le mandamos los nombres de tu inventario actual para que Claude empareje cada
-        // producto de la factura contra lo que ya tenés cargado usando su propio criterio
-        // (entiende abreviaturas y códigos de proveedor), en vez de que el navegador
-        // compare texto literal. "caseTrackedNames" son los productos que vos ya elegiste
-        // llevar por caja (no por unidad suelta) — para esos, no hay que desarmar el
-        // tamaño de paquete del recibo.
-        inventoryNames: inventory.map(i=>i.name),
-        caseTrackedNames: inventory.filter(i=>i.unit==='caja').map(i=>i.name),
-        // Para que Claude pueda sugerir a qué categoría del usuario pertenece cada
-        // producto nuevo (ver categoryId más abajo en applyParsedReceiptToScanState) —
-        // solo tiene sentido mandar esto si el usuario ya tiene categorías creadas.
-        categoryNames: categories.map(c=>c.name)
-      })
+      body: JSON.stringify(Object.assign({ ownerUid: syncUid() }, body))
     });
   }catch(netErr){
-    // Este catch es específico de un fallo de RED (fetch nunca llegó a completarse —
-    // sin conexión, DNS, CORS, etc.) — nunca de un error que devuelva el servidor,
-    // esos se manejan más abajo por separado. Antes acá se tiraba el mismo mensaje
-    // que "la foto está borrosa" (err_ocr_read), que es simplemente falso cuando la
-    // causa real es no tener conexión — alguien sin señal sacaba la foto de nuevo
-    // una y otra vez sin que eso arreglara nada, porque el problema nunca fue la foto.
+    // Fallo de RED (el fetch nunca llegó a completarse — sin conexión, DNS, CORS).
+    // Nunca un error del servidor, esos se manejan abajo. Confundirlos mandaba a
+    // re-sacar la foto a gente cuyo problema era no tener señal.
     throw new Error(t('err_scan_no_connection'));
   }
-
   let parsed;
   try{
     parsed = await response.json();
   }catch(parseErr){
-    // La función de Netlify no devolvió JSON — lo más probable es que no esté publicada
-    // todavía (o esté mal ubicada) y el pedido cayó en una página de error genérica.
-    throw new Error(t('err_function_not_found'));
+    // La función de Netlify no devolvió JSON — lo más probable es que no esté
+    // publicada y el pedido cayó en una página de error genérica.
+    throw new Error(t(opts.notFoundKey));
   }
   if(response.status===429 && parsed.quotaExceeded){
-    // Cupo del TRIAL agotado (cuenta anónima): en vez de un error seco, se abre el
-    // modal de "guardá tu cuenta" — es el momento exacto en que el usuario ya vio
-    // el valor de la app y tiene un motivo concreto para registrarse.
     if(currentUser && currentUser.isAnonymous){
-      closeScanModal();
-      openUpgradeModal(t('trial_scans_over_note'));
-      throw new Error(t('trial_scans_over_note'));
+      // Cupo del TRIAL agotado: en vez de un error seco, el llamador puede abrir
+      // el modal de "guardá tu cuenta" — el momento exacto en que el usuario ya
+      // vio el valor de la app y tiene un motivo concreto para registrarse.
+      if(opts.onTrialQuota) opts.onTrialQuota();
+      const err = new Error(t('trial_scans_over_note'));
+      err.trialQuota = true;
+      throw err;
     }
     throw new Error(t('err_scan_quota_exceeded'));
   }
   if(!response.ok || parsed.error){
-    throw new Error(parsed.error || t('err_generic_receipt'));
+    throw new Error(parsed.error || t(opts.genericKey));
   }
   return parsed;
 }
 
-/* Hermana de callReceiptReader() de arriba, pero para UNA foto de un producto físico
-   en vez de una factura — misma cuenta, mismo cupo mensual de escaneos (ver
-   identify-product.js), mismo tipo de errores ya traducidos. */
+/* Lee un grupo de fotos como recibo(s). Con multi=false son páginas de UN mismo
+   documento y devuelve un recibo; con multi=true es una mesa con varios recibos
+   apoyados y devuelve {receipts:[...]}. */
+async function callReceiptReader(images, multi){
+  return callDustyAI('/.netlify/functions/extract-receipt', {
+    images: images,
+    multi: multi===true ? true : undefined,
+    // Nombres del inventario actual para que Claude empareje cada producto de la
+    // factura contra lo ya cargado con su propio criterio (abreviaturas, códigos
+    // de proveedor). "caseTrackedNames": productos llevados por caja — para esos
+    // no hay que desarmar el tamaño de paquete del recibo.
+    inventoryNames: inventory.map(i=>i.name),
+    caseTrackedNames: inventory.filter(i=>i.unit==='caja').map(i=>i.name),
+    // Para sugerir a qué categoría del usuario pertenece cada producto nuevo.
+    categoryNames: categories.map(c=>c.name)
+  }, {
+    notFoundKey: 'err_function_not_found',
+    genericKey: 'err_generic_receipt',
+    onTrialQuota: ()=>{ closeScanModal(); openUpgradeModal(t('trial_scans_over_note')); }
+  });
+}
+
+/* Hermana de callReceiptReader() pero para UNA foto de un producto físico — misma
+   cuenta, mismo cupo mensual, mismos errores traducidos. */
 async function identifyProductFromPhoto(image){
-  // Mismo trato que callReceiptReader: sin sesión, se espera la cuenta anónima del trial.
-  if(!currentUser){
-    try{ await ensureTrialAccount(); }
-    catch(e){ throw new Error(t(e && e.code==='trial/real-account-exists' ? 'err_scan_auth_required' : 'err_scan_no_connection')); }
-  }
-  let idToken;
-  try{
-    idToken = await currentUser.getIdToken();
-  }catch(tokenErr){
-    throw new Error(t('err_scan_auth_required'));
-  }
-
-  let response;
-  try{
-    response = await fetch('/.netlify/functions/identify-product', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
-      body: JSON.stringify({
-        image: image,
-        ownerUid: syncUid(),
-        categoryNames: categories.map(c=>c.name),
-        // Para que el servidor pueda emparejar contra lo que ya está cargado
-        // (matched_inventory_name) — el identificador por cámara lo usa para abrir
-        // directo el producto existente; el formulario de alta simplemente lo ignora.
-        inventoryNames: inventory.map(i=>i.name)
-      })
-    });
-  }catch(netErr){
-    throw new Error(t('err_scan_no_connection'));
-  }
-
-  let parsed;
-  try{
-    parsed = await response.json();
-  }catch(parseErr){
-    throw new Error(t('err_function_not_found_product'));
-  }
-  if(response.status===429 && parsed.quotaExceeded){
-    // Mismo trato que en callReceiptReader: al usuario del trial se le ofrece
-    // guardar su cuenta en vez de un error seco.
-    if(currentUser && currentUser.isAnonymous){
-      openUpgradeModal(t('trial_scans_over_note'));
-      throw new Error(t('trial_scans_over_note'));
-    }
-    throw new Error(t('err_scan_quota_exceeded'));
-  }
-  if(!response.ok || parsed.error){
-    throw new Error(parsed.error || t('product_scan_error'));
-  }
-  return parsed;
+  return callDustyAI('/.netlify/functions/identify-product', {
+    image: image,
+    categoryNames: categories.map(c=>c.name),
+    // matched_inventory_name: el identificador por cámara lo usa para abrir directo
+    // el producto existente; el formulario de alta simplemente lo ignora.
+    inventoryNames: inventory.map(i=>i.name)
+  }, {
+    notFoundKey: 'err_function_not_found_product',
+    genericKey: 'product_scan_error',
+    onTrialQuota: ()=>{ openUpgradeModal(t('trial_scans_over_note')); }
+  });
 }
 
 async function processReceiptImage(){
