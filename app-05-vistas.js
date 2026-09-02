@@ -519,6 +519,12 @@ function inventarioView(){
   return `
   <div class="section-head">
     <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2>`)}</div>
+    ${/* El FAB del escáner de estante va ANTES que la fila de botones (pedido del
+         usuario: el menú debajo del escáner) y en su propia fila a la derecha,
+         calibrado para quedar en la MISMA posición de pantalla (alto Y ancho) que el
+         botón de escanear del Dashboard — al deslizar entre pestañas, los dos
+         escáneres laten en el mismo punto. Medido a 375px, ver .shelf-fab-row. */''}
+    ${!filterCategory ? `<div class="shelf-fab-row">${shelfScanFab()}</div>` : ''}
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
@@ -533,11 +539,6 @@ function inventarioView(){
       ` : ''}
       <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
     </div>
-    ${/* El FAB del escáner de estante, en su propia fila a la derecha y BAJADO para
-         quedar a la MISMA altura de pantalla que el botón de escanear del Dashboard
-         (pedido del usuario: al deslizar entre pestañas, los dos escáneres laten en
-         el mismo punto). El margen se calibró midiendo ambos centros en 375px. */''}
-    ${!filterCategory ? `<div class="shelf-fab-row">${shelfScanFab()}</div>` : ''}
   </div>
   ${/* Producción y escáner de estante (app-08) viven arriba como los dos botones
        redondos junto al título — las recetas se abren en su propio modal (hub). */''}

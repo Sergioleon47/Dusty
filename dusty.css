@@ -729,9 +729,10 @@
   /* El pulso es el MISMO de la pantalla principal (.scan-fab-ring/fabPulse, dos
      anillos con delay) — el ícono va por encima de los anillos, igual que allá. */
   .shelf-scan-fab svg{position:relative;z-index:2;}
-  /* Fila propia del FAB: a la derecha, y bajado para que su centro caiga a la misma
-     altura de pantalla que el del Dashboard (calibrado midiendo ambos en 375px). */
-  .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:9.5px;}
+  /* Fila propia del FAB (va entre el título y la fila de botones): a la derecha con
+     un retiro que deja su CENTRO en el mismo punto de pantalla —alto y ancho— que el
+     escáner del Dashboard (calibrado midiendo ambos centros en 375px). */
+  .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:60px;padding-right:46px;}
 
   /* Fila de receta en la tarjeta de Producción — misma anatomía que las filas de
      stock (anillo + nombre + caption) para que se lean como parte de la misma app. */
