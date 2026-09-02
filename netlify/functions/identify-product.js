@@ -257,9 +257,15 @@ exports.handler = async (event) => {
         max_tokens: stock ? 6000 : (multi ? 4000 : 1000),
         // Solo el modo stock piensa antes de responder: contar con método (clasificar
         // la forma de lectura, recorrer por zonas, verificar ambigüedades) rinde más
-        // que responder de un tirón — pero con presupuesto MODERADO: es lo que separa
-        // los ~5-10 s aceptables de una espera de medio minuto.
-        thinking: stock ? { type: 'enabled', budget_tokens: 2000 } : { type: 'disabled' },
+        // que responder de un tirón. OJO: claude-sonnet-5 eliminó el formato viejo
+        // {type:'enabled', budget_tokens: N} — devolvía 400 ("not supported for this
+        // model") y el escáner de estante fallaba SIEMPRE con ese error en pantalla.
+        // El control actual es thinking adaptive + output_config.effort: "medium"
+        // reemplaza al presupuesto moderado de antes (los ~5-10s aceptables, no
+        // medio minuto). {type:'disabled'} sigue siendo válido para los modos que
+        // no necesitan razonar.
+        thinking: stock ? { type: 'adaptive' } : { type: 'disabled' },
+        ...(stock ? { output_config: { effort: 'medium' } } : {}),
         messages: [
           {
             role: 'user',
