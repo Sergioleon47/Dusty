@@ -173,6 +173,12 @@ function renderApp(){
     ${showShelfModal ? shelfScanModal() : ''}
     ${showOutflowsModal ? outflowsModal() : ''}
     ${showProductionHub ? productionHubModal() : ''}
+    ${/* La hoja de la calculadora de pedido vive ACÁ y no dentro de inventarioView:
+         .view-track tiene transform (swipe), y un ancestro con transform convierte
+         el position:fixed en relativo a él — la hoja quedaba del tamaño del
+         contenido en vez de cubrir la pantalla. Se renderiza siempre (no
+         condicional) para que la transición CSS de subida/bajada pueda correr. */''}
+    ${inventory.length>0 ? orderCalcPanel() : ''}
     ${bottomNav()}
   `;
   /* Parcheo del DOM con morphdom en vez de app.innerHTML = html. El reemplazo

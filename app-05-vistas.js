@@ -497,9 +497,9 @@ function stockRowHtml(r, ccDueIds){
    Todo vive SOLO en memoria: es una calculadora de bolsillo, no un documento — no
    toca saveState() ni viaja a Firestore, y se limpia al recargar. */
 let orderCalcOpen = false;
-let orderCalcShowAll = false;
 let orderCalcQty = {};
 let orderCalcEditingId = null;
+let orderCalcSearch = '';
 const ORDER_CALC_KEYS_VISIBLE = 9;
 
 function orderCalcProducts(){
@@ -544,29 +544,32 @@ function orderCalcCard(){
   </div>`;
 }
 function orderCalcPanel(){
+  // Hoja de pantalla completa que SUBE desde abajo al tocar la tarjeta (pedido del
+  // usuario: "que suba la pantalla completa"). Se renderiza siempre y solo cambia
+  // la clase .open — así morphdom no la recrea y la transición de transform corre.
+  // Con toda la pantalla, el teclado entero va con scroll y el buscador filtra en
+  // inventarios grandes (50+ productos) — ya no hace falta la partición 9+flecha.
   const prods = orderCalcProducts();
-  const main = prods.slice(0, ORDER_CALC_KEYS_VISIBLE);
-  const extra = prods.slice(ORDER_CALC_KEYS_VISIBLE);
+  const query = orderCalcSearch.trim().toLowerCase();
+  const filtered = query ? prods.filter(i=>(i.name||'').toLowerCase().includes(query)) : prods;
   const lines = prods.filter(i=>orderCalcQty[i.id]).map(orderCalcLine).join('');
   return `
-  <div class="oc-panel ${orderCalcOpen?'open':''}" id="oc-panel"${orderCalcOpen?'':' aria-hidden="true"'}>
-    <div class="oc-inner">
-      <div class="oc-head">
-        <span class="oc-title">${t('oc_title')}</span>
-        <button type="button" class="link-btn" id="oc-clear" style="padding:4px;">${t('oc_clear')}</button>
-      </div>
-      <div class="oc-sub">${t('oc_sub')}</div>
-      <div class="oc-ticket">${lines || `<div class="oc-empty">${t('oc_empty')}</div>`}</div>
-      <div class="oc-total-row">
-        <span class="oc-total-label">${t('oc_total')}</span>
-        ${extra.length ? `
-        <button type="button" class="oc-more" id="oc-more" aria-expanded="${orderCalcShowAll}" aria-label="${t('oc_more_aria')}">
-          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-        </button>` : '<span style="flex:1;"></span>'}
-        <span class="oc-total">${money(orderCalcTotal())}</span>
-      </div>
-      <div class="oc-pad">${main.map(orderCalcKey).join('')}</div>
-      ${extra.length ? `<div class="oc-pad oc-pad-extra ${orderCalcShowAll?'open':''}">${extra.map(orderCalcKey).join('')}</div>` : ''}
+  <div class="oc-sheet ${orderCalcOpen?'open':''}" id="oc-panel" role="dialog" aria-modal="true" aria-label="${t('oc_title')}"${orderCalcOpen?'':' aria-hidden="true"'}>
+    <div class="oc-sheet-head">
+      <span class="oc-title" style="flex:1;">${t('oc_title')}</span>
+      <button type="button" class="link-btn" id="oc-clear" style="padding:4px 8px;">${t('oc_clear')}</button>
+      <button type="button" class="oc-close" id="oc-close" aria-label="${t('oc_close')}">✕</button>
+    </div>
+    <div class="oc-sub">${t('oc_sub')}</div>
+    <div class="oc-ticket">${lines || `<div class="oc-empty">${t('oc_empty')}</div>`}</div>
+    <div class="oc-total-row">
+      <span class="oc-total-label" style="flex:1;">${t('oc_total')}</span>
+      <span class="oc-total">${money(orderCalcTotal())}</span>
+    </div>
+    ${prods.length > ORDER_CALC_KEYS_VISIBLE ? `
+    <div class="field" style="margin-bottom:10px;"><input id="oc-search" type="text" value="${escapeHtml(orderCalcSearch)}" placeholder="${t('oc_search_ph')}"></div>` : ''}
+    <div class="oc-scroll">
+      ${query && !filtered.length ? `<div class="oc-empty">${t('oc_no_match')}</div>` : `<div class="oc-pad">${filtered.map(orderCalcKey).join('')}</div>`}
     </div>
   </div>`;
 }
@@ -606,8 +609,21 @@ function attachOrderCalcEvents(){
       else if(e.key==='Escape'){ orderCalcEditingId = null; render(); }
     };
   }
-  const more = document.getElementById('oc-more');
-  if(more) more.onclick = ()=>{ orderCalcShowAll = !orderCalcShowAll; render(); };
+  const close = document.getElementById('oc-close');
+  if(close) close.onclick = ()=>{ orderCalcOpen = false; orderCalcEditingId = null; render(); };
+  const sheet = document.getElementById('oc-panel');
+  if(sheet) sheet.onkeydown = (e)=>{ if(e.key==='Escape'){ orderCalcOpen = false; orderCalcEditingId = null; render(); } };
+  const search = document.getElementById('oc-search');
+  if(search) search.oninput = (e)=>{
+    // Mismo patrón que receipt-search: render con debounce restaurando foco y
+    // cursor, porque el redibujado recrea el <input> a mitad de tipeo.
+    const cursorPos = e.target.selectionStart;
+    orderCalcSearch = e.target.value;
+    scheduleSearchTriggeredRender(()=>{
+      const fresh = document.getElementById('oc-search');
+      if(fresh){ fresh.focus(); fresh.setSelectionRange(cursorPos, cursorPos); }
+    });
+  };
   const clear = document.getElementById('oc-clear');
   if(clear) clear.onclick = ()=>{ orderCalcQty = {}; orderCalcEditingId = null; render(); };
 }
@@ -634,7 +650,6 @@ function inventarioView(){
          botón de escanear del Dashboard — al deslizar entre pestañas, los dos
          escáneres laten en el mismo punto. Medido a 375px, ver .shelf-fab-row. */''}
     ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? orderCalcCard() : ''}${shelfScanFab()}</div>` : ''}
-    ${!filterCategory && inventory.length>0 ? orderCalcPanel() : ''}
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
