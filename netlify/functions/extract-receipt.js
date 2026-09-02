@@ -24,7 +24,8 @@
 // ver ese archivo para el porqué.
 const {
   isAllowedOrigin, verifyCallerInfo,
-  currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
+  currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
+  checkIpRateLimit
 } = require('./lib/patron-admin');
 
 function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, multi) {
@@ -202,21 +203,32 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen' }) };
   }
 
+  if (images.length > 5) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Máximo 5 páginas por recibo' }) };
+  }
+  // Mismo guard de tamaño por imagen que identify-product: cortar acá un payload
+  // absurdo antes de viajar megas hasta la API de Claude.
+  if (images.some(img => !img || typeof img.base64 !== 'string' || img.base64.length > 7000000)) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Una de las imágenes es demasiado grande — volvé a intentar desde la app' }) };
+  }
+  let reservation;
   try {
     const hasAccess = await callerCanUseAccount(callerUid, ownerUid);
     if (!hasAccess) {
       return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
     }
-    const quota = await checkScanQuota(ownerUid, caller.isAnonymous);
-    if (!quota.allowed) {
+    if (!(await checkIpRateLimit(event))) {
+      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — esperá un rato y probá de nuevo' }) };
+    }
+    // Reserva el cupo ANTES de llamar a Claude (chequeo+descuento atómicos) — ver
+    // reserveScanQuota en lib/patron-admin.js para el porqué.
+    reservation = await reserveScanQuota(ownerUid, caller);
+    if (!reservation.allowed) {
       return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
     }
   } catch (e) {
     console.error('[Dusty] error verificando cupo de escaneo:', e);
     return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo' }) };
-  }
-  if (images.length > 5) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Máximo 5 páginas por recibo' }) };
   }
 
   const imageContentBlocks = images.map(img => ({
@@ -316,15 +328,19 @@ exports.handler = async (event) => {
           stopReason: data.stop_reason || null
         }) };
       }
-      // Se cuenta 1 por cada recibo que realmente salió de la foto, no 1 por foto —
-      // si no, subir varios recibos juntos en una sola imagen sería gratis.
-      await recordScanUsage(ownerUid, list.length, currentBillingPeriod());
+      // La llamada ya reservó 1 al entrar; se cuenta 1 por cada recibo que realmente
+      // salió de la foto (si no, subir varios recibos juntos sería gratis), así que
+      // acá se suma solo lo que excede la reserva.
+      if (list.length > 1) await recordScanUsage(ownerUid, list.length - 1, reservation.period);
       return { statusCode: 200, body: JSON.stringify({ receipts: list }) };
     }
 
-    await recordScanUsage(ownerUid, 1, currentBillingPeriod());
     return { statusCode: 200, body: JSON.stringify(receiptData) };
   } catch (err) {
+    // Si el fetch a Claude reventó por red, lo más probable es que no se haya
+    // cobrado nada — se devuelve la unidad reservada. Los 502 de más arriba
+    // (Claude contestó pero mal) NO refundan: esa llamada costó plata real.
+    await refundScanUsage(ownerUid, 1, reservation.period);
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno' }) };
   }
 };

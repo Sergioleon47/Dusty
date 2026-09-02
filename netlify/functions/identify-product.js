@@ -12,7 +12,8 @@
 // tope una vez agotado el cupo de recibos.
 const {
   isAllowedOrigin, verifyCallerInfo,
-  currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
+  currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage,
+  checkIpRateLimit
 } = require('./lib/patron-admin');
 
 function buildPrompt(categoryNames, inventoryNames) {
@@ -205,13 +206,19 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'La imagen es demasiado grande — volvé a intentar desde la app' }) };
   }
 
+  let reservation;
   try {
     const hasAccess = await callerCanUseAccount(callerUid, ownerUid);
     if (!hasAccess) {
       return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
     }
-    const quota = await checkScanQuota(ownerUid, caller.isAnonymous);
-    if (!quota.allowed) {
+    if (!(await checkIpRateLimit(event))) {
+      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — esperá un rato y probá de nuevo' }) };
+    }
+    // Reserva el cupo ANTES de llamar a Claude (chequeo+descuento atómicos) — ver
+    // reserveScanQuota en lib/patron-admin.js para el porqué.
+    reservation = await reserveScanQuota(ownerUid, caller);
+    if (!reservation.allowed) {
       return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
     }
   } catch (e) {
@@ -309,7 +316,6 @@ exports.handler = async (event) => {
             box: boxOk ? { x: b.x, y: b.y, w: b.w, h: b.h } : null
           };
         });
-      await recordScanUsage(ownerUid, 1, currentBillingPeriod());
       return { statusCode: 200, body: JSON.stringify({ products }) };
     }
 
@@ -336,13 +342,14 @@ exports.handler = async (event) => {
             matched_inventory_name: typeof p.matched_inventory_name === 'string' && p.matched_inventory_name.trim() ? p.matched_inventory_name : null
           };
         });
-      await recordScanUsage(ownerUid, 1, currentBillingPeriod());
       return { statusCode: 200, body: JSON.stringify({ products }) };
     }
 
-    await recordScanUsage(ownerUid, 1, currentBillingPeriod());
     return { statusCode: 200, body: JSON.stringify(productData) };
   } catch (err) {
+    // Fetch a Claude reventó por red: lo más probable es que no se haya cobrado —
+    // se devuelve la unidad reservada. Los 502 (Claude contestó mal) no refundan.
+    await refundScanUsage(ownerUid, 1, reservation.period);
     return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno' }) };
   }
 };

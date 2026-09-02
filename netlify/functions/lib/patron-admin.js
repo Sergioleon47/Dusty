@@ -67,7 +67,11 @@ async function verifyCallerInfo(event) {
     const decoded = await admin.auth().verifyIdToken(idToken);
     return {
       uid: decoded.uid,
-      isAnonymous: !!(decoded.firebase && decoded.firebase.sign_in_provider === 'anonymous')
+      isAnonymous: !!(decoded.firebase && decoded.firebase.sign_in_provider === 'anonymous'),
+      // Cuenta "real" pero con email nunca verificado: crear una cuesta lo mismo
+      // que una anónima (cero — cualquier email inventado sirve), así que su cupo
+      // por defecto es más chico (ver reserveScanQuota). Firma del token, no body.
+      emailVerified: !!decoded.email_verified
     };
   } catch (e) {
     return null;
@@ -90,6 +94,17 @@ const DEFAULT_SCAN_LIMIT = 60;
 // cuenta se convierte en real (email+PIN), el token deja de ser anónimo y pasa
 // al cupo mensual normal de arriba, sin resetear nada.
 const TRIAL_SCAN_LIMIT = 5;
+// Cuenta con email SIN verificar y sin plan asignado: cupo mensual reducido.
+// Crear una cuenta así es gratis e instantáneo con cualquier email inventado —
+// con el cupo completo de 60, "una cuenta nueva por mes" era la forma barata de
+// quemar la API de Claude a costa nuestra. La app todavía no tiene flujo de
+// verificación de email: cuando lo tenga, verificar desbloquea el cupo completo.
+const UNVERIFIED_SCAN_LIMIT = 15;
+// Tope de llamadas de IA por IP por hora, cruzando TODAS las cuentas — es el freno
+// real contra granjas de cuentas (anónimas o con emails inventados): las cuentas
+// son gratis, las IPs no. Generoso para un negocio real (hasta un lote de recibos
+// grande por hora), asfixiante para un script.
+const IP_RATE_LIMIT_PER_HOUR = 30;
 
 function currentBillingPeriod() {
   const d = new Date();
@@ -105,23 +120,99 @@ async function callerCanUseAccount(callerUid, ownerUid) {
   return memberDoc.exists;
 }
 
-async function checkScanQuota(ownerUid, callerIsAnonymous) {
+/* RESERVA de cupo: chequea Y descuenta en la MISMA transacción, ANTES de llamar a
+   Claude. La versión anterior (checkScanQuota) era una lectura suelta y el descuento
+   llegaba recién después de que Claude respondiera (varios segundos): N pedidos en
+   paralelo con 1 escaneo restante pasaban todos el chequeo y todos llegaban a Claude
+   — el modo lote del cliente ya dispara 5 a la vez, y un cliente hostil podía abrir
+   mucho más. Con la reserva, el cupo es un tope duro: el que no entra en la
+   transacción, no llama a Claude. Si Claude después falla sin llegar a cobrar
+   (error de red), refundScanUsage() devuelve la unidad. */
+async function reserveScanQuota(ownerUid, caller, count = 1) {
   const db = admin.firestore();
   const ref = db.doc(`users/${ownerUid}/meta/billing`);
   const period = currentBillingPeriod();
-  const snap = await ref.get();
-  const data = snap.exists ? snap.data() : {};
-  // Cuenta anónima (trial): cupo TOTAL de por vida contra scansTotal, sin importar
-  // el mes. Solo aplica cuando escanea contra su propia cuenta — un anónimo nunca
-  // puede ser miembro de un equipo (unirse crea una cuenta real), así que en la
-  // práctica ownerUid siempre es su propio uid acá.
-  if (callerIsAnonymous) {
-    const total = data.scansTotal || 0;
-    return { allowed: total < TRIAL_SCAN_LIMIT, limit: TRIAL_SCAN_LIMIT, used: total, period };
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    let limit, used;
+    if (caller.isAnonymous) {
+      // Trial: cupo TOTAL de por vida contra scansTotal, sin importar el mes. Un
+      // anónimo nunca es miembro de un equipo, así que ownerUid es su propio uid.
+      limit = TRIAL_SCAN_LIMIT;
+      used = data.scansTotal || 0;
+    } else {
+      // El cupo reducido por email sin verificar solo aplica escaneando contra la
+      // PROPIA cuenta: un miembro de equipo ya probó un código de invitación real,
+      // y el cupo que gasta es el del dueño (con su propio plan/límite).
+      const unverifiedSelf = !caller.emailVerified && caller.uid === ownerUid;
+      limit = (data.plan && PLAN_SCAN_LIMITS[data.plan]) || (unverifiedSelf ? UNVERIFIED_SCAN_LIMIT : DEFAULT_SCAN_LIMIT);
+      used = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
+    }
+    if (used + count > limit) return { allowed: false, limit, used, period };
+    tx.set(ref, {
+      scansUsed: (data.scansPeriod === period ? (data.scansUsed || 0) : 0) + count,
+      scansPeriod: period,
+      scansTotal: (data.scansTotal || 0) + count,
+      plan: data.plan || null
+    }, { merge: true });
+    return { allowed: true, limit, used: used + count, period };
+  });
+}
+
+// Devuelve una unidad reservada cuando la llamada a Claude falló sin llegar a
+// cobrarse (fetch que revienta por red). Los 502 de "Claude contestó basura" NO se
+// refundan a propósito: esa llamada sí costó plata real.
+async function refundScanUsage(ownerUid, count, period) {
+  try {
+    const db = admin.firestore();
+    const ref = db.doc(`users/${ownerUid}/meta/billing`);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const data = snap.data();
+      tx.set(ref, {
+        scansUsed: Math.max(0, (data.scansPeriod === period ? (data.scansUsed || 0) : 0) - count),
+        scansTotal: Math.max(0, (data.scansTotal || 0) - count)
+      }, { merge: true });
+    });
+  } catch (e) {
+    console.error('[Dusty] no se pudo devolver la reserva de escaneo:', e);
   }
-  const limit = (data.plan && PLAN_SCAN_LIMITS[data.plan]) || DEFAULT_SCAN_LIMIT;
-  const used = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
-  return { allowed: used < limit, limit, used, period };
+}
+
+/* Freno por IP: N llamadas de IA por hora por IP, cruzando todas las cuentas.
+   Vive en Firestore (colección rateLimits/, sin regla que la matchee — solo el
+   Admin SDK llega) porque las instancias de Netlify no comparten memoria. Un doc
+   por IP-hora, con expireAt por si algún día se activa TTL en la consola; aún sin
+   TTL son docs de dos campos, no pesan. Falla ABIERTO a propósito: si Firestore
+   está caído, un negocio real no se queda sin escanear por culpa del freno. */
+async function checkIpRateLimit(event) {
+  try {
+    const ip = event.headers['x-nf-client-connection-ip']
+      || ((event.headers['x-forwarded-for'] || '').split(',')[0] || '').trim();
+    if (!ip) return true;
+    const crypto = require('crypto');
+    const hour = Math.floor(Date.now() / 3600000);
+    // Se guarda un hash, no la IP en claro — para frenar abuso no hace falta
+    // retener el dato personal.
+    const key = crypto.createHash('sha256').update(ip).digest('hex').slice(0, 24) + '-' + hour;
+    const db = admin.firestore();
+    const ref = db.doc(`rateLimits/${key}`);
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const n = snap.exists ? (snap.data().n || 0) : 0;
+      if (n >= IP_RATE_LIMIT_PER_HOUR) return false;
+      tx.set(ref, {
+        n: n + 1,
+        expireAt: admin.firestore.Timestamp.fromMillis((hour + 2) * 3600000)
+      }, { merge: true });
+      return true;
+    });
+  } catch (e) {
+    console.error('[Dusty] fallo el chequeo de rate limit por IP:', e);
+    return true;
+  }
 }
 
 // Se llama recién después de que Claude ya contestó bien — count es la cantidad real
@@ -153,5 +244,6 @@ async function recordScanUsage(ownerUid, count, period) {
 
 module.exports = {
   admin, getFirebaseApp, isAllowedOrigin, verifyCaller, verifyCallerInfo, ALLOWED_ORIGIN_PATTERNS,
-  currentBillingPeriod, callerCanUseAccount, checkScanQuota, recordScanUsage
+  currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
+  checkIpRateLimit
 };

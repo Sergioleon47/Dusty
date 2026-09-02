@@ -44,7 +44,16 @@ exports.handler = async (event) => {
     let inviteCodeToDelete = null;
     const teamDoc = await userRef.collection('meta').doc('team').get();
     if (teamDoc.exists && teamDoc.data().inviteCode) {
-      inviteCodeToDelete = teamDoc.data().inviteCode;
+      // Confiar en meta/team a secas era un hueco: como el Admin SDK saltea las
+      // reglas, un código AJENO plantado ahí (por un miembro malicioso, cuando la
+      // regla de meta era más laxa) se borraba de verdad al eliminar esta cuenta,
+      // rompiéndole las invitaciones a un tercero. Solo se borra si el código
+      // realmente pertenece a la cuenta que se está eliminando.
+      const codeCandidate = String(teamDoc.data().inviteCode);
+      const codeDoc = await db.collection('inviteCodes').doc(codeCandidate).get();
+      if (codeDoc.exists && codeDoc.data().ownerUid === callerUid) {
+        inviteCodeToDelete = codeCandidate;
+      }
     }
 
     // 2. Si esta cuenta se había unido al equipo de otra persona, su doc de
