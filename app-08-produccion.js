@@ -282,6 +282,9 @@ function saveRecipeFromModal(){
   const idx = editingRecipeId ? recipes.findIndex(r=>r.id===editingRecipeId) : -1;
   if(idx!==-1) recipes[idx]=rec; else recipes.push(rec);
   saveState();
+  // Fire-and-forget, como las fotos de recibos: la foto se sube a Storage y por
+  // meta viaja solo la referencia; si falla, catchUpRecipePhotoUploads reintenta.
+  uploadRecipePhoto(rec);
   logActivity(idx!==-1 ? 'recipe_edited' : 'recipe_created', name);
   closeRecipeModal();
 }
@@ -294,6 +297,11 @@ function deleteRecipeFromModal(){
   // Lápida: sin esto, otro dispositivo re-subiría su copia de meta con la receta
   // adentro y la revivía — mismo mecanismo que deletedCalNoteIds.
   if(!deletedRecipeIds.includes(rec.id)) deletedRecipeIds.push(rec.id);
+  // La foto en Storage se limpia best-effort — un archivo huérfano no es grave
+  // (solo el dueño/equipo pueden leerlo), pero mejor no acumular basura.
+  if(rec.photo && rec.photo.path && currentUser){
+    try{ firebase.storage().ref(rec.photo.path).delete().catch(()=>{}); }catch(e){}
+  }
   saveState();
   logActivity('recipe_deleted', rec.name);
   closeRecipeModal();

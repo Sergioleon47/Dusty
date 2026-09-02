@@ -26,5 +26,22 @@ service firebase.storage {
         firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
       );
     }
+    // Fotos de recetas: mismas condiciones que las de recibos (dueño o miembro del
+    // equipo; subidas solo de imágenes y acotadas).
+    match /users/{ownerUid}/recipes/{allPaths=**} {
+      allow read: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+      );
+      allow create, update: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+      ) && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+      );
+    }
   }
 }

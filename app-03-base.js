@@ -796,7 +796,21 @@ function applyStateData(data){
   // Recetas y salidas (app-08) — mismas reglas que las notas: lápidas primero, y un
   // snapshot que todavía traiga una receta borrada acá llega ya filtrado.
   if(Array.isArray(data.deletedRecipeIds)) deletedRecipeIds = data.deletedRecipeIds;
-  if(Array.isArray(data.recipes)) recipes = data.recipes.filter(r=>r && r.id && !deletedRecipeIds.includes(r.id));
+  if(Array.isArray(data.recipes)){
+    // Mismo criterio que las fotos de recibos: si ESTE dispositivo ya tiene el
+    // base64 de la foto (la sacó él), lo conserva al aplicar el snapshot — la nube
+    // manda solo referencias {url,...} (ver recipesForCloud) y sin este merge cada
+    // snapshot le arrancaría el base64 local y la foto pasaría a depender de la red.
+    const localRecipePhotos = {};
+    recipes.forEach(r=>{ if(r && r.id && r.photo && r.photo.base64) localRecipePhotos[r.id] = r.photo; });
+    recipes = data.recipes.filter(r=>r && r.id && !deletedRecipeIds.includes(r.id)).map(r=>{
+      const localPhoto = localRecipePhotos[r.id];
+      if(localPhoto && (!r.photo || !r.photo.base64)){
+        return Object.assign({}, r, { photo: Object.assign({}, localPhoto, r.photo || {}) });
+      }
+      return r;
+    });
+  }
   if(Array.isArray(data.outflows)) outflows = data.outflows.filter(o=>o && o.id).slice(0, OUTFLOWS_MAX);
 }
 function loadState(){

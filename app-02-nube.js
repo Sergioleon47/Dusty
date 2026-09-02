@@ -219,6 +219,9 @@ function metaRef(uid){ return firebase.firestore().collection('users').doc(uid).
 function receiptPageStorageRef(uid, receiptId, pageIdx){
   return firebase.storage().ref(`users/${uid}/receipts/${receiptId}/page${pageIdx}.jpg`);
 }
+function recipePhotoStorageRef(uid, recipeId){
+  return firebase.storage().ref(`users/${uid}/recipes/${recipeId}/photo.jpg`);
+}
 /* ---- Referencias para compartir un inventario entre varias cuentas (equipo) ---- */
 // joinedRef vive bajo el uid de CADA cuenta (sus propias reglas de siempre aplican) y
 // dice, si existe, a qué otro uid hay que mirar en vez del propio.
@@ -385,6 +388,50 @@ function catchUpReceiptPhotoUploads(){
   });
 }
 
+/* ---- Fotos de recetas: mismo tratamiento que las fotos de recibos ----
+   El base64 de la foto de una receta (~15-25KB el thumbnail de 300px) viajaba
+   DENTRO del doc meta de Firestore: con 40-60 recetas con foto, el doc pisaba el
+   límite de 1MB y el batch entero fallaba para siempre (sync muerto y silencioso —
+   el mismo modo de falla que ya se arregló para las fotos de recibos moviéndolas
+   a Storage). Ahora la foto se sube a Storage y por meta viajan solo las
+   referencias {url, mediaType, path}; el base64 se queda en ESTE dispositivo
+   (instantáneo y offline) y los demás la ven por url. */
+function stripRecipePhotoForCloud(r){
+  if(!r || !r.photo) return r;
+  const copy = Object.assign({}, r);
+  // Sin url todavía (recién creada, o la subida no terminó): la foto simplemente
+  // no viaja aún — la receta sí. La subida pendiente la reintenta
+  // catchUpRecipePhotoUploads() en la próxima conexión.
+  copy.photo = r.photo.url ? { url: r.photo.url, mediaType: r.photo.mediaType || null, path: r.photo.path || null } : null;
+  return copy;
+}
+function recipesForCloud(list){
+  return (list || recipes).map(stripRecipePhotoForCloud);
+}
+async function uploadRecipePhoto(recipe){
+  const uid = syncUid();
+  if(!uid || !currentUser || !recipe || !recipe.photo || !recipe.photo.base64 || recipe.photo.url) return;
+  try{
+    const ref = recipePhotoStorageRef(uid, recipe.id);
+    await ref.putString(recipe.photo.base64, 'base64', {contentType: recipe.photo.mediaType || 'image/jpeg'});
+    const url = await ref.getDownloadURL();
+    // El objeto local gana la referencia SIN perder su base64 (mismo criterio que
+    // uploadReceiptImages) — y si la receta se borró mientras subía, no se revive:
+    // solo se limpia el archivo recién subido.
+    if(deletedRecipeIds.includes(recipe.id) || !recipes.some(x=>x.id===recipe.id)){
+      ref.delete().catch(()=>{});
+      return;
+    }
+    recipe.photo.url = url; recipe.photo.path = ref.fullPath;
+    saveState(); // persiste la url y re-sincroniza meta (ahora la foto viaja como referencia)
+  }catch(e){
+    console.warn('[Dusty] no se pudo subir la foto de la receta (se reintenta al reconectar):', e);
+  }
+}
+function catchUpRecipePhotoUploads(){
+  recipes.forEach(r=>{ if(r && r.photo && r.photo.base64 && !r.photo.url) uploadRecipePhoto(r); });
+}
+
 let cloudSyncDirty = false;
 let cloudSyncDebounceTimer = null;
 // Reintento con backoff exponencial cuando syncAllToFirestore() falla (ver más abajo):
@@ -456,7 +503,7 @@ function syncAllToFirestore(){
     deletedReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
     ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
       aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
-      recipes, outflows, deletedRecipeIds
+      recipes: recipesForCloud(), outflows, deletedRecipeIds
     }))});
 
     const CHUNK = 450;
@@ -589,7 +636,11 @@ function applyRemoteMetaSnapshot(doc){
   // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
   // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
   const incomingMeta = doc.data();
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds, recipes, outflows, deletedRecipeIds};
+  // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
+  // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
+  // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
+  // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)) return;
   applyingRemoteSnapshot = true;
   applyStateData(incomingMeta);
@@ -655,6 +706,7 @@ function attachFirestoreListeners(uid){
   // attachFirestoreListeners — cubre tanto el primer login como reconectar
   // (refrescar la página, volver a tener red) y unirse/salir de un equipo.
   catchUpReceiptPhotoUploads();
+  catchUpRecipePhotoUploads();
 }
 function detachFirestoreListeners(){
   if(unsubInventory) unsubInventory();
@@ -1043,7 +1095,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
         calNotes: mergedCalNotes,
-        recipes: mergedRecipes,
+        recipes: mergedRecipes.map(stripRecipePhotoForCloud),
         outflows: mergedOutflows,
         deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
       }))});

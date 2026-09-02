@@ -90,6 +90,8 @@ exports.handler = async (event) => {
     try {
       const bucket = admin.storage().bucket();
       await bucket.deleteFiles({ prefix: `users/${callerUid}/receipts/` });
+      // Fotos de recetas: viven en su propio prefijo desde que salieron del doc meta.
+      await bucket.deleteFiles({ prefix: `users/${callerUid}/recipes/` });
     } catch (storageErr) {
       console.error('[Dusty] delete-account: no se pudieron borrar las fotos de Storage:', storageErr);
     }
