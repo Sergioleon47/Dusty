@@ -236,8 +236,8 @@ function syncViewportHeight(){
 function renderCrashScreen(err){
   const app = document.getElementById('app');
   if(!app) return;
-  let lang = 'es';
-  try{ lang = uiLang || 'es'; }catch(e){}
+  let lang = 'en'; // inglés es el idioma principal — también en la pantalla de crash
+  try{ lang = uiLang || 'en'; }catch(e){}
   const copy = lang==='en'
     ? {title:'Something went wrong', body:'Dusty hit an unexpected error and couldn’t continue. Your saved data is safe on this device — reloading usually fixes it.', btn:'Reload'}
     : {title:'Algo salió mal', body:'Dusty encontró un error inesperado y no pudo continuar. Tus datos guardados en este dispositivo están a salvo — recargar normalmente lo soluciona.', btn:'Recargar'};

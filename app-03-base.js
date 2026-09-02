@@ -3,7 +3,7 @@
    Los nombres/categorías de productos que el usuario ingresa NUNCA se traducen —
    siempre quedan en inglés, para que el emparejamiento con el texto del OCR de
    recibos no se confunda entre idiomas. */
-let uiLang = 'es';
+let uiLang = 'en'; // inglés es el idioma principal de la app; español el secundario
 try{
   // 'platocost_lang' es el nombre viejo del producto, de antes de renombrarse a
   // PATRON — se sigue leyendo una sola vez acá (y se migra a la clave nueva de una)
@@ -18,7 +18,9 @@ try{
   // en vez de asumir español siempre — igual se lo confirmamos explícitamente en
   // el modal de bienvenida (ver welcomeModal()), esto es solo el estado inicial
   // mientras carga esa pantalla.
-  uiLang = savedLang || (navigator.language && navigator.language.toLowerCase().startsWith('en') ? 'en' : 'es');
+  // Inglés por defecto: solo un navegador/celular configurado en español arranca en
+  // español — cualquier otro idioma del mundo cae en inglés (antes era al revés).
+  uiLang = savedLang || (navigator.language && navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en');
 }catch(e){}
 function setLang(l){
   uiLang = l;
@@ -665,7 +667,9 @@ const I18N = {
     capacity_helper:'Optional — how much the container/jar holds when full. The shelf scanner uses it to turn "% full" into a real quantity.',
   }
 };
-function t(key){ return (I18N[uiLang] && I18N[uiLang][key]) || I18N.es[key] || key; }
+// Fallback en inglés (el idioma principal): una clave que exista solo en un idioma
+// se muestra en inglés, no en español.
+function t(key){ return (I18N[uiLang] && I18N[uiLang][key]) || I18N.en[key] || I18N.es[key] || key; }
 function unitLabel(u){ return u==='unidad' ? t('unit_unidad') : u==='caja' ? t('unit_caja') : u==='servicio' ? t('unit_servicio') : u; }
 
 /* ================= UTILIDADES ================= */

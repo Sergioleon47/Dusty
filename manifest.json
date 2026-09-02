@@ -1,7 +1,7 @@
 {
   "name": "Dusty",
   "short_name": "Dusty",
-  "description": "Escaneá recibos, mantené tu inventario al día y detectá cambios de precio automáticamente.",
+  "description": "Scan receipts, keep your inventory up to date, and catch price changes automatically.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

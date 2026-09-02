@@ -254,8 +254,9 @@ function langChoiceModal(){
     <div class="modal" style="text-align:center;">
       <div style="font-size:34px;margin-bottom:14px;">🌐</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <button type="button" data-choose-lang="es" class="btn btn-primary" style="padding:14px;font-size:15px;">Español</button>
+        ${/* Inglés primero: es el idioma principal de la app. */''}
         <button type="button" data-choose-lang="en" class="btn btn-primary" style="padding:14px;font-size:15px;">English</button>
+        <button type="button" data-choose-lang="es" class="btn btn-primary" style="padding:14px;font-size:15px;">Español</button>
       </div>
     </div>
   </div>`;

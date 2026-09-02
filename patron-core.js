@@ -94,7 +94,7 @@ const MONTH_NAMES = {
 // se pueda probar sola sin necesitar el resto de la app cargado.
 function monthLabel(key, lang){
   const [y,m] = key.split('-');
-  return MONTH_NAMES[lang||'es'][parseInt(m,10)-1]+' '+y;
+  return MONTH_NAMES[lang||'en'][parseInt(m,10)-1]+' '+y;
 }
 const WEEKDAY_NAMES = { es:['D','L','M','M','J','V','S'], en:['S','M','T','W','T','F','S'] };
 function shiftMonthStr(key, delta){
