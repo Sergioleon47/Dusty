@@ -528,7 +528,6 @@ function inventarioView(){
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
-      <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-cycle-count">
         ${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}
       </button>
