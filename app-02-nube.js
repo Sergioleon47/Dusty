@@ -507,12 +507,41 @@ try{
 function persistSyncedHashes(){
   try{ localStorage.setItem(SYNCED_HASHES_KEY, JSON.stringify(lastSyncedHashes)); }catch(e){}
 }
+/* DES-ENTIERRO pendiente (restaurar un backup): con las lápidas por unión (etapa D)
+   quitar una lápida local no alcanza — la copia de la nube la re-agrega en el
+   próximo snapshot y el doc restaurado se re-borra solo. Al importar un backup se
+   anotan acá los ids restaurados; la unión de lectura los saltea, y el próximo
+   sync manda un arrayRemove por esos ids (se limpia al confirmar). Persistido para
+   sobrevivir un cierre entre el import y la subida. */
+const PENDING_UNTOMBSTONE_KEY = 'patron_pending_untombstone_v1';
+let pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] };
+try{
+  const rawPU = localStorage.getItem(PENDING_UNTOMBSTONE_KEY);
+  if(rawPU) pendingUntombstone = Object.assign({ deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] }, JSON.parse(rawPU));
+}catch(e){}
+function persistPendingUntombstone(){
+  try{ localStorage.setItem(PENDING_UNTOMBSTONE_KEY, JSON.stringify(pendingUntombstone)); }catch(e){}
+}
+function markRestoredIds(map){
+  Object.keys(map).forEach(k=>{
+    if(!pendingUntombstone[k]) return;
+    const set = new Set(pendingUntombstone[k]);
+    (map[k]||[]).forEach(id=>{ if(id) set.add(id); });
+    pendingUntombstone[k] = Array.from(set);
+  });
+  persistPendingUntombstone();
+}
+function isUntombstonePending(field, id){
+  return pendingUntombstone[field] && pendingUntombstone[field].includes(id);
+}
 // En toda transición de árbol de datos (cambio de cuenta, unirse/salir de un equipo)
 // el espejo deja de valer: se resetea junto con el resto del estado local.
 function resetSyncedHashes(){
   lastSyncedHashes = { inventory:{}, purchases:{}, receipts:{}, meta:null };
   lastSaveContentHashes = null;
   firedTombstoneDeletes.clear();
+  pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] };
+  persistPendingUntombstone();
   persistSyncedHashes();
 }
 // La forma que viaja a la nube es la que se hashea (para recibos, sin base64 — igual
@@ -690,6 +719,23 @@ function syncAllToFirestore(){
         .forEach(([k,arr])=>{ if(Array.isArray(arr) && arr.length>0) metaData[k] = FV.arrayUnion.apply(FV, arr); });
       ops.push({ref:metaRef(uid), data: metaData, merge:true, metaHash});
     }
+    // Des-entierro pendiente (restaurar backup): un segundo write sobre meta con
+    // arrayRemove de los ids restaurados. Va DESPUÉS del write principal en el
+    // mismo batch — Firestore aplica los writes en orden, así que el remove gana
+    // sobre cualquier union del write anterior para esos ids.
+    const untombstoneFields = {};
+    let hasUntombstone = false;
+    Object.keys(pendingUntombstone).forEach(k=>{
+      const ids = pendingUntombstone[k];
+      if(Array.isArray(ids) && ids.length>0){
+        const FV2 = firebase.firestore.FieldValue;
+        untombstoneFields[k] = FV2.arrayRemove.apply(FV2, ids);
+        hasUntombstone = true;
+      }
+    });
+    if(hasUntombstone){
+      ops.push({ref:metaRef(uid), data: untombstoneFields, merge:true, untombstone:true});
+    }
 
     // Nada que subir (guardado que no cambió nada sincronizable): listo sin escribir.
     if(ops.length===0){
@@ -721,6 +767,14 @@ function syncAllToFirestore(){
         if(op.del) delete lastSyncedHashes[op.kind][op.id];
         else lastSyncedHashes[op.kind][op.id] = op.hash;
       });
+      // El arrayRemove del des-entierro llegó a la nube: la lista pendiente se
+      // limpia. (Alcance honesto: esto restaura del todo en ESTE dispositivo y en
+      // los que nunca vieron la lápida; un dispositivo que aún la tenga local la
+      // re-subirá por unión — deshacer eso del todo pediría lápidas versionadas.)
+      if(ops.some(op=>op.untombstone)){
+        pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] };
+        persistPendingUntombstone();
+      }
       persistSyncedHashes();
       cloudSyncDirty = false;
       clearTimeout(cloudSyncRetryTimer);
@@ -902,9 +956,44 @@ function applyRemoteMetaSnapshot(doc){
   // nube, así el sameJSON de abajo converge y deja de re-aplicar.
   const localTombstones = { deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds };
   Object.keys(localTombstones).forEach(k=>{
-    const remoteArr = Array.isArray(incomingMeta[k]) ? incomingMeta[k] : [];
+    // Las lápidas con des-entierro pendiente (restaurar backup) NO entran a la
+    // unión — si no, la copia de la nube re-mataba el doc restaurado antes de que
+    // el arrayRemove del próximo sync llegara.
+    const remoteArr = (Array.isArray(incomingMeta[k]) ? incomingMeta[k] : []).filter(id=>!isUntombstonePending(k, id));
     incomingMeta[k] = Array.from(new Set(remoteArr.concat(localTombstones[k] || [])));
   });
+  /* MERGE FINO de los arrays que viven en meta — la última pieza del rediseño del
+     sync: el doc de meta viaja entero, así que sin esto dos miembros editando
+     recetas DISTINTAS a la vez se pisaban (el commit más tardío traía la copia
+     vieja del otro), y una nota creada localmente se perdía si llegaba un snapshot
+     antes de subirla. Reglas por tipo:
+     - recetas: por id; en conflicto gana el lastEditedAt más nuevo (sin sello,
+       gana la nube — comportamiento de siempre). Las locales que la nube no tiene
+       se conservan (creadas offline/acá).
+     - notas y salidas: inmutables por id → unión (remoto de base + locales que
+       falten, filtrando tombstones ya unidos); salidas re-ordenadas y capadas.
+     - aliasMap: remoto manda por clave, las claves solo-locales se conservan.
+     Tras aplicar, meta queda dirty contra el hash remoto y el scheduleCloudSync
+     del final sube el resultado fusionado — todos convergen. */
+  const noteTombs = new Set(incomingMeta.deletedCalNoteIds || []);
+  const recipeTombs = new Set(incomingMeta.deletedRecipeIds || []);
+  const remoteRecipesIn = (Array.isArray(incomingMeta.recipes) ? incomingMeta.recipes : []).filter(r=>r && r.id);
+  const remoteRecipeIdsIn = new Set(remoteRecipesIn.map(r=>r.id));
+  incomingMeta.recipes = remoteRecipesIn.map(remote=>{
+    const local = recipes.find(x=>x && x.id===remote.id);
+    if(local && String(local.lastEditedAt||'') > String(remote.lastEditedAt||'')) return JSON.parse(JSON.stringify(stripRecipePhotoForCloud(local)));
+    return remote;
+  }).concat(
+    recipes.filter(x=>x && x.id && !remoteRecipeIdsIn.has(x.id) && !recipeTombs.has(x.id)).map(x=>JSON.parse(JSON.stringify(stripRecipePhotoForCloud(x))))
+  );
+  const remoteNotesIn = (Array.isArray(incomingMeta.calNotes) ? incomingMeta.calNotes : []).filter(n=>n && n.id);
+  const remoteNoteIdsIn = new Set(remoteNotesIn.map(n=>n.id));
+  incomingMeta.calNotes = remoteNotesIn.concat(calNotes.filter(n=>n && n.id && !remoteNoteIdsIn.has(n.id) && !noteTombs.has(n.id)));
+  const remoteOutIn = (Array.isArray(incomingMeta.outflows) ? incomingMeta.outflows : []).filter(o=>o && o.id);
+  const remoteOutIdsIn = new Set(remoteOutIn.map(o=>o.id));
+  incomingMeta.outflows = remoteOutIn.concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
+    .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+  incomingMeta.aliasMap = Object.assign({}, aliasMap, incomingMeta.aliasMap || {});
   // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
@@ -994,6 +1083,26 @@ function attachFirestoreListeners(uid){
   // (refrescar la página, volver a tener red) y unirse/salir de un equipo.
   catchUpReceiptPhotoUploads();
   catchUpRecipePhotoUploads();
+  pruneOldActivity(uid);
+}
+/* La colección de actividad ganaba un doc por CADA cambio de inventario y nunca se
+   borraba nada — la app solo lee los últimos 100, pero el almacenamiento en
+   Firestore crecía para siempre. Limpieza fire-and-forget al conectar: borra hasta
+   200 entradas con más de 120 días, solo cuando este usuario es el DUEÑO del árbol
+   (los miembros no andan borrando historial ajeno aunque las reglas lo permitan).
+   200 por conexión alcanza de sobra para ir drenando el backlog sin costo notable. */
+const ACTIVITY_KEEP_DAYS = 120;
+function pruneOldActivity(uid){
+  try{
+    if(!currentUser || currentUser.uid !== uid) return;
+    const cutoff = new Date(Date.now() - ACTIVITY_KEEP_DAYS*24*60*60*1000).toISOString();
+    activityRef(uid).where('at','<',cutoff).limit(200).get().then(snap=>{
+      if(snap.empty) return;
+      const batch = firebase.firestore().batch();
+      snap.docs.forEach(d=>batch.delete(d.ref));
+      return batch.commit();
+    }).catch(err=>console.warn('[Dusty] no se pudo podar la actividad vieja:', err));
+  }catch(e){}
 }
 function detachFirestoreListeners(){
   if(unsubInventory) unsubInventory();
@@ -1237,7 +1346,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const remoteMetaData = metaSnap.exists ? metaSnap.data() : {};
     const remoteDeletedIds = Array.isArray(remoteMetaData.deletedInventoryIds) ? remoteMetaData.deletedInventoryIds : [];
     let deletedIdsChanged = false;
-    remoteDeletedIds.forEach(id=>{ if(!deletedInventoryIds.includes(id)){ deletedInventoryIds.push(id); deletedIdsChanged = true; } });
+    remoteDeletedIds.forEach(id=>{ if(isUntombstonePending('deletedInventoryIds', id)) return; if(!deletedInventoryIds.includes(id)){ deletedInventoryIds.push(id); deletedIdsChanged = true; } });
     const deletedSet = new Set(deletedInventoryIds);
 
     // Mismas lápidas para recibos y compras: se fusionan las de la nube con las locales, y
@@ -1245,13 +1354,13 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // que los listeners lo traigan de vuelta. Sin esto, borrar un recibo con un compañero
     // offline no se propagaba (solo el inventario tenía este mecanismo).
     const remoteDeletedRecIds = Array.isArray(remoteMetaData.deletedReceiptIds) ? remoteMetaData.deletedReceiptIds : [];
-    remoteDeletedRecIds.forEach(id=>{ if(!deletedReceiptIds.includes(id)){ deletedReceiptIds.push(id); deletedIdsChanged = true; } });
+    remoteDeletedRecIds.forEach(id=>{ if(isUntombstonePending('deletedReceiptIds', id)) return; if(!deletedReceiptIds.includes(id)){ deletedReceiptIds.push(id); deletedIdsChanged = true; } });
     const remoteDeletedPurIds = Array.isArray(remoteMetaData.deletedPurchaseIds) ? remoteMetaData.deletedPurchaseIds : [];
-    remoteDeletedPurIds.forEach(id=>{ if(!deletedPurchaseIds.includes(id)){ deletedPurchaseIds.push(id); deletedIdsChanged = true; } });
+    remoteDeletedPurIds.forEach(id=>{ if(isUntombstonePending('deletedPurchaseIds', id)) return; if(!deletedPurchaseIds.includes(id)){ deletedPurchaseIds.push(id); deletedIdsChanged = true; } });
     // Lápidas de notas de calendario: mismo mecanismo que las de arriba — una nota
     // borrada en cualquier dispositivo deja de existir en todos.
     const remoteDeletedNoteIds = Array.isArray(remoteMetaData.deletedCalNoteIds) ? remoteMetaData.deletedCalNoteIds : [];
-    remoteDeletedNoteIds.forEach(id=>{ if(!deletedCalNoteIds.includes(id)){ deletedCalNoteIds.push(id); deletedIdsChanged = true; } });
+    remoteDeletedNoteIds.forEach(id=>{ if(isUntombstonePending('deletedCalNoteIds', id)) return; if(!deletedCalNoteIds.includes(id)){ deletedCalNoteIds.push(id); deletedIdsChanged = true; } });
     const deletedNoteSet = new Set(deletedCalNoteIds);
     if(calNotes.some(n=>deletedNoteSet.has(n.id))){
       calNotes = calNotes.filter(n=>!deletedNoteSet.has(n.id));
@@ -1259,7 +1368,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     }
     // Lápidas de recetas: mismo mecanismo que las notas (viven dentro de meta).
     const remoteDeletedRecipeIds = Array.isArray(remoteMetaData.deletedRecipeIds) ? remoteMetaData.deletedRecipeIds : [];
-    remoteDeletedRecipeIds.forEach(id=>{ if(!deletedRecipeIds.includes(id)){ deletedRecipeIds.push(id); deletedIdsChanged = true; } });
+    remoteDeletedRecipeIds.forEach(id=>{ if(isUntombstonePending('deletedRecipeIds', id)) return; if(!deletedRecipeIds.includes(id)){ deletedRecipeIds.push(id); deletedIdsChanged = true; } });
     const deletedRecipeSet = new Set(deletedRecipeIds);
     if(recipes.some(r=>deletedRecipeSet.has(r.id))){
       recipes = recipes.filter(r=>!deletedRecipeSet.has(r.id));
