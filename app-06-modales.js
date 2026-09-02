@@ -1476,54 +1476,23 @@ function cropToBase64(img, box, maxSide, quality){
 }
 
 // Hermana de identifyProductFromPhoto pero con multi:true — el servidor devuelve
-// {products:[...]} con un objeto por producto detectado. Mismo cupo, mismos errores.
+// {products:[...]} con un objeto por producto detectado. Usa el núcleo compartido
+// callDustyAI (era la CUARTA copia del plumbing que el refactor no había cubierto,
+// y ya estaba divergiendo: no marcaba err.trialQuota).
 async function identifyProductsFromPhoto(image){
-  if(!currentUser){
-    try{ await ensureTrialAccount(); }
-    catch(e){ throw new Error(t(e && e.code==='trial/real-account-exists' ? 'err_scan_auth_required' : 'err_scan_no_connection')); }
-  }
-  let idToken;
-  try{
-    idToken = await currentUser.getIdToken();
-  }catch(tokenErr){
-    throw new Error(t('err_scan_auth_required'));
-  }
-  let response;
-  try{
-    response = await fetch('/.netlify/functions/identify-product', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
-      body: JSON.stringify({
-        image: image,
-        multi: true,
-        ownerUid: syncUid(),
-        categoryNames: categories.map(c=>c.name),
-        // Para que la IA empareje cada producto detectado contra lo ya cargado
-        // (matched_inventory_name) — es lo que permite que escanear UN producto
-        // existente muestre su ficha en vez de ofrecer duplicarlo.
-        inventoryNames: inventory.map(i=>i.name)
-      })
-    });
-  }catch(netErr){
-    throw new Error(t('err_scan_no_connection'));
-  }
-  let parsed;
-  try{
-    parsed = await response.json();
-  }catch(parseErr){
-    throw new Error(t('err_function_not_found_product'));
-  }
-  if(response.status===429 && parsed.quotaExceeded){
-    if(currentUser && currentUser.isAnonymous){
-      closeProductBatchModal();
-      openUpgradeModal(t('trial_scans_over_note'));
-      throw new Error(t('trial_scans_over_note'));
-    }
-    throw new Error(t('err_scan_quota_exceeded'));
-  }
-  if(!response.ok || parsed.error){
-    throw new Error(parsed.error || t('product_scan_error'));
-  }
+  const parsed = await callDustyAI('/.netlify/functions/identify-product', {
+    image: image,
+    multi: true,
+    categoryNames: categories.map(c=>c.name),
+    // Para que la IA empareje cada producto detectado contra lo ya cargado
+    // (matched_inventory_name) — es lo que permite que escanear UN producto
+    // existente muestre su ficha en vez de ofrecer duplicarlo.
+    inventoryNames: inventory.map(i=>i.name)
+  }, {
+    notFoundKey: 'err_function_not_found_product',
+    genericKey: 'product_scan_error',
+    onTrialQuota: ()=>{ closeProductBatchModal(); openUpgradeModal(t('trial_scans_over_note')); }
+  });
   return Array.isArray(parsed.products) ? parsed.products : [];
 }
 

@@ -512,9 +512,13 @@ async function processShelfSource(source){
       // Modo lista escrita: la foto era una NOTA de salidas ("-1"), no un estante —
       // el delta se fuerza negativo también acá (defensa por si el servidor viejo
       // sigue desplegado) y se aplica sobre el stock actual con piso en 0.
-      let detected = (p.reading==='ajuste' && Number.isFinite(Number(p.delta)))
+      // El guard de null/''/0 es obligatorio: Number(null) es 0 (finito), así que
+      // sin él una fila que el servidor anuló (delta fuera de rango) aparecía
+      // pre-marcada con "detectado = stock actual" en vez de quedar inerte.
+      const deltaOk = p.reading==='ajuste' && p.delta!==null && p.delta!==undefined && p.delta!=='' && Number.isFinite(Number(p.delta)) && Number(p.delta)!==0;
+      let detected = deltaOk
         ? roundQty(Math.max(0, cur - Math.abs(Number(p.delta))))
-        : detectedQtyFromReading(p, ing.capacityFull);
+        : (p.reading==='ajuste' ? null : detectedQtyFromReading(p, ing.capacityFull));
       // Este escáner es EXCLUSIVAMENTE para descontar: una lectura de estante que
       // daría MÁS stock del registrado no se aplica — la fila se muestra excluida
       // con su explicación, y si el stock real es mayor, eso se corrige editando
@@ -649,13 +653,14 @@ function shelfScanModal(){
 function applyShelfAdjust(){
   const items = [];
   let touched = 0;
+  let capSaved = false;
   shelfItems.forEach(it=>{
     const ing = inventory.find(i=>i.id===it.ingId);
     if(!ing) return;
     // La capacidad declarada inline se guarda aunque la fila no se incluya en el
     // ajuste — es un dato del producto, no de esta foto, y costó pedirlo.
     const cap = parseFloat(it.capacityDraft);
-    if(Number.isFinite(cap) && cap>0) ing.capacityFull = roundQty(cap);
+    if(Number.isFinite(cap) && cap>0){ ing.capacityFull = roundQty(cap); capSaved = true; }
     if(!it.include) return;
     const finalQty = parseFloat(it.finalQty);
     if(!Number.isFinite(finalQty) || finalQty<0) return;
@@ -680,7 +685,9 @@ function applyShelfAdjust(){
     });
     logActivity('stock_adjust', '', String(items.length));
   }
-  if(touched>0 || items.length>0) saveState();
+  // capSaved cuenta por sí solo: sin él, una capacidad tipeada en una fila
+  // excluida quedaba solo en memoria y se perdía al recargar.
+  if(touched>0 || items.length>0 || capSaved) saveState();
   closeShelfModal();
 }
 
@@ -853,7 +860,13 @@ function attachProductionEvents(){
         // Con la capacidad puesta, el % pendiente se convierte en cantidad en vivo.
         const cap=parseFloat(inp.value);
         if(Number.isFinite(cap) && cap>0 && it.fill_percent!==null){
-          it.finalQty = roundQty(cap * Math.min(it.fill_percent,100) / 100);
+          // Tope en el stock actual: este escáner solo descuenta, y sin el tope la
+          // conversión cap×% podía pintar un "+N" verde que applyShelfAdjust
+          // después descartaba en silencio — la UI prometía una suba que jamás
+          // se aplicaba.
+          const ingCur = inventory.find(i=>i.id===it.ingId);
+          const curQty = roundQty(Number(ingCur && ingCur.qtyOnHand)||0);
+          it.finalQty = Math.min(roundQty(cap * Math.min(it.fill_percent,100) / 100), curQty);
           it.detected = it.finalQty;
           const finalInp=document.querySelector(`[data-shelf-final="${idx}"]`);
           if(finalInp) finalInp.value=it.finalQty;

@@ -132,6 +132,10 @@ function renderApp(){
   document.documentElement.lang = uiLang;
   document.title = uiLang==='en' ? 'Dusty — Inventory' : 'Dusty — Inventario';
   const tabIdx = TAB_ORDER.indexOf(activeTab);
+  // Índice de compras por producto para TODO este render (ver buildPurchasesByIng
+  // en app-03) — se reconstruye en cada render, así nunca queda desactualizado
+  // frente a mutaciones in-place del array de compras.
+  purchasesByIngIndex = buildPurchasesByIng();
   /* El topbar (marca Dusty + botones de cuenta/ajustes/idioma) vive DENTRO de la
      página del Dashboard, no arriba del carrusel: la marca aparece una sola vez en
      la app, se desliza junto con el Dashboard en el swipe, e Inventario y Recibos

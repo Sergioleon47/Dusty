@@ -938,9 +938,25 @@ function priceChangeBadge(pct){
    que estar escaneando un recibo en ese momento — un umbral más chico que
    priceAlertThreshold (que es el que dispara la alerta fuerte al escanear), porque
    acá es solo un resumen informativo, no una confirmación bloqueante. */
+/* Índice de compras por producto, construido UNA vez por render (ver renderApp).
+   Sin esto, cada render recalculaba O(inventario × compras) con un sort de TODAS
+   las compras por cada producto (lastPriceChangePct filtra y ordena la lista
+   entera): con 300 productos y 5,000 compras eran millones de operaciones y
+   cientos de sorts por cada tap en un teléfono. */
+let purchasesByIngIndex = null;
+function buildPurchasesByIng(){
+  const m = Object.create(null);
+  purchases.forEach(p=>{ if(!p || !p.ingId) return; (m[p.ingId] || (m[p.ingId]=[])).push(p); });
+  return m;
+}
+function purchasesForIng(ingId){
+  if(purchasesByIngIndex) return purchasesByIngIndex[ingId] || [];
+  // Fuera de un render (índice sin construir): el camino lento de siempre.
+  return purchases.filter(p=>p && p.ingId===ingId);
+}
 function recentPriceAlerts(){
   return inventory
-    .map(i=>({ing:i, pct:lastPriceChangePct(i.id, purchases)}))
+    .map(i=>({ing:i, pct:lastPriceChangePct(i.id, purchasesForIng(i.id))}))
     .filter(x=>x.pct!==null && Math.abs(x.pct)>5)
     .sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct))
     .slice(0,5);

@@ -265,7 +265,7 @@ function budgetStatus(pct){ return pct>=100 ? 'crit' : pct>=80 ? 'warn' : 'ok'; 
    en vez de asustar a un usuario nuevo con todo el inventario en rojo desde el día 1. */
 function stockRowsData(){
   return inventory.map(i=>{
-    const hasHistory = (i.qtyOnHand||0)>0 || purchases.some(p=>p.ingId===i.id);
+    const hasHistory = (i.qtyOnHand||0)>0 || purchasesForIng(i.id).length>0;
     const target = i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
     const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
     return {ing:i, target, pct, status: hasHistory ? stockStatus(pct) : 'none'};
@@ -489,7 +489,7 @@ function stockRowHtml(r, ccDueIds){
       <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
       <div class="stock-main">
         <div class="stock-name">${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
-        <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchases))}${marginBadge(i)}</div>
+        <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchasesForIng(i.id)))}${marginBadge(i)}</div>
         <div class="stock-caption">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
       </div>
       <div class="stock-actions">
