@@ -1201,7 +1201,7 @@ function removeMember(memberId){
     .then(()=>{ render(); })
     .catch(err=>{
     console.error('[Dusty] remove member failed:', err);
-    alert(t('team_err_generic'));
+    showToast(t('team_err_generic'), 'error');
   });
 }
 

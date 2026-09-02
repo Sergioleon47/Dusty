@@ -330,6 +330,15 @@ const I18N = {
     shelf_conf_alta:'confianza alta', shelf_conf_media:'revisar', shelf_conf_baja:'verificá esto',
     shelf_fill_note:'~{p}% del envase', shelf_sticker_note:'con marca {c}',
     shelf_increase_blocked:'La lectura ({n}) es mayor que el stock registrado ({c}) — este escáner solo descuenta. Si el stock real es mayor, editá el producto a mano.',
+    srv_auth_required:'Iniciá sesión para escanear.',
+    srv_bad_request:'La app mandó un pedido inválido — actualizá la página e intentá de nuevo.',
+    srv_too_many_pages:'Máximo 5 páginas por recibo.',
+    srv_image_too_big:'La imagen es demasiado grande — probá de nuevo desde la app.',
+    srv_no_access:'No tenés acceso a esa cuenta.',
+    srv_rate_limited:'Demasiados escaneos seguidos — esperá un rato y probá de nuevo.',
+    srv_quota_check_failed:'No se pudo verificar tu cupo de escaneos — intentá de nuevo.',
+    srv_upstream_error:'El lector de IA está saturado en este momento — tu cupo no se descontó, probá en un minuto.',
+    srv_internal:'Algo falló en el servidor — probá de nuevo.',
     shelf_info_badge_aria:'Qué hace este escáner',
     shelf_info_title:'Escáner de salidas — solo descuenta',
     shelf_info_text:'Sacale una foto al estante y ajusta cuánto queda de cada producto, o a una nota escrita (ej. "Harina −2") y descuenta cada línea. Nunca suma stock: para aumentar, editá el producto a mano.',
@@ -649,6 +658,15 @@ const I18N = {
     shelf_conf_alta:'high confidence', shelf_conf_media:'double-check', shelf_conf_baja:'verify this',
     shelf_fill_note:'~{p}% of container', shelf_sticker_note:'marked {c}',
     shelf_increase_blocked:'The reading ({n}) is higher than the recorded stock ({c}) — this scanner only deducts. If your real stock is higher, edit the product by hand.',
+    srv_auth_required:'Sign in to scan.',
+    srv_bad_request:'The app sent an invalid request — refresh the page and try again.',
+    srv_too_many_pages:'A receipt can have at most 5 pages.',
+    srv_image_too_big:'That image is too large — try again from the app.',
+    srv_no_access:'You do not have access to that account.',
+    srv_rate_limited:'Too many scans in a row — wait a bit and try again.',
+    srv_quota_check_failed:'Could not verify your scan quota — try again.',
+    srv_upstream_error:'The AI reader is overloaded right now — your quota was not charged, try again in a minute.',
+    srv_internal:'Something failed on the server — try again.',
     shelf_info_badge_aria:'What this scanner does',
     shelf_info_title:'Outflow scanner — deduct only',
     shelf_info_text:'Snap a photo of your shelf to adjust how much remains of each product, or of a written note (e.g. "Flour −2") to deduct each line. It never adds stock: to increase, edit the product by hand.',
@@ -670,6 +688,31 @@ const I18N = {
 // Fallback en inglés (el idioma principal): una clave que exista solo en un idioma
 // se muestra en inglés, no en español.
 function t(key){ return (I18N[uiLang] && I18N[uiLang][key]) || I18N.en[key] || I18N.es[key] || key; }
+
+/* Aviso flotante con el estilo de la app — reemplaza a los alert() del sistema, que
+   dentro del WebView de Android se ven especialmente crudos y BLOQUEAN el hilo.
+   Vive en #toast-root (fuera de #app: morphdom no lo toca), se apila hasta 3, se
+   descarta solo (los errores duran más) o con un toque. type: 'info'|'success'|'error'. */
+function showToast(message, type){
+  try{
+    const root = document.getElementById('toast-root');
+    if(!root){ alert(message); return; } // último recurso si el shell no lo tiene
+    const el = document.createElement('div');
+    el.className = 'toast toast-' + (type || 'info');
+    el.textContent = String(message);
+    root.appendChild(el);
+    while(root.children.length > 3) root.removeChild(root.firstChild);
+    let gone = false;
+    const dismiss = ()=>{
+      if(gone) return;
+      gone = true;
+      el.classList.add('toast-out');
+      setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 260);
+    };
+    el.onclick = dismiss;
+    setTimeout(dismiss, type === 'error' ? 6500 : 4200);
+  }catch(e){}
+}
 function unitLabel(u){ return u==='unidad' ? t('unit_unidad') : u==='caja' ? t('unit_caja') : u==='servicio' ? t('unit_servicio') : u; }
 
 /* ================= UTILIDADES ================= */
@@ -778,7 +821,7 @@ function saveState(){
     }catch(e2){}
     if(!retried){
       console.warn('No se pudo guardar en localStorage (¿espacio lleno?)', e);
-      alert(t('storage_full_warning'));
+      showToast(t('storage_full_warning'), 'error');
       localOk = false;
     }
   }
@@ -884,18 +927,18 @@ function importData(file){
   reader.onload = ()=>{
     let data;
     try{ data = JSON.parse(reader.result); }
-    catch(e){ alert(t('import_invalid')); return; }
-    if(!data || !Array.isArray(data.inventory) || !Array.isArray(data.receipts)){ alert(t('import_invalid')); return; }
+    catch(e){ showToast(t('import_invalid'), 'error'); return; }
+    if(!data || !Array.isArray(data.inventory) || !Array.isArray(data.receipts)){ showToast(t('import_invalid'), 'error'); return; }
     // Importar mientras estás dentro del inventario de un equipo escribiría este backup
     // PERSONAL sobre el árbol del dueño y borraría (por diff) todo lo del equipo que no
     // esté en el backup — un miembro podía aniquilar el inventario compartido con un
     // import. Se bloquea con un aviso claro en vez de arriesgarlo.
-    if(joinedOwnerUid){ alert(t('import_blocked_team')); return; }
+    if(joinedOwnerUid){ showToast(t('import_blocked_team'), 'error'); return; }
     // Validación de forma: cada producto/recibo/compra debe ser un objeto con id. Un solo
     // elemento inválido (null, o sin id) rompía el render o el sync (doc(undefined)).
     const validItems = (arr)=> Array.isArray(arr) && arr.every(x=>x && typeof x==='object' && typeof x.id==='string');
     if(!validItems(data.inventory) || !validItems(data.receipts) || (data.purchases!==undefined && !validItems(data.purchases))){
-      alert(t('import_invalid')); return;
+      showToast(t('import_invalid'), 'error'); return;
     }
     if(!confirm(t('import_confirm'))) return;
     applyStateData(data);
@@ -912,9 +955,9 @@ function importData(file){
     deletedRecipeIds = deletedRecipeIds.filter(id=>!restoredRecipes.has(id));
     saveState();
     render();
-    alert(t('import_success'));
+    showToast(t('import_success'), 'success');
   };
-  reader.onerror = ()=> alert(t('import_invalid'));
+  reader.onerror = ()=> showToast(t('import_invalid'), 'error');
   reader.readAsText(file);
 }
 // monthKey, MONTH_NAMES, monthLabel, WEEKDAY_NAMES, shiftMonthStr y lastPriceChangePct

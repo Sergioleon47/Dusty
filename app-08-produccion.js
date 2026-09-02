@@ -284,11 +284,11 @@ async function runRecipeScan(file){
 function saveRecipeFromModal(){
   const nameInput = document.getElementById('recipe-name');
   const name = (nameInput ? nameInput.value : draftRecipe.name).trim();
-  if(!name){ alert(t('recipe_need_name')); return; }
+  if(!name){ showToast(t('recipe_need_name'), 'error'); return; }
   const components = draftRecipe.components
     .map(c=>({ingId:c.ingId, qty: roundQty(parseFloat(c.qty)||0)}))
     .filter(c=>c.ingId && c.qty>0);
-  if(components.length===0){ alert(t('recipe_need_components')); return; }
+  if(components.length===0){ showToast(t('recipe_need_components'), 'error'); return; }
   const rec = {id: draftRecipe.id, name, photo: draftRecipe.photo||null, components,
     createdAt: (editingRecipeId && recipeById(editingRecipeId)?.createdAt) || new Date().toISOString()};
   if(currentUser){ rec.lastEditedBy = currentUserLabel(); rec.lastEditedAt = new Date().toISOString(); }
@@ -746,7 +746,7 @@ function attachProductionEvents(){
       try{
         const img = await loadImageFromFile(file);
         if(draftRecipe){ draftRecipe.photo = resizeToBase64(img, 300, 0.75); render(); }
-      }catch(err){ alert(err.message || t('err_img_process')); }
+      }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
     };
     const scanFile=document.getElementById('recipe-scan-file');
     const btnScan=document.getElementById('btn-recipe-scan');

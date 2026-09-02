@@ -160,7 +160,7 @@ exports.handler = async (event) => {
   // escribir a mano.
   const caller = await verifyCallerInfo(event);
   if (!caller) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Iniciá sesión para escanear recibos' }) };
+    return { statusCode: 401, body: JSON.stringify({ error: 'Iniciá sesión para escanear recibos', code: 'auth_required' }) };
   }
   const callerUid = caller.uid;
 
@@ -196,29 +196,29 @@ exports.handler = async (event) => {
     multi = parsed.multi === true;
     ownerUid = typeof parsed.ownerUid === 'string' && parsed.ownerUid ? parsed.ownerUid : callerUid;
   } catch (e) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido', code: 'bad_request' }) };
   }
 
   if (!images || images.length === 0) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen', code: 'bad_request' }) };
   }
 
   if (images.length > 5) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Máximo 5 páginas por recibo' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'Máximo 5 páginas por recibo', code: 'too_many_pages' }) };
   }
   // Mismo guard de tamaño por imagen que identify-product: cortar acá un payload
   // absurdo antes de viajar megas hasta la API de Claude.
   if (images.some(img => !img || typeof img.base64 !== 'string' || img.base64.length > 7000000)) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Una de las imágenes es demasiado grande — volvé a intentar desde la app' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'Una de las imágenes es demasiado grande — volvé a intentar desde la app', code: 'image_too_big' }) };
   }
   let reservation;
   try {
     const hasAccess = await callerCanUseAccount(callerUid, ownerUid);
     if (!hasAccess) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
+      return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta', code: 'no_access' }) };
     }
     if (!(await checkIpRateLimit(event))) {
-      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — esperá un rato y probá de nuevo' }) };
+      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — esperá un rato y probá de nuevo', code: 'rate_limited' }) };
     }
     // Reserva el cupo ANTES de llamar a Claude (chequeo+descuento atómicos) — ver
     // reserveScanQuota en lib/patron-admin.js para el porqué.
@@ -228,7 +228,7 @@ exports.handler = async (event) => {
     }
   } catch (e) {
     console.error('[Dusty] error verificando cupo de escaneo:', e);
-    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo', code: 'quota_check_failed' }) };
   }
 
   const imageContentBlocks = images.map(img => ({
@@ -279,7 +279,7 @@ exports.handler = async (event) => {
       // Los 502 de más abajo (Claude SÍ contestó, pero mal) no refundan: esos
       // tokens sí se facturaron.
       await refundScanUsage(ownerUid, 1, reservation.period);
-      return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del lector de recibos' }) };
+      return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del lector de recibos', code: 'upstream_error' }) };
     }
 
     const textBlock = (data.content || []).find(b => b.type === 'text');
@@ -347,6 +347,6 @@ exports.handler = async (event) => {
     // cobrado nada — se devuelve la unidad reservada. Los 502 de más arriba
     // (Claude contestó pero mal) NO refundan: esa llamada costó plata real.
     await refundScanUsage(ownerUid, 1, reservation.period);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno', code: 'internal' }) };
   }
 };

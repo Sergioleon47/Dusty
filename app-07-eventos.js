@@ -606,7 +606,7 @@ function attachEvents(){
           item.photo = resizeToBase64(img, 300, 0.75);
           saveState(); render();
         }catch(err){
-          alert(err.message || t('err_img_process'));
+          showToast(err.message || t('err_img_process'), 'error');
         }
       };
       input.click();
@@ -632,7 +632,7 @@ function attachEvents(){
         draftItem.photo = resizeToBase64(img, 300, 0.75);
         render();
       }catch(err){
-        alert(err.message || t('err_img_process'));
+        showToast(err.message || t('err_img_process'), 'error');
       }
     };
     const btnRemoveItemPhoto=document.getElementById('btn-remove-item-photo');

@@ -52,6 +52,9 @@
 </head>
 <body>
 <div id="app"></div>
+<!-- Avisos flotantes (ver showToast en app-03) — FUERA de #app a propósito: morphdom
+     parchea #app entero en cada render y se llevaría puestos los toasts en curso. -->
+<div id="toast-root" aria-live="polite"></div>
 
 <script src="morphdom-umd.min.js"></script>
 <script src="patron-core.js"></script>

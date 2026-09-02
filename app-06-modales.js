@@ -69,7 +69,7 @@ async function performAccountDeletion(){
       localStorage.removeItem(LEGACY_STORAGE_KEY);
     }catch(e){}
     showDeleteAccountModal=false; deleteAccountLoading=false;
-    alert(t('delete_account_success'));
+    showToast(t('delete_account_success'), 'success');
     render();
   }catch(err){
     deleteAccountLoading=false;
@@ -761,7 +761,7 @@ function sendFeedback(){
     feedbackSent=true;
   }).catch(err=>{
     console.error('[Dusty] feedback send failed:', err);
-    alert(t('feedback_error'));
+    showToast(t('feedback_error'), 'error');
   }).then(()=>{
     feedbackSubmitting=false; render();
   });
@@ -1922,6 +1922,12 @@ async function callDustyAI(path, body, opts){
     throw new Error(t('err_scan_quota_exceeded'));
   }
   if(!response.ok || parsed.error){
+    // Código estable → mensaje traducido al idioma de la UI. El texto crudo del
+    // servidor (español fijo, o el error técnico en inglés de la API de Claude)
+    // queda solo como último recurso para servidores viejos sin código.
+    if(parsed && parsed.code && I18N.en['srv_'+parsed.code]){
+      throw new Error(t('srv_'+parsed.code));
+    }
     throw new Error(parsed.error || t(opts.genericKey));
   }
   return parsed;
@@ -2081,7 +2087,7 @@ function finishScanBatch(){
     const parts = [t('batch_done_saved').replace('{n}', saved)];
     if(skipped>0) parts.push(t('batch_done_skipped').replace('{n}', skipped));
     if(failed>0) parts.push(t('batch_done_failed').replace('{n}', failed));
-    alert(parts.join('\n'));
+    showToast(parts.join('\n'), 'info');
   }
 }
 

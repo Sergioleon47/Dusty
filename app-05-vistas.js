@@ -213,17 +213,6 @@ const STOCK_ICONS = {
    comunes, en vez del ícono plano dibujado a mano — para comparar cómo se ven. Necesitan
    internet para cargar (a diferencia de los SVG, que son parte del archivo); si no cargan
    (sin señal), el círculo simplemente se queda vacío en vez de mostrar un ícono roto. */
-const PRODUCT_PHOTOS = {
-  chicken: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Close-up_of_the_chicken_breast_on_a_cutting_board.jpg/330px-Close-up_of_the_chicken_breast_on_a_cutting_board.jpg',
-  shrimp: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/DFC_3959_A_heap_of_fresh_raw_shrimp_piled_together_glistening_with_moisture_and_ready_for_cleaning_or_cooking.jpg/330px-DFC_3959_A_heap_of_fresh_raw_shrimp_piled_together_glistening_with_moisture_and_ready_for_cleaning_or_cooking.jpg',
-  cheese: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/2021-06-22_15_54_33_A_ball_of_Bel_Gioioso_Fresh_Mozzarella_cheese_in_the_Franklin_Farm_section_of_Oak_Hill%2C_Fairfax_County%2C_Virginia.jpg/330px-2021-06-22_15_54_33_A_ball_of_Bel_Gioioso_Fresh_Mozzarella_cheese_in_the_Franklin_Farm_section_of_Oak_Hill%2C_Fairfax_County%2C_Virginia.jpg',
-  tomato: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Fresh_Tomato_in_the_market_for_sale_04.jpg/250px-Fresh_Tomato_in_the_market_for_sale_04.jpg',
-  oil: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Olive_oil_bottle_Bertolli_Riserva_Premium.jpg/330px-Olive_oil_bottle_Bertolli_Riserva_Premium.jpg',
-  flour: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/All-Purpose_Flour_%284107895947%29.jpg/330px-All-Purpose_Flour_%284107895947%29.jpg',
-  tortilla: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Corn_tortilla%2C_medium_flour_tortilla%2C_and_large_flour_tortilla%2C_stacked.jpg/330px-Corn_tortilla%2C_medium_flour_tortilla%2C_and_large_flour_tortilla%2C_stacked.jpg',
-  avocado: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Avocado_-_single_and_halved.jpg/330px-Avocado_-_single_and_halved.jpg',
-};
-
 /* Un brillo suave arriba-a-la-izquierda le da a cualquier ícono plano una sensación
    de profundidad/pulido (como un ícono de app premium) sin tener que rehacer a mano
    cada una de las 46 ilustraciones — se agrega una sola vez acá, encima de lo que sea. */
@@ -245,12 +234,10 @@ function stockIconSvg(item){
     // key siempre sale de la whitelist de stockIconKey (constante), así que ahí no hay riesgo.
     return `<img src="${escapeHtml(ownPhoto)}" alt="" loading="lazy" onerror="this.outerHTML=stockIconFallbackSvg('${key}')">`;
   }
-  const photo = PRODUCT_PHOTOS[key];
-  if(photo){
-    // Si la foto no carga (sin internet, o la URL de Wikimedia cambió), cae al ícono
-    // dibujado en vez de dejar el círculo vacío.
-    return `<img src="${photo}" alt="" loading="lazy" onerror="this.outerHTML=stockIconFallbackSvg('${key}')">`;
-  }
+  // (El experimento de fotos genéricas hotlinkeadas de Wikimedia se quitó: era
+  // una dependencia externa en una app por lo demás autocontenida — IPs de los
+  // usuarios viajando a un tercero en cada Dashboard, círculos vacíos offline, y
+  // Wikimedia desaconseja el hotlinking. Los 46 íconos SVG propios ya cubren todo.)
   return stockIconFallbackSvg(key);
 }
 function stockStatus(pct){ return pct>=60 ? 'ok' : pct>=20 ? 'warn' : 'crit'; }

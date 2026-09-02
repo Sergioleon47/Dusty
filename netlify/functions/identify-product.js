@@ -180,7 +180,7 @@ exports.handler = async (event) => {
 
   const caller = await verifyCallerInfo(event);
   if (!caller) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Iniciá sesión para escanear un producto' }) };
+    return { statusCode: 401, body: JSON.stringify({ error: 'Iniciá sesión para escanear un producto', code: 'auth_required' }) };
   }
   const callerUid = caller.uid;
 
@@ -207,28 +207,28 @@ exports.handler = async (event) => {
     stock = parsed.stock === true;
     ownerUid = typeof parsed.ownerUid === 'string' && parsed.ownerUid ? parsed.ownerUid : callerUid;
   } catch (e) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'Body inválido', code: 'bad_request' }) };
   }
 
   if (!image) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'Falta la imagen', code: 'bad_request' }) };
   }
   // El cliente ya reduce la foto antes de mandarla (~1400px); si llega algo mucho
   // más grande es un cliente roto o alguien pegándole a mano a la función. Cortarlo
   // acá da un error claro en vez de viajar megas hasta la API de Claude para que
   // falle allá con un 502 confuso (el límite real de la API es 5MB por imagen).
   if (image.base64.length > 7000000) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'La imagen es demasiado grande — volvé a intentar desde la app' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'La imagen es demasiado grande — volvé a intentar desde la app', code: 'image_too_big' }) };
   }
 
   let reservation;
   try {
     const hasAccess = await callerCanUseAccount(callerUid, ownerUid);
     if (!hasAccess) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
+      return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta', code: 'no_access' }) };
     }
     if (!(await checkIpRateLimit(event))) {
-      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — esperá un rato y probá de nuevo' }) };
+      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — esperá un rato y probá de nuevo', code: 'rate_limited' }) };
     }
     // Reserva el cupo ANTES de llamar a Claude (chequeo+descuento atómicos) — ver
     // reserveScanQuota en lib/patron-admin.js para el porqué.
@@ -238,7 +238,7 @@ exports.handler = async (event) => {
     }
   } catch (e) {
     console.error('[Dusty] error verificando cupo de escaneo:', e);
-    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo', code: 'quota_check_failed' }) };
   }
 
   try {
@@ -284,7 +284,7 @@ exports.handler = async (event) => {
       // Mismo criterio que extract-receipt: un error a nivel de API no se factura,
       // la unidad reservada se devuelve.
       await refundScanUsage(ownerUid, 1, reservation.period);
-      return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del identificador de productos' }) };
+      return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del identificador de productos', code: 'upstream_error' }) };
     }
 
     const textBlock = (data.content || []).find(b => b.type === 'text');
@@ -381,6 +381,6 @@ exports.handler = async (event) => {
     // Fetch a Claude reventó por red: lo más probable es que no se haya cobrado —
     // se devuelve la unidad reservada. Los 502 (Claude contestó mal) no refundan.
     await refundScanUsage(ownerUid, 1, reservation.period);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno', code: 'internal' }) };
   }
 };
