@@ -55,14 +55,14 @@ function manageModalA11y(){
     // Se abrió un modal: recordar el foco de la página y entrar al modal.
     if(lastOverlayCount === 0) focusBeforeModal = document.activeElement;
     const top = topOverlay();
-    const focusables = top ? modalFocusables(top) : [];
-    // Preferir el primer campo de texto (lo que el usuario vino a hacer); si no,
-    // el primer control que no sea el botón de cerrar.
-    const target = focusables.find(el=>/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))
-      || focusables.find(el=>!el.classList.contains('modal-close-btn'))
-      || focusables[0];
-    if(target && (!document.activeElement || !top.contains(document.activeElement))){
-      try{ target.focus({preventScroll:true}); }catch(e){}
+    // El foco entra al DIÁLOGO (contenedor con tabindex=-1), no a un campo de
+    // texto: enfocar un input abría el teclado del teléfono sin que nadie lo
+    // pidiera (feedback del usuario). Lectores de pantalla anuncian el diálogo
+    // igual, y Tab lleva al primer control cuando el usuario quiere.
+    const modalEl = top ? top.querySelector('.modal') : null;
+    if(modalEl && (!document.activeElement || !top.contains(document.activeElement))){
+      modalEl.setAttribute('tabindex','-1');
+      try{ modalEl.focus({preventScroll:true}); }catch(e){}
     }
   } else if(count === 0 && lastOverlayCount > 0){
     // Se cerró el último modal: devolver el foco a donde estaba.
@@ -369,8 +369,10 @@ function attachEvents(){
   if(alertSettingsOverlay){
     if(pendingBudgetFocus){
       pendingBudgetFocus=false;
+      // Solo scroll, SIN focus(): enfocar abriría el teclado del teléfono solo —
+      // dónde escribir lo decide el usuario tocando el campo (pedido explícito).
       const bi=document.getElementById('budget-input');
-      if(bi){ bi.scrollIntoView({block:'center'}); bi.focus(); }
+      if(bi) bi.scrollIntoView({block:'center'});
     }
     alertSettingsOverlay.onmousedown=(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } };
     const closeAlertSettingsBtn=document.getElementById('btn-close-alert-settings');
