@@ -704,9 +704,26 @@ function detachTeamListener(){
 }
 function generateInviteCode(){
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I/L, para que no se confundan al copiarlo a mano
+  // crypto.getRandomValues, no Math.random(): el código es lo único que protege el
+  // inventario del equipo, y Math.random() es predecible si alguien conoce el motor.
+  const buf = new Uint32Array(6);
+  crypto.getRandomValues(buf);
   let code = '';
-  for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  for(let i=0;i<6;i++) code += chars[buf[i] % chars.length];
   return code;
+}
+/* Rotar el código de invitación: crea el doc del código nuevo, apunta meta/team al
+   nuevo, y recién después borra el viejo (en este orden — si algo falla a mitad de
+   camino, siempre queda AL MENOS un código utilizable apuntando al dueño). */
+function rotateInviteCode(){
+  return teamRef(currentUser.uid).get().then(doc=>{
+    const oldCode = (doc.exists && doc.data().inviteCode) || null;
+    const code = generateInviteCode();
+    return inviteCodeRef(code).set({ownerUid: currentUser.uid, ownerEmail: currentUserLabel()})
+      .then(()=>teamRef(currentUser.uid).set({inviteCode: code}))
+      .then(()=>{ if(oldCode && oldCode !== code) return inviteCodeRef(oldCode).delete().catch(()=>{}); })
+      .then(()=>{ teamInviteCode = code; });
+  });
 }
 function ensureInviteCode(){
   if(teamInviteCode || !currentUser) return;
@@ -824,7 +841,15 @@ function leaveTeam(){
 }
 function removeMember(memberId){
   if(!confirm(t('team_remove_confirm'))) return;
-  membersRef(currentUser.uid).doc(memberId).delete().catch(err=>{
+  // El código se rota ANTES de borrar la membresía: el expulsado conoce el código
+  // vigente (lo usó para entrar) y la regla de create de members solo exige probar
+  // un código válido — sin rotación, podía volver a unirse un segundo después y la
+  // expulsión no servía de nada. Si la rotación falla (red), NO se expulsa: mejor
+  // reintentar que una expulsión de mentira.
+  rotateInviteCode()
+    .then(()=>membersRef(currentUser.uid).doc(memberId).delete())
+    .then(()=>{ render(); })
+    .catch(err=>{
     console.error('[Dusty] remove member failed:', err);
     alert(t('team_err_generic'));
   });
