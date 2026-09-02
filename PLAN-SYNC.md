@@ -1,9 +1,14 @@
 # Plan: rediseño de la sincronización (escrituras por-doc + merge de lápidas)
 
-**Fecha:** 2026-09-01 · **Estado:** etapa D + los 3 satélites HECHOS (2026-09-02,
-commit 91bcd2c); quedan A → B → C → E (el corazón: dirty set + escrituras
-por-doc + reconcile por contenido + snapshots granulares), a hacer en una
-sesión propia con el protocolo de prueba de dos perfiles de abajo.
+**Fecha:** 2026-09-01 · **Estado:** COMPLETO (2026-09-02). Etapa D + satélites en
+91bcd2c; etapas A+B+C+E en 7536292. Nota de implementación: en vez del dirty set
+marcado a mano en call sites, se usa detección por hash (espejo persistido de lo
+que la nube tiene, hash53 sobre stableStringify) — misma arquitectura, cobertura
+automática de todos los caminos de mutación. Falta SOLO la validación real de dos
+perfiles de navegador con la cuenta de equipo (protocolo de abajo) antes de
+empaquetar el próximo AAB. Ojo con clientes mezclados: un Android viejo (vc≤9,
+sync de estado completo) puede pisar escrituras por-doc de la web nueva — subir
+el próximo AAB pronto si el equipo mezcla web y Android.
 **Motivación:** la auditoría del 2026-09-01 encontró que el sync actual puede
 perder ediciones en silencio. Los tres problemas comparten una sola raíz:
 **el estado se sincroniza por reemplazo completo, sin comparar contenido.**
