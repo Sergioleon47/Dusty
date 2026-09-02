@@ -708,3 +708,55 @@
     .scan-card{padding:6px 0;}
     .link-btn{padding:8px 6px;font-size:12.5px;}
   }
+
+  /* ===== PRODUCCIÓN Y SALIDAS (app-08) ===== */
+  /* Banner del escáner de estante: LA acción nueva de la pestaña Inventario, en el
+     espacio que se liberó al mover el header de marca al Dashboard. Tinte verde de
+     la familia "sky/basil" (el color de los escáneres en esta app) sobre panel, con
+     el ícono en burbuja — mismo lenguaje visual que settingsCardHeader. */
+  .shelf-scan-banner{
+    display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+    background:linear-gradient(120deg, var(--sky-soft), var(--panel) 75%);
+    border:1px solid color-mix(in srgb, var(--basil) 28%, var(--line));
+    border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;cursor:pointer;
+    box-shadow:var(--shadow);color:var(--ink);font-family:'Inter';
+    transition:transform .2s var(--ease-soft), border-color .2s ease;
+  }
+  .shelf-scan-banner:hover{border-color:var(--basil);}
+  .shelf-scan-banner:active{transform:scale(0.985);}
+  .ssb-icon{
+    flex-shrink:0;width:40px;height:40px;border-radius:50%;
+    background:var(--basil-soft);color:var(--basil-ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ssb-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .ssb-text strong{font-size:14.5px;font-weight:700;}
+  .ssb-text small{font-size:12px;color:var(--ink-soft);}
+  .ssb-chevron{color:var(--ink-soft);font-size:20px;flex-shrink:0;}
+
+  /* Fila de receta en la tarjeta de Producción — misma anatomía que las filas de
+     stock (anillo + nombre + caption) para que se lean como parte de la misma app. */
+  .prod-recipe-row{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 0;border-top:1px solid var(--line);margin-top:12px;
+  }
+  .prod-recipe-row .stock-icon-ring{border-color:var(--line);color:var(--ink-soft);}
+  .prod-recipe-row:last-child{padding-bottom:18px;}
+
+  /* Fila de insumo dentro del modal de receta. */
+  .recipe-comp-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .recipe-comp-unit{font-size:12px;color:var(--ink-soft);min-width:38px;text-align:left;}
+
+  /* Contador de piezas producidas: − [n] + grandes y cómodos para el pulgar. */
+  .qty-stepper{display:flex;align-items:stretch;gap:8px;}
+  .qty-stepper button{
+    width:46px;border:1px solid var(--line);border-radius:10px;background:var(--raised);
+    color:var(--ink);font-size:20px;font-weight:700;cursor:pointer;
+    transition:background .15s ease, transform .15s ease;
+  }
+  .qty-stepper button:hover{background:var(--raised-2);}
+  .qty-stepper button:active{transform:scale(0.94);}
+  .qty-stepper button:disabled{opacity:.4;cursor:not-allowed;}
+  .qty-stepper input{
+    flex:1;text-align:center;font-family:'IBM Plex Mono';font-weight:700;font-size:16px;
+  }

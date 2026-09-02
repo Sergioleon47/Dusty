@@ -285,6 +285,61 @@ const I18N = {
     fallback_no_product_name:'Producto sin nombre', fallback_scanned:'Escaneado', fallback_unspecified:'Sin especificar',
     storage_full_warning:'⚠ No se pudo guardar este cambio — el almacenamiento del navegador está lleno. Anda a la pestaña Recibos, abrí un recibo viejo que ya no necesites y tocá "Eliminar" para liberar espacio (las fotos son lo que más ocupa). Después volvé a intentar el cambio.',
     unit_unidad:'unidad', unit_caja:'caja', unit_servicio:'servicio',
+    // Producción y salidas (recetas + escáner de estante — app-08)
+    prod_section_title:'Producción',
+    prod_new_recipe:'+ Nueva receta',
+    prod_no_recipes:'Guardá lo que producís como recetas — al registrar una producción, los insumos se descuentan del inventario solos y ves el costo por pieza.',
+    prod_cost_each:'por pieza', prod_components_n:'{n} insumo(s)',
+    prod_produce_btn:'Producir', prod_outflows_link:'Salidas',
+    recipe_new_title:'Nueva receta', recipe_edit_title:'Editar receta',
+    recipe_sub:'Qué insumos lleva cada pieza — al producir, se descuentan solos del inventario.',
+    recipe_name_label:'Nombre', recipe_name_ph:'Ej. Collar Luna',
+    recipe_scan_btn:'📷 Completar con una foto de la pieza',
+    recipe_scan_hint:'Sacale una foto a la pieza terminada — la IA sugiere insumos y cantidades como borrador, vos corregís y confirmás.',
+    recipe_scan_loading:'Contando con cuidado…',
+    recipe_scan_none:'No se reconoció ningún insumo de tu inventario en la foto.',
+    recipe_scan_unmatched:'Vistos en la foto pero no están en tu inventario (no se agregaron): {list}',
+    recipe_components_label:'Insumos por pieza',
+    recipe_no_components_yet:'Todavía no hay insumos — agregalos a mano o empezá con una foto de la pieza.',
+    recipe_add_component:'+ Agregar insumo', recipe_pick_product:'Elegí un producto', recipe_qty_ph:'Cant.',
+    recipe_cost_line:'Costo por pieza',
+    recipe_cost_missing:'{n} insumo(s) ya no existen en el inventario — el costo es parcial.',
+    recipe_need_name:'Ponele un nombre a la receta.',
+    recipe_need_components:'Agregá al menos un insumo con su cantidad.',
+    recipe_delete_confirm:'¿Eliminar la receta "{name}"? El inventario y el historial no se tocan.',
+    produce_title:'Registrar producción',
+    produce_sub:'Cuántas piezas hiciste — el stock de cada insumo se descuenta al confirmar.',
+    produce_count_label:'Piezas producidas',
+    produce_deduct_header:'Se descuenta del inventario',
+    produce_short_note:'Según tu stock registrado faltan {n} {u} — queda en 0. Si en físico tenías más, corregí el stock después.',
+    produce_missing_note:'Este insumo ya no existe en el inventario — no se descuenta.',
+    produce_batch_cost:'Costo de esta producción',
+    produce_confirm_btn:'Confirmar producción',
+    shelf_banner_title:'Escanear estante',
+    shelf_banner_sub:'Foto de tu estante → stock al día, sin contar a mano',
+    shelf_title:'Escanear estante',
+    shelf_sub:'Sacá una foto del estante completo — la IA lee cantidades y niveles, vos confirmás antes de que se ajuste nada.',
+    shelf_tip:'Mejor foto: todo el estante en cuadro con aire alrededor, buena luz, de frente o desde una esquina alta.',
+    shelf_loading:'Contando con cuidado — puede tardar unos segundos…',
+    shelf_none:'No se reconoció ningún producto en la foto — probá con más luz o más de cerca.',
+    shelf_review_hint:'Revisá cada lectura y corregí lo que haga falta. Solo se ajustan las filas marcadas.',
+    shelf_current:'Registrado', shelf_detected:'Leído en la foto',
+    shelf_final_label:'Dejar stock en',
+    shelf_conf_alta:'confianza alta', shelf_conf_media:'revisar', shelf_conf_baja:'verificá esto',
+    shelf_fill_note:'~{p}% del envase', shelf_sticker_note:'con marca {c}',
+    shelf_capacity_ask:'¿Cuánto es este envase lleno?',
+    shelf_capacity_helper:'Se guarda en el producto — la próxima el % se convierte solo en {u}.',
+    shelf_unmatched_title:'Vistos en la foto pero no están en tu inventario',
+    shelf_unmatched_hint:'Agregalos primero con "Escanear productos" si querés que el estante también los ajuste.',
+    shelf_apply_btn:'Ajustar {n} producto(s)',
+    outflows_title:'Salidas de inventario',
+    outflows_sub:'Producciones y ajustes de estante — qué bajó (o se corrigió) y cuándo.',
+    outflows_empty:'Todavía no hay salidas registradas.',
+    outflow_production:'Producción', outflow_adjust:'Ajuste de estante',
+    activity_production:'registró la producción de {n} ×', activity_stock_adjust:'ajustó {n} producto(s) con un escaneo de estante',
+    activity_recipe_created:'creó la receta', activity_recipe_edited:'editó la receta', activity_recipe_deleted:'eliminó la receta',
+    capacity_label:'Capacidad del envase lleno',
+    capacity_helper:'Opcional — cuánto trae el envase/frasco lleno. El escáner de estante lo usa para convertir "% de llenado" en cantidad real.',
   },
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
@@ -545,6 +600,61 @@ const I18N = {
     fallback_no_product_name:'Unnamed product', fallback_scanned:'Scanned', fallback_unspecified:'Unspecified',
     storage_full_warning:'⚠ This change could not be saved — your browser storage is full. Go to the Receipts tab, open an old receipt you no longer need, and tap "Delete" to free up space (photos take up the most room). Then try the change again.',
     unit_unidad:'unit', unit_caja:'case', unit_servicio:'service',
+    // Production & outflows (recipes + shelf scanner — app-08)
+    prod_section_title:'Production',
+    prod_new_recipe:'+ New recipe',
+    prod_no_recipes:'Save what you make as recipes — logging a production run deducts the supplies from inventory on its own, and shows your cost per piece.',
+    prod_cost_each:'per piece', prod_components_n:'{n} supply(ies)',
+    prod_produce_btn:'Produce', prod_outflows_link:'Outflows',
+    recipe_new_title:'New recipe', recipe_edit_title:'Edit recipe',
+    recipe_sub:'What goes into each piece — producing deducts it from inventory automatically.',
+    recipe_name_label:'Name', recipe_name_ph:'E.g. Luna Necklace',
+    recipe_scan_btn:'📷 Fill in from a photo of the piece',
+    recipe_scan_hint:'Snap a photo of the finished piece — the AI drafts the supplies and quantities, you correct and confirm.',
+    recipe_scan_loading:'Counting carefully…',
+    recipe_scan_none:'None of your inventory items were recognized in the photo.',
+    recipe_scan_unmatched:'Seen in the photo but not in your inventory (not added): {list}',
+    recipe_components_label:'Supplies per piece',
+    recipe_no_components_yet:'No supplies yet — add them by hand or start from a photo of the piece.',
+    recipe_add_component:'+ Add supply', recipe_pick_product:'Pick a product', recipe_qty_ph:'Qty.',
+    recipe_cost_line:'Cost per piece',
+    recipe_cost_missing:'{n} supply(ies) no longer exist in inventory — the cost is partial.',
+    recipe_need_name:'Give the recipe a name.',
+    recipe_need_components:'Add at least one supply with its quantity.',
+    recipe_delete_confirm:'Delete the recipe "{name}"? Inventory and history are not touched.',
+    produce_title:'Log production',
+    produce_sub:'How many pieces you made — each supply\'s stock is deducted when you confirm.',
+    produce_count_label:'Pieces produced',
+    produce_deduct_header:'Deducted from inventory',
+    produce_short_note:'Your recorded stock is {n} {u} short — it stops at 0. If you physically had more, correct the stock afterwards.',
+    produce_missing_note:'This supply no longer exists in inventory — nothing is deducted.',
+    produce_batch_cost:'Cost of this run',
+    produce_confirm_btn:'Confirm production',
+    shelf_banner_title:'Scan shelf',
+    shelf_banner_sub:'One photo of your shelf → stock up to date, no hand counting',
+    shelf_title:'Scan shelf',
+    shelf_sub:'Take a photo of the whole shelf — the AI reads quantities and fill levels, you confirm before anything is adjusted.',
+    shelf_tip:'Best photo: the whole shelf in frame with some air around it, good light, straight on or from a high corner.',
+    shelf_loading:'Counting carefully — this can take a few seconds…',
+    shelf_none:'No products were recognized in the photo — try more light or closer up.',
+    shelf_review_hint:'Review each reading and correct anything off. Only checked rows get adjusted.',
+    shelf_current:'On record', shelf_detected:'Read from photo',
+    shelf_final_label:'Set stock to',
+    shelf_conf_alta:'high confidence', shelf_conf_media:'double-check', shelf_conf_baja:'verify this',
+    shelf_fill_note:'~{p}% of container', shelf_sticker_note:'marked {c}',
+    shelf_capacity_ask:'How much is this container when full?',
+    shelf_capacity_helper:'Saved on the product — next time the % converts to {u} on its own.',
+    shelf_unmatched_title:'Seen in the photo but not in your inventory',
+    shelf_unmatched_hint:'Add them first with "Scan products" if you want shelf scans to adjust them too.',
+    shelf_apply_btn:'Adjust {n} product(s)',
+    outflows_title:'Inventory outflows',
+    outflows_sub:'Production runs and shelf adjustments — what went down (or got corrected) and when.',
+    outflows_empty:'No outflows recorded yet.',
+    outflow_production:'Production', outflow_adjust:'Shelf adjustment',
+    activity_production:'logged a production of {n} ×', activity_stock_adjust:'adjusted {n} product(s) with a shelf scan',
+    activity_recipe_created:'created the recipe', activity_recipe_edited:'edited the recipe', activity_recipe_deleted:'deleted the recipe',
+    capacity_label:'Full container capacity',
+    capacity_helper:'Optional — how much the container/jar holds when full. The shelf scanner uses it to turn "% full" into a real quantity.',
   }
 };
 function t(key){ return (I18N[uiLang] && I18N[uiLang][key]) || I18N.es[key] || key; }
@@ -599,7 +709,8 @@ function saveState(){
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-      businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds
+      businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
+      recipes, outflows, deletedRecipeIds
     }));
   }catch(e){
     // El motivo más común es que el almacenamiento del navegador se llenó (las fotos de
@@ -637,6 +748,11 @@ function applyStateData(data){
   // todavía traiga una nota borrada en este dispositivo llega ya filtrado.
   if(Array.isArray(data.deletedCalNoteIds)) deletedCalNoteIds = data.deletedCalNoteIds;
   if(Array.isArray(data.calNotes)) calNotes = data.calNotes.filter(n=>n && n.id && !deletedCalNoteIds.includes(n.id));
+  // Recetas y salidas (app-08) — mismas reglas que las notas: lápidas primero, y un
+  // snapshot que todavía traiga una receta borrada acá llega ya filtrado.
+  if(Array.isArray(data.deletedRecipeIds)) deletedRecipeIds = data.deletedRecipeIds;
+  if(Array.isArray(data.recipes)) recipes = data.recipes.filter(r=>r && r.id && !deletedRecipeIds.includes(r.id));
+  if(Array.isArray(data.outflows)) outflows = data.outflows.filter(o=>o && o.id).slice(0, OUTFLOWS_MAX);
 }
 function loadState(){
   try{
@@ -666,6 +782,7 @@ function exportData(){
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
+    recipes, outflows, deletedRecipeIds,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -716,6 +833,8 @@ function importData(file){
     deletedInventoryIds = deletedInventoryIds.filter(id=>!restoredInv.has(id));
     deletedReceiptIds = deletedReceiptIds.filter(id=>!restoredRec.has(id));
     deletedPurchaseIds = deletedPurchaseIds.filter(id=>!restoredPur.has(id));
+    const restoredRecipes = new Set((data.recipes||[]).map(r=>r.id));
+    deletedRecipeIds = deletedRecipeIds.filter(id=>!restoredRecipes.has(id));
     saveState();
     render();
     alert(t('import_success'));

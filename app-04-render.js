@@ -36,7 +36,9 @@ function render(){
   // render por el estado dejaría el modal sin aparecer nunca.
   // scannerCamStream: misma protección que barcodeScannerInstance pero para el
   // <video> del escáner de productos (getUserMedia manejado a mano en app-06).
-  if(swipeGestureActive || trackAnimating || barcodeScannerInstance || scannerCamStream){ renderPendingAfterGesture = true; return; }
+  // shelfCamStream: misma protección que scannerCamStream pero para el <video>
+  // del escáner de estante (app-08).
+  if(swipeGestureActive || trackAnimating || barcodeScannerInstance || scannerCamStream || shelfCamStream){ renderPendingAfterGesture = true; return; }
   /* CERRAR un modal (o abrir/cerrar el detalle de recibo) se anima con la View
      Transitions API del navegador: startViewTransition() saca una captura del
      estado viejo y funde hacia el nuevo. Solo al cerrar, a propósito: al ABRIR el
@@ -59,7 +61,8 @@ function render(){
   const overlayFlags = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayModal,
     showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
-    showActivityModal, showTeamModal, showProductBatchModal];
+    showActivityModal, showTeamModal, showProductBatchModal,
+    showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal];
   const RECEIPT_DETAIL_FLAG = 2; // índice de !!showReceiptDetail en overlayFlags
   let overlayClosed = false, receiptDetailToggled = false;
   if(lastOverlayFlags){
@@ -129,11 +132,15 @@ function renderApp(){
   document.documentElement.lang = uiLang;
   document.title = uiLang==='en' ? 'Dusty — Inventory' : 'Dusty — Inventario';
   const tabIdx = TAB_ORDER.indexOf(activeTab);
+  /* El topbar (marca Dusty + botones de cuenta/ajustes/idioma) vive DENTRO de la
+     página del Dashboard, no arriba del carrusel: la marca aparece una sola vez en
+     la app, se desliza junto con el Dashboard en el swipe, e Inventario y Recibos
+     arrancan desde arriba del todo — ese espacio queda libre para sus propias
+     acciones (p. ej. el futuro escáner de estante). */
   const html = `
-    ${topbar()}
     <div class="view-viewport">
       <div class="view-track" style="transform:translateX(-${tabIdx*(100/3)}%);">
-        <div class="view-page">${dashboardView()}</div>
+        <div class="view-page">${topbar()}${dashboardView()}</div>
         <div class="view-page">${inventarioView()}</div>
         <div class="view-page">${recibosView()}</div>
       </div>
@@ -157,6 +164,10 @@ function renderApp(){
     ${showAuthModal ? authModal() : ''}
     ${showTeamModal ? teamModal() : ''}
     ${showFeedbackModal ? feedbackModal() : ''}
+    ${showRecipeModal ? recipeModal() : ''}
+    ${showProduceModal ? produceModal() : ''}
+    ${showShelfModal ? shelfScanModal() : ''}
+    ${showOutflowsModal ? outflowsModal() : ''}
     ${bottomNav()}
   `;
   /* Parcheo del DOM con morphdom en vez de app.innerHTML = html. El reemplazo

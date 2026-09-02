@@ -533,6 +533,13 @@ function inventarioView(){
       <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
     </div>
   </div>
+  ${/* Escáner de estante + Producción (app-08): las salidas del inventario viven en
+       esta pestaña — "esta pantalla ES tu stock, desde acá lo mantenés al día".
+       Ocupan el espacio que se liberó al mover el header de marca al Dashboard.
+       Con filtro de categoría activo se esconden: el usuario vino a ver ESA
+       categoría puntual, no las acciones generales. */''}
+  ${!filterCategory ? shelfScanBanner() : ''}
+  ${!filterCategory ? productionSection() : ''}
   ${filterCategory ? `
   <div class="alert-banner" id="category-filter-banner" style="background:var(--navy-wash);border-color:transparent;color:var(--navy-ink);justify-content:space-between;">
     <span>${t('inv_filtered_by_category').replace('{name}', escapeHtml(filterCategory.name))}</span>

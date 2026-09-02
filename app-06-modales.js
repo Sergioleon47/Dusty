@@ -782,7 +782,7 @@ function openItemModal(item){
   }
   // unit arranca en la unidad más usada del propio inventario (el hábito real del
   // negocio), no en un 'lb' fijo — un campo menos que corregir en cada alta.
-  draftItem = item ? {...item} : {id:uid('i'), name:'', unit:mostUsedInventoryUnit('lb'), costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:'', categoryId:null};
+  draftItem = item ? {...item} : {id:uid('i'), name:'', unit:mostUsedInventoryUnit('lb'), costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:'', categoryId:null, capacityFull:null};
   editingItem = item ? item.id : null;
   showItemModal = true; render();
 }
@@ -860,7 +860,11 @@ function itemModal(){
           <div class="field"><label for="fi-sku">${t('lbl_sku')}</label><input id="fi-sku" type="text" value="${escapeHtml(draftItem.sku||'')}" placeholder="${t('ph_sku_example')}"></div>
           <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
         </div>
-        <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
+        <div class="field-row" style="margin-bottom:0;">
+          <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-capacity">${t('capacity_label')}</label><input id="fi-capacity" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.capacityFull||'')}" placeholder="Ej. 500"></div>
+        </div>
+        <div class="helper-note" style="margin:8px 0 0;">${t('capacity_helper')}</div>
       </div>
 
       <div class="helper-note">${t('item_helper')}</div>

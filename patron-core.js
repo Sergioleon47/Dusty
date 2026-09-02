@@ -132,6 +132,79 @@ function profitMarginPct(costPerUnit, salePrice){
   return ((sale-cost)/sale)*100;
 }
 
+/* ---------- Producción (recetas/modelos que descuentan inventario) ---------- */
+// Redondeo estándar de cantidades de stock a 2 decimales — evita que restas
+// encadenadas de floats (0.1+0.2...) vayan acumulando colas tipo 4.999999999.
+function roundQty(n){ return Math.round(n*100)/100; }
+
+/* Costo de producir UNA pieza de una receta: suma de (cantidad × costo actual) de
+   cada insumo. "missing" cuenta componentes cuyo producto ya no existe en el
+   inventario (se borró después de armar la receta) — el costo devuelto es parcial
+   en ese caso y el llamador decide cómo avisarlo. */
+function recipeCostTotal(components, inventory){
+  let total = 0, missing = 0;
+  (components||[]).forEach(c=>{
+    const ing = inventory.find(i=>i.id===c.ingId);
+    const qty = Number(c.qty);
+    if(!ing || !Number.isFinite(qty) || qty<0){ missing++; return; }
+    total += qty * (Number(ing.costPerUnit)||0);
+  });
+  return {total: roundQty(total), missing};
+}
+
+/* Qué le pasa al stock al producir "count" piezas de una receta: cuánto se
+   descuenta de cada insumo, cuánto queda, y cuánto FALTA si el stock registrado
+   no alcanza ("short" — el descuento real se frena en 0, nunca queda negativo).
+   Puro a propósito: no muta el inventario, devuelve el plan para que el llamador
+   lo muestre en la pantalla de confirmación y recién al confirmar lo aplique. */
+function productionPlan(components, count, inventory){
+  const n = Number(count);
+  if(!Number.isFinite(n) || n<=0) return [];
+  return (components||[]).map(c=>{
+    const ing = inventory.find(i=>i.id===c.ingId);
+    const qty = Number(c.qty)||0;
+    const deduct = roundQty(qty*n);
+    const current = ing ? (Number(ing.qtyOnHand)||0) : 0;
+    return {
+      ingId: c.ingId,
+      name: ing ? ing.name : null,
+      unit: ing ? ing.unit : '',
+      deduct,
+      current: roundQty(current),
+      after: roundQty(Math.max(0, current - deduct)),
+      short: ing ? roundQty(Math.max(0, deduct - current)) : 0,
+      missing: !ing
+    };
+  });
+}
+
+/* Convierte lo que el escáner de estante leyó de UN producto en una cantidad
+   concreta, según la forma de lectura que aplicó:
+   - conteo directo (objetos discretos visibles) → esa cantidad tal cual;
+   - nivel/porcentaje del envase → fracción × capacidad del envase lleno
+     (capacityFull, declarada una vez por producto o heredada del recibo).
+   Devuelve null si no hay forma de convertir (ej. la IA solo pudo estimar un %
+   pero el producto no tiene capacidad declarada) — el llamador pide el dato o
+   deja la fila para completar a mano, nunca inventa un número. */
+function detectedQtyFromReading(reading, capacityFull){
+  if(!reading || typeof reading!=='object') return null;
+  // Ojo con Number(null)===0: un campo AUSENTE (null/undefined/'') tiene que leerse
+  // como "no hay dato", nunca como un 0 real — por eso el guard va antes de coaccionar.
+  const present = v => v!==null && v!==undefined && v!=='';
+  if(present(reading.count)){
+    const count = Number(reading.count);
+    if(Number.isFinite(count) && count>=0) return roundQty(count);
+  }
+  if(present(reading.fill_percent)){
+    const pct = Number(reading.fill_percent);
+    const cap = Number(capacityFull);
+    if(Number.isFinite(pct) && pct>=0 && Number.isFinite(cap) && cap>0){
+      return roundQty(cap * Math.min(pct, 100) / 100);
+    }
+  }
+  return null;
+}
+
 /* JSON.stringify(x) por sí solo NO sirve para comparar "¿cambió de verdad?": el orden
    de las propiedades importa para stringify aunque el contenido sea idéntico, y
    Firestore no garantiza devolver los campos de un doc en el mismo orden en que se
@@ -159,6 +232,7 @@ if(typeof module!=='undefined' && module.exports){
   module.exports = {
     money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
-    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON
+    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON,
+    roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading
   };
 }

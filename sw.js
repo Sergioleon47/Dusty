@@ -27,7 +27,10 @@
 // — cambios cruzados en app-01/03/06/07 + dusty.css.
 // v14: defaults inteligentes en formularios (unidad más usada, placeholder de
 // presupuesto con el gasto real) — app-03/05/06/07.
-const CACHE_NAME = 'patron-shell-v14';
+// v15: producción y salidas (recetas + escáner de estante) — archivo NUEVO
+// app-08-produccion.js + cambios cruzados en app-02..07, index.html y dusty.css;
+// además el header de marca pasó a vivir dentro del Dashboard (app-04).
+const CACHE_NAME = 'patron-shell-v15';
 
 const PRECACHE_URLS = [
   '/',
@@ -43,6 +46,7 @@ const PRECACHE_URLS = [
   '/app-05-vistas.js',
   '/app-06-modales.js',
   '/app-07-eventos.js',
+  '/app-08-produccion.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',

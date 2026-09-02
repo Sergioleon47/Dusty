@@ -739,7 +739,10 @@ function attachEvents(){
         salePrice:parseFloat(document.getElementById('fi-sale-price').value)||0,
         sku:document.getElementById('fi-sku').value.trim(),
         supplier:document.getElementById('fi-supplier').value.trim(),
-        categoryId:document.getElementById('fi-category').value || null
+        categoryId:document.getElementById('fi-category').value || null,
+        // Capacidad del envase lleno (para el escáner de estante) — vacío o 0 se
+        // guarda como null, nunca como un cero que el escáner tomaría por real.
+        capacityFull:(()=>{ const v=parseFloat(document.getElementById('fi-capacity').value); return Number.isFinite(v) && v>0 ? v : null; })()
       };
       // El "quién y cuándo" solo tiene sentido si hay una cuenta detrás — un uso 100%
       // local, sin sesión, no tiene a quién atribuirle el cambio.
@@ -902,6 +905,9 @@ function attachEvents(){
     const applyBtn=document.getElementById('btn-apply-scan');
     if(applyBtn) applyBtn.onclick=applyScanResults;
   }
+
+  // Producción y salidas (recetas, producir, escáner de estante, historial) — app-08.
+  attachProductionEvents();
 }
 
 function closeItemModal(){ showItemModal=false; editingItem=null; draftItem=null; render(); }
@@ -950,6 +956,11 @@ document.addEventListener('keydown', (e)=>{
   // cualquier otro camino sin apagar, scannerCamStream quedaría vivo y el guard
   // de render() dejaría la app entera sin redibujar nunca más.
   if(showProductBatchModal){ closeProductBatchModal(); return; }
+  // Producción (app-08) — el escáner de estante apaga su cámara igual que el de productos.
+  if(showShelfModal){ closeShelfModal(); return; }
+  if(showProduceModal){ closeProduceModal(); return; }
+  if(showRecipeModal){ closeRecipeModal(); return; }
+  if(showOutflowsModal){ showOutflowsModal=false; render(); return; }
   if(showWelcomeModal){ closeWelcomeModal(); return; }
 });
 

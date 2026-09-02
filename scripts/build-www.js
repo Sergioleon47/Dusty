@@ -22,6 +22,7 @@ const FILES = [
   'app-05-vistas.js',
   'app-06-modales.js',
   'app-07-eventos.js',
+  'app-08-produccion.js',
   'manifest.json',
   'sw.js',
   'icon-192.png',

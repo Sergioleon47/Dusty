@@ -176,3 +176,77 @@ test('sameJSON: detecta diferencias reales de contenido, sin importar el orden',
   assert.equal(sameJSON({a:1}, {a:1,b:2}), false); // falta una propiedad
   assert.equal(sameJSON([1,2,3], [1,3,2]), false); // el orden SÍ importa dentro de un array
 });
+
+/* ---------- Producción (recetas que descuentan inventario) ---------- */
+const { roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading } = require('./patron-core.js');
+
+test('recipeCostTotal: suma cantidad × costo actual de cada insumo', () => {
+  const inv = [
+    {id:'i1', name:'Cuenta turquesa', costPerUnit:0.5},
+    {id:'i2', name:'Dije dorado', costPerUnit:3}
+  ];
+  const comps = [{ingId:'i1', qty:38}, {ingId:'i2', qty:1}];
+  assert.deepEqual(recipeCostTotal(comps, inv), {total:22, missing:0});
+});
+
+test('recipeCostTotal: un insumo borrado del inventario cuenta como "missing", no revienta', () => {
+  const inv = [{id:'i1', costPerUnit:2}];
+  const comps = [{ingId:'i1', qty:3}, {ingId:'fantasma', qty:10}];
+  assert.deepEqual(recipeCostTotal(comps, inv), {total:6, missing:1});
+  // cantidad basura (string no numérico, negativa) tampoco revienta
+  assert.deepEqual(recipeCostTotal([{ingId:'i1', qty:'abc'}, {ingId:'i1', qty:-2}], inv), {total:0, missing:2});
+  assert.deepEqual(recipeCostTotal([], inv), {total:0, missing:0});
+  assert.deepEqual(recipeCostTotal(null, inv), {total:0, missing:0});
+});
+
+test('recipeCostTotal: sin colas de float (0.1×3 debe dar 0.3, no 0.30000000000000004)', () => {
+  const inv = [{id:'i1', costPerUnit:0.1}];
+  assert.equal(recipeCostTotal([{ingId:'i1', qty:3}], inv).total, 0.3);
+});
+
+test('productionPlan: descuenta por pieza × cantidad producida y frena en 0', () => {
+  const inv = [
+    {id:'i1', name:'Chips', unit:'g', qtyOnHand:100},
+    {id:'i2', name:'Dije', unit:'unidad', qtyOnHand:1}
+  ];
+  const comps = [{ingId:'i1', qty:15}, {ingId:'i2', qty:1}];
+  const plan = productionPlan(comps, 3, inv);
+  // Chips: alcanza (45 de 100)
+  assert.deepEqual(plan[0], {ingId:'i1', name:'Chips', unit:'g', deduct:45, current:100, after:55, short:0, missing:false});
+  // Dije: NO alcanza (necesita 3, hay 1) — after queda en 0, short dice cuánto faltó
+  assert.deepEqual(plan[1], {ingId:'i2', name:'Dije', unit:'unidad', deduct:3, current:1, after:0, short:2, missing:false});
+});
+
+test('productionPlan: cantidad inválida o cero devuelve plan vacío; insumo borrado se marca missing', () => {
+  const inv = [{id:'i1', name:'X', unit:'g', qtyOnHand:10}];
+  assert.deepEqual(productionPlan([{ingId:'i1', qty:1}], 0, inv), []);
+  assert.deepEqual(productionPlan([{ingId:'i1', qty:1}], NaN, inv), []);
+  assert.deepEqual(productionPlan([{ingId:'i1', qty:1}], -2, inv), []);
+  const plan = productionPlan([{ingId:'borrado', qty:5}], 2, inv);
+  assert.equal(plan[0].missing, true);
+  assert.equal(plan[0].name, null);
+  assert.equal(plan[0].short, 0); // sin producto no hay faltante que reportar
+});
+
+test('detectedQtyFromReading: conteo directo gana; porcentaje necesita capacidad', () => {
+  // Conteo directo de unidades visibles — la capacidad no hace falta
+  assert.equal(detectedQtyFromReading({count:12}, null), 12);
+  // Nivel del envase: 30% de un frasco de 500 g = 150 g
+  assert.equal(detectedQtyFromReading({count:null, fill_percent:30}, 500), 150);
+  // % sin capacidad declarada → null (el llamador pide el dato, no se inventa)
+  assert.equal(detectedQtyFromReading({fill_percent:30}, null), null);
+  assert.equal(detectedQtyFromReading({fill_percent:30}, 0), null);
+  // % arriba de 100 (lectura rara de la IA) se recorta a la capacidad, no la supera
+  assert.equal(detectedQtyFromReading({fill_percent:140}, 500), 500);
+  // sin nada legible → null
+  assert.equal(detectedQtyFromReading({}, 500), null);
+  assert.equal(detectedQtyFromReading(null, 500), null);
+  // conteo negativo (basura) no pasa
+  assert.equal(detectedQtyFromReading({count:-3}, null), null);
+});
+
+test('roundQty: 2 decimales estándar para cantidades de stock', () => {
+  assert.equal(roundQty(4.999999999), 5);
+  assert.equal(roundQty(0.1+0.2), 0.3);
+  assert.equal(roundQty(1.005*100)/1, 100.5);
+});
