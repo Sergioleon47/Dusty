@@ -100,26 +100,23 @@ function matchStockReading(p){
 }
 
 /* ---------- VISTA: sección en Inventario ---------- */
-/* El banner del escáner de estante ocupa el espacio que se liberó al mover el
-   header de marca al Dashboard — es LA acción nueva de esta pestaña: "esta
-   pantalla ES tu stock, desde acá lo mantenés al día". */
-function shelfScanBanner(){
+/* El escáner de estante como botón REDONDO junto al título de Inventario (pedido
+   del usuario: mismo lenguaje que el FAB de escanear del Dashboard, sin banner
+   grande) — el title/aria-label conservan la explicación que antes iba en texto. */
+function shelfScanFab(){
   if(inventory.length === 0) return '';
   return `
-  <button type="button" class="shelf-scan-banner" id="btn-shelf-scan">
-    <span class="ssb-icon">${lineIcon('camera',20)}</span>
-    <span class="ssb-text">
-      <strong>${t('shelf_banner_title')}</strong>
-      <small>${t('shelf_banner_sub')}</small>
-    </span>
-    <span class="ssb-chevron">›</span>
+  <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
+    title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
+    aria-label="${t('shelf_banner_title')}">
+    ${lineIcon('camera',22)}
   </button>`;
 }
 
 function productionSection(){
   if(inventory.length === 0) return '';
   return `
-  <div class="stock-card" style="margin-bottom:18px;">
+  <div class="stock-card" style="margin-bottom:18px;${recipes.length===0?'padding-bottom:16px;':''}">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
       <h3 class="stock-card-title" style="margin:0;">${t('prod_section_title')}</h3>
       <span style="display:flex;gap:8px;align-items:center;">
@@ -127,9 +124,7 @@ function productionSection(){
         <button type="button" class="btn btn-ghost btn-sm" id="btn-new-recipe">${t('prod_new_recipe')}</button>
       </span>
     </div>
-    ${recipes.length===0 ? `
-    <div class="helper-note" style="margin:10px 0 2px;">${t('prod_no_recipes')}</div>
-    ` : recipes.map(r=>{
+    ${recipes.length===0 ? '' : recipes.map(r=>{
       const cost = recipeCostTotal(r.components, inventory);
       const photo = recipePhotoSrc(r);
       return `

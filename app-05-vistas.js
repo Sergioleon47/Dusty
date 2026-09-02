@@ -518,7 +518,14 @@ function inventarioView(){
   const groups = groupRowsByCategory(rows);
   return `
   <div class="section-head">
-    <div>${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2><p>${t('inv_sub')}</p>`)}</div>
+    ${/* Primera línea: título a la izquierda + botón redondo del escáner de estante
+         a la derecha (pedido explícito del usuario: sin subtítulo ni banner grande —
+         un FAB como el del Dashboard, encima de la fila de botones). flex-basis 100%
+         fuerza a la fila de botones a envolver debajo. */''}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1 1 100%;min-width:0;">
+      <div style="min-width:0;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2>`)}</div>
+      ${!filterCategory ? shelfScanFab() : ''}
+    </div>
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
@@ -533,12 +540,10 @@ function inventarioView(){
       <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
     </div>
   </div>
-  ${/* Escáner de estante + Producción (app-08): las salidas del inventario viven en
-       esta pestaña — "esta pantalla ES tu stock, desde acá lo mantenés al día".
-       Ocupan el espacio que se liberó al mover el header de marca al Dashboard.
-       Con filtro de categoría activo se esconden: el usuario vino a ver ESA
-       categoría puntual, no las acciones generales. */''}
-  ${!filterCategory ? shelfScanBanner() : ''}
+  ${/* Producción (app-08): las salidas del inventario viven en esta pestaña. Con
+       filtro de categoría activo se esconde — el usuario vino a ver ESA categoría
+       puntual, no las acciones generales. El escáner de estante vive arriba, como
+       botón redondo junto al título. */''}
   ${!filterCategory ? productionSection() : ''}
   ${filterCategory ? `
   <div class="alert-banner" id="category-filter-banner" style="background:var(--navy-wash);border-color:transparent;color:var(--navy-ink);justify-content:space-between;">
