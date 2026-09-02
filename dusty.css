@@ -733,6 +733,32 @@
      un retiro que deja su CENTRO en el mismo punto de pantalla —alto y ancho— que el
      escáner del Dashboard (calibrado midiendo ambos centros en 375px). */
   .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:60px;padding-right:46px;}
+  /* Badge "−" del escáner de estante + su burbuja de instrucciones (ver shelfScanFab
+     en app-08): el badge dice de un vistazo que ESTE escáner descuenta (el del
+     Dashboard agrega, este resta), y al tocarlo la burbuja explica cómo se usa. */
+  .shelf-fab-wrap{position:relative;}
+  .shelf-minus-badge{position:absolute;left:-4px;bottom:-2px;width:26px;height:26px;border-radius:50%;
+    background:var(--tomato);color:#fff;font-size:19px;font-weight:800;line-height:1;
+    border:2px solid var(--bg);cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;
+    padding:0 0 2px;box-shadow:var(--shadow);transition:transform .15s ease;}
+  .shelf-minus-badge:active{transform:scale(0.88);}
+  /* Backdrop transparente: tocar en cualquier lado cierra la burbuja sin que el
+     toque haga otra cosa. NO lleva la clase .overlay a propósito (esa dispara la
+     lógica de modales y bloquearía el swipe de pestañas). */
+  .shelf-info-backdrop{position:fixed;inset:0;z-index:44;background:transparent;}
+  .shelf-info-bubble{position:absolute;top:calc(100% + 12px);right:-10px;width:min(300px, 80vw);
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    box-shadow:var(--shadow-lg);z-index:45;font-size:12.5px;line-height:1.55;color:var(--ink-soft);
+    transform-origin:top right;animation:bubbleIn .55s var(--ease-spring);cursor:pointer;}
+  .shelf-info-bubble strong{display:block;color:var(--tomato);font-size:13px;margin-bottom:5px;}
+  /* La colita de la nube, apuntando hacia arriba al badge/FAB. */
+  .shelf-info-bubble::before{content:'';position:absolute;top:-6.5px;left:20px;width:12px;height:12px;
+    background:var(--panel);border-left:1px solid var(--line);border-top:1px solid var(--line);
+    transform:rotate(45deg);}
+  @keyframes bubbleIn{
+    from{opacity:0;transform:translateY(-10px) scale(0.88);}
+    to{opacity:1;transform:translateY(0) scale(1);}
+  }
 
   /* Fila de receta en la tarjeta de Producción — misma anatomía que las filas de
      stock (anillo + nombre + caption) para que se lean como parte de la misma app. */

@@ -30,6 +30,8 @@ let showOutflowsModal = false;
    con su propia cámara — ver el guard de render() en app-04, que también protege
    este <video> de ser arrancado por un redibujado de fondo. */
 let showShelfModal = false, shelfState = 'camera', shelfItems = [], shelfUnmatched = [], shelfError = '', shelfRequestId = 0;
+// Burbuja de instrucciones del badge "−" del escáner de estante (ver shelfScanFab).
+let showShelfInfoBubble = false;
 let shelfCamStream = null;
 
 function recipeById(id){ return recipes.find(r => r.id === id); }
@@ -85,13 +87,24 @@ function shelfScanFab(){
   // Dashboard (fabPulse + delay) — pedido del usuario: los dos escáneres de la app
   // laten igual y a la misma altura de pantalla.
   return `
-  <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
-    title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
-    aria-label="${t('shelf_banner_title')}">
-    <div class="scan-fab-ring"></div>
-    <div class="scan-fab-ring delay"></div>
-    ${lineIcon('camera',32)}
-  </button>`;
+  <div class="shelf-fab-wrap">
+    <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
+      title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
+      aria-label="${t('shelf_banner_title')}">
+      <div class="scan-fab-ring"></div>
+      <div class="scan-fab-ring delay"></div>
+      ${lineIcon('camera',32)}
+    </button>
+    ${/* Badge de "−": deja claro de un vistazo que ESTE escáner descuenta (el del
+         Dashboard agrega, este resta) y al tocarlo abre la burbuja de instrucciones. */''}
+    <button type="button" class="shelf-minus-badge" id="btn-shelf-info" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble?'true':'false'}">−</button>
+    ${showShelfInfoBubble ? `
+    <div class="shelf-info-backdrop" id="shelf-info-backdrop"></div>
+    <div class="shelf-info-bubble" id="shelf-info-bubble" role="tooltip">
+      <strong>${t('shelf_info_title')}</strong>
+      ${t('shelf_info_text')}
+    </div>` : ''}
+  </div>`;
 }
 
 /* Hub de Producción: la tarjeta que antes vivía en la pestaña, ahora como modal —
@@ -428,6 +441,7 @@ function outflowsModal(){
 
 /* ---------- MODAL: ESCÁNER DE ESTANTE ---------- */
 function openShelfModal(){
+  showShelfInfoBubble = false; // abrir el escáner cierra la burbuja de instrucciones
   if(!currentUser){
     // Mismo trato que los otros escáneres: cuenta real desconectada → login;
     // si no, trial anónimo en segundo plano y el modal abre al instante.
@@ -677,6 +691,14 @@ function applyShelfAdjust(){
 function attachProductionEvents(){
   const btnShelfScan=document.getElementById('btn-shelf-scan');
   if(btnShelfScan) btnShelfScan.onclick=openShelfModal;
+  // Badge "−" y su burbuja de instrucciones: el badge la abre/cierra; tocar la
+  // burbuja o cualquier parte de afuera (backdrop transparente) la cierra.
+  const btnShelfInfo=document.getElementById('btn-shelf-info');
+  if(btnShelfInfo) btnShelfInfo.onclick=(e)=>{ e.stopPropagation(); showShelfInfoBubble=!showShelfInfoBubble; render(); };
+  const shelfInfoBackdrop=document.getElementById('shelf-info-backdrop');
+  if(shelfInfoBackdrop) shelfInfoBackdrop.onclick=()=>{ showShelfInfoBubble=false; render(); };
+  const shelfInfoBubble=document.getElementById('shelf-info-bubble');
+  if(shelfInfoBubble) shelfInfoBubble.onclick=()=>{ showShelfInfoBubble=false; render(); };
   const btnProductionHub=document.getElementById('btn-production-hub');
   if(btnProductionHub) btnProductionHub.onclick=()=>{ showProductionHub=true; render(); };
   const hubOverlay=document.getElementById('production-hub-overlay');
