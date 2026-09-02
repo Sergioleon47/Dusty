@@ -361,7 +361,7 @@ function submitUpgrade(){
   const email=(document.getElementById('auth-email')?.value||'').trim();
   if(!name){ authError=t('auth_err_need_name'); render(); return; }
   if(!email){ authError=t('auth_err_need_email'); render(); return; }
-  if(authPin.length<6){ authError=t('auth_err_pin_short'); render(); return; }
+  if(authPin.length<8){ authError=t('auth_err_pin_short'); render(); return; }
   if(authPin!==authPinConfirm){ authError=t('auth_err_pin_mismatch'); render(); return; }
   authLoading=true; authError=''; render();
   // Si nunca escaneó (llegó acá por el límite de inventario, sin cuenta anónima
@@ -482,7 +482,7 @@ function submitQuickJoin(){
   const name = (authName||'').trim();
   if(!code){ authError=t('team_err_need_code'); render(); return; }
   if(!name){ authError=t('auth_err_need_name'); render(); return; }
-  if(authPin.length<6){ authError=t('auth_err_pin_short'); render(); return; }
+  if(authPin.length<8){ authError=t('auth_err_pin_short'); render(); return; }
   if(authPin!==authPinConfirm){ authError=t('auth_err_pin_mismatch'); render(); return; }
   authLoading=true; authError=''; render();
   ensurePatronFirebaseReady().then(()=>inviteCodeRef(code).get()).then(doc=>{
@@ -532,8 +532,13 @@ function submitPinLogin(){
     return firebase.auth().signInWithEmailAndPassword(teamPinEmail(name, code), authPin).catch(err=>{
       // Cuentas creadas antes de que el email empezara a incluir el código de equipo
       // todavía usan el formato viejo (solo nombre) — se reintenta una vez ahí para
-      // no dejarlas afuera.
-      if(err && err.code==='auth/user-not-found'){
+      // no dejarlas afuera. Con la protección de enumeración de emails activada en
+      // la consola de Firebase, "esa cuenta no existe" ya no llega como
+      // auth/user-not-found sino como auth/invalid-credential genérico — por eso el
+      // reintento cubre los dos códigos. Si el problema era el PIN (no el email), el
+      // reintento con el formato viejo también falla y el usuario ve el mismo error
+      // de siempre; solo cuesta un intento de red de más.
+      if(err && (err.code==='auth/user-not-found' || err.code==='auth/invalid-credential')){
         return firebase.auth().signInWithEmailAndPassword(legacyTeamPinEmail(name), authPin);
       }
       throw err;
