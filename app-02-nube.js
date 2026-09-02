@@ -76,7 +76,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[];
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
               saveState();
               applyingRemoteSnapshot = false;
             }
@@ -90,7 +90,8 @@ function ensurePatronFirebaseReady(){
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
               categories: categories ? categories.slice() : categories,
-              calNotes: calNotes.slice()
+              calNotes: calNotes.slice(),
+              recipes: recipes.slice(), outflows: outflows.slice()
             };
             // Importante: los listeners en tiempo real recién se conectan DESPUÉS de que
             // termine (o falle) la reconciliación — así el primer snapshot que llega ya
@@ -609,7 +610,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[];
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -807,7 +808,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[];
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -879,6 +880,14 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const deletedNoteSet = new Set(deletedCalNoteIds);
     if(calNotes.some(n=>deletedNoteSet.has(n.id))){
       calNotes = calNotes.filter(n=>!deletedNoteSet.has(n.id));
+      saveState();
+    }
+    // Lápidas de recetas: mismo mecanismo que las notas (viven dentro de meta).
+    const remoteDeletedRecipeIds = Array.isArray(remoteMetaData.deletedRecipeIds) ? remoteMetaData.deletedRecipeIds : [];
+    remoteDeletedRecipeIds.forEach(id=>{ if(!deletedRecipeIds.includes(id)){ deletedRecipeIds.push(id); deletedIdsChanged = true; } });
+    const deletedRecipeSet = new Set(deletedRecipeIds);
+    if(recipes.some(r=>deletedRecipeSet.has(r.id))){
+      recipes = recipes.filter(r=>!deletedRecipeSet.has(r.id));
       saveState();
     }
     const deletedRecSet = new Set(deletedReceiptIds);
@@ -955,7 +964,24 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const remoteNoteIds = new Set(remoteNotes.map(n=>n.id));
     const localOnlyNotes = (localSnapshot.calNotes||[]).filter(n=>n && n.id && !remoteNoteIds.has(n.id) && !deletedNoteSet.has(n.id));
     const mergedCalNotes = remoteNotes.concat(localOnlyNotes);
-    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0;
+    /* Recetas y salidas viven en meta igual que las notas — mismo merge por id: la
+       nube manda por cada id que ya tiene, lo local solo agrega lo creado offline en
+       este dispositivo, y lo tombstoneado no entra de ningún lado. Este reconcile es
+       el TERCER escritor del doc meta y era el único que no conocía estos campos:
+       cada vez que un dispositivo reconciliaba (algo tan común como enterarse de UNA
+       lápida nueva), reescribía meta SIN recipes/outflows/deletedRecipeIds y borraba
+       de la nube todas las recetas y el historial de salidas de la cuenta. */
+    const remoteRecipes = (Array.isArray(remoteMetaData.recipes) ? remoteMetaData.recipes : []).filter(r=>r && r.id && !deletedRecipeSet.has(r.id));
+    const remoteRecipeIds = new Set(remoteRecipes.map(r=>r.id));
+    const localOnlyRecipes = (localSnapshot.recipes||[]).filter(r=>r && r.id && !remoteRecipeIds.has(r.id) && !deletedRecipeSet.has(r.id));
+    const mergedRecipes = remoteRecipes.concat(localOnlyRecipes);
+    const remoteOutflows = (Array.isArray(remoteMetaData.outflows) ? remoteMetaData.outflows : []).filter(o=>o && o.id);
+    const remoteOutflowIds = new Set(remoteOutflows.map(o=>o.id));
+    const localOnlyOutflows = (localSnapshot.outflows||[]).filter(o=>o && o.id && !remoteOutflowIds.has(o.id));
+    // Historial más nuevo primero, con el mismo tope que recordOutflow() (app-08).
+    const mergedOutflows = remoteOutflows.concat(localOnlyOutflows)
+      .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0;
     if(newInv.length===0 && missingPur.length===0 && missingRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
     // Mismo límite de 500 operaciones por batch que syncAllToFirestore() — un primer
     // sincronizado grande (por ejemplo, activar la nube con cientos de productos ya
@@ -992,7 +1018,9 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
         calNotes: mergedCalNotes,
-        deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds
+        recipes: mergedRecipes,
+        outflows: mergedOutflows,
+        deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
       }))});
     }
     const CHUNK = 450;

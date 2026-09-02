@@ -375,6 +375,12 @@ function submitUpgrade(){
       .then(()=>user.reload())
       .then(()=>{ currentUser=firebase.auth().currentUser; });
   }).then(()=>{
+    // linkWithCredential NO re-dispara onAuthStateChanged (el usuario es el mismo
+    // objeto), así que la marca permanente de "esta persona ya tuvo cuenta real"
+    // no se ponía hasta una recarga — si cerraba sesión antes de recargar, el
+    // próximo toque a "Escanear" le creaba una cuenta anónima nueva en silencio
+    // (justo lo que everHadRealAccount() existe para impedir).
+    try{ localStorage.setItem('patron_ever_real_account','1'); }catch(e){}
     showAuthModal=false; authError=''; authContextNote='';
     authEmail=''; authPin=''; authPinConfirm=''; authName='';
   }).catch(err=>{
@@ -459,7 +465,11 @@ function applyJoinedTeam(ownerUid, ownerEmail){
   // Esta limpieza es una transición de árbol de datos, no una edición real — no debe
   // disparar una subida a la nube con estado vacío (ver nota completa en joinTeam()).
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={};
+  // Se limpia TODO el estado sincronizable — este bloque olvidaba calNotes y
+  // recetas/salidas: al unirse a un equipo, las recetas personales quedaban en
+  // pantalla dentro del contexto del equipo y la próxima edición las subía al
+  // inventario del dueño (y al revés al salir).
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
   joinedOwnerUid = ownerUid; joinedOwnerEmail = ownerEmail;
   lastSyncedUid = ownerUid;
   saveState();
