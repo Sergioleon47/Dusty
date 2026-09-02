@@ -65,7 +65,7 @@ function ensurePatronFirebaseReady(){
           // todo lo de acá abajo opera sobre el uid del DUEÑO del inventario, no sobre
           // el propio. joinedRef() vive bajo el uid de ESTA cuenta (sus propias reglas
           // de siempre aplican, nada especial).
-          joinedRef(user.uid).get().then(joinedDoc=>{
+          const proceedWithJoinedDoc = (joinedDoc)=>{
             joinedOwnerUid = joinedDoc.exists ? joinedDoc.data().ownerUid : null;
             joinedOwnerEmail = joinedDoc.exists ? (joinedDoc.data().ownerEmail||'') : '';
             const targetUid = syncUid();
@@ -104,6 +104,12 @@ function ensurePatronFirebaseReady(){
               // mejor nunca llega por este error.
               cloudSyncPending = false;
             }).then(()=>{
+              // Carrera con submitQuickJoin/applyJoinedTeam (satélite del PLAN-SYNC):
+              // si mientras esperábamos el reconcile la cuenta se unió a un equipo
+              // (o salió de uno), syncUid() ya no es el targetUid de esta pasada —
+              // attachear acá pisaría los listeners correctos que esa transición ya
+              // conectó, apuntando a un árbol de datos que ya no es el vigente.
+              if(syncUid() !== targetUid) return;
               attachFirestoreListeners(targetUid);
               attachTeamListener();
               if(joinedOwnerUid) startPresenceHeartbeat(); else stopPresenceHeartbeat();
@@ -115,12 +121,27 @@ function ensurePatronFirebaseReady(){
               // desprotegida, que es justo la ventana que causaba el problema.
               render();
             });
-          }).catch(err=>{
-            console.error('[Dusty] joined-team lookup failed:', err);
-            attachFirestoreListeners(user.uid);
-            attachTeamListener();
-            render();
-          });
+          };
+          /* Satélite del PLAN-SYNC: si el lookup de equipo falla (red móvil flaky —
+             pasa seguido), antes se conectaban los listeners al uid PROPIO "a
+             ciegas": para una cuenta que en realidad era miembro de un equipo, el
+             primer snapshot (vacío, de su árbol propio) pisaba la copia local del
+             inventario compartido — y encima sin reconcile, así que también podía
+             subir datos a donde no era. Ahora se reintenta con backoff y, mientras
+             tanto, la app sigue funcionando con los datos locales intactos. */
+          const attemptTeamLookup = (delayMs)=>{
+            joinedRef(user.uid).get().then(proceedWithJoinedDoc).catch(err=>{
+              console.error('[Dusty] joined-team lookup failed (se reintenta en '+delayMs+'ms):', err);
+              cloudSyncPending = false;
+              render();
+              setTimeout(()=>{
+                // La sesión pudo cambiar mientras esperábamos (logout, otra cuenta).
+                if(!currentUser || currentUser.uid !== user.uid) return;
+                attemptTeamLookup(Math.min(delayMs*2, 60000));
+              }, delayMs);
+            });
+          };
+          attemptTeamLookup(3000);
         } else {
           cloudSyncPending = false;
           try{ localStorage.removeItem('patron_had_session'); }catch(e){}
@@ -501,16 +522,37 @@ function syncAllToFirestore(){
     receipts.forEach(r=>{ if(!r || !r.id) return; recIds[r.id]=true; ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}); });
     if(lastKnownRemoteReceiptIds) lastKnownRemoteReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
     deletedReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
-    ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
-      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
-      recipes: recipesForCloud(), outflows, deletedRecipeIds
-    }))});
+    /* ETAPA D del PLAN-SYNC: las lápidas se escriben por UNIÓN (arrayUnion), nunca
+       por reemplazo. Antes viajaban como array completo dentro del set de meta: dos
+       borrados simultáneos en dispositivos distintos → el commit más tardío escribía
+       su array local SIN el borrado del otro → un tercer dispositivo offline
+       resucitaba el producto borrado. Con arrayUnion cada dispositivo solo SUMA sus
+       lápidas y ninguna puede desaparecer por una carrera.
+       El resto de campos viaja en el mismo set con {merge:true}: los arrays
+       (calNotes/recipes/outflows/categories) se REEMPLAZAN igual que antes — merge
+       solo cambia la semántica de los mapas, y el único mapa (aliasMap) solo
+       agrega/actualiza claves, nunca las borra, así que merge le es equivalente.
+       Los sentinels de arrayUnion se agregan DESPUÉS del JSON.parse(JSON.stringify)
+       (ese round-trip los destruiría), y solo si el array tiene algo (arrayUnion
+       exige al menos un elemento). */
+    const metaData = JSON.parse(JSON.stringify({
+      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, categories, calNotes,
+      recipes: recipesForCloud(), outflows
+    }));
+    const FV = firebase.firestore.FieldValue;
+    [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds]]
+      .forEach(([k,arr])=>{ if(Array.isArray(arr) && arr.length>0) metaData[k] = FV.arrayUnion.apply(FV, arr); });
+    ops.push({ref:metaRef(uid), data: metaData, merge:true});
 
     const CHUNK = 450;
     const commits = [];
     for(let i=0; i<ops.length; i+=CHUNK){
       const batch = firebase.firestore().batch();
-      ops.slice(i, i+CHUNK).forEach(op=>{ if(op.del) batch.delete(op.ref); else batch.set(op.ref, op.data); });
+      ops.slice(i, i+CHUNK).forEach(op=>{
+        if(op.del) batch.delete(op.ref);
+        else if(op.merge) batch.set(op.ref, op.data, {merge:true});
+        else batch.set(op.ref, op.data);
+      });
       commits.push(batch.commit());
     }
     return Promise.all(commits).then(()=>{
@@ -636,6 +678,17 @@ function applyRemoteMetaSnapshot(doc){
   // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
   // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
   const incomingMeta = doc.data();
+  // ETAPA D del PLAN-SYNC (lado lectura): las lápidas locales se UNEN con las
+  // remotas en vez de reemplazarse — una lápida que este dispositivo conoce y la
+  // nube todavía no (subida pendiente, o carrera con otro dispositivo) ya no puede
+  // desaparecer por aplicar un snapshot. El orden de la unión (remotas primero,
+  // extras locales al final) coincide con cómo arrayUnion las va a dejar en la
+  // nube, así el sameJSON de abajo converge y deja de re-aplicar.
+  const localTombstones = { deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds };
+  Object.keys(localTombstones).forEach(k=>{
+    const remoteArr = Array.isArray(incomingMeta[k]) ? incomingMeta[k] : [];
+    incomingMeta[k] = Array.from(new Set(remoteArr.concat(localTombstones[k] || [])));
+  });
   // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
@@ -781,12 +834,23 @@ function ensureInviteCode(){
   if(teamInviteCode || !currentUser) return;
   teamLoading = true; render();
   teamRef(currentUser.uid).get().then(doc=>{
-    if(doc.exists && doc.data().inviteCode) return doc.data().inviteCode;
+    if(doc.exists && doc.data().inviteCode){
+      const code = doc.data().inviteCode;
+      // Reparación (satélite del PLAN-SYNC): si el doc de inviteCodes/ no existe
+      // (la segunda escritura de una versión vieja falló a mitad de camino), el
+      // dueño mostraba un código al que NADIE podía unirse — se recrea acá.
+      return inviteCodeRef(code).get().then(codeDoc=>{
+        if(codeDoc.exists) return code;
+        return inviteCodeRef(code).set({ownerUid: currentUser.uid, ownerEmail: currentUserLabel()}).then(()=>code);
+      });
+    }
     const code = generateInviteCode();
-    return Promise.all([
-      teamRef(currentUser.uid).set({inviteCode: code}),
-      inviteCodeRef(code).set({ownerUid: currentUser.uid, ownerEmail: currentUserLabel()})
-    ]).then(()=>code);
+    // Atómico (satélite del PLAN-SYNC): antes eran dos escrituras sueltas — si la
+    // segunda fallaba, quedaba el mismo código-fantasma de arriba.
+    const batch = firebase.firestore().batch();
+    batch.set(teamRef(currentUser.uid), {inviteCode: code});
+    batch.set(inviteCodeRef(code), {ownerUid: currentUser.uid, ownerEmail: currentUserLabel()});
+    return batch.commit().then(()=>code);
   }).then(code=>{
     teamInviteCode = code; teamLoading = false; render();
   }).catch(err=>{
