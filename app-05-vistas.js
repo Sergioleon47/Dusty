@@ -506,7 +506,8 @@ function orderCalcProducts(){
   // Los más comprados primero: en un inventario grande, las 9 teclas visibles
   // deben ser las que el usuario pide siempre, no las primeras por orden de alta.
   return inventory.slice().sort((a,b)=>
-    purchasesForIng(b.id).length - purchasesForIng(a.id).length || a.name.localeCompare(b.name));
+    purchasesForIng(b.id).length - purchasesForIng(a.id).length
+    || a.name.localeCompare(b.name, undefined, {numeric:true}));
 }
 function orderCalcTotal(){
   return Object.entries(orderCalcQty).reduce((s,[id,q])=>{
@@ -574,11 +575,13 @@ function orderCalcPanel(){
       <span class="oc-total-label" style="flex:1;">${t('oc_total')}</span>
       <span class="oc-total">${money(orderCalcTotal())}</span>
     </div>
-    ${lines ? `
+    ${/* La fila se renderiza SIEMPRE (deshabilitada sin líneas): si apareciera
+         recién con la primera línea, el teclado entero saltaba 50px hacia abajo
+         justo debajo del dedo del usuario — medido en el pase anti-saltos. */''}
     <div class="oc-send-row">
-      ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-primary" id="oc-share" style="flex:1;">${t('oc_send')}</button>` : ''}
-      <button type="button" class="btn btn-ghost" id="oc-copy" style="flex:1;">${t('oc_copy')}</button>
-    </div>` : ''}
+      ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-primary" id="oc-share" style="flex:1;" ${lines?'':'disabled'}>${t('oc_send')}</button>` : ''}
+      <button type="button" class="btn btn-ghost" id="oc-copy" style="flex:1;" ${lines?'':'disabled'}>${t('oc_copy')}</button>
+    </div>
     ${prods.length > ORDER_CALC_KEYS_VISIBLE ? `
     <div class="field" style="margin-bottom:10px;"><input id="oc-search" type="text" value="${escapeHtml(orderCalcSearch)}" placeholder="${t('oc_search_ph')}"></div>` : ''}
     <div class="oc-scroll">

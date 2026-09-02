@@ -767,7 +767,10 @@
   .oc-close{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--raised);
     color:var(--ink);font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
   .oc-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px;}
-  .oc-ticket{max-height:32vh;overflow-y:auto;}
+  /* Altura FIJA (no min/max): al agregar la línea 2, 3, n… el ticket no crece y
+     el teclado de abajo no se mueve ni un píxel bajo el dedo. Adentro scrollea. */
+  .oc-ticket{height:24vh;overflow-y:auto;display:flex;flex-direction:column;}
+  .oc-ticket .oc-empty{margin:auto;}
   .oc-title{font-size:15px;font-weight:700;color:var(--ink);}
   .oc-sub{font-size:12px;color:var(--ink-soft);margin:2px 0 10px;}
   .oc-ticket{background:var(--inset);border:1px solid var(--line);border-radius:12px;padding:8px 10px;min-height:56px;margin-bottom:12px;flex-shrink:0;}
@@ -777,7 +780,9 @@
   .oc-line-name{flex:1;min-width:0;font-size:13px;color:var(--ink-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .oc-step{width:28px;height:28px;border-radius:50%;border:1px solid var(--raised-2);background:var(--inset);
     color:var(--ink-mid);font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-  .oc-qty{min-width:52px;height:28px;border-radius:8px;border:1px dashed var(--raised-2);background:none;color:var(--ink);font-size:13px;cursor:text;}
+  /* Mismo ancho que #oc-qty-input: al tocar el número para escribirlo, el botón
+     se convierte en input sin que la fila se corra (los +/− no se mueven). */
+  .oc-qty{min-width:62px;height:28px;border-radius:8px;border:1px dashed var(--raised-2);background:none;color:var(--ink);font-size:13px;cursor:text;}
   #oc-qty-input{width:62px;height:28px;border-radius:8px;border:1px solid var(--navy);background:var(--inset);
     color:var(--ink);font-size:13px;text-align:center;padding:0 4px;}
   .oc-line-sub{font-size:13px;color:var(--basil);min-width:56px;text-align:right;font-variant-numeric:tabular-nums;}
