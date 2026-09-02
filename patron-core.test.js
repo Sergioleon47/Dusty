@@ -250,3 +250,16 @@ test('roundQty: 2 decimales estándar para cantidades de stock', () => {
   assert.equal(roundQty(0.1+0.2), 0.3);
   assert.equal(roundQty(1.005*100)/1, 100.5);
 });
+
+test('valueHash: mismo contenido con claves en otro orden = mismo hash (Firestore reordena campos)', () => {
+  const { valueHash, hash53 } = require('./patron-core.js');
+  const a = { name:'Tomate', qty: 3, nested: { x:1, y:[1,2,{z:true}] } };
+  const b = { nested: { y:[1,2,{z:true}], x:1 }, qty: 3, name:'Tomate' };
+  assert.equal(valueHash(a), valueHash(b));
+  // Cambios reales sí cambian el hash
+  assert.notEqual(valueHash(a), valueHash({ ...a, qty: 4 }));
+  assert.notEqual(valueHash({v:'AB'}), valueHash({v:'BA'})); // sensible al orden dentro de strings
+  // Determinista entre corridas (se persiste en localStorage entre sesiones)
+  assert.equal(hash53('dusty'), hash53('dusty'));
+  assert.equal(typeof hash53('x'), 'number');
+});

@@ -226,13 +226,33 @@ function stableStringify(x){
 }
 function sameJSON(a, b){ return stableStringify(a)===stableStringify(b); }
 
+/* Hash de 53 bits (cyrb53) sobre la forma canónica de un valor — la base de la
+   detección de cambios del sync por-doc (PLAN-SYNC B): guardar el hash de "lo último
+   que la nube tiene" por documento pesa unos bytes por doc en localStorage, contra
+   guardar el JSON completo (que con cientos de docs no entra). 53 bits porque es lo
+   máximo que cabe exacto en un Number de JS; la probabilidad de que una edición real
+   colisione con el hash guardado es ~1 en 9·10^15 — despreciable frente a cualquier
+   otra fuente de error. */
+function hash53(str){
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i=0; i<str.length; i++){
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1>>>0);
+}
+function valueHash(x){ return hash53(stableStringify(x)); }
+
 // Solo se ejecuta bajo Node (para los tests) — en el navegador "module" no existe,
 // así que esto no hace nada ahí y las funciones quedan como globales normales.
 if(typeof module!=='undefined' && module.exports){
   module.exports = {
     money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
-    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON,
+    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON, hash53, valueHash,
     roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading
   };
 }

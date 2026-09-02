@@ -1017,6 +1017,12 @@ window.addEventListener('error', (e)=>{ reportClientError(e.error || e.message, 
 window.addEventListener('unhandledrejection', (e)=>{ reportClientError(e.reason, 'unhandledrejection'); });
 
 loadState();
+// ETAPA A del PLAN-SYNC: poblar la línea base de sellado AHORA, con lo recién
+// cargado — lo que vino de localStorage no es una edición nueva. Sin esta pasada,
+// la primera pasada de stampLocalEdits() ocurría recién en el PRIMER saveState de
+// la sesión (una edición real del usuario) y se la tragaba como "solo poblar":
+// el primer producto creado/editado de cada sesión quedaba sin updatedAt.
+stampLocalEdits();
 if(categories===null) categories = defaultCategories();
 // Antes el selector de idioma vivía arriba del todo DENTRO del modal de bienvenida,
 // compartiendo pantalla con los 4 pasos del tutorial — alguien que no lee ni español

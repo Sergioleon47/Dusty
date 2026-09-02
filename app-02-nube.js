@@ -76,7 +76,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
               saveState();
               applyingRemoteSnapshot = false;
             }
@@ -461,6 +461,9 @@ let cloudSyncDebounceTimer = null;
 let cloudSyncRetryTimer = null;
 let cloudSyncRetryDelayMs = 2000;
 const CLOUD_SYNC_RETRY_MAX_MS = 60000;
+// Deletes "por las dudas" (lápidas nunca vistas en un snapshot) ya mandados en esta
+// sesión — ver syncAllToFirestore.
+const firedTombstoneDeletes = new Set();
 let applyingRemoteSnapshot = false;
 // true desde que arranca la app hasta que la primera reconexión a la nube de ESTA
 // carga de página termina (con éxito o con error) -- solo se pone en true para
@@ -475,6 +478,106 @@ let applyingRemoteSnapshot = false;
 let cloudSyncPending = false;
 let unsubInventory = null, unsubPurchases = null, unsubReceipts = null, unsubMeta = null;
 let lastKnownRemoteInventoryIds = null, lastKnownRemotePurchaseIds = null, lastKnownRemoteReceiptIds = null;
+
+/* ===== PLAN-SYNC etapas A/B/C/E: detección de cambios por hash =====
+   lastSyncedHashes es un ESPEJO de lo que la nube tiene, hash por documento (más
+   uno para el doc de meta): se actualiza al confirmar cada subida y al recibir cada
+   snapshot. "¿Este doc tiene una edición local sin subir?" pasa a ser una pregunta
+   local y barata: hash(doc actual) !== hash guardado. Sobre esa primitiva se apoyan:
+   - B: syncAllToFirestore sube SOLO los docs cuyo hash difiere (antes reescribía
+     las 3 colecciones completas en cada guardado — el "último en escribir gana
+     sobre TODO" que pisaba las ediciones de un compañero de equipo).
+   - C: el reconcile compara por contenido+sello, no solo por id faltante.
+   - E: un snapshot se aplica doc por doc — lo remoto entra salvo en los docs con
+     edición local pendiente, que ganan (y se suben enseguida).
+   Se persiste en localStorage (unos bytes por doc) para que una edición hecha
+   200ms antes de que el SO mate la app siga detectándose como pendiente en el
+   próximo arranque — eso cierra la ventana del debounce de 400ms.
+   El plan original proponía marcar dirty a mano en cada punto de mutación
+   (markDirty en ~4 call sites); se eligió el diff por hash a propósito: la
+   historia reciente de este codebase ("agregué un campo y me olvidé de uno de los
+   5 escritores") demuestra que las listas manuales de call sites se desactualizan.
+   El diff cubre TODOS los caminos de mutación, presentes y futuros, sin lista. */
+const SYNCED_HASHES_KEY = 'patron_synced_hashes_v1';
+let lastSyncedHashes = { inventory:{}, purchases:{}, receipts:{}, meta:null };
+try{
+  const rawHashes = localStorage.getItem(SYNCED_HASHES_KEY);
+  if(rawHashes) lastSyncedHashes = Object.assign({inventory:{}, purchases:{}, receipts:{}, meta:null}, JSON.parse(rawHashes));
+}catch(e){}
+function persistSyncedHashes(){
+  try{ localStorage.setItem(SYNCED_HASHES_KEY, JSON.stringify(lastSyncedHashes)); }catch(e){}
+}
+// En toda transición de árbol de datos (cambio de cuenta, unirse/salir de un equipo)
+// el espejo deja de valer: se resetea junto con el resto del estado local.
+function resetSyncedHashes(){
+  lastSyncedHashes = { inventory:{}, purchases:{}, receipts:{}, meta:null };
+  lastSaveContentHashes = null;
+  firedTombstoneDeletes.clear();
+  persistSyncedHashes();
+}
+// La forma que viaja a la nube es la que se hashea (para recibos, sin base64 — igual
+// que receiptForCloud) — así el hash local y el del doc remoto son comparables.
+function docCloudForm(kind, doc){
+  return kind==='receipts' ? receiptForCloud(doc) : doc;
+}
+function docSyncHash(kind, doc){
+  return valueHash(docCloudForm(kind, doc));
+}
+function isDocDirty(kind, doc){
+  return lastSyncedHashes[kind][doc.id] !== docSyncHash(kind, doc);
+}
+// El contenido del doc de meta que se compara/hashea — MISMOS campos que escribe
+// syncAllToFirestore (lápidas incluidas: un borrado nuevo también es un cambio de
+// meta que hay que subir).
+function metaCloudContent(){
+  return {
+    aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+    businessName, monthlyBudget, categories, calNotes,
+    recipes: recipesForCloud(), outflows,
+    deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
+  };
+}
+
+/* ETAPA A: sellar cada edición local con cuándo y quién. Se llama desde saveState()
+   (app-03) ANTES de persistir: cualquier doc cuyo contenido cambió respecto del
+   guardado anterior gana updatedAt/updatedBy — el desempate que usa la etapa C para
+   decidir qué versión gana al reconciliar. El sello compara contra el estado del
+   ÚLTIMO saveState (no contra la nube): un doc puede quedar dirty muchos guardados
+   seguidos mientras la subida espera, y re-sellarlo en cada uno le daría a una
+   edición vieja un sello siempre-fresco que ganaría conflictos que no debe ganar.
+   El propio sello se excluye del contenido comparado (si no, sellar = cambiar). */
+let lastSaveContentHashes = null; // null = todavía no se pobló (primera pasada: solo poblar, sin sellar)
+function docContentHash(kind, doc){
+  const form = Object.assign({}, docCloudForm(kind, doc));
+  delete form.updatedAt; delete form.updatedBy;
+  return valueHash(form);
+}
+function stampLocalEdits(){
+  // La línea base se refresca en TODOS los guardados; el sello solo se aplica cuando
+  // el cambio es una edición local de verdad. Dos casos "solo poblar, sin sellar":
+  // - la primera pasada (la línea base todavía no existe: viene de loadState, y lo
+  //   cargado no es una edición nueva), y
+  // - los guardados disparados por aplicar un snapshot remoto (si acá no se
+  //   refrescara la base, el próximo guardado local vería TODOS los docs remotos
+  //   como "cambiados" y los sellaría/subiría en masa como si fueran ediciones).
+  const populateOnly = lastSaveContentHashes === null || applyingRemoteSnapshot;
+  if(lastSaveContentHashes === null) lastSaveContentHashes = { inventory:{}, purchases:{}, receipts:{} };
+  const stamp = new Date().toISOString();
+  const by = (typeof currentUser!=='undefined' && currentUser) ? currentUser.uid : 'local';
+  [['inventory', inventory], ['purchases', purchases], ['receipts', receipts]].forEach(([kind, arr])=>{
+    const seen = {};
+    arr.forEach(doc=>{
+      if(!doc || !doc.id) return;
+      const h = docContentHash(kind, doc);
+      seen[doc.id] = h;
+      if(!populateOnly && lastSaveContentHashes[kind][doc.id] !== h){
+        doc.updatedAt = stamp;
+        doc.updatedBy = by;
+      }
+    });
+    lastSaveContentHashes[kind] = seen;
+  });
+}
 
 // Se llama desde saveState() cada vez que cambia algo. Si no hay sesión iniciada,
 // o si el cambio vino de aplicar un snapshot remoto (no de una edición real del
@@ -500,28 +603,52 @@ function syncAllToFirestore(){
   if(!currentUser){ cloudSyncDirty = false; return Promise.resolve(); }
   const uid = syncUid();
   try{
+    /* ETAPA B del PLAN-SYNC: escrituras POR DOCUMENTO. Antes esto metía en el batch
+       TODOS los docs de las 3 colecciones en cada guardado ("último en escribir gana
+       sobre todo"): dos miembros editando cosas distintas a la vez → el commit más
+       tardío pisaba el doc del otro. Ahora solo viajan los docs cuyo hash difiere
+       del espejo de la nube (ver lastSyncedHashes) — un doc que no tocaste no se
+       escribe nunca, así que no puede pisar la edición de nadie. Los deletes también
+       se acotan: solo ids con lápida que la nube todavía conoce (espejo o último
+       snapshot), en vez de re-mandar toda la lista de lápidas en cada guardado. */
     const ops = [];
-    const invIds = {};
-    inventory.forEach(i=>{ invIds[i.id]=true; ops.push({ref:inventoryRef(uid).doc(i.id), data:JSON.parse(JSON.stringify(i))}); });
-    if(lastKnownRemoteInventoryIds) lastKnownRemoteInventoryIds.forEach(id=>{ if(!invIds[id]) ops.push({ref:inventoryRef(uid).doc(id), del:true}); });
-    // Además del diff de arriba (que depende de que ya haya llegado un snapshot en tiempo
-    // real), se borra explícitamente cualquier producto marcado como borrado — cubre el
-    // caso en que se borra un producto ANTES de que llegue el primer snapshot de la sesión.
-    deletedInventoryIds.forEach(id=>{ if(!invIds[id]) ops.push({ref:inventoryRef(uid).doc(id), del:true}); });
-    const purIds = {};
-    purchases.forEach(p=>{ if(!p || !p.id) return; purIds[p.id]=true; ops.push({ref:purchasesRef(uid).doc(p.id), data:JSON.parse(JSON.stringify(p))}); });
-    if(lastKnownRemotePurchaseIds) lastKnownRemotePurchaseIds.forEach(id=>{ if(!purIds[id]) ops.push({ref:purchasesRef(uid).doc(id), del:true}); });
-    // Igual que con inventario: borra explícitamente cualquier compra marcada como borrada,
-    // por si se borró antes de que llegara el primer snapshot de la sesión.
-    deletedPurchaseIds.forEach(id=>{ if(!purIds[id]) ops.push({ref:purchasesRef(uid).doc(id), del:true}); });
-    const recIds = {};
-    // El guard "!r.id" es clave: un recibo fantasma (un doc recreado con merge:true tras
-    // borrarlo a mitad de subida de fotos) puede entrar al array sin id. Sin este guard,
-    // receiptsRef(uid).doc(undefined) tira una excepción síncrona que deja cloudSyncDirty
-    // en true para SIEMPRE -> la sincronización entera queda muerta hasta limpiar a mano.
-    receipts.forEach(r=>{ if(!r || !r.id) return; recIds[r.id]=true; ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}); });
-    if(lastKnownRemoteReceiptIds) lastKnownRemoteReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
-    deletedReceiptIds.forEach(id=>{ if(!recIds[id]) ops.push({ref:receiptsRef(uid).doc(id), del:true}); });
+    const collections = [
+      ['inventory', inventory, inventoryRef, deletedInventoryIds, lastKnownRemoteInventoryIds],
+      ['purchases', purchases, purchasesRef, deletedPurchaseIds, lastKnownRemotePurchaseIds],
+      ['receipts',  receipts,  receiptsRef,  deletedReceiptIds,  lastKnownRemoteReceiptIds]
+    ];
+    collections.forEach(([kind, arr, refFn, deletedIds, lastKnownIds])=>{
+      const presentIds = {};
+      // El guard "!doc.id" es clave (recibos fantasma): doc(undefined) tira una
+      // excepción síncrona que dejaba cloudSyncDirty en true para SIEMPRE.
+      arr.forEach(doc=>{
+        if(!doc || !doc.id) return;
+        presentIds[doc.id] = true;
+        const h = docSyncHash(kind, doc);
+        if(lastSyncedHashes[kind][doc.id] === h) return; // sin cambios: no viaja
+        ops.push({kind, id:doc.id, hash:h, ref:refFn(uid).doc(doc.id), data:JSON.parse(JSON.stringify(docCloudForm(kind, doc)))});
+      });
+      // Borrados: cualquier id que la nube conoce (espejo o último snapshot) y que
+      // localmente ya no está — cubre lápidas nuevas y el doc duplicado de un remap.
+      const knownRemote = new Set(Object.keys(lastSyncedHashes[kind]));
+      (lastKnownIds || []).forEach(id=>{ if(id) knownRemote.add(id); });
+      knownRemote.forEach(id=>{
+        // El guard de id falsy es el mismo de los recibos fantasma: doc(undefined)
+        // tira una excepción síncrona que deja el sync muerto para siempre.
+        if(!id || presentIds[id]) return;
+        ops.push({kind, id, del:true, ref:refFn(uid).doc(id)});
+      });
+      // Y lápidas que la nube podría tener sin que este dispositivo lo sepa aún
+      // (borrado antes del primer snapshot de la sesión): mismo resguardo de antes,
+      // pero solo para ids que no acabamos de cubrir, y una sola vez por sesión
+      // (firedTombstoneDeletes) — son deletes "por las dudas", no hay eco que los
+      // confirme y sin el dedupe se re-mandarían en cada guardado para siempre.
+      deletedIds.forEach(id=>{
+        if(!id || presentIds[id] || knownRemote.has(id) || firedTombstoneDeletes.has(kind+':'+id)) return;
+        firedTombstoneDeletes.add(kind+':'+id);
+        ops.push({kind, id, del:true, ref:refFn(uid).doc(id)});
+      });
+    });
     /* ETAPA D del PLAN-SYNC: las lápidas se escriben por UNIÓN (arrayUnion), nunca
        por reemplazo. Antes viajaban como array completo dentro del set de meta: dos
        borrados simultáneos en dispositivos distintos → el commit más tardío escribía
@@ -535,14 +662,28 @@ function syncAllToFirestore(){
        Los sentinels de arrayUnion se agregan DESPUÉS del JSON.parse(JSON.stringify)
        (ese round-trip los destruiría), y solo si el array tiene algo (arrayUnion
        exige al menos un elemento). */
-    const metaData = JSON.parse(JSON.stringify({
-      aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, categories, calNotes,
-      recipes: recipesForCloud(), outflows
-    }));
-    const FV = firebase.firestore.FieldValue;
-    [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds]]
-      .forEach(([k,arr])=>{ if(Array.isArray(arr) && arr.length>0) metaData[k] = FV.arrayUnion.apply(FV, arr); });
-    ops.push({ref:metaRef(uid), data: metaData, merge:true});
+    // Meta: solo viaja si su contenido cambió (mismo criterio por hash que los docs).
+    const metaContent = metaCloudContent();
+    const metaHash = valueHash(metaContent);
+    if(lastSyncedHashes.meta !== metaHash){
+      const metaData = JSON.parse(JSON.stringify({
+        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, categories, calNotes,
+        recipes: recipesForCloud(), outflows
+      }));
+      const FV = firebase.firestore.FieldValue;
+      [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds]]
+        .forEach(([k,arr])=>{ if(Array.isArray(arr) && arr.length>0) metaData[k] = FV.arrayUnion.apply(FV, arr); });
+      ops.push({ref:metaRef(uid), data: metaData, merge:true, metaHash});
+    }
+
+    // Nada que subir (guardado que no cambió nada sincronizable): listo sin escribir.
+    if(ops.length===0){
+      cloudSyncDirty = false;
+      clearTimeout(cloudSyncRetryTimer);
+      cloudSyncRetryDelayMs = 2000;
+      render();
+      return Promise.resolve();
+    }
 
     const CHUNK = 450;
     const commits = [];
@@ -556,6 +697,16 @@ function syncAllToFirestore(){
       commits.push(batch.commit());
     }
     return Promise.all(commits).then(()=>{
+      // Actualizar el espejo con lo que ACABAMOS de escribir — un doc editado de
+      // nuevo mientras el commit volaba difiere de este hash y sigue dirty, así que
+      // el próximo guardado (ya agendado por su propio saveState) lo re-sube.
+      ops.forEach(op=>{
+        if(op.metaHash !== undefined){ lastSyncedHashes.meta = op.metaHash; return; }
+        if(!op.kind) return;
+        if(op.del) delete lastSyncedHashes[op.kind][op.id];
+        else lastSyncedHashes[op.kind][op.id] = op.hash;
+      });
+      persistSyncedHashes();
       cloudSyncDirty = false;
       clearTimeout(cloudSyncRetryTimer);
       cloudSyncRetryDelayMs = 2000;
@@ -610,57 +761,77 @@ function onCloudSyncWriteFailed(err){
    escribieron, así que un JSON.stringify ingenuo daba "distinto" con los mismos datos
    y disparaba este redibujado igual). */
 function applyRemoteInventorySnapshot(snapshot){
-  if(snapshot.metadata.hasPendingWrites || cloudSyncDirty) return;
+  if(snapshot.metadata.hasPendingWrites) return;
   // Este es el primer dato de inventario que de verdad vino de Firestore desde que
   // arrancó la página (o el único momento en que sabemos con certeza que la nube
   // realmente no tiene nada) -- recién acá es seguro confiar en inventory.length
   // para decidir si mostrar el cartel de "no tenés productos todavía".
   cloudSyncPending = false;
-  applyingRemoteSnapshot = true;
   lastKnownRemoteInventoryIds = snapshot.docs.map(d=>d.id);
-  // Último resguardo: si por cualquier motivo un producto marcado como borrado todavía
-  // llega en este snapshot (por ejemplo, el reconcile de arriba no había terminado de
-  // borrarlo en la nube todavía), nunca se vuelve a mostrar localmente.
-  const nextInventory = snapshot.docs.map(d=>d.data()).filter(i=>!deletedInventoryIds.includes(i.id));
-  if(!sameJSON(nextInventory, inventory)){
-    inventory = nextInventory;
-    saveState(); scheduleCloudTriggeredRender();
-  }
-  applyingRemoteSnapshot = false;
+  mergeRemoteCollection('inventory', snapshot, ()=>inventory, next=>{ inventory = next; });
 }
 function applyRemotePurchasesSnapshot(snapshot){
-  if(snapshot.metadata.hasPendingWrites || cloudSyncDirty) return;
-  applyingRemoteSnapshot = true;
+  if(snapshot.metadata.hasPendingWrites) return;
   lastKnownRemotePurchaseIds = snapshot.docs.map(d=>d.id);
-  const nextPurchases = snapshot.docs.map(d=>d.data()).filter(p=>!deletedPurchaseIds.includes(p.id));
-  if(!sameJSON(nextPurchases, purchases)){
-    purchases = nextPurchases;
-    saveState(); scheduleCloudTriggeredRender();
-  }
-  applyingRemoteSnapshot = false;
+  mergeRemoteCollection('purchases', snapshot, ()=>purchases, next=>{ purchases = next; });
 }
 function applyRemoteReceiptsSnapshot(snapshot){
-  if(snapshot.metadata.hasPendingWrites || cloudSyncDirty) return;
-  applyingRemoteSnapshot = true;
+  if(snapshot.metadata.hasPendingWrites) return;
   lastKnownRemoteReceiptIds = snapshot.docs.map(d=>d.id);
-  const oldReceipts = receipts;
-  const nextReceipts = snapshot.docs.map(d=>{
-    const remote = d.data();
-    // Si este dispositivo ya tiene las fotos de este recibo en base64 (las
-    // escaneó él mismo), las conserva — es instantáneo y no depende de la red.
-    // Si no (otro dispositivo o compañero de equipo lo escaneó), usa las URLs de
-    // Storage que ya vienen en el doc remoto — antes acá quedaba un array vacío
-    // porque las fotos nunca llegaban a la nube; ahora si.
-    const local = oldReceipts.find(r=>r.id===remote.id);
+  mergeRemoteCollection('receipts', snapshot, ()=>receipts, next=>{ receipts = next; }, (remote, local)=>{
+    // Si este dispositivo ya tiene las fotos de este recibo en base64 (las escaneó
+    // él mismo), las conserva — es instantáneo y no depende de la red. Si no, usa
+    // las URLs de Storage que vienen en el doc remoto.
     remote.images = (local && local.images && local.images.length>0) ? local.images : (remote.images || []);
     return remote;
-  })
-    // Filtra recibos con lápida (borrados en otro dispositivo) y recibos fantasma sin id
-    // (un doc recreado por una subida de fotos tardía tras borrarlo) — este último, además
-    // de no tener sentido mostrarlo, es justo el que rompía la sincronización en el sync.
-    .filter(r=>r && r.id && !deletedReceiptIds.includes(r.id));
-  if(!sameJSON(nextReceipts, oldReceipts)){
-    receipts = nextReceipts;
+  });
+}
+/* ETAPA E del PLAN-SYNC: el snapshot se aplica DOC POR DOC en vez de descartarse
+   entero mientras había una subida pendiente (eso descartaba también lo que traía
+   de los compañeros — la mitad del "se me borró lo que cargué"). Regla por doc:
+   - doc remoto SIN edición local pendiente → entra (aunque cloudSyncDirty sea true);
+   - doc remoto CON edición local pendiente (dirty) → gana lo local, que se sube
+     enseguida (su guardado ya agendó el sync);
+   - doc local que la nube conocía (está en el espejo) y ya no vino, sin edición
+     pendiente → lo borraron remotamente, se va; con edición pendiente o nunca
+     sincronizado → se queda (edición gana a borrado; la lápida real, si existe,
+     llega por meta y lo filtra igual).
+   El espejo de hashes se reconstruye con lo que la nube ACABA de mostrar — así
+   "dirty" siempre significa "difiere de la nube", que es la única definición que
+   no se desactualiza. Los docs con lápida local no entran nunca (último resguardo
+   de siempre). */
+function mergeRemoteCollection(kind, snapshot, getLocal, setLocal, preserveFn){
+  applyingRemoteSnapshot = true;
+  const localArr = getLocal();
+  const deletedIds = { inventory: deletedInventoryIds, purchases: deletedPurchaseIds, receipts: deletedReceiptIds }[kind];
+  const localById = {};
+  localArr.forEach(l=>{ if(l && l.id) localById[l.id] = l; });
+  const remoteById = {};
+  const newHashes = {};
+  const next = [];
+  snapshot.docs.forEach(d=>{
+    const remote = d.data();
+    if(!remote || !remote.id) return; // fantasma sin id: ni se muestra ni entra al espejo
+    remoteById[remote.id] = remote;
+    newHashes[remote.id] = docSyncHash(kind, remote);
+    if(deletedIds.includes(remote.id)) return; // lápida local: nunca vuelve a mostrarse
+    const local = localById[remote.id];
+    if(local && isDocDirty(kind, local)){
+      next.push(local); // edición local pendiente: gana, y se sube enseguida
+      return;
+    }
+    next.push(preserveFn ? preserveFn(remote, local) : remote);
+  });
+  localArr.forEach(local=>{
+    if(!local || !local.id || remoteById[local.id]) return;
+    if(deletedIds.includes(local.id)) return;
+    const cloudKnewIt = lastSyncedHashes[kind][local.id] !== undefined;
+    if(!cloudKnewIt || isDocDirty(kind, local)) next.push(local);
+  });
+  lastSyncedHashes[kind] = newHashes;
+  persistSyncedHashes();
+  if(!sameJSON(next, localArr)){
+    setLocal(next);
     saveState(); scheduleCloudTriggeredRender();
   }
   applyingRemoteSnapshot = false;
@@ -697,6 +868,10 @@ function applyRemoteMetaSnapshot(doc){
   if(sameJSON(incomingMeta, currentMeta)) return;
   applyingRemoteSnapshot = true;
   applyStateData(incomingMeta);
+  // El espejo de meta pasa a reflejar lo recién aplicado — si el próximo guardado
+  // local no cambia nada de meta, no se re-sube el doc entero porque sí.
+  lastSyncedHashes.meta = valueHash(metaCloudContent());
+  persistSyncedHashes();
   saveState(); scheduleCloudTriggeredRender();
   applyingRemoteSnapshot = false;
 }
@@ -714,7 +889,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -941,7 +1116,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -1066,10 +1241,29 @@ function reconcileLocalOnlyData(uid, localSnapshot){
        al escanear recibos). Si coincide con uno que ya existe en la nube de este mismo
        cliente, se usa el id de la nube en vez de crear un duplicado — nunca se crea un
        producto nuevo por error, y nunca se compara contra otro cliente. */
+    /* ETAPA C del PLAN-SYNC: para un doc presente en AMBOS lados ya no gana siempre
+       la nube — si lo local tiene una edición sin subir (dirty contra el espejo de
+       hashes, que se persiste entre sesiones: cubre la edición hecha 200ms antes de
+       que el SO matara la app) y su sello updatedAt es más nuevo, se sube lo local.
+       Sin sello local (datos viejos) o con sello remoto más nuevo, gana la nube —
+       exactamente el comportamiento de siempre. Empate exacto de sello: desempate
+       estable por updatedBy (uid menor gana), como pide el plan. */
+    const localWins = (kind, localDoc, remoteDoc)=>{
+      if(!isDocDirty(kind, localDoc)) return false;
+      const l = String(localDoc.updatedAt||''), r = String((remoteDoc && remoteDoc.updatedAt)||'');
+      if(l !== r) return l > r;
+      return !!l && String(localDoc.updatedBy||'') < String((remoteDoc && remoteDoc.updatedBy)||'');
+    };
     const idRemap = {};
     const newInv = [];
+    const updInv = [];
     localSnapshot.inventory.forEach(i=>{
-      if(remoteInvIds.has(i.id) || deletedSet.has(i.id)) return;
+      if(deletedSet.has(i.id)) return;
+      if(remoteInvIds.has(i.id)){
+        const remote = remoteInv.find(r=>r.id===i.id);
+        if(localWins('inventory', i, remote)) updInv.push(i);
+        return;
+      }
       const nameKey = (i.name||'').trim().toLowerCase();
       const match = nameKey ? remoteInv.find(r=>(r.name||'').trim().toLowerCase()===nameKey) : null;
       if(match) idRemap[i.id] = match.id;
@@ -1096,6 +1290,11 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // lista de borradas NO se re-sube aunque falte en la nube — antes reaparecía. Ídem recibos.
     const missingPur = localSnapshot.purchases.filter(p=>(!remotePurIds.has(p.id) || remappedPurchaseIds.includes(p.id)) && !deletedPurSet.has(p.id));
     const missingRec = localSnapshot.receipts.filter(r=>!remoteRecIds.has(r.id) && !deletedRecSet.has(r.id));
+    // ETAPA C para compras y recibos: mismos criterios que updInv arriba.
+    const remotePurById = {}; purSnap.docs.forEach(d=>{ const p=d.data(); if(p && p.id) remotePurById[p.id]=p; });
+    const remoteRecById = {}; recSnap.docs.forEach(d=>{ const r=d.data(); if(r && r.id) remoteRecById[r.id]=r; });
+    const updPur = localSnapshot.purchases.filter(p=>p && p.id && remotePurIds.has(p.id) && !remappedPurchaseIds.includes(p.id) && !deletedPurSet.has(p.id) && localWins('purchases', p, remotePurById[p.id]));
+    const updRec = localSnapshot.receipts.filter(r=>r && r.id && remoteRecIds.has(r.id) && !deletedRecSet.has(r.id) && localWins('receipts', r, remoteRecById[r.id]));
     // Notas de calendario: viven DENTRO de meta (no en su propia subcolección), así
     // que "subir las que faltan" es fusionar por id — la nube manda por cada id que
     // ya tiene, lo local solo agrega las que la nube no conocía (creadas offline en
@@ -1123,17 +1322,20 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const mergedOutflows = remoteOutflows.concat(localOnlyOutflows)
       .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
     const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0;
-    if(newInv.length===0 && missingPur.length===0 && missingRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
+    if(newInv.length===0 && updInv.length===0 && missingPur.length===0 && updPur.length===0 && missingRec.length===0 && updRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
     // Mismo límite de 500 operaciones por batch que syncAllToFirestore() — un primer
     // sincronizado grande (por ejemplo, activar la nube con cientos de productos ya
     // cargados localmente) también puede pasarse, así que se reparte igual.
     const ops = [];
     newInv.forEach(i=>ops.push({ref:inventoryRef(uid).doc(i.id), data:JSON.parse(JSON.stringify(i))}));
+    updInv.forEach(i=>ops.push({ref:inventoryRef(uid).doc(i.id), data:JSON.parse(JSON.stringify(i))}));
     remoteTombstonedIds.forEach(id=>ops.push({ref:inventoryRef(uid).doc(id), del:true}));
     remoteTombstonedRecIds.forEach(id=>ops.push({ref:receiptsRef(uid).doc(id), del:true}));
     remoteTombstonedPurIds.forEach(id=>ops.push({ref:purchasesRef(uid).doc(id), del:true}));
     missingPur.forEach(p=>ops.push({ref:purchasesRef(uid).doc(p.id), data:JSON.parse(JSON.stringify(p))}));
+    updPur.forEach(p=>ops.push({ref:purchasesRef(uid).doc(p.id), data:JSON.parse(JSON.stringify(p))}));
     missingRec.forEach(r=>ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}));
+    updRec.forEach(r=>ops.push({ref:receiptsRef(uid).doc(r.id), data:JSON.parse(JSON.stringify(receiptForCloud(r)))}));
     if(needsMeta){
       // Bug real encontrado al probar el modo equipo (afecta también a cualquier
       // cuenta con 2+ dispositivos, no solo equipos compartidos): esto se dispara

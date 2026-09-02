@@ -726,6 +726,10 @@ function evictOldReceiptPhotos(){
 }
 function saveState(){
   let localOk = true;
+  // ETAPA A del PLAN-SYNC: sellar updatedAt/updatedBy en cada doc cuyo contenido
+  // cambió desde el guardado anterior (ver stampLocalEdits en app-02) — el sello es
+  // lo que permite al reconcile decidir por contenido qué versión gana.
+  stampLocalEdits();
   evictOldReceiptPhotos();
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({

@@ -469,7 +469,7 @@ function applyJoinedTeam(ownerUid, ownerEmail){
   // recetas/salidas: al unirse a un equipo, las recetas personales quedaban en
   // pantalla dentro del contexto del equipo y la próxima edición las subía al
   // inventario del dueño (y al revés al salir).
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[];
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
   joinedOwnerUid = ownerUid; joinedOwnerEmail = ownerEmail;
   lastSyncedUid = ownerUid;
   saveState();
