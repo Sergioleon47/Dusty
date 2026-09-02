@@ -74,6 +74,9 @@ function manageModalA11y(){
   lastOverlayCount = count;
 }
 let modalTabTrapAttached = false;
+// "Edit budget" (Dashboard) abre el modal de ajustes pidiendo foco directo en el
+// campo de presupuesto — se consume en el attach del overlay, un solo render.
+let pendingBudgetFocus = false;
 function attachModalTabTrap(){
   if(modalTabTrapAttached) return;
   modalTabTrapAttached = true;
@@ -356,10 +359,19 @@ function attachEvents(){
   const btnAlertSettings=document.getElementById('btn-alert-settings');
   if(btnAlertSettings) btnAlertSettings.onclick=openAlertSettings;
   const btnEditBudget=document.getElementById('btn-edit-budget');
-  if(btnEditBudget) btnEditBudget.onclick=openAlertSettings;
+  // "Edit budget" abre el MISMO modal de ajustes, pero el campo de presupuesto es
+  // la tercera tarjeta — en un teléfono queda abajo del pliegue y parecía que el
+  // botón llevaba a un menú equivocado. El flag hace que al abrir por acá el modal
+  // aparezca ya scrolleado al presupuesto y con el teclado listo en ese campo.
+  if(btnEditBudget) btnEditBudget.onclick=()=>{ pendingBudgetFocus=true; openAlertSettings(); };
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
   if(alertSettingsOverlay){
+    if(pendingBudgetFocus){
+      pendingBudgetFocus=false;
+      const bi=document.getElementById('budget-input');
+      if(bi){ bi.scrollIntoView({block:'center'}); bi.focus(); }
+    }
     alertSettingsOverlay.onmousedown=(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } };
     const closeAlertSettingsBtn=document.getElementById('btn-close-alert-settings');
     if(closeAlertSettingsBtn) closeAlertSettingsBtn.onclick=()=>{ showAlertSettingsModal=false; render(); };
