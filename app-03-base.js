@@ -702,8 +702,31 @@ function itemPhotoSrc(item){
 /* ================= PERSISTENCIA (localStorage) ================= */
 const STORAGE_KEY = 'patron_data_v1';
 const LEGACY_STORAGE_KEY = 'platocost_data_v1'; // nombre viejo del producto — ver loadState()
+/* Evicción de fotos de recibos viejos: el base64 local se guarda "para siempre" y a
+   ~135-270KB por página, la cuota de localStorage (~5MB) se llena con apenas 20-40
+   recibos — el primer muro duro que choca una tienda real, y la única señal era el
+   alert de espacio lleno. Regla: si el recibo tiene más de 30 días Y todas sus
+   páginas ya están subidas a Storage (tienen url), el base64 se suelta —
+   receiptImageSrc() cae solo a la url, así que la foto se sigue viendo (con red).
+   Los recibos recientes conservan su base64 (se abren al instante y sin conexión,
+   que es cuando más se consultan). Corre en cada saveState: es un escaneo barato
+   de campos, no decodifica nada. */
+const RECEIPT_PHOTO_LOCAL_DAYS = 30;
+function evictOldReceiptPhotos(){
+  const cutoff = Date.now() - RECEIPT_PHOTO_LOCAL_DAYS*24*60*60*1000;
+  let evicted = false;
+  receipts.forEach(r=>{
+    if(!Array.isArray(r.images) || r.images.length===0) return;
+    const created = r.createdAt ? new Date(r.createdAt).getTime() : NaN;
+    if(!(created < cutoff)) return; // reciente (o sin fecha legible): se queda
+    if(!r.images.every(img=>img && img.url)) return; // alguna página sin subir: intacto
+    r.images.forEach(img=>{ if(img.base64){ delete img.base64; evicted = true; } });
+  });
+  return evicted;
+}
 function saveState(){
   let localOk = true;
+  evictOldReceiptPhotos();
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
@@ -713,13 +736,35 @@ function saveState(){
       recipes, outflows, deletedRecipeIds
     }));
   }catch(e){
-    // El motivo más común es que el almacenamiento del navegador se llenó (las fotos de
-    // recibos son lo que más espacio ocupa). Antes esto fallaba en silencio — el cambio se
-    // perdía sin aviso y recién se notaba al refrescar. Ahora se avisa de inmediato para que
-    // el usuario pueda liberar espacio (borrando recibos viejos) antes de perder algo más.
-    console.warn('No se pudo guardar en localStorage (¿espacio lleno?)', e);
-    alert(t('storage_full_warning'));
-    localOk = false;
+    // El motivo más común es que el almacenamiento del navegador se llenó (las fotos
+    // de recibos son lo que más espacio ocupa). Antes de molestar al usuario, se
+    // intenta la vía de emergencia: soltar el base64 de TODA página ya subida a
+    // Storage (sin esperar los 30 días de la evicción normal) y reintentar UNA vez.
+    // Solo si ni así entra, se avisa — y a esa altura el aviso es genuino: hay
+    // recibos con fotos sin subir (offline largo) ocupando todo el espacio.
+    let retried = false;
+    try{
+      let freed = false;
+      receipts.forEach(r=>{
+        if(!Array.isArray(r.images)) return;
+        r.images.forEach(img=>{ if(img && img.url && img.base64){ delete img.base64; freed = true; } });
+      });
+      if(freed){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          inventory, purchases, receipts, aliasMap, priceAlertThreshold,
+          cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+          deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
+          businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
+          recipes, outflows, deletedRecipeIds
+        }));
+        retried = true;
+      }
+    }catch(e2){}
+    if(!retried){
+      console.warn('No se pudo guardar en localStorage (¿espacio lleno?)', e);
+      alert(t('storage_full_warning'));
+      localOk = false;
+    }
   }
   // Clave: scheduleCloudSync() se llama AUNQUE localStorage haya fallado. Antes estaba
   // dentro del try, después del setItem — si el almacenamiento estaba lleno, el cambio no
