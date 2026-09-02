@@ -110,7 +110,7 @@ function shelfScanFab(){
   <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
     title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
     aria-label="${t('shelf_banner_title')}">
-    ${lineIcon('camera',22)}
+    ${lineIcon('camera',32)}
   </button>`;
 }
 

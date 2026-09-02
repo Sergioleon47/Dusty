@@ -713,8 +713,10 @@
   /* Botón redondo del escáner de estante — junto al título de Inventario, mismo
      lenguaje que el FAB de escanear del Dashboard pero en el verde de los
      escáneres. El anillo exterior "respira" para invitar al toque sin gritar. */
+  /* Mismo tamaño que el FAB de escanear del Dashboard (.scan-fab-mini-lg: 76px) —
+     pedido del usuario: los dos escáneres de la app se ven del mismo porte. */
   .shelf-scan-fab{
-    position:relative;flex-shrink:0;width:50px;height:50px;border-radius:50%;
+    position:relative;flex-shrink:0;width:76px;height:76px;border-radius:50%;
     border:none;cursor:pointer;
     background:linear-gradient(145deg, var(--sky-bright), var(--basil) 65%);
     color:var(--on-accent);
