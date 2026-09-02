@@ -494,7 +494,12 @@ async function processShelfSource(source){
     products.forEach(p=>{
       const ing = matchStockReading(p);
       if(!ing){ shelfUnmatched.push(p); return; }
-      const detected = detectedQtyFromReading(p, ing.capacityFull);
+      // Modo lista escrita: la foto era una NOTA con ajustes ("-1"), no un estante —
+      // el delta se aplica sobre el stock actual (piso en 0) y la fila entra a la
+      // misma pantalla de revisión de siempre, con su pastilla de -1 visible.
+      const detected = (p.reading==='ajuste' && Number.isFinite(Number(p.delta)))
+        ? roundQty(Math.max(0, (Number(ing.qtyOnHand)||0) + Number(p.delta)))
+        : detectedQtyFromReading(p, ing.capacityFull);
       // fill_percent sin capacidad declarada: la fila queda esperando ese dato —
       // se pide inline y el % se convierte solo, sin obligar a abrir el producto.
       const needsCapacity = detected===null && p.fill_percent!==null && !(Number(ing.capacityFull)>0);

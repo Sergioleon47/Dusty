@@ -106,7 +106,20 @@ function buildStockPrompt(inventoryNames){
   const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
   return `Eres un sistema experto en leer CANTIDADES de inventario a partir de una foto del estante, la mesa o las piezas de un negocio. No estás dando de alta productos: estás contando/estimando cuánto hay de cada uno.
 
-MÉTODO OBLIGATORIO (en este orden, antes de dar ningún número):
+CASO ESPECIAL — LISTA ESCRITA (detectalo ANTES que nada):
+Si la foto NO muestra productos físicos sino una LISTA escrita (a mano o impresa)
+de nombres de productos con cantidades o ajustes (ej. "Encanto slim Yarn  -1",
+"Brown Glitter macrame  -1"), NO estás contando un estante: estás transcribiendo
+ajustes. Cada renglón legible es un producto con reading "ajuste" y "delta" con el
+número TAL CUAL está escrito, signo incluido (-1 → delta -1, +2 → delta 2). Un
+número SIN signo en una lista de este tipo es cantidad que SALIÓ (delta negativo)
+— anotá esa interpretación en visible_note. Los nombres van tal como están
+escritos (matched_inventory_name los empareja contra el inventario abajo, con el
+mismo criterio flexible de siempre — mayúsculas, espacios y abreviaturas no
+importan). Un renglón ilegible se omite; si dudás de un número, confidence "baja".
+En este caso count, fill_percent y box van null en todos.
+
+MÉTODO OBLIGATORIO para fotos de productos físicos (en este orden, antes de dar ningún número):
 1. CLASIFICÁ cada producto según su forma de lectura:
    - "unidades": objetos discretos, separados y visibles (frascos en fila, botellas, latas, piezas sueltas) → se cuentan.
    - "nivel": contenido dentro de un envase (líquido, granos, chips, polvo en frasco/botella transparente) → se estima el % de llenado, NO se cuenta.
@@ -128,8 +141,9 @@ Devolvé JSON puro (sin markdown, sin backticks, sin texto extra) con este forma
     {
       "name": "string (en inglés, nombre claro del producto)",
       "matched_inventory_name": "string o null",
-      "reading": "unidades" | "nivel" | "pila" | "incontable",
+      "reading": "unidades" | "nivel" | "pila" | "incontable" | "ajuste",
       "count": number entero o null,
+      "delta": number con signo o null (SOLO para reading "ajuste": el ajuste escrito, ej. -1),
       "fill_percent": number 0-100 o null,
       "sticker_color": "string o null",
       "confidence": "alta" | "media" | "baja",
@@ -304,10 +318,16 @@ exports.handler = async (event) => {
           const count = (typeof p.count === 'number' && isFinite(p.count) && p.count >= 0) ? Math.round(p.count) : null;
           const fill = (typeof p.fill_percent === 'number' && isFinite(p.fill_percent) && p.fill_percent >= 0)
             ? Math.min(Math.round(p.fill_percent), 100) : null;
+          // "ajuste": el modo lista-escrita (una nota de salidas fotografiada) — el
+          // delta viene CON signo y con tope sano (±10000) para que un número basura
+          // no vacíe o infle un inventario de un plumazo.
+          const delta = (p.reading === 'ajuste' && typeof p.delta === 'number' && isFinite(p.delta) && p.delta !== 0 && Math.abs(p.delta) <= 10000)
+            ? Math.round(p.delta) : null;
           return {
             name: p.name.trim(),
             matched_inventory_name: typeof p.matched_inventory_name === 'string' && p.matched_inventory_name.trim() ? p.matched_inventory_name : null,
-            reading: ['unidades','nivel','pila','incontable'].includes(p.reading) ? p.reading : 'incontable',
+            reading: ['unidades','nivel','pila','incontable','ajuste'].includes(p.reading) ? p.reading : 'incontable',
+            delta,
             count,
             fill_percent: fill,
             sticker_color: typeof p.sticker_color === 'string' && p.sticker_color.trim() ? p.sticker_color.trim() : null,
