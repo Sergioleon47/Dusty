@@ -106,10 +106,15 @@ function matchStockReading(p){
    visuales nuevos compitiendo con el FAB. */
 function shelfScanFab(){
   if(inventory.length === 0) return '';
+  // Los dos .scan-fab-ring son el MISMO efecto de pulso del botón de escanear del
+  // Dashboard (fabPulse + delay) — pedido del usuario: los dos escáneres de la app
+  // laten igual y a la misma altura de pantalla.
   return `
   <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
     title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
     aria-label="${t('shelf_banner_title')}">
+    <div class="scan-fab-ring"></div>
+    <div class="scan-fab-ring delay"></div>
     ${lineIcon('camera',32)}
   </button>`;
 }

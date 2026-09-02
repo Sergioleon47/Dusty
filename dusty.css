@@ -726,19 +726,12 @@
   }
   .shelf-scan-fab:hover{transform:scale(1.07);}
   .shelf-scan-fab:active{transform:scale(0.92);}
-  .shelf-scan-fab::after{
-    content:'';position:absolute;inset:-5px;border-radius:50%;pointer-events:none;
-    border:2px solid color-mix(in srgb, var(--basil) 45%, transparent);
-    animation:shelfFabPulse 2.8s ease-out infinite;
-  }
-  @keyframes shelfFabPulse{
-    0%{transform:scale(0.88);opacity:.9;}
-    70%{transform:scale(1.18);opacity:0;}
-    100%{transform:scale(1.18);opacity:0;}
-  }
-  @media (prefers-reduced-motion: reduce){
-    .shelf-scan-fab::after{animation:none;opacity:.5;}
-  }
+  /* El pulso es el MISMO de la pantalla principal (.scan-fab-ring/fabPulse, dos
+     anillos con delay) — el ícono va por encima de los anillos, igual que allá. */
+  .shelf-scan-fab svg{position:relative;z-index:2;}
+  /* Fila propia del FAB: a la derecha, y bajado para que su centro caiga a la misma
+     altura de pantalla que el del Dashboard (calibrado midiendo ambos en 375px). */
+  .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:62px;}
 
   /* Fila de receta en la tarjeta de Producción — misma anatomía que las filas de
      stock (anillo + nombre + caption) para que se lean como parte de la misma app. */
