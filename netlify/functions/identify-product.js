@@ -110,10 +110,11 @@ CASO ESPECIAL — LISTA ESCRITA (detectalo ANTES que nada):
 Si la foto NO muestra productos físicos sino una LISTA escrita (a mano o impresa)
 de nombres de productos con cantidades o ajustes (ej. "Encanto slim Yarn  -1",
 "Brown Glitter macrame  -1"), NO estás contando un estante: estás transcribiendo
-ajustes. Cada renglón legible es un producto con reading "ajuste" y "delta" con el
-número TAL CUAL está escrito, signo incluido (-1 → delta -1, +2 → delta 2). Un
-número SIN signo en una lista de este tipo es cantidad que SALIÓ (delta negativo)
-— anotá esa interpretación en visible_note. Los nombres van tal como están
+una nota de SALIDAS. Este escáner SOLO DESCUENTA inventario: cada renglón legible
+es un producto con reading "ajuste" y "delta" SIEMPRE NEGATIVO — el número es la
+cantidad que salió, esté escrito "-1", "1" o "+1" (los tres → delta -1). Si un
+renglón parece querer SUMAR stock, transcribilo igual con delta negativo y
+anotá la duda en visible_note. Los nombres van tal como están
 escritos (matched_inventory_name los empareja contra el inventario abajo, con el
 mismo criterio flexible de siempre — mayúsculas, espacios y abreviaturas no
 importan). Un renglón ilegible se omite; si dudás de un número, confidence "baja".
@@ -143,7 +144,7 @@ Devolvé JSON puro (sin markdown, sin backticks, sin texto extra) con este forma
       "matched_inventory_name": "string o null",
       "reading": "unidades" | "nivel" | "pila" | "incontable" | "ajuste",
       "count": number entero o null,
-      "delta": number con signo o null (SOLO para reading "ajuste": el ajuste escrito, ej. -1),
+      "delta": number NEGATIVO o null (SOLO para reading "ajuste": cantidad que salió, ej. -1),
       "fill_percent": number 0-100 o null,
       "sticker_color": "string o null",
       "confidence": "alta" | "media" | "baja",
@@ -318,11 +319,12 @@ exports.handler = async (event) => {
           const count = (typeof p.count === 'number' && isFinite(p.count) && p.count >= 0) ? Math.round(p.count) : null;
           const fill = (typeof p.fill_percent === 'number' && isFinite(p.fill_percent) && p.fill_percent >= 0)
             ? Math.min(Math.round(p.fill_percent), 100) : null;
-          // "ajuste": el modo lista-escrita (una nota de salidas fotografiada) — el
-          // delta viene CON signo y con tope sano (±10000) para que un número basura
-          // no vacíe o infle un inventario de un plumazo.
+          // "ajuste": el modo lista-escrita (una nota de salidas fotografiada). El
+          // escáner de estante SOLO descuenta — el delta se fuerza negativo acá
+          // (aunque el modelo mande +2, sale -2) y con tope sano (10000) para que
+          // un número basura no vacíe un inventario de un plumazo.
           const delta = (p.reading === 'ajuste' && typeof p.delta === 'number' && isFinite(p.delta) && p.delta !== 0 && Math.abs(p.delta) <= 10000)
-            ? Math.round(p.delta) : null;
+            ? -Math.abs(Math.round(p.delta)) : null;
           return {
             name: p.name.trim(),
             matched_inventory_name: typeof p.matched_inventory_name === 'string' && p.matched_inventory_name.trim() ? p.matched_inventory_name : null,

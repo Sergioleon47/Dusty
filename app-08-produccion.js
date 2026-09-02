@@ -494,19 +494,29 @@ async function processShelfSource(source){
     products.forEach(p=>{
       const ing = matchStockReading(p);
       if(!ing){ shelfUnmatched.push(p); return; }
-      // Modo lista escrita: la foto era una NOTA con ajustes ("-1"), no un estante —
-      // el delta se aplica sobre el stock actual (piso en 0) y la fila entra a la
-      // misma pantalla de revisión de siempre, con su pastilla de -1 visible.
-      const detected = (p.reading==='ajuste' && Number.isFinite(Number(p.delta)))
-        ? roundQty(Math.max(0, (Number(ing.qtyOnHand)||0) + Number(p.delta)))
+      const cur = roundQty(Number(ing.qtyOnHand)||0);
+      // Modo lista escrita: la foto era una NOTA de salidas ("-1"), no un estante —
+      // el delta se fuerza negativo también acá (defensa por si el servidor viejo
+      // sigue desplegado) y se aplica sobre el stock actual con piso en 0.
+      let detected = (p.reading==='ajuste' && Number.isFinite(Number(p.delta)))
+        ? roundQty(Math.max(0, cur - Math.abs(Number(p.delta))))
         : detectedQtyFromReading(p, ing.capacityFull);
+      // Este escáner es EXCLUSIVAMENTE para descontar: una lectura de estante que
+      // daría MÁS stock del registrado no se aplica — la fila se muestra excluida
+      // con su explicación, y si el stock real es mayor, eso se corrige editando
+      // el producto a mano (una decisión consciente, no un efecto del escáner).
+      let blockedNote = null;
+      if(detected!==null && detected > cur){
+        blockedNote = t('shelf_increase_blocked').replace('{n}', detected).replace('{c}', cur);
+        detected = null;
+      }
       // fill_percent sin capacidad declarada: la fila queda esperando ese dato —
       // se pide inline y el % se convierte solo, sin obligar a abrir el producto.
-      const needsCapacity = detected===null && p.fill_percent!==null && !(Number(ing.capacityFull)>0);
+      const needsCapacity = detected===null && !blockedNote && p.fill_percent!==null && !(Number(ing.capacityFull)>0);
       shelfItems.push({
         ingId: ing.id,
         reading: p.reading, count: p.count, fill_percent: p.fill_percent,
-        sticker_color: p.sticker_color, confidence: p.confidence, visible_note: p.visible_note,
+        sticker_color: p.sticker_color, confidence: p.confidence, visible_note: blockedNote || p.visible_note,
         detected, finalQty: detected!==null ? detected : '',
         needsCapacity, capacityDraft: '',
         include: detected!==null
@@ -636,12 +646,16 @@ function applyShelfAdjust(){
     const finalQty = parseFloat(it.finalQty);
     if(!Number.isFinite(finalQty) || finalQty<0) return;
     const current = roundQty(Number(ing.qtyOnHand)||0);
-    const newQty = roundQty(finalQty);
+    // Candado final de "solo descontar": aunque alguien escriba a mano un número
+    // mayor al stock actual, este escáner nunca sube inventario — como mucho queda
+    // igual (y sin movimiento que registrar). Subir stock es una edición consciente
+    // del producto, no un efecto del escáner de salidas.
+    const newQty = Math.min(roundQty(finalQty), current);
     touched++;
     if(newQty===current) return; // capacidad guardada arriba, pero sin movimiento que registrar
     ing.qtyOnHand = newQty;
     if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
-    // qty positiva = salió stock; negativa = apareció más de lo registrado.
+    // qty siempre positiva: cuánto salió.
     items.push({ingId: ing.id, ingName: ing.name, qty: roundQty(current - newQty), unit: ing.unit});
   });
   if(items.length>0){
