@@ -526,16 +526,31 @@ function docSyncHash(kind, doc){
 function isDocDirty(kind, doc){
   return lastSyncedHashes[kind][doc.id] !== docSyncHash(kind, doc);
 }
-// El contenido del doc de meta que se compara/hashea — MISMOS campos que escribe
-// syncAllToFirestore (lápidas incluidas: un borrado nuevo también es un cambio de
-// meta que hay que subir).
-function metaCloudContent(){
+// La FORMA canónica del contenido de meta que se compara/hashea — mismos campos
+// que escribe syncAllToFirestore (lápidas incluidas: un borrado nuevo también es
+// un cambio de meta que hay que subir). Recibe la fuente para poder hashear tanto
+// el contenido LOCAL (metaCloudContent) como un doc REMOTO crudo con la misma
+// forma; los defaults igualan "campo ausente" con "vacío" en ambos lados.
+function metaContentShape(m){
   return {
+    aliasMap: m.aliasMap || {},
+    priceAlertThreshold: m.priceAlertThreshold, cycleCountPct: m.cycleCountPct,
+    cycleCountIntervalDays: m.cycleCountIntervalDays, cycleCountLastDate: m.cycleCountLastDate,
+    cycleCountCursor: m.cycleCountCursor, businessName: m.businessName, monthlyBudget: m.monthlyBudget,
+    categories: m.categories,
+    calNotes: m.calNotes || [], recipes: m.recipes || [], outflows: m.outflows || [],
+    deletedInventoryIds: m.deletedInventoryIds || [], deletedReceiptIds: m.deletedReceiptIds || [],
+    deletedPurchaseIds: m.deletedPurchaseIds || [], deletedCalNoteIds: m.deletedCalNoteIds || [],
+    deletedRecipeIds: m.deletedRecipeIds || []
+  };
+}
+function metaCloudContent(){
+  return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, categories, calNotes,
     recipes: recipesForCloud(), outflows,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
-  };
+  });
 }
 
 /* ETAPA A: sellar cada edición local con cuándo y quién. Se llama desde saveState()
@@ -735,7 +750,12 @@ function syncAllToFirestore(){
 //   con backoff exponencial, hasta que un intento tenga éxito.
 function onCloudSyncWriteFailed(err){
   console.error('[Dusty] cloud sync failed:', err);
-  if(err && err.code==='permission-denied'){ handleSyncPermissionDenied(err); return; }
+  // El desvío a "volver a la cuenta propia" solo tiene sentido siendo MIEMBRO de
+  // un equipo (te expulsaron). Un permission-denied escribiendo en el árbol
+  // PROPIO (regla mal desplegada, token con reloj corrido) caía en un handler
+  // que no hace nada y, como tampoco se agendaba reintento, el sync quedaba
+  // muerto para toda la sesión — ahora reintenta con el backoff normal.
+  if(err && err.code==='permission-denied' && joinedOwnerUid){ handleSyncPermissionDenied(err); return; }
   clearTimeout(cloudSyncRetryTimer);
   cloudSyncRetryTimer = setTimeout(()=>{ if(cloudSyncDirty) syncAllToFirestore(); }, cloudSyncRetryDelayMs);
   cloudSyncRetryDelayMs = Math.min(cloudSyncRetryDelayMs*2, CLOUD_SYNC_RETRY_MAX_MS);
@@ -817,7 +837,18 @@ function mergeRemoteCollection(kind, snapshot, getLocal, setLocal, preserveFn){
     if(deletedIds.includes(remote.id)) return; // lápida local: nunca vuelve a mostrarse
     const local = localById[remote.id];
     if(local && isDocDirty(kind, local)){
-      next.push(local); // edición local pendiente: gana, y se sube enseguida
+      // Edición local pendiente: gana... salvo que AMBOS lados tengan sello y el
+      // remoto sea estrictamente más nuevo — mismo criterio que localWins() en el
+      // reconcile. Sin este chequeo, un "dirty" espurio (espejo y estado
+      // desalineados en disco por un guardado fallido a mitad de camino) hacía que
+      // un dispositivo que nunca editó el doc revirtiera en la nube la edición más
+      // nueva de un compañero.
+      const l = String(local.updatedAt||''), r = String(remote.updatedAt||'');
+      if(l && r && r > l){
+        next.push(preserveFn ? preserveFn(remote, local) : remote);
+      } else {
+        next.push(local); // se sube enseguida (sigue dirty contra el espejo nuevo)
+      }
       return;
     }
     next.push(preserveFn ? preserveFn(remote, local) : remote);
@@ -828,12 +859,16 @@ function mergeRemoteCollection(kind, snapshot, getLocal, setLocal, preserveFn){
     const cloudKnewIt = lastSyncedHashes[kind][local.id] !== undefined;
     if(!cloudKnewIt || isDocDirty(kind, local)) next.push(local);
   });
-  lastSyncedHashes[kind] = newHashes;
-  persistSyncedHashes();
+  // El estado se persiste ANTES que el espejo — si el proceso muere entre los dos
+  // escritos, quedar con "estado nuevo + espejo viejo" solo causa una re-subida
+  // inofensiva; el orden inverso (espejo nuevo + estado viejo) era justo la
+  // desalineación que armaba el escenario de reversión de arriba.
   if(!sameJSON(next, localArr)){
     setLocal(next);
     saveState(); scheduleCloudTriggeredRender();
   }
+  lastSyncedHashes[kind] = newHashes;
+  persistSyncedHashes();
   applyingRemoteSnapshot = false;
 }
 function applyRemoteMetaSnapshot(doc){
@@ -849,6 +884,16 @@ function applyRemoteMetaSnapshot(doc){
   // vez, aunque este handler ni siquiera toca receipts — eso es lo que se sentía como
   // que las fotos "parpadean" solo en el celular y solo al volver/refrescar.
   const incomingMeta = doc.data();
+  /* El espejo de meta se calcula del doc REMOTO CRUDO, ANTES de la unión de
+     lápidas y de applyStateData. Calcularlo del estado local resultante (el bug
+     que había acá) marcaba como "sincronizados" cambios de meta que NUNCA
+     subieron: una eliminación hecha offline podía no llegar jamás a la nube y un
+     tercer dispositivo resucitaba el producto borrado para todo el equipo — el
+     problema exacto que el rediseño del sync existe para matar. Con el hash
+     remoto, cualquier diferencia local↔nube deja meta "dirty" y el próximo
+     guardado la sube (y si no hay guardado próximo, el scheduleCloudSync de más
+     abajo la empuja solo). */
+  const remoteMetaHash = valueHash(metaContentShape(doc.data()));
   // ETAPA D del PLAN-SYNC (lado lectura): las lápidas locales se UNEN con las
   // remotas en vez de reemplazarse — una lápida que este dispositivo conoce y la
   // nube todavía no (subida pendiente, o carrera con otro dispositivo) ya no puede
@@ -865,15 +910,29 @@ function applyRemoteMetaSnapshot(doc){
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
   const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, deletedRecipeIds};
-  if(sameJSON(incomingMeta, currentMeta)) return;
+  if(sameJSON(incomingMeta, currentMeta)){
+    // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
+    // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
+    lastSyncedHashes.meta = remoteMetaHash;
+    persistSyncedHashes();
+    // OJO: "nada que aplicar" NO implica "nada que subir". La unión de lápidas
+    // puede hacer que incoming == local justamente PORQUE lo local ya tenía una
+    // lápida que la nube no conoce (borrado offline) — meta sigue dirty contra el
+    // hash remoto y hay que empujar la subida ya, no esperar a la próxima edición.
+    if(currentUser && lastSyncedHashes.meta !== valueHash(metaCloudContent())) scheduleCloudSync();
+    return;
+  }
   applyingRemoteSnapshot = true;
   applyStateData(incomingMeta);
-  // El espejo de meta pasa a reflejar lo recién aplicado — si el próximo guardado
-  // local no cambia nada de meta, no se re-sube el doc entero porque sí.
-  lastSyncedHashes.meta = valueHash(metaCloudContent());
+  lastSyncedHashes.meta = remoteMetaHash;
   persistSyncedHashes();
   saveState(); scheduleCloudTriggeredRender();
   applyingRemoteSnapshot = false;
+  // Si tras aplicar el snapshot lo local sigue difiriendo de la nube (típico: una
+  // lápida agregada offline que la nube aún no conoce), se agenda la subida YA —
+  // sin esto, el cambio esperaba a la próxima edición del usuario, que puede no
+  // llegar nunca.
+  if(currentUser && lastSyncedHashes.meta !== valueHash(metaCloudContent())) scheduleCloudSync();
 }
 // Si el dueño saca a alguien del equipo (removeMember) mientras esa persona sigue
 // con la app abierta, Firestore le empieza a negar lectura/escritura sobre el árbol
@@ -1321,7 +1380,19 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // Historial más nuevo primero, con el mismo tope que recordOutflow() (app-08).
     const mergedOutflows = remoteOutflows.concat(localOnlyOutflows)
       .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
-    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0;
+    // Lápidas LOCALES que la nube todavía no conoce (borrados hechos offline)
+    // también obligan a escribir meta — sin esto, el tombstone de un borrado
+    // offline no subía en el reconcile y otro dispositivo podía resucitar el
+    // producto para todo el equipo.
+    const localOnlyTombstones = [
+      ['deletedInventoryIds', deletedInventoryIds], ['deletedReceiptIds', deletedReceiptIds],
+      ['deletedPurchaseIds', deletedPurchaseIds], ['deletedCalNoteIds', deletedCalNoteIds],
+      ['deletedRecipeIds', deletedRecipeIds]
+    ].some(([k, arr])=>{
+      const rem = new Set(Array.isArray(remoteMetaData[k]) ? remoteMetaData[k] : []);
+      return arr.some(id=>!rem.has(id));
+    });
+    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0 || localOnlyTombstones;
     if(newInv.length===0 && updInv.length===0 && missingPur.length===0 && updPur.length===0 && missingRec.length===0 && updRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
     // Mismo límite de 500 operaciones por batch que syncAllToFirestore() — un primer
     // sincronizado grande (por ejemplo, activar la nube con cientos de productos ya
