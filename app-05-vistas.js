@@ -490,6 +490,128 @@ function stockRowHtml(r, ccDueIds){
     </div>
   </div>`;
 }
+/* ---------- CALCULADORA DE PEDIDO (pestaña Inventario) ----------
+   El teclado son los propios productos del inventario (ícono + nombre + precio de
+   la última compra) y cada toque suma una línea al pedido; la cantidad también se
+   puede escribir directa tocando el número (multiplicar 24 × precio sin 24 toques).
+   Todo vive SOLO en memoria: es una calculadora de bolsillo, no un documento — no
+   toca saveState() ni viaja a Firestore, y se limpia al recargar. */
+let orderCalcOpen = false;
+let orderCalcShowAll = false;
+let orderCalcQty = {};
+let orderCalcEditingId = null;
+const ORDER_CALC_KEYS_VISIBLE = 9;
+
+function orderCalcProducts(){
+  // Los más comprados primero: en un inventario grande, las 9 teclas visibles
+  // deben ser las que el usuario pide siempre, no las primeras por orden de alta.
+  return inventory.slice().sort((a,b)=>
+    purchasesForIng(b.id).length - purchasesForIng(a.id).length || a.name.localeCompare(b.name));
+}
+function orderCalcTotal(){
+  return Object.entries(orderCalcQty).reduce((s,[id,q])=>{
+    const ing = inventory.find(i=>i.id===id);
+    return s + (ing ? q*(ing.costPerUnit||0) : 0);
+  },0);
+}
+function ocFmtQty(n){ return String(Math.round(n*100)/100); }
+function orderCalcKey(i){
+  return `<button type="button" class="oc-key" data-oc-add="${i.id}">
+    <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;">${stockIconSvg(i)}</span>
+    <span class="oc-key-name">${escapeHtml(i.name)}</span>
+    <span class="oc-key-price">${money(i.costPerUnit||0)}/${escapeHtml(unitLabel(i.unit||'unidad'))}</span>
+  </button>`;
+}
+function orderCalcLine(i){
+  const q = orderCalcQty[i.id];
+  const sub = q*(i.costPerUnit||0);
+  const name = escapeHtml(i.name);
+  return `<div class="oc-line">
+    <span class="oc-line-name">${name}</span>
+    <button type="button" class="oc-step" data-oc-minus="${i.id}" aria-label="${t('oc_minus_aria').replace('{name}',name)}">&minus;</button>
+    ${orderCalcEditingId===i.id
+      ? `<input id="oc-qty-input" type="number" min="0" step="any" inputmode="decimal" value="${q}" aria-label="${t('oc_type_aria').replace('{name}',name)}">`
+      : `<button type="button" class="oc-qty" data-oc-edit="${i.id}" aria-label="${t('oc_type_aria').replace('{name}',name)}">${ocFmtQty(q)} ${escapeHtml(unitLabel(i.unit||'unidad'))}</button>`}
+    <button type="button" class="oc-step" data-oc-plus="${i.id}" aria-label="${t('oc_plus_aria').replace('{name}',name)}">+</button>
+    <span class="oc-line-sub">${money(sub)}</span>
+  </div>`;
+}
+function orderCalcCard(){
+  return `<div class="oc-card ${orderCalcOpen?'open':''}" id="oc-card" role="button" tabindex="0" aria-expanded="${orderCalcOpen}">
+    <div class="stat-label">${t('oc_card_label')}</div>
+    <div class="oc-card-total">🧮 <span>${money(orderCalcTotal())}</span></div>
+    <div class="oc-card-hint">${t('oc_card_hint')}</div>
+  </div>`;
+}
+function orderCalcPanel(){
+  const prods = orderCalcProducts();
+  const main = prods.slice(0, ORDER_CALC_KEYS_VISIBLE);
+  const extra = prods.slice(ORDER_CALC_KEYS_VISIBLE);
+  const lines = prods.filter(i=>orderCalcQty[i.id]).map(orderCalcLine).join('');
+  return `
+  <div class="oc-panel ${orderCalcOpen?'open':''}" id="oc-panel"${orderCalcOpen?'':' aria-hidden="true"'}>
+    <div class="oc-inner">
+      <div class="oc-head">
+        <span class="oc-title">${t('oc_title')}</span>
+        <button type="button" class="link-btn" id="oc-clear" style="padding:4px;">${t('oc_clear')}</button>
+      </div>
+      <div class="oc-sub">${t('oc_sub')}</div>
+      <div class="oc-ticket">${lines || `<div class="oc-empty">${t('oc_empty')}</div>`}</div>
+      <div class="oc-total-row">
+        <span class="oc-total-label">${t('oc_total')}</span>
+        ${extra.length ? `
+        <button type="button" class="oc-more" id="oc-more" aria-expanded="${orderCalcShowAll}" aria-label="${t('oc_more_aria')}">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>` : '<span style="flex:1;"></span>'}
+        <span class="oc-total">${money(orderCalcTotal())}</span>
+      </div>
+      <div class="oc-pad">${main.map(orderCalcKey).join('')}</div>
+      ${extra.length ? `<div class="oc-pad oc-pad-extra ${orderCalcShowAll?'open':''}">${extra.map(orderCalcKey).join('')}</div>` : ''}
+    </div>
+  </div>`;
+}
+// Llamada desde attachEvents() (app-07) en cada render, mismo patrón que
+// attachProductionEvents: handlers como propiedades on* (morphdom-safe).
+function attachOrderCalcEvents(){
+  const card = document.getElementById('oc-card');
+  if(card){
+    const toggle = ()=>{ orderCalcOpen = !orderCalcOpen; render(); };
+    card.onclick = toggle;
+    card.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } };
+  }
+  document.querySelectorAll('[data-oc-add]').forEach(b=>{
+    b.onclick = ()=>{ const id=b.dataset.ocAdd; orderCalcQty[id]=(orderCalcQty[id]||0)+1; render(); };
+  });
+  document.querySelectorAll('[data-oc-minus]').forEach(b=>{
+    b.onclick = ()=>{ const id=b.dataset.ocMinus; const v=(orderCalcQty[id]||0)-1; if(v>0) orderCalcQty[id]=v; else delete orderCalcQty[id]; render(); };
+  });
+  document.querySelectorAll('[data-oc-plus]').forEach(b=>{
+    b.onclick = ()=>{ const id=b.dataset.ocPlus; orderCalcQty[id]=(orderCalcQty[id]||0)+1; render(); };
+  });
+  document.querySelectorAll('[data-oc-edit]').forEach(b=>{
+    b.onclick = ()=>{ orderCalcEditingId = b.dataset.ocEdit; render(); };
+  });
+  const inp = document.getElementById('oc-qty-input');
+  if(inp){
+    if(document.activeElement!==inp){ inp.focus(); inp.select(); }
+    inp.onblur = ()=>{
+      const id = orderCalcEditingId; if(!id) return;
+      const v = parseFloat(inp.value);
+      // Tope defensivo: un dedazo tipo 999999999 no debe producir un total absurdo.
+      if(!isNaN(v) && v>0) orderCalcQty[id] = Math.min(v, 999999); else delete orderCalcQty[id];
+      orderCalcEditingId = null; render();
+    };
+    inp.onkeydown = (e)=>{
+      if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+      else if(e.key==='Escape'){ orderCalcEditingId = null; render(); }
+    };
+  }
+  const more = document.getElementById('oc-more');
+  if(more) more.onclick = ()=>{ orderCalcShowAll = !orderCalcShowAll; render(); };
+  const clear = document.getElementById('oc-clear');
+  if(clear) clear.onclick = ()=>{ orderCalcQty = {}; orderCalcEditingId = null; render(); };
+}
+
 function inventarioView(){
   const allRows = stockRowsData();
   const ccDue = isCycleCountDue();
@@ -511,7 +633,8 @@ function inventarioView(){
          calibrado para quedar en la MISMA posición de pantalla (alto Y ancho) que el
          botón de escanear del Dashboard — al deslizar entre pestañas, los dos
          escáneres laten en el mismo punto. Medido a 375px, ver .shelf-fab-row. */''}
-    ${!filterCategory ? `<div class="shelf-fab-row">${shelfScanFab()}</div>` : ''}
+    ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? orderCalcCard() : ''}${shelfScanFab()}</div>` : ''}
+    ${!filterCategory && inventory.length>0 ? orderCalcPanel() : ''}
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>

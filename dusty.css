@@ -742,6 +742,49 @@
      un retiro que deja su CENTRO en el mismo punto de pantalla —alto y ancho— que el
      escáner del Dashboard (calibrado midiendo ambos centros en 375px). */
   .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:60px;padding-right:46px;}
+  /* ---------- Calculadora de pedido (Inventario) ----------
+     La tarjeta ocupa el hueco a la izquierda del escáner de estante (el espejo de
+     la tarjeta de gasto del Dashboard) y al tocarla el panel se despliega suave
+     debajo — max-height + opacity animados, morphdom solo cambia la clase .open. */
+  .oc-card{margin-right:auto;align-self:center;flex:1 1 auto;max-width:200px;min-width:0;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 14px;cursor:pointer;transition:border-color .25s;}
+  .oc-card.open{border-color:var(--navy);}
+  .oc-card-total{display:flex;align-items:center;gap:7px;font-size:21px;font-weight:800;color:var(--navy);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .oc-card-hint{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .oc-panel{flex:1 1 100%;overflow:hidden;max-height:0;opacity:0;transform:translateY(-6px);
+    transition:max-height .45s ease,opacity .35s ease,transform .35s ease;}
+  .oc-panel.open{max-height:1600px;opacity:1;transform:none;}
+  .oc-inner{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 12px;margin-top:10px;}
+  .oc-head{display:flex;justify-content:space-between;align-items:center;}
+  .oc-title{font-size:15px;font-weight:700;color:var(--ink);}
+  .oc-sub{font-size:12px;color:var(--ink-soft);margin:2px 0 10px;}
+  .oc-ticket{background:var(--inset);border:1px solid var(--line);border-radius:12px;padding:8px 10px;min-height:56px;margin-bottom:12px;}
+  .oc-empty{font-size:13px;color:var(--ink-soft);text-align:center;margin:14px 0;}
+  .oc-line{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);}
+  .oc-line:last-child{border-bottom:none;}
+  .oc-line-name{flex:1;min-width:0;font-size:13px;color:var(--ink-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .oc-step{width:28px;height:28px;border-radius:50%;border:1px solid var(--raised-2);background:var(--inset);
+    color:var(--ink-mid);font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .oc-qty{min-width:52px;height:28px;border-radius:8px;border:1px dashed var(--raised-2);background:none;color:var(--ink);font-size:13px;cursor:text;}
+  #oc-qty-input{width:62px;height:28px;border-radius:8px;border:1px solid var(--navy);background:var(--inset);
+    color:var(--ink);font-size:13px;text-align:center;padding:0 4px;}
+  .oc-line-sub{font-size:13px;color:var(--basil);min-width:56px;text-align:right;font-variant-numeric:tabular-nums;}
+  .oc-total-row{display:flex;align-items:center;gap:8px;margin:0 2px 12px;}
+  .oc-total-label{font-size:13px;color:var(--ink-mid);}
+  .oc-more{flex:1;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--ink-soft);cursor:pointer;padding:4px;}
+  .oc-more svg{transition:transform .3s;}
+  .oc-more[aria-expanded="true"] svg{transform:rotate(90deg);}
+  .oc-total{font-size:23px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;}
+  .oc-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .oc-pad-extra{overflow:hidden;max-height:0;opacity:0;margin-top:0;transition:max-height .4s ease,opacity .3s ease,margin-top .3s ease;}
+  .oc-pad-extra.open{max-height:1200px;opacity:1;margin-top:8px;}
+  .oc-key{background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:9px 4px 8px;
+    cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;}
+  .oc-key:active{border-color:var(--navy);}
+  .oc-key .stock-icon-ring{border-color:var(--basil);}
+  .oc-key-name{font-size:12.5px;font-weight:600;color:var(--ink);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .oc-key-price{font-size:11.5px;color:var(--ink-soft);}
   /* Badge "−" del escáner de estante + su burbuja de instrucciones (ver shelfScanFab
      en app-08): el badge dice de un vistazo que ESTE escáner descuenta (el del
      Dashboard agrega, este resta), y al tocarlo la burbuja explica cómo se usa. */

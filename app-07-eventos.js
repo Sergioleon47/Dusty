@@ -989,6 +989,8 @@ function attachEvents(){
 
   // Producción y salidas (recetas, producir, escáner de estante, historial) — app-08.
   attachProductionEvents();
+  // Calculadora de pedido (tarjeta + panel en Inventario) — app-05.
+  attachOrderCalcEvents();
 }
 
 function closeItemModal(){ showItemModal=false; editingItem=null; draftItem=null; render(); }
