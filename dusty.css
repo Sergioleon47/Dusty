@@ -731,7 +731,7 @@
   .shelf-scan-fab svg{position:relative;z-index:2;}
   /* Fila propia del FAB: a la derecha, y bajado para que su centro caiga a la misma
      altura de pantalla que el del Dashboard (calibrado midiendo ambos en 375px). */
-  .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:62px;}
+  .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:9.5px;}
 
   /* Fila de receta en la tarjeta de Producción — misma anatomía que las filas de
      stock (anillo + nombre + caption) para que se lean como parte de la misma app. */
