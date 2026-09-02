@@ -6,7 +6,7 @@
 // categoría, costo si se ve un precio, y el código/SKU si hay uno impreso.
 //
 // Comparte con extract-receipt.js el mismo cupo mensual de escaneos (ver
-// checkScanQuota/recordScanUsage en lib/patron-admin.js): identificar un producto
+// reserveScanQuota/refundScanUsage en lib/patron-admin.js): identificar un producto
 // le pega a Claude con visión igual que leer un recibo, así que cuesta plata real
 // y cuenta contra el mismo límite — separarlo dejaría un hueco para gastar sin
 // tope una vez agotado el cupo de recibos.
@@ -281,6 +281,9 @@ exports.handler = async (event) => {
     const data = await response.json();
 
     if (data.error) {
+      // Mismo criterio que extract-receipt: un error a nivel de API no se factura,
+      // la unidad reservada se devuelve.
+      await refundScanUsage(ownerUid, 1, reservation.period);
       return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del identificador de productos' }) };
     }
 

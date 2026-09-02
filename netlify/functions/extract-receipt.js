@@ -273,6 +273,12 @@ exports.handler = async (event) => {
     const data = await response.json();
 
     if (data.error) {
+      // Error a nivel de API (sobrecarga, rate limit, pedido rechazado): Anthropic
+      // NO cobra estas llamadas, así que la unidad reservada se devuelve — sin
+      // esto, durante un outage de la API cada reintento del usuario quemaba cupo.
+      // Los 502 de más abajo (Claude SÍ contestó, pero mal) no refundan: esos
+      // tokens sí se facturaron.
+      await refundScanUsage(ownerUid, 1, reservation.period);
       return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del lector de recibos' }) };
     }
 

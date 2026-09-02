@@ -171,10 +171,15 @@ async function refundScanUsage(ownerUid, count, period) {
       const snap = await tx.get(ref);
       if (!snap.exists) return;
       const data = snap.data();
-      tx.set(ref, {
-        scansUsed: Math.max(0, (data.scansPeriod === period ? (data.scansUsed || 0) : 0) - count),
-        scansTotal: Math.max(0, (data.scansTotal || 0) - count)
-      }, { merge: true });
+      const update = { scansTotal: Math.max(0, (data.scansTotal || 0) - count) };
+      // El refund solo toca scansUsed si el doc sigue en el MISMO período de la
+      // reserva. Si el mes rodó mientras la llamada a Claude fallaba (reserva a
+      // las 23:59, otro escaneo a las 00:00), tocar scansUsed pisaba el contador
+      // del mes nuevo con un 0 — cupo gratis para todos.
+      if (data.scansPeriod === period) {
+        update.scansUsed = Math.max(0, (data.scansUsed || 0) - count);
+      }
+      tx.set(ref, update, { merge: true });
     });
   } catch (e) {
     console.error('[Dusty] no se pudo devolver la reserva de escaneo:', e);
@@ -227,15 +232,21 @@ async function recordScanUsage(ownerUid, count, period) {
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.exists ? snap.data() : {};
-      const prevUsed = data.scansPeriod === period ? (data.scansUsed || 0) : 0;
-      tx.set(ref, {
-        scansUsed: prevUsed + count,
-        scansPeriod: period,
+      const update = {
         // Acumulado de por vida: es contra lo que se mide el cupo del trial
         // (cuentas anónimas), y de paso sirve como métrica de uso real.
         scansTotal: (data.scansTotal || 0) + count,
         plan: data.plan || null
-      }, { merge: true });
+      };
+      if (!data.scansPeriod || data.scansPeriod === period) {
+        // Período de la reserva vigente (o doc nuevo): registro normal.
+        update.scansUsed = (data.scansPeriod === period ? (data.scansUsed || 0) : 0) + count;
+        update.scansPeriod = period;
+      }
+      // Si el doc YA rodó a un período más nuevo mientras esta llamada volaba,
+      // solo se suma al total de por vida — antes esto RETROCEDÍA scansPeriod al
+      // mes viejo y descartaba el contador del mes nuevo.
+      tx.set(ref, update, { merge: true });
     });
   } catch (e) {
     console.error('[Dusty] no se pudo registrar el uso de escaneo:', e);
