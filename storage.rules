@@ -7,7 +7,21 @@ service firebase.storage {
     // users/{ownerUid}/members/{memberId} que ya usan las reglas de Firestore —
     // no hay una segunda fuente de verdad para quién pertenece a qué equipo.
     match /users/{ownerUid}/receipts/{allPaths=**} {
-      allow read, write: if request.auth != null && (
+      allow read: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+      );
+      // Subidas acotadas: solo imágenes y hasta 10MB por archivo — sin esto,
+      // cualquier miembro podía usar el bucket del dueño como disco gratis con
+      // archivos arbitrarios de cualquier tamaño (costo de Storage puro). El
+      // create/update se separa del delete porque en un delete request.resource
+      // es null y las condiciones de tamaño/tipo lo bloquearían.
+      allow create, update: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+      ) && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && (
         request.auth.uid == ownerUid ||
         firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
       );

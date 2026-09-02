@@ -45,9 +45,15 @@ service cloud.firestore {
         request.auth.uid == uid ||
         exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
       );
+      // Los miembros solo escriben 'settings' (el doc grande de datos compartidos:
+      // inventario-meta, notas, recetas...). 'team' (el código de invitación) y
+      // 'joined' son del dueño: con el write abierto, un miembro podía pisar
+      // meta/team.inviteCode con un código PROPIO — y cada futuro invitado del
+      // dueño se unía en silencio al inventario del atacante — o plantarle un
+      // meta/joined que le rompía el sync al próximo login.
       allow create, update, delete: if doc != 'billing' && request.auth != null && (
         request.auth.uid == uid ||
-        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+        (doc == 'settings' && exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid)))
       );
     }
     match /users/{uid}/activity/{document=**} {
@@ -104,12 +110,25 @@ service cloud.firestore {
     match /inviteCodes/{code} {
       allow get: if true;
       allow list: if false;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      // Formato fijo (6 caracteres, los campos exactos que escribe ensureInviteCode
+      // y nada más) — sin esto, cualquier cuenta podía sembrar docs arbitrarios de
+      // cualquier largo y cantidad en la colección (spam/squatting de códigos).
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && code.size() == 6
+        && request.resource.data.keys().hasOnly(['ownerUid','ownerEmail']);
       allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
     }
 
+    // Campos exactos y tamaño acotado: cualquier sesión (trial anónimo incluido)
+    // puede crear docs acá, y sin tope cada una podía sembrar documentos de ~1MB
+    // ilimitados (costo de Firestore puro). Los campos son los que escribe
+    // sendFeedback() / reportClientError() y nada más.
     match /feedback/{id} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid','email','name','message','userAgent','createdAt'])
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 4000;
       allow read, update, delete: if false;
     }
 
@@ -119,7 +138,12 @@ service cloud.firestore {
     // directo desde la consola de Firebase, con permisos de administrador, no a
     // través de la app).
     match /errorLogs/{id} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['message','stack','source','uid','joinedOwnerUid','activeTab','uiLang','userAgent','createdAt'])
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 600
+        && request.resource.data.stack is string
+        && request.resource.data.stack.size() <= 2500;
       allow read, update, delete: if false;
     }
   }
