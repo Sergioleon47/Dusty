@@ -327,8 +327,10 @@ function stockAnalyticsCard(){
   const rows = allRows.filter(r=>invMatches(r.ing.name, invSearch));
   const criticalCount = allRows.filter(r=>r.status==='crit').length;
   const ccDueIds = cycleCountDueIds();
+  // Sin la caja .stock-card alrededor (mismo criterio que en Inventario, pedido
+  // del usuario): las tarjetas ya son cajas — todo vive directo sobre el fondo.
   return `
-  <div class="stock-card">
+  <div style="margin-top:8px;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
       ${stockHealthRing(allRows)}
