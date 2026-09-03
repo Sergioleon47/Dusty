@@ -749,6 +749,17 @@ function attachEvents(){
   document.querySelectorAll('[data-delete-stock-item]').forEach(b=>{
     b.onclick=(e)=>{ e.stopPropagation(); deleteStockItem(b.dataset.deleteStockItem, b); };
   });
+  // Buscador del Dashboard: filtra en vivo con cada tecla, patrón debounce+foco
+  // de receipt-search (el render recrea el input a mitad de tipeo sin esto).
+  const dashInvSearch=document.getElementById('dash-inv-search');
+  if(dashInvSearch) dashInvSearch.oninput=(e)=>{
+    const cursorPos=e.target.selectionStart;
+    invSearch=e.target.value;
+    scheduleSearchTriggeredRender(()=>{
+      const fresh=document.getElementById('dash-inv-search');
+      if(fresh){ fresh.focus(); try{ fresh.setSelectionRange(cursorPos,cursorPos); }catch(err){} }
+    });
+  };
   // Selector de vista del inventario (fila / 2 col / 3 col) — preferencia local.
   document.querySelectorAll('[data-inv-layout]').forEach(b=>{
     b.onclick=()=>{

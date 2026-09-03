@@ -307,16 +307,31 @@ function stockHealthRing(rows){
     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Space Grotesk';color:var(--ink);">${okPct}%</div>
   </div>`;
 }
+/* Búsqueda laxa del inventario: cada letra/número filtra en vivo, sin exigir
+   precisión (pedido del usuario) — se normaliza (minúsculas, sin acentos) y cada
+   palabra tecleada solo tiene que APARECER en el nombre, en cualquier orden:
+   "12 cab" encuentra "Non-Metallic Sheathed Cable (12-2...)". */
+let invSearch = '';
+function invSearchNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function invMatches(name, q){
+  const nq = invSearchNorm(q).trim();
+  if(!nq) return true;
+  const nn = invSearchNorm(name);
+  return nq.split(/\s+/).every(tok=>nn.includes(tok));
+}
 function stockAnalyticsCard(){
   if(inventory.length===0) return '';
-  const rows = stockRowsData();
-  const criticalCount = rows.filter(r=>r.status==='crit').length;
+  const allRows = stockRowsData();
+  // El anillo de salud y las alertas críticas miran el inventario ENTERO —
+  // buscar no debe cambiar la foto de salud del negocio; solo filtra la grilla.
+  const rows = allRows.filter(r=>invMatches(r.ing.name, invSearch));
+  const criticalCount = allRows.filter(r=>r.status==='crit').length;
   const ccDueIds = cycleCountDueIds();
   return `
   <div class="stock-card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
-      ${stockHealthRing(rows)}
+      ${stockHealthRing(allRows)}
     </div>
     ${/* Mismo lenguaje que Inventario (pedido del usuario): cada ítem es una
          tarjeta-botón (tocar abre la ficha; la ✕ se fue — eliminar vive adentro),
@@ -324,7 +339,16 @@ function stockAnalyticsCard(){
          La barra de % se conserva: es la gracia de esta tarjeta. Prefijo
          dashtile- en el view-transition-name: los tiles de Inventario ya usan
          invtile- y nombres duplicados en el DOM abortan la transición. */''}
-    <div class="inv-toolbar" style="margin:10px 0 2px;">${invLayoutToggleHtml()}</div>
+    ${/* Buscador con solo la lupita (sin palabras — pedido del usuario), alineado
+         en la misma fila que el selector de vista, ocupando el hueco marcado. */''}
+    <div class="inv-toolbar" style="margin:10px 0 2px;display:flex;align-items:center;gap:8px;">
+      <div class="inv-search-wrap">
+        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="dash-inv-search" type="search" value="${escapeHtml(invSearch)}" aria-label="${t('inv_search_aria')}" autocomplete="off">
+      </div>
+      ${invLayoutToggleHtml()}
+    </div>
+    ${rows.length===0 ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>` : ''}
     <div class="inv-grid ${invLayout}">
     ${rows.map(r=>`
       <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
