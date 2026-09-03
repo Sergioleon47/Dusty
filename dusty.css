@@ -802,6 +802,9 @@
   .pv-btn:active{background:rgba(16,19,24,.8);}
   .pv-btn-danger{color:var(--tomato);}
   .pv-caption{text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:var(--ink-mid);}
+  /* Valor total del inventario, arriba a la izquierda de la pestaña Inventario —
+     verde: en esta app el verde es el color de "dato bueno" (es un activo). */
+  .inv-total-value{font-size:26px;font-weight:800;color:var(--basil);font-variant-numeric:tabular-nums;line-height:1.15;}
   .oc-total-label{font-size:13px;color:var(--ink-mid);}
   .oc-total{font-size:23px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;}
   .oc-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}

@@ -681,9 +681,17 @@ function inventarioView(){
     ? allRows.filter(r=>r.ing.categoryId===filterCategory.id)
     : (filteringToCC ? allRows.filter(r=>ccDueIds.has(r.ing.id)) : allRows);
   const groups = groupRowsByCategory(rows);
+  // Valor total del inventario (cantidad × costo de cada producto) — vive arriba a
+  // la izquierda, encima de la calculadora. Reemplaza al título "Inventario"
+  // (pedido del usuario: la pestaña de abajo ya dice dónde estás, no repetirlo);
+  // el nombre del negocio, si existe, queda encima del valor.
+  const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   return `
   <div class="section-head">
-    <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : `<h2>${t('inv_title')}</h2>`)}</div>
+    <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : `
+      ${businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : ''}
+      <div class="stat-label">${t('inv_value_label')}</div>
+      <div class="inv-total-value">${money(invValue)}</div>`}</div>
     ${/* El FAB del escáner de estante va ANTES que la fila de botones (pedido del
          usuario: el menú debajo del escáner) y en su propia fila a la derecha,
          calibrado para quedar en la MISMA posición de pantalla (alto Y ancho) que el
