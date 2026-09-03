@@ -737,14 +737,14 @@ function inventarioView(){
       : `<button type="button" id="btn-show-pending-only" class="link-btn" style="padding:0;">${t('cc_show_pending_link')}</button>`}
   </div>` : '')}
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (
+    // Sin la caja .stock-card alrededor: las tarjetas ya son cajas por sí
+    // mismas — caja dentro de caja era redundante (captura del usuario).
     groups.length>1
       ? groups.map(g=>`
         <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
-        <div class="stock-card" style="padding-bottom:10px;margin-bottom:18px;">
-          <div class="inv-grid">${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>
-        </div>
+        <div class="inv-grid" style="margin-bottom:18px;">${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>
       `).join('')
-      : `<div class="stock-card" style="padding-bottom:10px;"><div class="inv-grid">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div></div>`
+      : `<div class="inv-grid">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`
   ))}
   `;
 }
