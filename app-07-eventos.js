@@ -556,6 +556,16 @@ function attachEvents(){
       closeProductBatchModal();
       if(item) openItemModal(item);
     };
+    // "Producto nuevo" desde el estado matched: el escáner emparejó por parecido
+    // pero el usuario sabe que es OTRO producto — pasa a revisión con la línea
+    // lista para agregarse aparte (destildada de duplicado y seleccionada).
+    const btnPbAddAsNew=document.getElementById('btn-pb-add-as-new');
+    if(btnPbAddAsNew) btnPbAddAsNew.onclick=()=>{
+      if(pbItems[0]){ pbItems[0].dupOfId=null; pbItems[0].selected=true; }
+      pbMatchedId=null;
+      pbState='review';
+      render();
+    };
     const btnApplyPb=document.getElementById('btn-apply-pb');
     if(btnApplyPb) btnApplyPb.onclick=applyProductBatch;
     // Los campos de cada fila escriben directo en pbItems — el checkbox re-renderiza

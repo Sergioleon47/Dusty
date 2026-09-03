@@ -1767,6 +1767,11 @@ function productBatchModal(){
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-pb">${t(pbState==='matched'||pbState==='review' ? 'btn_close' : 'btn_cancel')}</button>
         ${pbState==='review'||pbState==='matched'||pbState==='error'||pbState==='empty' ? `<button class="btn btn-ghost" id="btn-pb-again">${t('ids_scan_again')}</button>` : ''}
+        ${/* "Producto nuevo": el match del escáner es por parecido y puede errar
+             (cables 12-2 vs 14-3 vs 10-2 — se leen casi igual y son productos
+             distintos, captura del usuario). Esta salida pasa al modo revisión
+             con la línea destildada de duplicado, para agregarla aparte. */''}
+        ${pbState==='matched' && matchedItem && pbItems.length===1 ? `<button class="btn btn-ghost" id="btn-pb-add-as-new">${t('scan_opt_new')}</button>` : ''}
         ${pbState==='matched' && matchedItem ? `<button class="btn btn-primary" id="btn-pb-open-item">${t('ids_open_item')}</button>` : ''}
         ${pbState==='review' ? `<button class="btn btn-primary" id="btn-apply-pb" ${selectedCount===0?'disabled':''}>${t('pb_add_btn').replace('{n}', selectedCount)}</button>` : ''}
       </div>
