@@ -748,8 +748,11 @@ function inventarioView(){
         ${orderCalcCard()}
       </div>` : ''}${shelfScanFab()}</div>` : ''}
     <div class="inv-header-actions">
-      <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
-      <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
+      ${/* Escanear primero y en amarillo (es EL camino recomendado: la IA nombra,
+           categoriza y llena todo); el alta manual queda segunda y neutra, como
+           el resto del menú — reordenado a pedido del usuario 2026-09-03. */''}
+      <button class="btn btn-primary inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
+      <button class="btn btn-ghost inv-row-btn" id="btn-new-item">${t('btn_add_manually')}</button>
       ${/* Sin este botón, el hub de Producción entero (recetas, producir, y el
            historial de salidas que alimenta el escáner de estante) queda inalcanzable:
            attachProductionEvents() lo cablea pero nadie lo renderizaba — se quitó
