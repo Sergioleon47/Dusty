@@ -459,6 +459,10 @@ let inventoryCategoryFilter = null;
    tres opciones (pedido explícito). Persiste como preferencia del dispositivo. */
 let invLayout = 'cols2';
 try{ const v = localStorage.getItem('patron_inv_layout'); if(['rows','cols2','cols3'].includes(v)) invLayout = v; }catch(e){}
+// Un solo render tras tocar el selector viaja por View Transition (ver render(),
+// app-04): con view-transition-name por tarjeta, cada una VUELA a su nueva
+// posición/tamaño en vez del redibujado seco — el morph estilo iOS que faltaba.
+let invLayoutTransitionPending = false;
 function invLayoutToggleHtml(){
   const opt = (val, label, icon)=>`<button type="button" data-inv-layout="${val}" class="${invLayout===val?'on':''}" aria-label="${label}" aria-pressed="${invLayout===val}" title="${label}">${icon}</button>`;
   const sq = (n)=>{
@@ -511,8 +515,12 @@ function invShortName(name){
 }
 function stockRowHtml(r, ccDueIds){
   const i = r.ing;
+  // Nombre de View Transition único y estable por tarjeta (custom-ident: solo
+  // letras/números/guiones) — es lo que permite que el cambio de vista anime
+  // cada tarjeta hacia su nueva celda en lugar de fundir la lista entera.
+  const vtName = 'invtile-' + String(i.id).replace(/[^a-zA-Z0-9_-]/g, '');
   return `
-  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" title="${escapeHtml(i.name)}">
+  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" title="${escapeHtml(i.name)}" style="view-transition-name:${vtName};">
     <div class="inv-tile-top">
       <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>

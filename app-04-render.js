@@ -74,7 +74,13 @@ function render(){
     });
   }
   lastOverlayFlags = overlayFlags;
-  if((overlayClosed || receiptDetailToggled) && document.startViewTransition && !reducedMotionQuery.matches){
+  // Cambio de vista del inventario (fila/2col/3col): mismo canal de View
+  // Transition que el cierre de modales — con view-transition-name por tarjeta
+  // (ver stockRowHtml), cada una anima hacia su nueva posición. Flag de un solo
+  // uso: se consume acá, los renders siguientes vuelven a ser instantáneos.
+  const invLayoutChanged = invLayoutTransitionPending;
+  invLayoutTransitionPending = false;
+  if((overlayClosed || receiptDetailToggled || invLayoutChanged) && document.startViewTransition && !reducedMotionQuery.matches){
     // Si llega otro render mientras esta transición sigue en curso, el navegador
     // descarta la vieja solo (startViewTransition se auto-cancela) — no hace falta
     // coordinar nada a mano.

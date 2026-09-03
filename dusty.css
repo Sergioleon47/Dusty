@@ -477,6 +477,9 @@
      el cierre se disuelve con calma en vez de cortar de golpe. */
   ::view-transition-old(root),
   ::view-transition-new(root){ animation-duration: 320ms; animation-timing-function: ease-in-out; }
+  /* El vuelo de cada tarjeta al cambiar la vista del inventario (y cualquier otro
+     morph con nombre propio): misma curva iOS del resto del pase nativo. */
+  ::view-transition-group(*){ animation-duration: 380ms; animation-timing-function: cubic-bezier(.32,.72,.25,1); }
   @keyframes modalPopIn{
     from{opacity:0;transform:scaleY(0.9) scaleX(0.98) translateY(-8px);}
     55%{opacity:1;}

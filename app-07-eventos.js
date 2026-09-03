@@ -714,8 +714,10 @@ function attachEvents(){
   // Selector de vista del inventario (fila / 2 col / 3 col) — preferencia local.
   document.querySelectorAll('[data-inv-layout]').forEach(b=>{
     b.onclick=()=>{
+      if(invLayout===b.dataset.invLayout) return;
       invLayout=b.dataset.invLayout;
       try{ localStorage.setItem('patron_inv_layout', invLayout); }catch(e){}
+      invLayoutTransitionPending=true; // este render anima (View Transition, app-04)
       render();
     };
   });
