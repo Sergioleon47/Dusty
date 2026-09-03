@@ -701,8 +701,8 @@ function inventarioView(){
     ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? `
       <div class="inv-left-col">
         <div>
-          <div class="stat-label">${t('inv_value_label')}</div>
-          <div class="inv-total-value">${money(invValue)}</div>
+          <div class="inv-value-label">${t('inv_value_label')}</div>
+          <div class="inv-total-value">$${invValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
         </div>
         ${orderCalcCard()}
       </div>` : ''}${shelfScanFab()}</div>` : ''}

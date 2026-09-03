@@ -741,7 +741,13 @@
   /* Fila propia del FAB (va entre el título y la fila de botones): a la derecha con
      un retiro que deja su CENTRO en el mismo punto de pantalla —alto y ancho— que el
      escáner del Dashboard (calibrado midiendo ambos centros en 375px). */
-  .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:60px;padding-right:46px;}
+  /* margin-top era 60px (calibrado para latir con el escáner del Dashboard), pero
+     con la columna de Valor+calculadora a la izquierda el bloque quedaba hundido —
+     el usuario pidió subirlo. align-self:center en el wrap del FAB: sin él, el
+     wrap se estira al alto de la columna y el badge "−" (absolute bottom) queda
+     flotando lejos del círculo (visto en captura del usuario). */
+  .shelf-fab-row{flex:1 1 100%;display:flex;justify-content:flex-end;margin-top:16px;padding-right:46px;}
+  .shelf-fab-row .shelf-fab-wrap{align-self:center;}
   /* ---------- Calculadora de pedido (Inventario) ----------
      La tarjeta ocupa el hueco a la izquierda del escáner de estante (el espejo de
      la tarjeta de gasto del Dashboard) y al tocarla el panel se despliega suave
@@ -751,6 +757,10 @@
      flotaba solo en el encabezado con aire muerto hasta la tarjeta). */
   .inv-left-col{margin-right:auto;align-self:center;display:flex;flex-direction:column;gap:10px;
     flex:1 1 auto;max-width:200px;min-width:0;}
+  /* Etiqueta del valor: con color y algo más grande que un stat-label (pedido del
+     usuario) — misma familia verde que el monto, se leen como una sola pieza. */
+  .inv-value-label{font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+    color:var(--basil);opacity:.8;}
   .oc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     padding:12px 14px;cursor:pointer;transition:border-color .25s;}
   .oc-card.open{border-color:var(--navy);}
