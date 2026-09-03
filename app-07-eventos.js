@@ -754,6 +754,8 @@ function attachEvents(){
   if(itemOverlay){
     itemOverlay.onmousedown=(e)=>{ if(e.target===itemOverlay) closeItemModal(); };
     document.getElementById('btn-cancel-item').onclick=closeItemModal;
+    const btnCloseItemModal=document.getElementById('btn-close-item-modal');
+    if(btnCloseItemModal) btnCloseItemModal.onclick=closeItemModal;
     // Eliminar desde la ficha (las filas ya no tienen ✕): deleteStockItem pide
     // confirmación por su cuenta; si el usuario canceló, el ítem sigue y el
     // modal queda abierto.

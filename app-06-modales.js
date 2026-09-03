@@ -813,6 +813,10 @@ function itemModal(){
   return `
   <div class="overlay" id="item-overlay">
     <div class="modal">
+      ${/* ✕ arriba: la ficha es larga y salir no debe requerir scrollear hasta
+           el Cancel del fondo (pedido del usuario). Mismo patrón sticky que el
+           modal de ajustes (.modal-close-btn). */''}
+      <button type="button" class="modal-close-btn" id="btn-close-item-modal" aria-label="${t('btn_cancel')}">✕</button>
       <h3 class="navy">${editingItem?t('item_edit_title'):t('item_new_title')}</h3>
       <div class="sub">${t('item_sub')}</div>
       ${editingItem && draftItem.lastEditedBy ? `<div class="helper-note">${t('activity_last_edit').replace('{who}', escapeHtml(draftItem.lastEditedBy)).replace('{when}', timeAgo(draftItem.lastEditedAt))}</div>` : ''}
