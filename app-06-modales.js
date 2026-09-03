@@ -1367,6 +1367,13 @@ function scanModal(){
               </span>
             </div>
             ${isUnrecognized ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('scan_unrecognized')}</div>` : ''}
+            ${(()=>{
+              if(!item.fuzzySuggestedId || item.matchedIngId!==item.fuzzySuggestedId) return '';
+              const m = inventory.find(ing=>ing.id===item.fuzzySuggestedId);
+              if(!m) return '';
+              return `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:6px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_similar_note').replace('{name}', escapeHtml(m.name))}
+                <button type="button" class="link-btn" data-scan-make-new="${idx}" style="padding:2px 0 0;display:block;font-size:11px;">${t('scan_add_as_new')}</button></div>`;
+            })()}
             ${item.confidence==='baja' ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
             ${item.confidence==='media' ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${t('scan_qty_review')}</div>` : ''}
             <div class="mi-fields">
@@ -2229,12 +2236,25 @@ function applyParsedReceiptToScanState(parsed){
           }
         }
       }
+      // Match "por parecido": el emparejado quedó apuntando a un producto cuyo
+      // nombre NO es idéntico al de esta línea (vino de la IA, de un alias o del
+      // texto contenido). Productos que se leen parecido pero SON distintos
+      // (pedido del usuario) — la fila muestra una alerta con salida de un toque:
+      // "es otro producto, agregarlo aparte". Nombre idéntico = mismo producto,
+      // sin ruido. Se guarda el id sugerido: si el usuario cambia el select a
+      // mano, la alerta ya no corresponde y desaparece sola.
+      let fuzzySuggestedId = null;
+      if(matchedId && matchedId!=='__new__'){
+        const m = inventory.find(ing=>ing.id===matchedId);
+        if(m && m.name.toLowerCase().trim() !== nameLower) fuzzySuggestedId = matchedId;
+      }
       return {
         rawName: displayName,
         qty: typeof it.quantity==='number' ? it.quantity : parseFloat(it.quantity)||0,
         totalPrice: typeof it.total_price==='number' ? it.total_price : parseFloat(it.total_price)||0,
         unit: itemUnit,
         matchedIngId: matchedId,
+        fuzzySuggestedId: fuzzySuggestedId,
         newIngName: newIngName,
         suggestedCategoryId: suggestedCategoryId,
         // "confidence" tal cual la reporta Claude (alta/media/baja) para distinguir en

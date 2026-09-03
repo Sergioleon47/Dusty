@@ -987,6 +987,18 @@ function attachEvents(){
     document.querySelectorAll('[data-scan-match]').forEach(sel=>{
       sel.onchange=()=>{ scanExtracted[parseInt(sel.dataset.scanMatch)].matchedIngId=sel.value; render(); };
     });
+    // "Es otro producto — agregarlo aparte": la salida de un toque de la alerta de
+    // match por parecido. Al aplicar, el alias aprende rawName→producto nuevo, así
+    // el próximo recibo ya no lo vuelve a emparejar con el parecido.
+    document.querySelectorAll('[data-scan-make-new]').forEach(b=>{
+      b.onclick=()=>{
+        const item=scanExtracted[parseInt(b.dataset.scanMakeNew)];
+        if(!item) return;
+        item.matchedIngId='__new__';
+        item.newIngName=null;
+        render();
+      };
+    });
     // Solo aparece para productos nuevos (ver isUnrecognized en scanModal) — Claude
     // sugiere una categoría con su propio criterio, pero cuando no encuentra ninguna
     // que le calce bien (o directamente no hay categorías creadas todavía) esto
