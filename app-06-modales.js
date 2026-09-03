@@ -1548,6 +1548,9 @@ async function processProductBatchSource(source){
         name: p.name,
         unit: ['lb','kg','oz','g','ml','l','unidad','caja','servicio'].includes(p.unit) ? p.unit : 'unidad',
         cost: typeof p.cost_per_unit==='number' ? p.cost_per_unit : '',
+        // Cantidad en stock: la escribe el usuario en la revisión (la foto muestra
+        // QUÉ es el producto, no cuánto hay en total) — vacío = 0, como antes.
+        qty: '',
         sku: p.sku || '',
         categoryId: catMatch ? catMatch.id : null,
         confidence: p.confidence || 'baja',
@@ -1588,7 +1591,7 @@ function applyProductBatch(){
     const item = {
       id: uid('i'), name: it.name.trim(), unit: it.unit,
       costPerUnit: parseFloat(it.cost)||0, updated:false,
-      qtyOnHand: 0, photo: it.photo||null, salePrice: 0,
+      qtyOnHand: Math.max(0, parseFloat(it.qty)||0), photo: it.photo||null, salePrice: 0,
       sku: (it.sku||'').trim(), supplier: '', categoryId: it.categoryId||null
     };
     if(currentUser){ item.lastEditedBy = currentUserLabel(); item.lastEditedAt = new Date().toISOString(); }
@@ -1706,7 +1709,8 @@ function productBatchModal(){
             ${it.confidence==='baja' && !it.dupOfId ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('pb_low_confidence')}</div>` : ''}
             <div class="mi-fields">
               <select data-pb-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${it.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
-              <input data-pb-cost="${idx}" type="number" step="0.01" value="${escapeHtml(it.cost)}" style="flex:1;" placeholder="${t('pb_cost_ph')}">
+              <input data-pb-qty="${idx}" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtml(it.qty)}" style="flex:1;" placeholder="${t('ph_qty_short')}" title="${t('lbl_stock')}">
+              <input data-pb-cost="${idx}" type="number" step="0.01" value="${escapeHtml(it.cost)}" style="flex:1;" placeholder="${t('pb_cost_ph')}" title="${t('lbl_cost_unit')}">
               ${categories.length>0 ? `
               <select data-pb-category="${idx}" style="flex:1.4;">
                 <option value="">${t('category_none_option')}</option>

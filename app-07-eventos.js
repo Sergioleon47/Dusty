@@ -539,6 +539,9 @@ function attachEvents(){
     document.querySelectorAll('[data-pb-unit]').forEach(sel=>{
       sel.onchange=()=>{ const it=pbItems[+sel.getAttribute('data-pb-unit')]; if(it) it.unit=sel.value; };
     });
+    document.querySelectorAll('[data-pb-qty]').forEach(inp=>{
+      inp.oninput=()=>{ const it=pbItems[+inp.getAttribute('data-pb-qty')]; if(it) it.qty=inp.value; };
+    });
     document.querySelectorAll('[data-pb-cost]').forEach(inp=>{
       inp.oninput=()=>{ const it=pbItems[+inp.getAttribute('data-pb-cost')]; if(it) it.cost=inp.value; };
     });
