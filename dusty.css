@@ -58,7 +58,9 @@
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
   *{box-sizing:border-box;}
-  html{touch-action:manipulation;}
+  /* -webkit-text-size-adjust: iOS agranda texto por su cuenta al rotar/en algunos
+     contenedores — otra fuente de "zoom fantasma" no nativa. 100% lo congela. */
+  html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
   /* En oscuro el degradé de marca a toda pantalla del tema claro sería un foco
      encendido — queda solo un resplandor naranja tenue arriba, suficiente para que
      el header se sienta "de marca" sin quemar el fondo #0f1115. */

@@ -8,7 +8,12 @@
      auto-zoom al enfocar inputs de menos de 16px — molesto pero reversible con un
      pellizco; la alternativa (nadie con vista cansada puede agrandar NADA en
      Android, la plataforma principal) es peor. -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- maximum-scale=1 + user-scalable=no: sin pellizco ni doble-tap zoom, y —lo
+     más importante en iPhone— sin el auto-zoom que Safari dispara al enfocar un
+     input; la pantalla no "salta" y la app se siente nativa (pedido del usuario).
+     Los lectores de pantalla y el zoom de accesibilidad del sistema no se ven
+     afectados por esta meta. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Dusty — Inventory</title>
 <meta name="description" content="Scan receipts, track inventory, stay on budget, and catch price changes automatically — for stores, restaurants, and anyone reselling on their own.">
 <!-- theme-color = el fondo oscuro de la app (no el naranja de marca): en Android
