@@ -463,10 +463,13 @@ function attachEvents(){
   if(btnCycleCount) btnCycleCount.onclick=openCycleCountModal;
   const ccBanner=document.getElementById('cc-banner');
   if(ccBanner) ccBanner.onclick=openCycleCountModal;
+  // Mismo canal animado que el selector de vista: al alternar "ver inventario
+  // completo" / "solo lo que toca contar", las tarjetas que quedan vuelan a su
+  // nueva posición y las que entran/salen se funden (View Transition, app-04).
   const btnShowFullInv=document.getElementById('btn-show-full-inventory');
-  if(btnShowFullInv) btnShowFullInv.onclick=(e)=>{ e.stopPropagation(); showFullInventoryDespiteCycleCount=true; render(); };
+  if(btnShowFullInv) btnShowFullInv.onclick=(e)=>{ e.stopPropagation(); showFullInventoryDespiteCycleCount=true; invLayoutTransitionPending=true; render(); };
   const btnShowPendingOnly=document.getElementById('btn-show-pending-only');
-  if(btnShowPendingOnly) btnShowPendingOnly.onclick=(e)=>{ e.stopPropagation(); showFullInventoryDespiteCycleCount=false; render(); };
+  if(btnShowPendingOnly) btnShowPendingOnly.onclick=(e)=>{ e.stopPropagation(); showFullInventoryDespiteCycleCount=false; invLayoutTransitionPending=true; render(); };
   const cycleCountOverlay=document.getElementById('cycle-count-overlay');
   if(cycleCountOverlay){
     cycleCountOverlay.onmousedown=(e)=>{ if(e.target===cycleCountOverlay) closeCycleCountModal(); };
