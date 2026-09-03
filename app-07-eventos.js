@@ -1124,6 +1124,15 @@ window.addEventListener('error', (e)=>{ reportClientError(e.error || e.message, 
 window.addEventListener('unhandledrejection', (e)=>{ reportClientError(e.reason, 'unhandledrejection'); });
 
 loadState();
+// Migración de stockFullRef (un solo arranque por dispositivo la necesita de
+// verdad): los productos de antes de la feature no tienen marca de "lleno", y
+// con la estimación vieja (qty×1.5) la barra quedaba CLAVADA en ~67% — al usar
+// stock el objetivo estimado bajaba junto con él y el % no se movía. El nivel
+// actual pasa a ser el 100% de cada uno; desde acá, solo las salidas lo bajan.
+// No se llama saveState() acá (todavía no corrió todo el boot): el sello y el
+// guardado los hace el primer saveState real, y mientras tanto la barra ya
+// rinde bien con la marca en memoria.
+inventory.forEach(i=>{ if(!i.stockFullRef && (i.qtyOnHand||0) > 0) i.stockFullRef = i.qtyOnHand; });
 // ETAPA A del PLAN-SYNC: poblar la línea base de sellado AHORA, con lo recién
 // cargado — lo que vino de localStorage no es una edición nueva. Sin esta pasada,
 // la primera pasada de stampLocalEdits() ocurría recién en el PRIMER saveState de
