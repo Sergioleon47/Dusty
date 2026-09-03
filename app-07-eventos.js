@@ -435,7 +435,9 @@ function attachEvents(){
 
   const btnCriticalAlerts=document.getElementById('btn-critical-alerts');
   if(btnCriticalAlerts) btnCriticalAlerts.onclick=()=>{
-    const critRows = document.querySelectorAll('.stock-row-static[data-status="crit"]');
+    // Las filas del Dashboard ahora son .inv-tile (mismo rediseño que Inventario)
+    // — el selector matchea por data-status, presente solo en esas tarjetas.
+    const critRows = document.querySelectorAll('[data-status="crit"]');
     if(critRows.length===0) return;
     critRows[0].scrollIntoView({behavior:'smooth', block:'center'});
     critRows.forEach(r=>r.classList.add('crit-flash'));

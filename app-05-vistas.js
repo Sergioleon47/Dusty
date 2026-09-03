@@ -318,24 +318,30 @@ function stockAnalyticsCard(){
       <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
       ${stockHealthRing(rows)}
     </div>
+    ${/* Mismo lenguaje que Inventario (pedido del usuario): cada ítem es una
+         tarjeta-botón (tocar abre la ficha; la ✕ se fue — eliminar vive adentro),
+         en grilla que respeta el MISMO selector de vista compartido (invLayout).
+         La barra de % se conserva: es la gracia de esta tarjeta. Prefijo
+         dashtile- en el view-transition-name: los tiles de Inventario ya usan
+         invtile- y nombres duplicados en el DOM abortan la transición. */''}
+    <div class="inv-toolbar" style="margin:10px 0 2px;">${invLayoutToggleHtml()}</div>
+    <div class="inv-grid ${invLayout}">
     ${rows.map(r=>`
-      <div class="stock-row-static ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-ing-id="${r.ing.id}" data-status="${r.status}">
-        <div class="stock-row">
-          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
-          <div class="stock-main">
-            <div class="stock-name">${escapeHtml(r.ing.name)} (${escapeHtml(unitLabel(r.ing.unit))})</div>
-            ${r.status==='none' ? `
-            <div class="stock-bar-track"></div>
-            <div class="stock-caption stock-caption-muted">${t('stock_no_data_caption')}</div>
-            ` : `
-            <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
-            <div class="stock-caption">${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
-            `}
-          </div>
-          <button class="stock-row-x-btn" data-delete-stock-item="${r.ing.id}" title="${t('btn_delete')}">✕</button>
+      <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
+        <div class="inv-tile-top">
+          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;width:44px;height:44px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
+          <div class="inv-tile-name">${escapeHtml(invShortName(r.ing.name))}</div>
         </div>
+        ${r.status==='none' ? `
+        <div class="stock-bar-track"></div>
+        <div class="stock-caption stock-caption-muted" style="margin:0;">${r.ing.expenseOnly ? t('expense_only_tag') : t('stock_no_data_caption')}</div>
+        ` : `
+        <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
+        <div class="stock-caption" style="margin:0;">${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
+        `}
       </div>
     `).join('')}
+    </div>
     <div class="stock-summary">
       <div id="btn-critical-alerts" ${criticalCount>0?'style="cursor:pointer;"':''}>
         <div class="stock-summary-label">${t('stock_critical_alerts')}</div>
