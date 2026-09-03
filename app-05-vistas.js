@@ -470,26 +470,21 @@ function groupRowsByCategory(rows){
   });
   return groups.concat([uncategorized]).filter(g=>g.rows.length>0);
 }
+/* Rediseño 2026-09-03 (pedido del usuario): cada ítem es UNA tarjeta-botón —
+   tocarla abre su ficha (y ahí se edita o elimina; la ✕ y el lápiz de la fila
+   se fueron). Sin botones laterales, las tarjetas entran en una grilla de 2
+   columnas (.inv-grid) y la lista pide la mitad de scroll. El ícono conserva
+   su toque propio (foto/subir foto) con stopPropagation. */
 function stockRowHtml(r, ccDueIds){
   const i = r.ing;
   return `
-  <div class="stock-row-static ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-ing-id="${i.id}">
-    <div class="stock-row">
-      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
-      <div class="stock-main">
-        <div class="stock-name">${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
-        <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchasesForIng(i.id)))}${marginBadge(i)}</div>
-        <div class="stock-caption">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
-      </div>
-      <div class="stock-actions">
-        <div class="stock-actions-btns">
-          <button class="stock-row-x-btn" data-delete-stock-item="${i.id}" title="${t('btn_delete')}">✕</button>
-          <button class="stock-icon-btn edit" data-edit-item="${i.id}" title="${t('btn_edit')}">
-            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>
-        </div>
-      </div>
+  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}">
+    <div class="inv-tile-top">
+      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:36px;height:36px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
+      <div class="inv-tile-name">${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
     </div>
+    <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchasesForIng(i.id)))}${marginBadge(i)}</div>
+    <div class="stock-caption" style="margin:0;">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
   </div>`;
 }
 /* ---------- CALCULADORA DE PEDIDO (pestaña Inventario) ----------
@@ -745,11 +740,11 @@ function inventarioView(){
     groups.length>1
       ? groups.map(g=>`
         <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
-        <div class="stock-card" style="padding-bottom:6px;margin-bottom:18px;">
-          ${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}
+        <div class="stock-card" style="padding-bottom:10px;margin-bottom:18px;">
+          <div class="inv-grid">${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>
         </div>
       `).join('')
-      : `<div class="stock-card" style="padding-bottom:6px;">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`
+      : `<div class="stock-card" style="padding-bottom:10px;"><div class="inv-grid">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div></div>`
   ))}
   `;
 }

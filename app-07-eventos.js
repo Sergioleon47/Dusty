@@ -123,7 +123,7 @@ function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
   manageModalA11y();
   attachModalTabTrap();
-  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
+  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
@@ -711,6 +711,13 @@ function attachEvents(){
   document.querySelectorAll('[data-delete-stock-item]').forEach(b=>{
     b.onclick=(e)=>{ e.stopPropagation(); deleteStockItem(b.dataset.deleteStockItem, b); };
   });
+  // Tarjeta-botón del inventario: tocar el ítem abre su ficha (editar/eliminar).
+  document.querySelectorAll('[data-open-item]').forEach(el=>{
+    el.onclick=()=>{
+      const item=inventory.find(x=>x.id===el.dataset.openItem);
+      if(item) openItemModal(item);
+    };
+  });
   // Tocar el ícono en la lista: CON foto abre el visor grande (reconocer el ítem
   // cuando la miniatura no alcanza); SIN foto, el selector para subir una directo.
   document.querySelectorAll('[data-photo-item]').forEach(el=>{
@@ -747,6 +754,16 @@ function attachEvents(){
   if(itemOverlay){
     itemOverlay.onmousedown=(e)=>{ if(e.target===itemOverlay) closeItemModal(); };
     document.getElementById('btn-cancel-item').onclick=closeItemModal;
+    // Eliminar desde la ficha (las filas ya no tienen ✕): deleteStockItem pide
+    // confirmación por su cuenta; si el usuario canceló, el ítem sigue y el
+    // modal queda abierto.
+    const btnDeleteItemModal=document.getElementById('btn-delete-item-modal');
+    if(btnDeleteItemModal) btnDeleteItemModal.onclick=()=>{
+      const id=draftItem && draftItem.id;
+      if(!id) return;
+      deleteStockItem(id, btnDeleteItemModal);
+      if(!inventory.some(i=>i.id===id)) closeItemModal();
+    };
     const itemPhotoFile=document.getElementById('item-photo-file');
     const btnUploadItemPhoto=document.getElementById('btn-upload-item-photo');
     if(btnUploadItemPhoto && itemPhotoFile) btnUploadItemPhoto.onclick=()=>itemPhotoFile.click();

@@ -885,6 +885,9 @@ function itemModal(){
 
       <div class="helper-note">${t('item_helper')}</div>
       <div class="modal-actions">
+        ${/* Eliminar vive ACÁ desde que las filas del inventario no tienen ✕:
+             tocar el ítem abre esta ficha, y desde acá se edita o se borra. */''}
+        ${editingItem ? `<button class="btn btn-ghost" id="btn-delete-item-modal" style="margin-right:auto;color:var(--tomato);">${t('btn_delete')}</button>` : ''}
         <button class="btn btn-ghost" id="btn-cancel-item">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-item">${t('btn_save')}</button>
       </div>
