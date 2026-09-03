@@ -341,7 +341,7 @@ function stockAnalyticsCard(){
          invtile- y nombres duplicados en el DOM abortan la transición. */''}
     ${/* Buscador con solo la lupita (sin palabras — pedido del usuario), alineado
          en la misma fila que el selector de vista, ocupando el hueco marcado. */''}
-    <div class="inv-toolbar" style="margin:10px 0 2px;display:flex;align-items:center;gap:8px;">
+    <div class="inv-toolbar" style="margin:10px 0 14px;display:flex;align-items:center;gap:8px;">
       <div class="inv-search-wrap">
         <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <input id="dash-inv-search" type="search" value="${escapeHtml(invSearch)}" aria-label="${t('inv_search_aria')}" autocomplete="off">

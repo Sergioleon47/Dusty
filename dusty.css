@@ -813,7 +813,9 @@
   .inv-search-wrap input:focus{outline:none;border-color:var(--basil);}
   .inv-search-wrap input::-webkit-search-cancel-button{-webkit-appearance:none;}
   .inv-layout-toggle{display:inline-flex;background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;}
-  .inv-layout-toggle button{width:36px;height:30px;border:none;background:none;border-radius:8px;
+  /* Botones más angostos (36→29px, pedido del usuario: menos largo, MISMA altura)
+     — el toggle entero se achica ~22px y le cede ese ancho al buscador. */
+  .inv-layout-toggle button{width:29px;height:30px;border:none;background:none;border-radius:8px;
     color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .inv-layout-toggle button.on{background:var(--raised-2);color:var(--ink);}
   .oc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
