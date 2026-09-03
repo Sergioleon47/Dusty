@@ -27,7 +27,7 @@ Analiza la imagen y devolvé JSON puro (sin markdown, sin backticks, sin texto e
   "unit": "string: lb, kg, oz, g, ml, l, o unidad (usá 'unidad' para piezas sueltas sin peso)",
   "cost_per_unit": number o null,
   "sku": "string o null",
-  "category": "string exacto de la lista de abajo, o null",
+  "category": "string (de la lista de abajo, o una categoría nueva propuesta), o null",
   "confidence": "alta" | "media" | "baja",
   "matched_inventory_name": "string o null"
 }
@@ -46,7 +46,7 @@ REGLAS:
 ${hasCategories ? `SOBRE "category":
 Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
 ${categoryNames.map(n => `- ${n}`).join('\n')}
-Elegí la que mejor le quede (usá tu criterio, no comparación literal). Si corresponde, poné el nombre EXACTO tal cual aparece en esa lista. Si ninguna le queda bien, poné "category": null.` : `El usuario no tiene categorías de inventario creadas todavía, así que "category" va a ser null.`}`;
+Elegí la que mejor le quede (usá tu criterio, no comparación literal). Si corresponde, poné el nombre EXACTO tal cual aparece en esa lista. Si NINGUNA de la lista le queda bien, PROPONÉ una categoría nueva vos: un nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Cleaning", "Tools". Nunca null si podés reconocer qué tipo de producto es.` : `El usuario no tiene categorías de inventario creadas todavía. PROPONÉ vos la categoría en "category": un nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Solo usá null si de verdad no se reconoce qué es.`}`;
 }
 
 // Modo LOTE: la misma foto puede tener VARIOS productos distintos a la vista (un
@@ -65,7 +65,7 @@ Identificá CADA producto DISTINTO que se vea con claridad razonable y devolvé 
       "unit": "string: lb, kg, oz, g, ml, l, o unidad (usá 'unidad' para piezas sueltas sin peso)",
       "cost_per_unit": number o null,
       "sku": "string o null",
-      "category": "string exacto de la lista de abajo, o null",
+      "category": "string (de la lista de abajo, o una categoría nueva propuesta), o null",
       "confidence": "alta" | "media" | "baja",
       "box": {"x": number, "y": number, "w": number, "h": number} o null,
       "matched_inventory_name": "string o null"
@@ -91,7 +91,7 @@ Si un producto de la foto ES el mismo que uno de esa lista (criterio: abreviatur
 ${hasCategories ? `SOBRE "category":
 Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
 ${categoryNames.map(n => `- ${n}`).join('\n')}
-Elegí para cada producto la que mejor le quede (criterio, no comparación literal), con el nombre EXACTO de esa lista, o null si ninguna le queda bien.` : `El usuario no tiene categorías de inventario creadas todavía, así que "category" va a ser null en todos.`}`;
+Elegí para cada producto la que mejor le quede (criterio, no comparación literal), con el nombre EXACTO de esa lista. Si a un producto NINGUNA de la lista le queda bien, PROPONÉ una categoría nueva: nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Nunca null si podés reconocer qué tipo de producto es.` : `El usuario no tiene categorías de inventario creadas todavía. PROPONÉ vos la categoría de cada producto en "category": nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Solo null si no se reconoce.`}`;
 }
 
 /* Modo STOCK: la foto es del estante/las piezas del propio negocio y el objetivo no

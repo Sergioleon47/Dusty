@@ -1565,7 +1565,11 @@ async function processProductBatchSource(source){
         ? inventory.find(i=>i.name.trim().toLowerCase()===p.matched_inventory_name.trim().toLowerCase())
         : null;
       const dup = aiMatch || inventory.find(i=>i.name.trim().toLowerCase()===p.name.trim().toLowerCase());
-      const catMatch = p.category ? categories.find(c=>c.name===p.category) : null;
+      // La IA ahora puede PROPONER una categoría que el usuario no tiene (ve un
+      // cable → "Cables"): si no matchea ninguna existente, viaja como sentinel
+      // "__newcat__:<nombre>" — el select la muestra preseleccionada como nueva
+      // y applyProductBatch la crea de verdad recién al confirmar.
+      const catMatch = p.category ? categories.find(c=>c.name.trim().toLowerCase()===p.category.trim().toLowerCase()) : null;
       return {
         name: p.name,
         unit: ['lb','kg','oz','g','ml','l','unidad','caja','servicio'].includes(p.unit) ? p.unit : 'unidad',
@@ -1574,7 +1578,7 @@ async function processProductBatchSource(source){
         // QUÉ es el producto, no cuánto hay en total) — vacío = 0, como antes.
         qty: '',
         sku: p.sku || '',
-        categoryId: catMatch ? catMatch.id : null,
+        categoryId: catMatch ? catMatch.id : (p.category && p.category.trim() ? '__newcat__:'+p.category.trim() : null),
         confidence: p.confidence || 'baja',
         photo: p.box ? cropToBase64(source, p.box, 300, 0.75) : null,
         selected: !dup,
@@ -1610,12 +1614,23 @@ function applyProductBatch(){
     return;
   }
   chosen.forEach(it=>{
+    // Categoría propuesta por la IA que todavía no existe (sentinel
+    // "__newcat__:<nombre>"): se crea DE VERDAD recién acá, al confirmar — y una
+    // sola vez aunque varios productos del lote la compartan (el find la
+    // encuentra en las siguientes vueltas).
+    let categoryId = it.categoryId || null;
+    if(typeof categoryId==='string' && categoryId.startsWith('__newcat__:')){
+      const catName = categoryId.slice('__newcat__:'.length).trim();
+      let cat = categories.find(c=>c.name.trim().toLowerCase()===catName.toLowerCase());
+      if(!cat && catName){ cat = {id:uid('cat'), name:catName}; categories.push(cat); }
+      categoryId = cat ? cat.id : null;
+    }
     const item = {
       id: uid('i'), name: it.name.trim(), unit: it.unit,
       costPerUnit: parseFloat(it.cost)||0, updated:false,
       qtyOnHand: Math.max(0, parseFloat(it.qty)||0), photo: it.photo||null, salePrice: 0,
       stockFullRef: Math.max(0, parseFloat(it.qty)||0) || null,
-      sku: (it.sku||'').trim(), supplier: '', categoryId: it.categoryId||null
+      sku: (it.sku||'').trim(), supplier: '', categoryId: categoryId
     };
     if(currentUser){ item.lastEditedBy = currentUserLabel(); item.lastEditedAt = new Date().toISOString(); }
     inventory.push(item);
@@ -1761,9 +1776,10 @@ function productBatchModal(){
               <select data-pb-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${it.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
               <input data-pb-qty="${idx}" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtml(it.qty)}" style="flex:1;" placeholder="${t('ph_qty_short')}" title="${t('lbl_stock')}">
               <input data-pb-cost="${idx}" type="number" step="0.01" value="${escapeHtml(it.cost)}" style="flex:1;" placeholder="${t('pb_cost_ph')}" title="${t('lbl_cost_unit')}">
-              ${categories.length>0 ? `
+              ${(categories.length>0 || (it.categoryId||'').startsWith('__newcat__:')) ? `
               <select data-pb-category="${idx}" style="flex:1.4;">
                 <option value="">${t('category_none_option')}</option>
+                ${(it.categoryId||'').startsWith('__newcat__:') ? `<option value="${escapeHtml(it.categoryId)}" selected>＋ ${escapeHtml(it.categoryId.slice('__newcat__:'.length))} (${t('category_new_tag')})</option>` : ''}
                 ${categories.map(c=>`<option value="${c.id}" ${it.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
               </select>` : ''}
             </div>
