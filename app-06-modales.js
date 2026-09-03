@@ -1368,11 +1368,18 @@ function scanModal(){
             </div>
             ${isUnrecognized ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('scan_unrecognized')}</div>` : ''}
             ${(()=>{
-              if(!item.fuzzySuggestedId || item.matchedIngId!==item.fuzzySuggestedId) return '';
+              // Dos decisiones explícitas (pedido del usuario): "ya está en mi
+              // inventario" confirma el match y calla la alerta; "producto nuevo"
+              // separa la línea. fuzzyConfirmed evita que la alerta reaparezca
+              // tras confirmar.
+              if(!item.fuzzySuggestedId || item.matchedIngId!==item.fuzzySuggestedId || item.fuzzyConfirmed) return '';
               const m = inventory.find(ing=>ing.id===item.fuzzySuggestedId);
               if(!m) return '';
-              return `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:6px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_similar_note').replace('{name}', escapeHtml(m.name))}
-                <button type="button" class="link-btn" data-scan-make-new="${idx}" style="padding:2px 0 0;display:block;font-size:11px;">${t('scan_add_as_new')}</button></div>`;
+              return `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:7px 8px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_similar_note').replace('{name}', escapeHtml(m.name))}
+                <div style="display:flex;gap:6px;margin-top:6px;">
+                  <button type="button" class="btn btn-ghost btn-sm" data-scan-confirm-match="${idx}" style="flex:1;font-size:11px;padding:6px 4px;">${t('scan_opt_existing')}</button>
+                  <button type="button" class="btn btn-ghost btn-sm" data-scan-make-new="${idx}" style="flex:1;font-size:11px;padding:6px 4px;">${t('scan_opt_new')}</button>
+                </div></div>`;
             })()}
             ${item.confidence==='baja' ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
             ${item.confidence==='media' ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${t('scan_qty_review')}</div>` : ''}

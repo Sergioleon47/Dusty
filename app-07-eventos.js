@@ -999,6 +999,14 @@ function attachEvents(){
         render();
       };
     });
+    document.querySelectorAll('[data-scan-confirm-match]').forEach(b=>{
+      b.onclick=()=>{
+        const item=scanExtracted[parseInt(b.dataset.scanConfirmMatch)];
+        if(!item) return;
+        item.fuzzyConfirmed=true;
+        render();
+      };
+    });
     // Solo aparece para productos nuevos (ver isUnrecognized en scanModal) — Claude
     // sugiere una categoría con su propio criterio, pero cuando no encuentra ninguna
     // que le calce bien (o directamente no hay categorías creadas todavía) esto
