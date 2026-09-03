@@ -822,7 +822,8 @@ function itemModal(){
       ${editingItem && draftItem.lastEditedBy ? `<div class="helper-note">${t('activity_last_edit').replace('{who}', escapeHtml(draftItem.lastEditedBy)).replace('{when}', timeAgo(draftItem.lastEditedAt))}</div>` : ''}
 
       <div class="settings-card">
-        ${settingsCardHeader('camera','var(--sky-soft)','var(--sky-ink)',t('item_section_photo'))}
+        ${/* Sin el encabezado "📷 Photo" (pedido del usuario): la foto y sus
+             botones se explican solos y la ficha gana altura. */''}
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
           <div class="stock-icon-ring" style="width:56px;height:56px;flex-shrink:0;">${stockIconSvg(draftItem)}</div>
           <div>
