@@ -2867,6 +2867,10 @@ function attachViewSwipeHandlers(){
        de cero — es imposible quedar trabado. */
     if(e.isPrimary===false) return;
     if(e.target.closest('.overlay')) return; // con un modal abierto, este gesto no aplica
+    // La hoja de la calculadora es fixed pero NO es .overlay — sin esta línea,
+    // deslizar el dedo dentro de la calculadora abierta arrastraba las pestañas
+    // por detrás (y al cerrarla estabas en otra pantalla sin haberlo pedido).
+    if(e.target.closest('.oc-sheet')) return;
     const viewport = document.querySelector('.view-viewport');
     const track = document.querySelector('.view-track');
     if(!viewport || !track) return;
