@@ -329,7 +329,7 @@ function stockAnalyticsCard(){
     ${rows.map(r=>`
       <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
         <div class="inv-tile-top">
-          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;width:44px;height:44px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
+          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;width:56px;height:56px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
           <div class="inv-tile-name">${escapeHtml(invShortName(r.ing.name))}</div>
         </div>
         ${r.status==='none' ? `
@@ -337,7 +337,10 @@ function stockAnalyticsCard(){
         <div class="stock-caption stock-caption-muted" style="margin:0;">${r.ing.expenseOnly ? t('expense_only_tag') : t('stock_no_data_caption')}</div>
         ` : `
         <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,4)}%;"></div></div>
-        <div class="stock-caption" style="margin:0;"><strong style="color:var(--stock-${r.status==='ok'?'ok':r.status});">${r.pct}%</strong> · ${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
+        ${/* Sin la unidad repetida ("16 unit of 16 unit" → "16 of 16", pedido del
+             usuario): el texto respira y el espacio ganado fue a la foto. La
+             unidad vive en la ficha. */''}
+        <div class="stock-caption" style="margin:0;"><strong style="color:var(--stock-${r.status==='ok'?'ok':r.status});">${r.pct}%</strong> · ${escapeHtml(r.ing.qtyOnHand||0)} ${t('stock_of')} ${escapeHtml(r.target)}</div>
         `}
       </div>
     `).join('')}

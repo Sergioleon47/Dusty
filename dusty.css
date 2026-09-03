@@ -792,7 +792,7 @@
   /* 3 columnas: todo un punto más compacto y simétrico para que entren tres. */
   .inv-grid.cols3 .inv-tile{padding:7px 6px;gap:4px;}
   .inv-grid.cols3 .inv-tile-top{flex-direction:column;gap:5px;align-items:center;text-align:center;}
-  .inv-grid.cols3 .stock-icon-ring{width:40px !important;height:40px !important;}
+  .inv-grid.cols3 .stock-icon-ring{width:50px !important;height:50px !important;}
   .inv-grid.cols3 .inv-tile-name{font-size:11.5px;text-align:center;}
   .inv-grid.cols3 .inv-row-meta{font-size:11px;text-align:center;}
   .inv-grid.cols3 .stock-caption{font-size:10.5px;text-align:center;}

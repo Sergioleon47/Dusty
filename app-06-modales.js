@@ -1783,13 +1783,17 @@ function productBatchModal(){
               <select data-pb-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${it.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
               <input data-pb-qty="${idx}" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtml(it.qty)}" style="flex:1;" placeholder="${t('ph_qty_short')}" title="${t('lbl_stock')}">
               <input data-pb-cost="${idx}" type="number" step="0.01" value="${escapeHtml(it.cost)}" style="flex:1;" placeholder="${t('pb_cost_ph')}" title="${t('lbl_cost_unit')}">
-              ${(categories.length>0 || (it.categoryId||'').startsWith('__newcat__:')) ? `
               <select data-pb-category="${idx}" style="flex:1.4;">
                 <option value="">${t('category_none_option')}</option>
                 ${(it.categoryId||'').startsWith('__newcat__:') ? `<option value="${escapeHtml(it.categoryId)}" selected>＋ ${escapeHtml(it.categoryId.slice('__newcat__:'.length))} (${t('category_new_tag')})</option>` : ''}
                 ${categories.map(c=>`<option value="${c.id}" ${it.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
-              </select>` : ''}
+                <option value="__create__">＋ ${t('category_create_option')}</option>
+              </select>
             </div>
+            ${/* Crear la categoría acá mismo (pedido del usuario: "no me permite
+                 añadir una categoría" en esta pantalla) — mismo patrón que la
+                 ficha: elegir "crear" muestra este campo; Enter/blur la aplica. */''}
+            <input data-pb-newcat="${idx}" type="text" maxlength="30" placeholder="${t('category_create_ph')}" style="display:none;margin-top:8px;width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--inset);color:var(--ink);">
             ${categories.length>0 && !it.categoryId && !it.categoryTouched && !it.dupOfId && it.selected ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:8px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
           </div>`;
         }).join('')}

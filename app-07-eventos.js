@@ -593,8 +593,41 @@ function attachEvents(){
     });
     document.querySelectorAll('[data-pb-category]').forEach(sel=>{
       // Mismo criterio que data-scan-category en recibos: elegir (aunque sea "Sin
-      // categoría") apaga el aviso de "no estamos seguros".
-      sel.onchange=()=>{ const it=pbItems[+sel.getAttribute('data-pb-category')]; if(it){ it.categoryId=sel.value||null; it.categoryTouched=true; render(); } };
+      // categoría") apaga el aviso de "no estamos seguros". "__create__" muestra
+      // el campo de nombre de la fila (crear sin salir — pedido del usuario).
+      sel.onchange=()=>{
+        const idx=+sel.getAttribute('data-pb-category');
+        const it=pbItems[idx]; if(!it) return;
+        if(sel.value==='__create__'){
+          const inp=document.querySelector(`[data-pb-newcat="${idx}"]`);
+          if(inp){ inp.style.display='block'; inp.focus(); }
+          return;
+        }
+        it.categoryId=sel.value||null; it.categoryTouched=true; render();
+      };
+    });
+    document.querySelectorAll('[data-pb-newcat]').forEach(inp=>{
+      const idx=+inp.getAttribute('data-pb-newcat');
+      const commit=()=>{
+        const it=pbItems[idx]; if(!it) return;
+        const name=inp.value.trim();
+        if(!name){
+          const sel=document.querySelector(`[data-pb-category="${idx}"]`);
+          if(sel) sel.value = (typeof it.categoryId==='string' && !it.categoryId.startsWith('__')) ? it.categoryId : (it.categoryId||'');
+          inp.style.display='none';
+          return;
+        }
+        let cat = categories.find(c=>c.name.trim().toLowerCase()===name.toLowerCase());
+        if(!cat){ cat={id:uid('cat'), name}; categories.push(cat); saveState(); }
+        it.categoryId=cat.id; it.categoryTouched=true;
+        inp.value='';
+        render();
+      };
+      inp.onblur=commit;
+      inp.onkeydown=(e)=>{
+        if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
+        else if(e.key==='Escape'){ inp.value=''; inp.blur(); }
+      };
     });
   }
 
