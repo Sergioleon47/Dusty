@@ -849,7 +849,13 @@ function itemModal(){
           <select id="fi-category">
             <option value="">${t('category_none_option')}</option>
             ${categories.map(c=>`<option value="${c.id}" ${draftItem.categoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+            ${/* Crear la categoría acá mismo, sin salir a "Manage categories"
+                 (pedido del usuario): elegir esta opción muestra el campo de
+                 nombre de abajo; Enter o salir del campo la crea y la deja
+                 seleccionada. */''}
+            <option value="__create__">＋ ${t('category_create_option')}</option>
           </select>
+          <input id="fi-new-category" type="text" maxlength="30" placeholder="${t('category_create_ph')}" style="display:none;margin-top:8px;">
         </div>
       </div>
 

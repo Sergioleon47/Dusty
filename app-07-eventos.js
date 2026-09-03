@@ -872,6 +872,41 @@ function attachEvents(){
     const fiSalePriceInp=document.getElementById('fi-sale-price');
     if(fiCostInp) fiCostInp.oninput=handleProfitFieldInput;
     if(fiSalePriceInp) fiSalePriceInp.oninput=handleProfitFieldInput;
+    // Crear categoría sin salir de la ficha: elegir "＋ Crear categoría nueva…"
+    // muestra el campo de nombre (el foco acá SÍ corresponde: el usuario acaba de
+    // pedir escribir); Enter o salir del campo la crea y la deja seleccionada,
+    // Escape o vacío cancela y vuelve a la selección anterior.
+    const fiCategorySel=document.getElementById('fi-category');
+    const fiNewCatInp=document.getElementById('fi-new-category');
+    if(fiCategorySel && fiNewCatInp){
+      fiCategorySel.onchange=()=>{
+        if(fiCategorySel.value==='__create__'){
+          fiNewCatInp.style.display='block';
+          fiNewCatInp.focus();
+        } else {
+          fiNewCatInp.style.display='none';
+          if(draftItem) draftItem.categoryId = fiCategorySel.value || null;
+        }
+      };
+      const commitNewCat=()=>{
+        const name=fiNewCatInp.value.trim();
+        if(!name){
+          fiCategorySel.value = (draftItem && draftItem.categoryId) || '';
+          fiNewCatInp.style.display='none';
+          return;
+        }
+        let cat = categories.find(c=>c.name.trim().toLowerCase()===name.toLowerCase());
+        if(!cat){ cat={id:uid('cat'), name}; categories.push(cat); saveState(); }
+        if(draftItem) draftItem.categoryId=cat.id;
+        fiNewCatInp.value='';
+        render();
+      };
+      fiNewCatInp.onblur=commitNewCat;
+      fiNewCatInp.onkeydown=(e)=>{
+        if(e.key==='Enter'){ e.preventDefault(); fiNewCatInp.blur(); }
+        else if(e.key==='Escape'){ fiNewCatInp.value=''; fiNewCatInp.blur(); }
+      };
+    }
     document.getElementById('btn-save-item').onclick=()=>{
       const nameInput=document.getElementById('fi-name');
       const name=nameInput.value.trim();
@@ -910,7 +945,9 @@ function attachEvents(){
         salePrice:parseFloat(document.getElementById('fi-sale-price').value)||0,
         sku:document.getElementById('fi-sku').value.trim(),
         supplier:document.getElementById('fi-supplier').value.trim(),
-        categoryId:document.getElementById('fi-category').value || null,
+        // '__create__' es la opción "crear nueva" sin nombre confirmado — nunca
+        // debe guardarse como si fuera un id de categoría real.
+        categoryId:(v=>v==='__create__' ? null : (v||null))(document.getElementById('fi-category').value),
         // Capacidad del envase lleno (para el escáner de estante) — vacío o 0 se
         // guarda como null, nunca como un cero que el escáner tomaría por real.
         capacityFull:(()=>{ const v=parseFloat(document.getElementById('fi-capacity').value); return Number.isFinite(v) && v>0 ? v : null; })()
