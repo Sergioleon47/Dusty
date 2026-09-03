@@ -502,6 +502,20 @@ let orderCalcOpen = false;
 let orderCalcQty = {};
 let orderCalcEditingId = null;
 let orderCalcSearch = '';
+/* Un pedido a medio armar sobrevive al refresh (pedido del usuario: "que no se
+   desaparezca el trabajo"): cantidades y si la hoja estaba abierta van a
+   localStorage en cada cambio. Ids de productos ya borrados se ignoran solos
+   (todas las lecturas filtran contra el inventario actual). */
+try{
+  const s = JSON.parse(localStorage.getItem('patron_order_calc_v1')||'null');
+  if(s && typeof s==='object'){
+    if(s.qty && typeof s.qty==='object') orderCalcQty = s.qty;
+    orderCalcOpen = !!s.open;
+  }
+}catch(e){}
+function orderCalcPersist(){
+  try{ localStorage.setItem('patron_order_calc_v1', JSON.stringify({open:orderCalcOpen, qty:orderCalcQty})); }catch(e){}
+}
 const ORDER_CALC_KEYS_VISIBLE = 9;
 
 function orderCalcProducts(){
@@ -596,18 +610,18 @@ function orderCalcPanel(){
 function attachOrderCalcEvents(){
   const card = document.getElementById('oc-card');
   if(card){
-    const toggle = ()=>{ orderCalcOpen = !orderCalcOpen; render(); };
+    const toggle = ()=>{ orderCalcOpen = !orderCalcOpen; orderCalcPersist(); render(); };
     card.onclick = toggle;
     card.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } };
   }
   document.querySelectorAll('[data-oc-add]').forEach(b=>{
-    b.onclick = ()=>{ const id=b.dataset.ocAdd; orderCalcQty[id]=(orderCalcQty[id]||0)+1; render(); };
+    b.onclick = ()=>{ const id=b.dataset.ocAdd; orderCalcQty[id]=(orderCalcQty[id]||0)+1; orderCalcPersist(); render(); };
   });
   document.querySelectorAll('[data-oc-minus]').forEach(b=>{
-    b.onclick = ()=>{ const id=b.dataset.ocMinus; const v=(orderCalcQty[id]||0)-1; if(v>0) orderCalcQty[id]=v; else delete orderCalcQty[id]; render(); };
+    b.onclick = ()=>{ const id=b.dataset.ocMinus; const v=(orderCalcQty[id]||0)-1; if(v>0) orderCalcQty[id]=v; else delete orderCalcQty[id]; orderCalcPersist(); render(); };
   });
   document.querySelectorAll('[data-oc-plus]').forEach(b=>{
-    b.onclick = ()=>{ const id=b.dataset.ocPlus; orderCalcQty[id]=(orderCalcQty[id]||0)+1; render(); };
+    b.onclick = ()=>{ const id=b.dataset.ocPlus; orderCalcQty[id]=(orderCalcQty[id]||0)+1; orderCalcPersist(); render(); };
   });
   document.querySelectorAll('[data-oc-edit]').forEach(b=>{
     b.onclick = ()=>{ orderCalcEditingId = b.dataset.ocEdit; render(); };
@@ -620,7 +634,7 @@ function attachOrderCalcEvents(){
       const v = parseFloat(inp.value);
       // Tope defensivo: un dedazo tipo 999999999 no debe producir un total absurdo.
       if(!isNaN(v) && v>0) orderCalcQty[id] = Math.min(v, 999999); else delete orderCalcQty[id];
-      orderCalcEditingId = null; render();
+      orderCalcEditingId = null; orderCalcPersist(); render();
     };
     inp.onkeydown = (e)=>{
       if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
@@ -628,9 +642,9 @@ function attachOrderCalcEvents(){
     };
   }
   const close = document.getElementById('oc-close');
-  if(close) close.onclick = ()=>{ orderCalcOpen = false; orderCalcEditingId = null; render(); };
+  if(close) close.onclick = ()=>{ orderCalcOpen = false; orderCalcEditingId = null; orderCalcPersist(); render(); };
   const sheet = document.getElementById('oc-panel');
-  if(sheet) sheet.onkeydown = (e)=>{ if(e.key==='Escape'){ orderCalcOpen = false; orderCalcEditingId = null; render(); } };
+  if(sheet) sheet.onkeydown = (e)=>{ if(e.key==='Escape'){ orderCalcOpen = false; orderCalcEditingId = null; orderCalcPersist(); render(); } };
   const search = document.getElementById('oc-search');
   if(search) search.oninput = (e)=>{
     // Mismo patrón que receipt-search: render con debounce restaurando foco y
@@ -643,7 +657,7 @@ function attachOrderCalcEvents(){
     });
   };
   const clear = document.getElementById('oc-clear');
-  if(clear) clear.onclick = ()=>{ orderCalcQty = {}; orderCalcEditingId = null; render(); };
+  if(clear) clear.onclick = ()=>{ orderCalcQty = {}; orderCalcEditingId = null; orderCalcPersist(); render(); };
   const share = document.getElementById('oc-share');
   if(share) share.onclick = ()=>{ navigator.share({ title:'Dusty', text: orderCalcText() }).catch(()=>{}); };
   const copy = document.getElementById('oc-copy');
