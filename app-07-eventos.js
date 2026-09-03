@@ -459,7 +459,12 @@ function attachEvents(){
           const val=parseFloat(inp.value);
           if(!isNaN(val) && val>=0){
             const ing=inventory.find(i=>i.id===inp.dataset.ccCount);
-            if(ing) ing.qtyOnHand=val;
+            if(ing){
+              ing.qtyOnHand=val;
+              // Contar MÁS que el "lleno" conocido = había una entrada sin registrar:
+              // ese nivel pasa a ser el nuevo 100%. Contar menos es consumo — no toca.
+              if(val > (ing.stockFullRef||0)) ing.stockFullRef = val;
+            }
           }
         });
         cycleCountLastDate=localDateStr();
@@ -842,6 +847,16 @@ function attachEvents(){
         // guarda como null, nunca como un cero que el escáner tomaría por real.
         capacityFull:(()=>{ const v=parseFloat(document.getElementById('fi-capacity').value); return Number.isFinite(v) && v>0 ? v : null; })()
       };
+      // stockFullRef no tiene campo en el formulario, así que hay que arrastrarlo a
+      // mano (este objeto se reconstruye desde cero y lo perdería). Subir el stock
+      // a mano cuenta como entrada → ese nivel es el nuevo "lleno"; bajarlo es
+      // consumo/corrección y deja la marca como estaba.
+      {
+        const prev = inventory.find(i=>i.id===draftItem.id);
+        const prevQty = prev ? (prev.qtyOnHand||0) : 0;
+        if(!prev || item.qtyOnHand > prevQty) item.stockFullRef = item.qtyOnHand || null;
+        else item.stockFullRef = (prev && prev.stockFullRef) || null;
+      }
       // El "quién y cuándo" solo tiene sentido si hay una cuenta detrás — un uso 100%
       // local, sin sesión, no tiene a quién atribuirle el cambio.
       if(currentUser){ item.lastEditedBy = currentUserLabel(); item.lastEditedAt = new Date().toISOString(); }

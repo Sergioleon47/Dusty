@@ -245,15 +245,17 @@ function stockStatus(pct){ return pct>=60 ? 'ok' : pct>=20 ? 'warn' : 'crit'; }
 // (ya gastaste esa parte del presupuesto) — la escala va al revés a propósito.
 function budgetStatus(pct){ return pct>=100 ? 'crit' : pct>=80 ? 'warn' : 'ok'; }
 
-/* stockTarget es un placeholder mientras definimos de dónde sale el "stock objetivo"
-   real (ver conversación pendiente) — por ahora se estima a partir de lo que hay.
-   Un ingrediente que nunca tuvo una compra registrada y sigue en 0 no es "crítico"
-   de verdad — todavía no hay datos para juzgarlo, así que se marca aparte ('none')
-   en vez de asustar a un usuario nuevo con todo el inventario en rojo desde el día 1. */
+/* El "lleno" de la barra es stockFullRef: el nivel que quedó después de la ÚLTIMA
+   entrada de stock (compra escaneada, alta con cantidad, edición al alza, conteo
+   mayor). Decisión del usuario 2026-09-03: "siempre que entre, la barra full" —
+   entra mercadería → 100% verde; solo las salidas la van bajando. stockTarget
+   quedó como override manual futuro, y para ítems viejos sin marca todavía, la
+   estimación de siempre. Un ingrediente sin compras y en 0 no es "crítico" de
+   verdad — se marca aparte ('none') en vez de asustar con todo en rojo el día 1. */
 function stockRowsData(){
   return inventory.map(i=>{
     const hasHistory = (i.qtyOnHand||0)>0 || purchasesForIng(i.id).length>0;
-    const target = i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
+    const target = i.stockFullRef || i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
     const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
     return {ing:i, target, pct, status: hasHistory ? stockStatus(pct) : 'none'};
   });

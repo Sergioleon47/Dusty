@@ -1592,6 +1592,7 @@ function applyProductBatch(){
       id: uid('i'), name: it.name.trim(), unit: it.unit,
       costPerUnit: parseFloat(it.cost)||0, updated:false,
       qtyOnHand: Math.max(0, parseFloat(it.qty)||0), photo: it.photo||null, salePrice: 0,
+      stockFullRef: Math.max(0, parseFloat(it.qty)||0) || null,
       sku: (it.sku||'').trim(), supplier: '', categoryId: it.categoryId||null
     };
     if(currentUser){ item.lastEditedBy = currentUserLabel(); item.lastEditedAt = new Date().toISOString(); }
@@ -2281,7 +2282,7 @@ function applyScanResults(){
       // original, no el texto crudo de esta línea del recibo, para que ambas filas
       // se lean como "el mismo producto, unidad distinta" (ej. "Cebolla roja" en lb
       // y en caja) y no como dos productos sin relación aparente.
-      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty, categoryId:item.suggestedCategoryId||null};
+      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty, stockFullRef:item.qty, categoryId:item.suggestedCategoryId||null};
       if(currentUser){ newIng.lastEditedBy = currentUserLabel(); newIng.lastEditedAt = new Date().toISOString(); }
       inventory.push(newIng);
       ingId = newIng.id;
@@ -2304,6 +2305,8 @@ function applyScanResults(){
         ing.costPerUnit = item.totalPrice/item.qty;
         ing.updated = true;
         ing.qtyOnHand = unitChanged ? item.qty : (ing.qtyOnHand||0) + item.qty;
+        // Entrada de stock → este nivel es el nuevo "lleno" de la barra (100%).
+        ing.stockFullRef = ing.qtyOnHand;
         if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
         ingName = ing.name;
       }
@@ -2390,7 +2393,13 @@ function deleteReceipt(receiptId){
       const touchedIngIds = new Set();
       purchases.filter(p=>idSet.has(p.id)).forEach(p=>{
         const ing = inventory.find(i=>i.id===p.ingId);
-        if(ing){ ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - p.qty); touchedIngIds.add(ing.id); }
+        if(ing){
+          ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - p.qty);
+          // Revertir el recibo deshace también la entrada que subió el "lleno":
+          // sin esto, la barra quedaría comparando contra un nivel que nunca existió.
+          if(ing.stockFullRef){ const r = ing.stockFullRef - p.qty; ing.stockFullRef = r>0 ? r : null; }
+          touchedIngIds.add(ing.id);
+        }
       });
       // Un producto que este recibo tocó y que no tiene NINGUNA otra compra (ni de
       // antes, ni de otro recibo) fue creado enteramente por este recibo — al
