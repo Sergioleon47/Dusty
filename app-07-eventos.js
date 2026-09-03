@@ -77,6 +77,32 @@ let modalTabTrapAttached = false;
 // "Edit budget" (Dashboard) abre el modal de ajustes pidiendo foco directo en el
 // campo de presupuesto — se consume en el attach del overlay, un solo render.
 let pendingBudgetFocus = false;
+// Selector de archivo + resize para la foto de un producto — lo usan el toque en
+// la miniatura sin foto (lista) y el botón "cambiar" del visor de foto.
+function promptItemPhotoUpload(item){
+  const input = document.createElement('input');
+  input.type='file';
+  input.accept='image/*';
+  input.style.display='none';
+  document.body.appendChild(input);
+  // Si el usuario cierra el selector sin elegir, "change" nunca dispara — sin esto
+  // el <input> quedaba huérfano en el body acumulándose en cada intento cancelado.
+  // "cancel" no está en todos los navegadores; donde no, el peor caso es el de antes.
+  input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
+  input.onchange=async ()=>{
+    const file=input.files[0];
+    if(input.parentNode) input.parentNode.removeChild(input);
+    if(!file || !/^image\//.test(file.type)) return;
+    try{
+      const img = await loadImageFromFile(file);
+      item.photo = resizeToBase64(img, 300, 0.75);
+      saveState(); render();
+    }catch(err){
+      showToast(err.message || t('err_img_process'), 'error');
+    }
+  };
+  input.click();
+}
 function attachModalTabTrap(){
   if(modalTabTrapAttached) return;
   modalTabTrapAttached = true;
@@ -675,38 +701,36 @@ function attachEvents(){
   document.querySelectorAll('[data-delete-stock-item]').forEach(b=>{
     b.onclick=(e)=>{ e.stopPropagation(); deleteStockItem(b.dataset.deleteStockItem, b); };
   });
-  // Tocar el ícono directo en la lista sube la foto sin pasar por el formulario completo de editar.
+  // Tocar el ícono en la lista: CON foto abre el visor grande (reconocer el ítem
+  // cuando la miniatura no alcanza); SIN foto, el selector para subir una directo.
   document.querySelectorAll('[data-photo-item]').forEach(el=>{
     el.onclick=(e)=>{
       e.stopPropagation();
       const item = inventory.find(x=>x.id===el.dataset.photoItem);
       if(!item) return;
-      const input = document.createElement('input');
-      input.type='file';
-      input.accept='image/*';
-      input.style.display='none';
-      document.body.appendChild(input);
-      // Si el usuario cierra el selector de archivos sin elegir ninguno, "change"
-      // nunca dispara — sin este manejo el <input> quedaba huérfano en el body para
-      // siempre (invisible, pero acumulándose en el DOM en cada intento cancelado).
-      // "cancel" no es soportado en absolutamente todos los navegadores, pero cuando
-      // lo es evita ese acumulado; cuando no, el peor caso es el mismo de antes.
-      input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
-      input.onchange=async ()=>{
-        const file=input.files[0];
-        if(input.parentNode) input.parentNode.removeChild(input);
-        if(!file || !/^image\//.test(file.type)) return;
-        try{
-          const img = await loadImageFromFile(file);
-          item.photo = resizeToBase64(img, 300, 0.75);
-          saveState(); render();
-        }catch(err){
-          showToast(err.message || t('err_img_process'), 'error');
-        }
-      };
-      input.click();
+      if(itemPhotoSrc(item)){ photoViewItemId = item.id; render(); }
+      else promptItemPhotoUpload(item);
     };
   });
+  const pvOverlay=document.getElementById('photo-viewer-overlay');
+  if(pvOverlay){
+    const closeViewer=()=>{ photoViewItemId=null; render(); };
+    pvOverlay.onmousedown=(e)=>{ if(e.target===pvOverlay) closeViewer(); };
+    document.getElementById('pv-close').onclick=closeViewer;
+    document.getElementById('pv-change').onclick=()=>{
+      const item=inventory.find(x=>x.id===photoViewItemId);
+      if(item) promptItemPhotoUpload(item); // el visor queda abierto y muestra la nueva
+    };
+    document.getElementById('pv-delete').onclick=()=>{
+      const item=inventory.find(x=>x.id===photoViewItemId);
+      if(!item) return;
+      if(!confirm(t('pv_delete_confirm'))) return;
+      item.photo=null;
+      if(currentUser){ item.lastEditedBy=currentUserLabel(); item.lastEditedAt=new Date().toISOString(); }
+      photoViewItemId=null;
+      saveState(); render();
+    };
+  }
 
   /* Modal ingrediente */
   const itemOverlay=document.getElementById('item-overlay');

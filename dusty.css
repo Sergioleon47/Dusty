@@ -788,6 +788,20 @@
   .oc-line-sub{font-size:13px;color:var(--basil);min-width:56px;text-align:right;font-variant-numeric:tabular-nums;}
   .oc-total-row{display:flex;align-items:center;gap:8px;margin:0 2px 12px;flex-shrink:0;}
   .oc-send-row{display:flex;gap:8px;margin-bottom:12px;flex-shrink:0;}
+  /* Visor de foto de producto: fondo bien oscuro para que la foto mande, y un
+     menú mínimo de botones translúcidos arriba a la derecha (pedido: elegante,
+     nada pronunciado). La leyenda con el nombre responde al "para saber qué
+     ítem es" — el motivo entero de abrir la foto. */
+  .pv-overlay{background:rgba(6,8,11,.88);}
+  .photo-viewer{position:relative;max-width:min(92vw,560px);}
+  .photo-viewer img{display:block;max-width:100%;max-height:68vh;object-fit:contain;border-radius:16px;}
+  .pv-actions{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:2;}
+  .pv-btn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:rgba(16,19,24,.55);border:1px solid rgba(255,255,255,.18);color:#fff;cursor:pointer;
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
+  .pv-btn:active{background:rgba(16,19,24,.8);}
+  .pv-btn-danger{color:var(--tomato);}
+  .pv-caption{text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:var(--ink-mid);}
   .oc-total-label{font-size:13px;color:var(--ink-mid);}
   .oc-total{font-size:23px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;}
   .oc-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}

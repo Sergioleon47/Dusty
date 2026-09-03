@@ -1603,6 +1603,33 @@ function applyProductBatch(){
   closeProductBatchModal();
 }
 
+/* ================= VISOR DE FOTO DE PRODUCTO =================
+   Tocar la miniatura de un producto CON foto la abre en grande (para reconocer
+   el ítem cuando la miniatura no alcanza), con un menú mínimo arriba a la
+   derecha — cambiar / quitar / cerrar — en botones chicos translúcidos, pedido
+   del usuario: "elegante y no muy pronunciado". Sin foto, tocar la miniatura
+   sigue abriendo el selector para subir una (promptItemPhotoUpload, app-07). */
+let photoViewItemId = null;
+
+function itemPhotoViewerModal(){
+  const item = inventory.find(i=>i.id===photoViewItemId);
+  const src = item && itemPhotoSrc(item);
+  if(!item || !src){ photoViewItemId = null; return ''; }
+  const icon = (paths)=>`<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  return `
+  <div class="overlay pv-overlay" id="photo-viewer-overlay">
+    <div class="photo-viewer" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('pv_photo_of').replace('{name}', item.name))}">
+      <div class="pv-actions">
+        <button type="button" class="pv-btn" id="pv-change" title="${t('pv_change')}" aria-label="${t('pv_change')}">${icon('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}</button>
+        <button type="button" class="pv-btn pv-btn-danger" id="pv-delete" title="${t('btn_remove_photo')}" aria-label="${t('btn_remove_photo')}">${icon('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>')}</button>
+        <button type="button" class="pv-btn" id="pv-close" title="${t('oc_close')}" aria-label="${t('oc_close')}">${icon('<path d="M18 6L6 18M6 6l12 12"/>')}</button>
+      </div>
+      <img src="${escapeHtml(src)}" alt="${escapeHtml(item.name)}">
+      <div class="pv-caption">${escapeHtml(item.name)}</div>
+    </div>
+  </div>`;
+}
+
 /* ================= CÁMARA DEL ESCÁNER DE PRODUCTOS =================
    Un solo escáner hace TODO (pedido explícito del usuario: no sumar más botones
    al encabezado): sacás una foto y —
