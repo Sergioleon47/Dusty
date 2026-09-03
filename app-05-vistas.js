@@ -1070,9 +1070,10 @@ function recibosView(){
   return `
   <div class="section-head">
     <div><h2>${t('rec_title')}</h2><p>${t('rec_sub')}</p></div>
+    ${/* Sin el botón "Scan receipt" (lo tachó el usuario): escanear ya vive en el
+         botón grande del Dashboard — acá duplicaba y apretaba el buscador. */''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div class="field" style="margin:0;width:150px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
-      <button class="btn btn-primary" id="btn-scan-from-receipts">${t('dash_scan_receipt')}</button>
+      <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
     </div>
   </div>
   ${receiptCalendarWidget()}

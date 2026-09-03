@@ -694,8 +694,6 @@ function attachEvents(){
     if(shareBtn && currentReceipt) shareBtn.onclick=()=>shareReceipt(currentReceipt);
   }
 
-  const btnScanFromReceipts=document.getElementById('btn-scan-from-receipts');
-  if(btnScanFromReceipts) btnScanFromReceipts.onclick=openScanModal;
   const btnCalPrev=document.getElementById('btn-cal-prev');
   if(btnCalPrev) btnCalPrev.onclick=()=>{ setCalendarMonth(shiftMonthStr(calendarViewMonth,-1)); render(); };
   const btnCalNext=document.getElementById('btn-cal-next');
