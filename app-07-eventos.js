@@ -711,6 +711,14 @@ function attachEvents(){
   document.querySelectorAll('[data-delete-stock-item]').forEach(b=>{
     b.onclick=(e)=>{ e.stopPropagation(); deleteStockItem(b.dataset.deleteStockItem, b); };
   });
+  // Selector de vista del inventario (fila / 2 col / 3 col) — preferencia local.
+  document.querySelectorAll('[data-inv-layout]').forEach(b=>{
+    b.onclick=()=>{
+      invLayout=b.dataset.invLayout;
+      try{ localStorage.setItem('patron_inv_layout', invLayout); }catch(e){}
+      render();
+    };
+  });
   // Tarjeta-botón del inventario: tocar el ítem abre su ficha (editar/eliminar).
   document.querySelectorAll('[data-open-item]').forEach(el=>{
     el.onclick=()=>{

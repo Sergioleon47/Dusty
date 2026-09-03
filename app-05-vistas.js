@@ -454,6 +454,24 @@ let showFullInventoryDespiteCycleCount = false;
 // muestra solo esos productos (ver inventarioView). También es preferencia de
 // sesión nomás, se resetea solo al recargar.
 let inventoryCategoryFilter = null;
+/* Vista del inventario elegida por el usuario: 'rows' (una columna, todo más
+   grande — accesibilidad para quien no ve bien), 'cols2' o 'cols3'. Solo esas
+   tres opciones (pedido explícito). Persiste como preferencia del dispositivo. */
+let invLayout = 'cols2';
+try{ const v = localStorage.getItem('patron_inv_layout'); if(['rows','cols2','cols3'].includes(v)) invLayout = v; }catch(e){}
+function invLayoutToggleHtml(){
+  const opt = (val, label, icon)=>`<button type="button" data-inv-layout="${val}" class="${invLayout===val?'on':''}" aria-label="${label}" aria-pressed="${invLayout===val}" title="${label}">${icon}</button>`;
+  const sq = (n)=>{
+    if(n===1) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="2" y="3" width="16" height="4" rx="1.2"/><rect x="2" y="9" width="16" height="4" rx="1.2"/><rect x="2" y="15" width="16" height="3" rx="1.2"/></svg>';
+    if(n===2) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="2" y="3" width="7" height="7" rx="1.5"/><rect x="11" y="3" width="7" height="7" rx="1.5"/><rect x="2" y="12" width="7" height="7" rx="1.5"/><rect x="11" y="12" width="7" height="7" rx="1.5"/></svg>';
+    return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="1" y="3" width="5" height="5" rx="1.2"/><rect x="7.5" y="3" width="5" height="5" rx="1.2"/><rect x="14" y="3" width="5" height="5" rx="1.2"/><rect x="1" y="12" width="5" height="5" rx="1.2"/><rect x="7.5" y="12" width="5" height="5" rx="1.2"/><rect x="14" y="12" width="5" height="5" rx="1.2"/></svg>';
+  };
+  return `<div class="inv-layout-toggle" role="group" aria-label="${t('inv_layout_label')}">
+    ${opt('rows', t('inv_layout_rows'), sq(1))}
+    ${opt('cols2', t('inv_layout_cols2'), sq(2))}
+    ${opt('cols3', t('inv_layout_cols3'), sq(3))}
+  </div>`;
+}
 /* Agrupa las filas de inventario por categoría, en el orden en que el usuario las
    tiene definidas — los productos sin categoría (o con una categoría que ya no
    existe, ej. se borró) van todos juntos al final en "Sin categoría". Solo se
@@ -754,13 +772,16 @@ function inventarioView(){
   </div>` : '')}
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (
     // Sin la caja .stock-card alrededor: las tarjetas ya son cajas por sí
-    // mismas — caja dentro de caja era redundante (captura del usuario).
+    // mismas — caja dentro de caja era redundante (captura del usuario). El
+    // selector de vista (fila / 2 col / 3 col) va a la derecha, arriba de la
+    // primera grilla — punto que el usuario marcó en su captura.
+    `<div class="inv-toolbar">${invLayoutToggleHtml()}</div>` + (
     groups.length>1
       ? groups.map(g=>`
         <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
-        <div class="inv-grid" style="margin-bottom:18px;">${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>
+        <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>
       `).join('')
-      : `<div class="inv-grid">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`
+      : `<div class="inv-grid ${invLayout}">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`)
   ))}
   `;
 }
