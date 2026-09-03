@@ -92,6 +92,9 @@ Para cada producto de la factura, elegí la categoría de esa lista que mejor le
 SOBRE "duplicate_of" (líneas repetidas del mismo producto NUEVO dentro de esta misma factura):
 A veces una factura describe el mismo producto en más de una línea (ej. una línea por caja y otra por el reempaque en unidades sueltas, o una columna que se leyó dos veces). Si detectás que dos o más líneas de ESTA factura son en realidad el mismo producto — y ese producto NO tiene "matched_inventory_name" (es nuevo, no está en el inventario existente) — dejá "duplicate_of": null en la PRIMERA aparición, y en las siguientes apariciones poné "duplicate_of" con el índice (empezando en 0) de esa primera línea dentro de este mismo array "items". Si un producto ya tiene "matched_inventory_name" (ya existe en el inventario), nunca uses "duplicate_of" para él — dejalo en null, aunque aparezca más de una vez. Si no estás seguro de que sean el mismo producto, dejá "duplicate_of": null (mejor dos líneas separadas que combinar mal dos productos distintos).
 
+SOBRE "eat_out" (consumos que NO son mercadería):
+Si una línea es comida o bebida preparada para consumir en el momento (un café, un almuerzo, un refresco que se tomó ahí, un snack del food court, propina de restaurante) dentro de una factura que por lo demás es de mercadería/insumos, marcá esa línea con "eat_out": true — es un gasto real del negocio pero NO debe entrar al inventario. Para todo lo demás (mercadería, insumos, empaques, materiales, servicios) usá "eat_out": false. Si la factura ENTERA es de un restaurante o cafetería (todo es consumo del momento), marcá todas sus líneas con "eat_out": true.
+
 Devuelve exactamente este formato:
 
 ${multi ? `{
@@ -119,6 +122,7 @@ Formato de cada item:
   "unit": "string (lb, oz, gal, unidad, caja, etc)",
   "total_price": number,
   "confidence": "alta" | "media" | "baja",
+  "eat_out": true o false,
   "duplicate_of": number o null
 }` : `{
   "supplier": "string",
@@ -134,6 +138,7 @@ Formato de cada item:
       "unit": "string (lb, oz, gal, unidad, caja, etc)",
       "total_price": number,
       "confidence": "alta" | "media" | "baja",
+      "eat_out": true o false,
       "duplicate_of": number o null
     }
   ]

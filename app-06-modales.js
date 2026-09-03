@@ -1393,6 +1393,7 @@ function scanModal(){
             <div class="mi-fields">
               <select data-scan-match="${idx}" style="flex:2;">
                 <option value="__new__" ${item.matchedIngId==='__new__'?'selected':''}>${t('opt_add_new_ing')}</option>
+                <option value="__eatout__" ${item.matchedIngId==='__eatout__'?'selected':''}>${t('opt_eat_out')}</option>
                 ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})</option>`).join('')}
               </select>
               <input data-scan-qty="${idx}" type="number" step="0.01" value="${escapeHtml(item.qty)}" style="flex:1;border:${confBorder};" placeholder="${t('ph_qty_short')}">
@@ -2267,6 +2268,13 @@ function applyParsedReceiptToScanState(parsed){
         const m = inventory.find(ing=>ing.id===matchedId);
         if(m && m.name.toLowerCase().trim() !== nameLower) fuzzySuggestedId = matchedId;
       }
+      // Consumo del momento (café, almuerzo — la IA lo marca con eat_out): arranca
+      // en "☕ Eat out": gasto real, pero sin entrar al stock. El usuario puede
+      // cambiarlo en el select como cualquier línea. Excepción: si un alias
+      // aprendido ya lo apunta a un producto suyo, se respeta esa corrección.
+      if(it.eat_out && !(aliasMap[nameLower] && inventory.some(ing=>ing.id===aliasMap[nameLower]))){
+        matchedId = '__eatout__'; newIngName = null; fuzzySuggestedId = null;
+      }
       return {
         rawName: displayName,
         qty: typeof it.quantity==='number' ? it.quantity : parseFloat(it.quantity)||0,
@@ -2341,7 +2349,26 @@ function applyScanResults(){
     if(item.qty<=0 || item.totalPrice<=0 || !item.rawName || !item.rawName.trim()) return;
     let ingId = item.matchedIngId;
     let ingName = '';
-    if(ingId==='__new__'){
+    if(ingId==='__eatout__'){
+      // Consumo del momento (café, almuerzo): cuenta como GASTO (el recibo entero
+      // ya va al gasto por su total) y deja historial de compras, pero NUNCA toca
+      // el stock ni el valor del inventario (regla del usuario: gasto e inventario
+      // no se contaminan). Vive como producto expenseOnly en la categoría
+      // automática "Eat out" — se crea sola la primera vez.
+      let eatCat = categories.find(c=>c.name.trim().toLowerCase()==='eat out');
+      if(!eatCat){ eatCat = {id:uid('cat'), name:t('eat_out_category')}; categories.push(eatCat); }
+      let ing = inventory.find(i=>i.expenseOnly && i.name.trim().toLowerCase()===item.rawName.trim().toLowerCase());
+      if(!ing){
+        ing = {id:uid('i'), name:item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty,
+          updated:false, qtyOnHand:0, expenseOnly:true, categoryId:eatCat.id};
+        if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
+        inventory.push(ing);
+      } else {
+        ing.costPerUnit = item.totalPrice/item.qty;
+      }
+      ingId = ing.id;
+      ingName = ing.name;
+    } else if(ingId==='__new__'){
       // newIngName viene seteado cuando esta fila "nueva" en realidad es una modalidad
       // distinta de un producto que YA existe en otra unidad (ver
       // applyParsedReceiptToScanState) — en ese caso usamos el nombre del producto
@@ -2355,7 +2382,13 @@ function applyScanResults(){
       ingName = newIng.name;
     } else {
       const ing = inventory.find(i=>i.id===ingId);
-      if(ing){
+      if(ing && ing.expenseOnly){
+        // Alias aprendido apunta a un producto "solo gasto" (Eat out): precio al
+        // día y nada más — sin stock, sin lleno, sin tocar el valor del inventario.
+        ing.costPerUnit = item.totalPrice/item.qty;
+        if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
+        ingName = ing.name;
+      } else if(ing){
         // Si este recibo trae una unidad distinta a la que el ingrediente venía usando
         // (ej. antes se compraba por lb, este recibo dice caja), ing.unit se queda como
         // estaba mientras costPerUnit/qtyOnHand se recalculaban igual con la unidad

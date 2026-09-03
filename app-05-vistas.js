@@ -254,6 +254,9 @@ function budgetStatus(pct){ return pct>=100 ? 'crit' : pct>=80 ? 'warn' : 'ok'; 
    verdad — se marca aparte ('none') en vez de asustar con todo en rojo el día 1. */
 function stockRowsData(){
   return inventory.map(i=>{
+    // Ítems "solo gasto" (Eat out): rastrean plata, no mercadería — nunca son
+    // críticos ni pintan barra roja, y con qtyOnHand 0 tampoco suman al valor.
+    if(i.expenseOnly) return {ing:i, target:0, pct:0, status:'none'};
     const hasHistory = (i.qtyOnHand||0)>0 || purchasesForIng(i.id).length>0;
     const target = i.stockFullRef || i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
     const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
@@ -526,7 +529,7 @@ function stockRowHtml(r, ccDueIds){
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
     </div>
     <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchasesForIng(i.id)))}${marginBadge(i)}</div>
-    <div class="stock-caption" style="margin:0;">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>
+    <div class="stock-caption" style="margin:0;">${i.expenseOnly ? t('expense_only_tag') : `${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}`}</div>
   </div>`;
 }
 /* ---------- CALCULADORA DE PEDIDO (pestaña Inventario) ----------
@@ -558,7 +561,8 @@ const ORDER_CALC_KEYS_VISIBLE = 9;
 function orderCalcProducts(){
   // Los más comprados primero: en un inventario grande, las 9 teclas visibles
   // deben ser las que el usuario pide siempre, no las primeras por orden de alta.
-  return inventory.slice().sort((a,b)=>
+  // Sin los "solo gasto" (Eat out): un pedido al proveedor no lleva cafés.
+  return inventory.filter(i=>!i.expenseOnly).sort((a,b)=>
     purchasesForIng(b.id).length - purchasesForIng(a.id).length
     || a.name.localeCompare(b.name, undefined, {numeric:true}));
 }
