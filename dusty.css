@@ -461,21 +461,25 @@
   .scan-pay-reminder .spr-sub{display:block;font-size:11.5px;color:var(--ink-mid);margin-top:2px;line-height:1.4;}
 
   /* MODAL */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.62);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;animation:overlayFadeIn .4s ease;}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.62);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;animation:overlayFadeIn .5s ease;}
   /* Se "despliega" desde arriba hacia abajo (transform-origin:top + scaleY) en vez de
      escalar parejo desde el centro — se siente como que el cuadrito se abre hacia
      abajo (piensa en un ajuste rápido, o el modal de configuración), consistente en
-     todas las ventanas emergentes de la app, sean grandes o chicas. */
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .65s var(--ease-spring);}
+     todas las ventanas emergentes de la app, sean grandes o chicas.
+     Pase "más nativo" 2026-09-03 (pedido del usuario: cambios de pantalla más
+     lentos al tocar un botón): .65s→.75s, deformación inicial más suave
+     (.82→.9) y curva de desaceleración tipo iOS en vez del resorte — llega
+     calmado, sin pop de juguete. */
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .75s cubic-bezier(.32,.72,.25,1);}
   @keyframes overlayFadeIn{ from{opacity:0;} to{opacity:1;} }
-  /* Fundido de la View Transition al abrir/cerrar modales (ver render()) — el cross-fade
-     por defecto del navegador dura 250ms; un toque más corto para que el cierre se
-     sienta ágil y la apertura no compita con el pop del modal (modalPopIn arriba). */
+  /* Fundido de la View Transition al abrir/cerrar modales (ver render()) — más
+     pausado que el default de 250ms del navegador (mismo pase nativo de arriba):
+     el cierre se disuelve con calma en vez de cortar de golpe. */
   ::view-transition-old(root),
-  ::view-transition-new(root){ animation-duration: 200ms; }
+  ::view-transition-new(root){ animation-duration: 320ms; animation-timing-function: ease-in-out; }
   @keyframes modalPopIn{
-    from{opacity:0;transform:scaleY(0.82) scaleX(0.96) translateY(-10px);}
-    60%{opacity:1;}
+    from{opacity:0;transform:scaleY(0.9) scaleX(0.98) translateY(-8px);}
+    55%{opacity:1;}
     to{opacity:1;transform:scaleY(1) scaleX(1) translateY(0);}
   }
   .modal.wide{max-width:600px;}
@@ -807,8 +811,8 @@
   .oc-sheet{position:fixed;top:0;left:0;right:0;bottom:0;z-index:49;background:var(--bg);display:flex;flex-direction:column;
     padding:16px 14px calc(12px + env(safe-area-inset-bottom, 0px));
     transform:translateY(100%);visibility:hidden;
-    transition:transform .38s cubic-bezier(.32,.72,.25,1), visibility 0s linear .38s;}
-  .oc-sheet.open{transform:translateY(0);visibility:visible;transition:transform .38s cubic-bezier(.32,.72,.25,1);}
+    transition:transform .45s cubic-bezier(.32,.72,.25,1), visibility 0s linear .45s;}
+  .oc-sheet.open{transform:translateY(0);visibility:visible;transition:transform .45s cubic-bezier(.32,.72,.25,1);}
   .oc-sheet-head{display:flex;align-items:center;gap:8px;margin-bottom:2px;}
   .oc-close{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--raised);
     color:var(--ink);font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
