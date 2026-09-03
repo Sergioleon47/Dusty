@@ -318,9 +318,11 @@
      no alcanza para esto: evita que el ITEM empuje el ancho del row, pero no evita
      que el TEXTO adentro se desborde visualmente si no hay dónde partir la palabra. */
   .stock-name{font-size:12.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px;overflow-wrap:anywhere;}
-  .stock-bar-track{background:var(--line);border-radius:20px;height:20px;overflow:hidden;position:relative;}
-  .stock-bar-fill{height:100%;border-radius:20px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;min-width:34px;transition:width .4s ease;}
-  .stock-bar-fill span{color:var(--on-accent);font-size:10.5px;font-weight:700;font-family:'IBM Plex Mono';white-space:nowrap;}
+  /* Barra fina (era 20px con el % adentro — "muy gruesa", pedido del usuario):
+     8px de alto y el porcentaje pasó al caption de abajo, coloreado según estado. */
+  .stock-bar-track{background:var(--line);border-radius:20px;height:8px;overflow:hidden;position:relative;}
+  .stock-bar-fill{height:100%;border-radius:20px;min-width:8px;transition:width .4s ease;}
+  .stock-bar-fill span{display:none;}
   .stock-bar-fill.ok{background:var(--stock-ok);}
   .stock-bar-fill.warn{background:var(--stock-warn);}
   .stock-bar-fill.crit{background:var(--stock-crit);}

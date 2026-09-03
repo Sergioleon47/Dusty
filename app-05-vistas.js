@@ -336,8 +336,8 @@ function stockAnalyticsCard(){
         <div class="stock-bar-track"></div>
         <div class="stock-caption stock-caption-muted" style="margin:0;">${r.ing.expenseOnly ? t('expense_only_tag') : t('stock_no_data_caption')}</div>
         ` : `
-        <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,10)}%;"><span>${r.pct}%</span></div></div>
-        <div class="stock-caption" style="margin:0;">${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
+        <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,4)}%;"></div></div>
+        <div class="stock-caption" style="margin:0;"><strong style="color:var(--stock-${r.status==='ok'?'ok':r.status});">${r.pct}%</strong> · ${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
         `}
       </div>
     `).join('')}
