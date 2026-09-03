@@ -415,7 +415,7 @@
   .cal-nav-btn:active{transform:scale(0.92);}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
   .cal-grid.cal-weekdays{margin-bottom:8px;}
-  .cal-weekday{text-align:center;font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;padding:2px 0;}
+  .cal-weekday{text-align:center;font-size:11.5px;font-weight:700;color:var(--basil);text-transform:uppercase;padding:2px 0;}
   /* Todas las celdas con fecha son tocables (abren el modal del día con recibos +
      notas), no solo las que tienen recibo — ver dayModal() en app-05. */
   .cal-day{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg);cursor:pointer;transition:transform .2s ease;}
