@@ -475,13 +475,29 @@ function groupRowsByCategory(rows){
    se fueron). Sin botones laterales, las tarjetas entran en una grilla de 2
    columnas (.inv-grid) y la lista pide la mitad de scroll. El ícono conserva
    su toque propio (foto/subir foto) con stopPropagation. */
+/* Nombre ABREVIADO para la tarjeta (el completo vive en la ficha y en el
+   title): con paréntesis, última palabra de antes + primer dato de adentro —
+   "Non-Metallic Sheathed Cable (14-3 w/Ground, 250 ft)" → "Cable 14-3",
+   exactamente el formato que el usuario pidió. Sin paréntesis, el nombre tal
+   cual (el clamp de 2 líneas corta lo que no entre). */
+function invShortName(name){
+  const m = String(name||'').match(/^([^(]+)\(([^)]*)\)/);
+  if(m){
+    const before = m[1].trim().split(/\s+/);
+    const base = before[before.length-1] || '';
+    const detail = (m[2].split(/[,;]/)[0]||'').trim().split(/\s+/)[0] || '';
+    const short = (base+' '+detail).trim();
+    if(short) return short;
+  }
+  return name;
+}
 function stockRowHtml(r, ccDueIds){
   const i = r.ing;
   return `
-  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}">
+  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" title="${escapeHtml(i.name)}">
     <div class="inv-tile-top">
-      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:36px;height:36px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
-      <div class="inv-tile-name">${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
+      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
+      <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
     </div>
     <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchasesForIng(i.id)))}${marginBadge(i)}</div>
     <div class="stock-caption" style="margin:0;">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}</div>

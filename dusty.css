@@ -769,8 +769,8 @@
     padding:10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0;}
   .inv-tile:active{border-color:var(--navy);}
   .inv-tile-top{display:flex;align-items:center;gap:8px;min-width:0;}
-  .inv-tile-name{font-weight:700;font-size:12.5px;color:var(--ink);min-width:0;
-    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .inv-tile-name{font-weight:700;font-size:13.5px;color:var(--ink);min-width:0;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .oc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     padding:12px 14px;cursor:pointer;transition:border-color .25s;}
   .oc-card.open{border-color:var(--navy);}
