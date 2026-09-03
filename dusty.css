@@ -746,8 +746,12 @@
      La tarjeta ocupa el hueco a la izquierda del escáner de estante (el espejo de
      la tarjeta de gasto del Dashboard) y al tocarla el panel se despliega suave
      debajo — max-height + opacity animados, morphdom solo cambia la clase .open. */
-  .oc-card{margin-right:auto;align-self:center;flex:1 1 auto;max-width:200px;min-width:0;
-    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  /* Columna izquierda de la fila del escáner de estante: Valor del inventario
+     arriba, calculadora debajo — apilados llenan el hueco (antes el valor
+     flotaba solo en el encabezado con aire muerto hasta la tarjeta). */
+  .inv-left-col{margin-right:auto;align-self:center;display:flex;flex-direction:column;gap:10px;
+    flex:1 1 auto;max-width:200px;min-width:0;}
+  .oc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     padding:12px 14px;cursor:pointer;transition:border-color .25s;}
   .oc-card.open{border-color:var(--navy);}
   .oc-card-total{display:flex;align-items:center;gap:7px;font-size:21px;font-weight:800;color:var(--navy);margin-top:2px;font-variant-numeric:tabular-nums;}

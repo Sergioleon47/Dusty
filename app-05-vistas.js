@@ -688,16 +688,24 @@ function inventarioView(){
   const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   return `
   <div class="section-head">
-    <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : `
-      ${businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : ''}
-      <div class="stat-label">${t('inv_value_label')}</div>
-      <div class="inv-total-value">${money(invValue)}</div>`}</div>
+    <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : '')}</div>
     ${/* El FAB del escáner de estante va ANTES que la fila de botones (pedido del
          usuario: el menú debajo del escáner) y en su propia fila a la derecha,
          calibrado para quedar en la MISMA posición de pantalla (alto Y ancho) que el
          botón de escanear del Dashboard — al deslizar entre pestañas, los dos
          escáneres laten en el mismo punto. Medido a 375px, ver .shelf-fab-row. */''}
-    ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? orderCalcCard() : ''}${shelfScanFab()}</div>` : ''}
+    ${/* Columna izquierda del hueco junto al escáner: Valor del inventario arriba
+         y la calculadora debajo, apilados — espejo de la columna de gasto del
+         Dashboard. El valor DENTRO de la fila (no en el encabezado) evita el
+         bloque flotante con aire muerto que quedaba arriba. */''}
+    ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? `
+      <div class="inv-left-col">
+        <div>
+          <div class="stat-label">${t('inv_value_label')}</div>
+          <div class="inv-total-value">${money(invValue)}</div>
+        </div>
+        ${orderCalcCard()}
+      </div>` : ''}${shelfScanFab()}</div>` : ''}
     <div class="inv-header-actions">
       <button class="btn btn-primary inv-row-btn" id="btn-new-item">${t('btn_new_item')}</button>
       <button class="btn btn-ghost inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
