@@ -808,7 +808,10 @@
   .inv-toolbar{display:flex;justify-content:flex-end;margin:0 0 8px;}
   /* Buscador del inventario: solo la lupita adentro, sin placeholder de texto —
      misma altura (36px) que el selector de vista para que la fila alinee pareja. */
-  .inv-search-wrap{position:relative;flex:1;min-width:0;}
+  /* Ancho contenido (~40% de la fila, pedido del usuario: al menos 30% más corto
+     que cuando llenaba todo el espacio) — queda a la izquierda, el toggle a la
+     derecha, y el aire en el medio. */
+  .inv-search-wrap{position:relative;flex:0 1 auto;width:36%;min-width:118px;margin-right:auto;}
   .inv-search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-soft);pointer-events:none;}
   .inv-search-wrap input{width:100%;height:36px;padding:0 10px 0 34px;border:1px solid var(--line);
     border-radius:10px;background:var(--inset);color:var(--ink);font-size:13.5px;}
