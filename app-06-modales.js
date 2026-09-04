@@ -804,6 +804,42 @@ function recapBaseKey(key, keysWithData){
   if(keysWithData.has(lastYear)) return lastYear;
   return shiftMonthStr(key, -1);
 }
+/* EJEMPLO 2 AÑOS (pedido del usuario): columnas de muestra para que un usuario
+   nuevo vea el premio de registrar sus datos — un negocio creíble que crece mes
+   a mes durante 24 meses hasta hoy. Determinístico (nada aleatorio entre
+   renders) y 100% separado de los datos reales: no toca receipts/outflows. */
+let recapDemo=false;
+function recapDemoKeys(mode){
+  const cur = localMonthStr();
+  const months=[]; for(let i=0;i<24;i++) months.push(shiftMonthStr(cur,-i)); // nuevo→viejo
+  if(mode==='year') return [...new Set(months.map(k=>k.slice(0,4)))];
+  return months;
+}
+function recapDemoFin(key){
+  if(key.length===4){
+    const parts = recapDemoKeys('month').filter(k=>k.slice(0,4)===key).map(recapDemoFin);
+    const sum=(g)=>parts.reduce((s,x)=>s+x[g],0);
+    const revenue=sum('revenue'), cogs=sum('cogs'), expense=sum('expense');
+    const gross=revenue-cogs, net=gross-expense;
+    return { invested:sum('invested'), expense, revenue, cogs, gross, net,
+      grossMarginPct: revenue>0?gross/revenue*100:null, netMarginPct: revenue>0?net/revenue*100:null,
+      hadOutflows:true, receiptsCount:sum('receiptsCount') };
+  }
+  // idx 0 = hace 23 meses … 23 = mes actual; crecimiento ~4.5%/mes con vaivén,
+  // y el margen mejora despacio (el dueño va afinando precios) → deltas verdes.
+  const [y,m]=key.split('-').map(Number);
+  const [cy,cm]=localMonthStr().split('-').map(Number);
+  const idx = Math.max(0, Math.min(23, 23-((cy-y)*12+(cm-m))));
+  const wob = 0.9 + 0.2*Math.abs(Math.sin(idx*2.7));
+  const revenue = Math.round(3800 * Math.pow(1.045, idx) * wob);
+  const cogs = Math.round(revenue * (0.64 - 0.004*idx));
+  const expense = Math.round(700 + idx*18 + 120*Math.abs(Math.sin(idx*1.3)));
+  const invested = Math.round(cogs * (1 + 0.15*Math.sin(idx*2.1)));
+  const gross = revenue - cogs, net = gross - expense;
+  return { invested, expense, revenue, cogs, gross, net,
+    grossMarginPct: gross/revenue*100, netMarginPct: net/revenue*100,
+    hadOutflows:true, receiptsCount: 6 + Math.round(3*Math.abs(Math.sin(idx*1.7))) };
+}
 function monthRecapModal(){
   // PÁGINA COMPLETA por columnas (rediseño 2026-09-04): reusa .oc-sheet — hereda
   // el position:fixed correcto, la subida animada y el guard del swipe de tabs.
@@ -814,15 +850,20 @@ function monthRecapModal(){
   // anterior). Ver periodFinancials en app-03 para la honestidad de estimados.
   let body='';
   if(showMonthRecap){
-    const keys = recapPeriodKeys(recapMode);
+    const demo = recapDemo;
+    const finOf = demo ? recapDemoFin : periodFinancials;
+    const keys = demo ? recapDemoKeys(recapMode) : recapPeriodKeys(recapMode);
     // Claves con actividad real: deciden la base YoY y si una columna muestra deltas.
     const withData = new Set();
-    receipts.forEach(r=>{ const k=monthKey(r.date); if(k) withData.add(recapMode==='year'?k.slice(0,4):k); });
-    outflows.forEach(o=>{ const k=monthKey(o.date); if(k) withData.add(recapMode==='year'?k.slice(0,4):k); });
+    if(demo){ keys.forEach(k=>withData.add(k)); if(recapMode==='month') recapDemoKeys('month').forEach(k=>withData.add(k)); }
+    else{
+      receipts.forEach(r=>{ const k=monthKey(r.date); if(k) withData.add(recapMode==='year'?k.slice(0,4):k); });
+      outflows.forEach(o=>{ const k=monthKey(o.date); if(k) withData.add(recapMode==='year'?k.slice(0,4):k); });
+    }
     const nowKey = recapMode==='year' ? localMonthStr().slice(0,4) : localMonthStr();
-    const focusKey = recapMode==='year' ? (monthRecapKey||nowKey).slice(0,4) : (monthRecapKey||nowKey);
-    const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
-    const potential = inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
+    const focusKey = demo ? nowKey : (recapMode==='year' ? (monthRecapKey||nowKey).slice(0,4) : (monthRecapKey||nowKey));
+    const invValue = demo ? 14350 : inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
+    const potential = demo ? 22980 : inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
     const posNeg = (v)=> v>=0 ? 'var(--basil)' : 'var(--tomato)';
     const pctTxt = (p)=> p===null ? '' : `<div class="recap-note">${p.toFixed(0)}% ${t('recap_margin')}</div>`;
     // Delta chico bajo el valor: ▲/▼ % contra la base (gastos: bajar es bueno).
@@ -837,9 +878,9 @@ function monthRecapModal(){
       <div class="recap-row"><span class="recap-label">${icon} ${label}</span>
         <span class="recap-col-val"><strong style="color:${color||'var(--ink)'};">${value}</strong>${extra||''}</span></div>`;
     const cols = keys.map((k,idx)=>{
-      const fin = periodFinancials(k);
+      const fin = finOf(k);
       const baseKey = recapBaseKey(k, withData);
-      const base = withData.has(baseKey) ? periodFinancials(baseKey) : null;
+      const base = withData.has(baseKey) ? finOf(baseKey) : null;
       const isCur = k===nowKey;
       const d=(a,b,gU)=> base ? badge(a,b,gU) : '';
       const emptyCol = fin.receiptsCount===0 && fin.invested===0 && fin.expense===0 && !fin.hadOutflows;
@@ -852,7 +893,7 @@ function monthRecapModal(){
         ${emptyCol ? `<div class="oc-empty" style="margin:14px 0;">${t('recap_empty')}</div>` : `
         ${crow('📦', t('spend_invested'), money(fin.invested), 'var(--basil)', d(fin.invested, base&&base.invested, true))}
         ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--saffron)', d(fin.expense, base&&base.expense, false))}
-        ${monthlyBudget && recapMode==='month' ? crow('🎯', t('recap_budget_used'), Math.round(fin.expense/monthlyBudget*100)+'%', budgetStatus(Math.round(fin.expense/monthlyBudget*100))==='crit'?'var(--tomato)':'var(--ink)') : ''}
+        ${!demo && monthlyBudget && recapMode==='month' ? crow('🎯', t('recap_budget_used'), Math.round(fin.expense/monthlyBudget*100)+'%', budgetStatus(Math.round(fin.expense/monthlyBudget*100))==='crit'?'var(--tomato)':'var(--ink)') : ''}
         <div class="recap-section-title">${t('recap_pl_title')}</div>
         ${fin.hadOutflows ? `
         ${crow('🧾', t('recap_revenue'), money(fin.revenue), 'var(--sky-bright)', d(fin.revenue, base&&base.revenue, true))}
@@ -861,7 +902,7 @@ function monthRecapModal(){
         ${crow('🏁', t('recap_net'), money(fin.net), posNeg(fin.net), (d(fin.net, base&&base.net, true))+pctTxt(fin.netMarginPct))}`
         : `<div class="recap-note" style="padding:6px 2px;">${t('recap_no_outflows')}</div>`}
         ${crow('🧾', t('recap_receipts'), String(fin.receiptsCount), null, d(fin.receiptsCount, base&&base.receiptsCount, true))}
-        ${isCur && canSeeFinancials() ? `
+        ${isCur && (demo || canSeeFinancials()) ? `
         <div class="recap-section-title"></div>
         ${crow('💰', t('recap_value_today'), money(invValue), 'var(--basil)')}
         ${potential>0 ? crow('🏷', t('inv_potential_label'), money(potential), 'var(--sky-bright)') : ''}` : ''}
@@ -872,9 +913,11 @@ function monthRecapModal(){
     <div class="recap-mode" style="margin:2px 0 10px;">
       <button type="button" class="exit-reason-chip ${recapMode==='month'?'on':''}" data-recap-mode="month">${t('recap_mode_month')}</button>
       <button type="button" class="exit-reason-chip ${recapMode==='year'?'on':''}" data-recap-mode="year">${t('recap_mode_year')}</button>
+      <button type="button" class="exit-reason-chip ${demo?'on':''}" id="btn-recap-demo">${t('recap_demo_btn')}</button>
     </div>
+    ${demo ? `<div class="recap-demo-banner">${t('recap_demo_note')}</div>` : ''}
     <div class="recap-cols" id="recap-cols">${cols}</div>
-    <div class="recap-note" style="padding:10px 2px 4px;">${t('recap_est_note')}</div>`;
+    ${demo ? '' : `<div class="recap-note" style="padding:10px 2px 4px;">${t('recap_est_note')}</div>`}`;
   }
   return `
   <div class="oc-sheet ${showMonthRecap?'open':''}" id="recap-sheet" role="dialog" aria-modal="true" aria-label="${t('recap_title')}"${showMonthRecap?'':' aria-hidden="true"'}>

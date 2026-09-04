@@ -440,7 +440,7 @@ function attachEvents(){
   const recapSheet=document.getElementById('recap-sheet');
   if(recapSheet && showMonthRecap){
     document.getElementById('btn-close-month-recap').onclick=()=>{
-      showMonthRecap=false; recapMode='month'; render();
+      showMonthRecap=false; recapMode='month'; recapDemo=false; render();
     };
     // Modo mes/año: recalcula las columnas al nuevo grano.
     document.querySelectorAll('[data-recap-mode]').forEach(b=>{
@@ -450,6 +450,17 @@ function attachEvents(){
         recapMode=mode; render();
       };
     });
+    // Ejemplo: columnas de muestra con dos años de un negocio creciendo,
+    // para que el usuario nuevo vea el resultado antes de tener datos propios.
+    const btnDemo=document.getElementById('btn-recap-demo');
+    if(btnDemo) btnDemo.onclick=()=>{
+      recapDemo=!recapDemo; render();
+      // Al encender, arrancar en la columna más nueva (el "hoy" de la muestra).
+      if(recapDemo) requestAnimationFrame(()=>{
+        const rail=document.getElementById('recap-cols');
+        if(rail) rail.scrollLeft=0;
+      });
+    };
   }
   // Gasto manual sin recibo: el monto del mes es un botón que abre el modal.
   const btnAddManualSpend=document.getElementById('btn-add-manual-spend');
