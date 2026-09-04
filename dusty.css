@@ -772,7 +772,7 @@
   /* Columna izquierda de la fila del escáner de estante: Valor del inventario
      arriba, calculadora debajo — apilados llenan el hueco (antes el valor
      flotaba solo en el encabezado con aire muerto hasta la tarjeta). */
-  .inv-left-col{margin-right:auto;align-self:center;display:flex;flex-direction:column;gap:20px;
+  .inv-left-col{margin-right:auto;align-self:center;display:flex;flex-direction:column;gap:32px;
     flex:1 1 auto;max-width:200px;min-width:0;}
   /* Etiqueta del valor: con color y algo más grande que un stat-label (pedido del
      usuario) — misma familia verde que el monto, se leen como una sola pieza. */
