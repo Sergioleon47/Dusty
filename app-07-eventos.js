@@ -434,10 +434,37 @@ function attachEvents(){
   };
   const monthRecapOverlay=document.getElementById('month-recap-overlay');
   if(monthRecapOverlay){
-    const closeRecap=()=>{ showMonthRecap=false; render(); };
+    const closeRecap=()=>{ showMonthRecap=false; recapCompareKey=null; recapMode='month'; render(); };
     monthRecapOverlay.onmousedown=(e)=>{ if(e.target===monthRecapOverlay) closeRecap(); };
     document.getElementById('btn-close-month-recap').onclick=closeRecap;
     document.getElementById('btn-recap-ok').onclick=closeRecap;
+    // Modo mes/año: convierte los períodos activos al nuevo grano.
+    document.querySelectorAll('[data-recap-mode]').forEach(b=>{
+      b.onclick=()=>{
+        const mode=b.dataset.recapMode;
+        if(mode===recapMode) return;
+        recapMode=mode;
+        monthRecapKey = recapToMode(monthRecapKey||localMonthStr(), mode);
+        if(recapCompareKey) recapCompareKey = recapShiftKey(monthRecapKey, -1);
+        render();
+      };
+    });
+    // Comparar: enciende con el período anterior como contraparte; apaga limpia.
+    const btnCompare=document.getElementById('btn-recap-compare');
+    if(btnCompare) btnCompare.onclick=()=>{
+      recapCompareKey = recapCompareKey ? null : recapShiftKey(monthRecapKey||localMonthStr(), -1);
+      render();
+    };
+    // Navegación ‹ › de cada período (prim = principal, comp = comparado).
+    document.querySelectorAll('[data-recap-nav]').forEach(b=>{
+      b.onclick=()=>{
+        const [which,dirStr]=b.dataset.recapNav.split(':');
+        const dir=Number(dirStr);
+        if(which==='prim') monthRecapKey = recapShiftKey(monthRecapKey||localMonthStr(), dir);
+        else if(recapCompareKey) recapCompareKey = recapShiftKey(recapCompareKey, dir);
+        render();
+      };
+    });
   }
   // Gasto manual sin recibo: el monto del mes es un botón que abre el modal.
   const btnAddManualSpend=document.getElementById('btn-add-manual-spend');

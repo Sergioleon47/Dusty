@@ -784,60 +784,100 @@ function sendFeedback(){
    inventario, producto estrella, mayor proveedor y el mayor cambio de precio.
    Todo se calcula de datos que ya existen; cero estado nuevo que sincronizar. */
 let showMonthRecap=false, monthRecapKey=null;
+// Modo del recap: 'month'|'year'; recapCompareKey !== null activa la comparación.
+let recapMode='month', recapCompareKey=null;
+function recapShiftKey(key, dir){
+  if(key.length===4) return String(Number(key)+dir);
+  return shiftMonthStr(key, dir);
+}
+function recapKeyLabel(key){ return key.length===4 ? key : monthLabel(key, uiLang); }
+function recapToMode(key, mode){
+  return mode==='year' ? key.slice(0,4) : (key.length===4 ? key+'-'+localMonthStr().slice(5,7) : key);
+}
 function monthRecapModal(){
-  // Vive en el calendario de Recibos: resume el MES QUE SE ESTÁ MIRANDO —
-  // navegás a julio y el recap cuenta julio, no siempre el mes actual.
+  // Vive en el calendario de Recibos y resume el período elegido: mes o año,
+  // solo o comparado contra otro (estructura P&L multi-paso estándar — ver
+  // periodFinancials en app-03 para la honestidad contable de los estimados).
   const key = monthRecapKey || localMonthStr();
-  const sp = spendSplitForMonth(key);
-  const monthReceipts = receipts.filter(r=>monthKey(r.date)===key);
-  const monthPurchases = purchases.filter(p=>monthKey(p.date)===key);
-  // Producto estrella: el de mayor $ comprado este mes.
-  let star=null;
-  if(monthPurchases.length){
-    const byIng={};
-    monthPurchases.forEach(p=>{ byIng[p.ingId]=(byIng[p.ingId]||0)+(p.totalPrice||0); });
-    const topId=Object.keys(byIng).sort((a,b)=>byIng[b]-byIng[a])[0];
-    const ing=inventory.find(i=>i.id===topId);
-    if(ing) star={name:ing.name, amount:byIng[topId], ing};
-  }
-  // Mayor proveedor del mes por $ total de recibos.
-  let topSupplier=null;
-  if(monthReceipts.length){
-    const bySup={};
-    monthReceipts.forEach(r=>{ const s=(r.supplier||'').trim()||t('no_supplier_name'); bySup[s]=(bySup[s]||0)+(r.total||0); });
-    const top=Object.keys(bySup).sort((a,b)=>bySup[b]-bySup[a])[0];
-    topSupplier={name:top, amount:bySup[top]};
-  }
-  // Mayor cambio de precio entre los productos con historial comparable.
-  let priceMove=null;
-  inventory.forEach(i=>{
-    if(i.expenseOnly) return;
-    const pct=lastPriceChangePct(i.id, purchasesForIng(i.id));
-    if(pct!==null && isFinite(pct) && (!priceMove || Math.abs(pct)>Math.abs(priceMove.pct))) priceMove={name:i.name, pct};
-  });
+  const fin = periodFinancials(key);
+  const cmp = recapCompareKey ? periodFinancials(recapCompareKey) : null;
+  const isCurrentPeriod = key.length===4 ? key===localMonthStr().slice(0,4) : key===localMonthStr();
   const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   const potential = inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
-  const empty = monthReceipts.length===0 && sp.invested===0 && sp.expense===0;
-  const row=(icon,label,value,color)=>`
-    <div class="recap-row"><span class="recap-label">${icon} ${label}</span><strong style="color:${color||'var(--ink)'};">${value}</strong></div>`;
+  const empty = !cmp && fin.receiptsCount===0 && fin.invested===0 && fin.expense===0 && !fin.hadOutflows;
+  const pctTxt = (p)=> p===null ? '—' : `${p<0?'':''}${p.toFixed(0)}% ${t('recap_margin')}`;
+  const posNeg = (v)=> v>=0 ? 'var(--basil)' : 'var(--tomato)';
+  const row=(icon,label,value,color,note)=>`
+    <div class="recap-row"><span class="recap-label">${icon} ${label}</span><strong style="color:${color||'var(--ink)'};">${value}${note?`<div class="recap-note">${note}</div>`:''}</strong></div>`;
+  // Fila comparativa: dos columnas + delta % (verde mejora / rojo empeora).
+  const cmpRow=(icon,label,a,b,fmt,goodUp)=>{
+    const delta = (b!==0 && isFinite(a/b)) ? (a-b)/Math.abs(b)*100 : null;
+    const good = delta===null ? null : (goodUp===false ? delta<=0 : delta>=0);
+    return `
+    <div class="recap-row">
+      <span class="recap-label">${icon} ${label}</span>
+      <span class="recap-cmp">
+        <strong>${fmt(a)}</strong>
+        <span class="recap-cmp-b">${fmt(b)}</span>
+        ${delta===null ? '' : `<span class="recap-delta" style="color:${good?'var(--basil)':'var(--tomato)'};">${delta>0?'+':''}${delta.toFixed(0)}%</span>`}
+      </span>
+    </div>`;
+  };
+  const plBlock = (f)=> f.hadOutflows ? `
+        ${row('🧾', t('recap_revenue'), money(f.revenue), 'var(--sky-bright)')}
+        ${row('📤', t('recap_cogs'), money(f.cogs))}
+        ${row('💹', t('recap_gross'), money(f.gross), posNeg(f.gross), pctTxt(f.grossMarginPct))}
+        ${row('💸', t('spend_expenses'), money(f.expense), 'var(--saffron)')}
+        ${row('🏁', t('recap_net'), money(f.net), posNeg(f.net), pctTxt(f.netMarginPct))}`
+      : `
+        ${row('💸', t('spend_expenses'), money(f.expense), 'var(--saffron)')}
+        <div class="recap-note" style="padding:8px 2px;">${t('recap_no_outflows')}</div>`;
   return `
   <div class="overlay" id="month-recap-overlay">
     <div class="modal">
       <button type="button" class="modal-close-btn" id="btn-close-month-recap" aria-label="${t('btn_cancel')}">✕</button>
       <h3 class="basil">${t('recap_title')}</h3>
-      <div class="sub">${monthLabel(key, uiLang)}</div>
-      ${empty ? `<div class="oc-empty" style="margin:18px 0;">${t('recap_empty')}</div>` : `
+      <div class="recap-controls">
+        <div class="recap-mode">
+          <button type="button" class="exit-reason-chip ${recapMode==='month'?'on':''}" data-recap-mode="month">${t('recap_mode_month')}</button>
+          <button type="button" class="exit-reason-chip ${recapMode==='year'?'on':''}" data-recap-mode="year">${t('recap_mode_year')}</button>
+          <button type="button" class="exit-reason-chip ${recapCompareKey?'on':''}" id="btn-recap-compare">${t('recap_compare')}</button>
+        </div>
+        <div class="recap-period">
+          <button type="button" class="cal-nav-btn" data-recap-nav="prim:-1">‹</button>
+          <span class="recap-period-label">${recapKeyLabel(key)}</span>
+          <button type="button" class="cal-nav-btn" data-recap-nav="prim:1">›</button>
+        </div>
+        ${cmp ? `
+        <div class="recap-period recap-period-b">
+          <button type="button" class="cal-nav-btn" data-recap-nav="comp:-1">‹</button>
+          <span class="recap-period-label">${recapKeyLabel(recapCompareKey)}</span>
+          <button type="button" class="cal-nav-btn" data-recap-nav="comp:1">›</button>
+        </div>` : ''}
+      </div>
+      ${empty ? `<div class="oc-empty" style="margin:18px 0;">${t('recap_empty')}</div>` : (cmp ? `
       <div class="recap-list">
-        ${row('📦', t('spend_invested'), money(sp.invested), 'var(--basil)')}
-        ${row('💸', t('spend_expenses'), money(sp.expense), 'var(--saffron)')}
-        ${monthlyBudget ? row('🎯', t('recap_budget_used'), Math.round(sp.expense/monthlyBudget*100)+'%', budgetStatus(Math.round(sp.expense/monthlyBudget*100))==='crit'?'var(--tomato)':'var(--ink)') : ''}
-        ${canSeeFinancials() ? row('💰', t('inv_value_label'), money(invValue), 'var(--basil)') : ''}
-        ${canSeeFinancials() && potential>0 ? row('🏷', t('inv_potential_label'), money(potential), 'var(--sky-bright)') : ''}
-        ${star ? row('⭐', t('recap_star'), `${escapeHtml(invShortName(star.name))}<div class="recap-note">${t('recap_star_note').replace('{amount}', money(star.amount))}</div>`) : ''}
-        ${topSupplier ? row('🚚', t('recap_top_supplier'), `${escapeHtml(topSupplier.name)}<div class="recap-note">${money(topSupplier.amount)}</div>`) : ''}
-        ${priceMove ? row('📈', t('recap_price_move'), `${escapeHtml(invShortName(priceMove.name))} <span style="color:${priceMove.pct>0?'var(--tomato)':'var(--basil)'};">${priceMove.pct>0?'+':''}${priceMove.pct.toFixed(0)}%</span>`) : ''}
-        ${row('🧾', t('recap_receipts'), String(monthReceipts.length))}
-      </div>`}
+        ${cmpRow('📦', t('spend_invested'), fin.invested, cmp.invested, money, true)}
+        ${cmpRow('💸', t('spend_expenses'), fin.expense, cmp.expense, money, false)}
+        ${(fin.hadOutflows||cmp.hadOutflows) ? `
+        ${cmpRow('🧾', t('recap_revenue'), fin.revenue, cmp.revenue, money, true)}
+        ${cmpRow('💹', t('recap_gross'), fin.gross, cmp.gross, money, true)}
+        ${cmpRow('🏁', t('recap_net'), fin.net, cmp.net, money, true)}` : ''}
+        ${cmpRow('🧾', t('recap_receipts'), fin.receiptsCount, cmp.receiptsCount, v=>String(v), true)}
+        <div class="recap-note" style="padding:8px 2px;">${t('recap_est_note')}</div>
+      </div>` : `
+      <div class="recap-list">
+        ${row('📦', t('spend_invested'), money(fin.invested), 'var(--basil)')}
+        ${monthlyBudget && key.length===7 ? row('🎯', t('recap_budget_used'), Math.round(fin.expense/monthlyBudget*100)+'%', budgetStatus(Math.round(fin.expense/monthlyBudget*100))==='crit'?'var(--tomato)':'var(--ink)') : ''}
+        <div class="recap-section-title">${t('recap_pl_title')}</div>
+        ${plBlock(fin)}
+        ${fin.hadOutflows ? `<div class="recap-note" style="padding:6px 2px 0;">${t('recap_est_note')}</div>` : ''}
+        ${isCurrentPeriod && canSeeFinancials() ? `
+        <div class="recap-section-title"></div>
+        ${row('💰', t('recap_value_today'), money(invValue), 'var(--basil)')}
+        ${potential>0 ? row('🏷', t('inv_potential_label'), money(potential), 'var(--sky-bright)') : ''}` : ''}
+        ${row('🧾', t('recap_receipts'), String(fin.receiptsCount))}
+      </div>`)}
       <div class="modal-actions">
         <button class="btn btn-primary" id="btn-recap-ok" style="width:100%;">${t('btn_close')}</button>
       </div>

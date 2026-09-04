@@ -354,7 +354,15 @@ const I18N = {
     spend_invested:'Inversión en mercadería', spend_expenses:'Gastos operativos',
     dash_investment_of:'Inversión de', ph_capacity_example:'Ej. 500',
     manual_kind_label:'Tipo', manual_kind_expense:'Gasto operativo', manual_kind_investment:'Inversión (mercadería)',
-    recap_btn:'✨ Cierre de mes', recap_title:'Tu mes en Dusty',
+    recap_btn:'💲 Cierre de mes', recap_title:'Tu mes en Dusty',
+    recap_revenue:'Ingresos (est.)', recap_cogs:'Costo de lo vendido',
+    recap_gross:'Ganancia bruta', recap_net:'Ganancia neta',
+    recap_margin:'margen', recap_compare:'⇄ Comparar', recap_single:'Un período',
+    recap_mode_month:'Mes', recap_mode_year:'Año',
+    recap_value_today:'Valor del inventario (hoy)',
+    recap_est_note:'Ganancias estimadas según tus salidas registradas (producciones y escáner de salidas) × tus precios de venta.',
+    recap_no_outflows:'Sin salidas registradas en este período — registrá producciones o usá el escáner de salidas y acá aparecen las ganancias estimadas.',
+    recap_pl_title:'Resultados (estimados)',
     recap_star:'Producto estrella', recap_star_note:'{amount} comprado este mes',
     recap_receipts:'Recibos del mes', recap_top_supplier:'Mayor proveedor',
     recap_price_move:'Mayor cambio de precio', recap_budget_used:'Presupuesto usado',
@@ -731,7 +739,15 @@ const I18N = {
     spend_invested:'Stock investment', spend_expenses:'Operating expenses',
     dash_investment_of:'Investment for', ph_capacity_example:'e.g. 500',
     manual_kind_label:'Type', manual_kind_expense:'Operating expense', manual_kind_investment:'Stock investment',
-    recap_btn:'✨ Month recap', recap_title:'Your month in Dusty',
+    recap_btn:'💲 Month recap', recap_title:'Your month in Dusty',
+    recap_revenue:'Revenue (est.)', recap_cogs:'Cost of goods sold',
+    recap_gross:'Gross profit', recap_net:'Net profit',
+    recap_margin:'margin', recap_compare:'⇄ Compare', recap_single:'Single period',
+    recap_mode_month:'Month', recap_mode_year:'Year',
+    recap_value_today:'Inventory value (today)',
+    recap_est_note:'Profits estimated from your recorded outflows (production runs and the outflow scanner) × your sale prices.',
+    recap_no_outflows:'No outflows recorded in this period — log production runs or use the outflow scanner and estimated profits appear here.',
+    recap_pl_title:'Results (estimated)',
     recap_star:'Star product', recap_star_note:'{amount} purchased this month',
     recap_receipts:'Receipts this month', recap_top_supplier:'Top supplier',
     recap_price_move:'Biggest price move', recap_budget_used:'Budget used',
@@ -1163,6 +1179,52 @@ function spendSplitForMonth(key){
     invested += inv*factor; expense += exp*factor;
   });
   return {invested, expense};
+}
+
+/* ESTADO DE RESULTADOS por período — la estructura multi-paso estándar de un
+   P&L de negocio chico (Ingresos → COGS → Bruta → Gastos operativos → Neta, con
+   márgenes %). `key` acepta 'YYYY-MM' (mes) o 'YYYY' (año entero).
+   HONESTIDAD CONTABLE: Dusty no registra ventas — los ingresos se ESTIMAN desde
+   las salidas registradas (producciones + escáner de salidas) × precio de venta,
+   y el COGS desde esas mismas salidas × costo. Si el período no tiene salidas,
+   hadOutflows=false y la UI muestra una guía en vez de ceros engañosos. */
+function periodSpendSplit(key){
+  if(key.length===4){
+    let invested=0, expense=0;
+    for(let m=1;m<=12;m++){
+      const s = spendSplitForMonth(key+'-'+String(m).padStart(2,'0'));
+      invested+=s.invested; expense+=s.expense;
+    }
+    return {invested, expense};
+  }
+  return spendSplitForMonth(key);
+}
+function periodFinancials(key){
+  const sp = periodSpendSplit(key);
+  const inPeriod = d => key.length===4 ? String(d||'').slice(0,4)===key : monthKey(d)===key;
+  let revenue=0, cogs=0, hadOutflows=false;
+  outflows.forEach(o=>{
+    if(!o || !inPeriod(o.date)) return;
+    (o.items||[]).forEach(it=>{
+      const ing = inventory.find(i=>i.id===it.ingId);
+      if(!ing || ing.expenseOnly) return;
+      const q = Math.abs(it.qty||0);
+      if(!q) return;
+      hadOutflows = true;
+      cogs += q*(ing.costPerUnit||0);
+      if((ing.salePrice||0)>0) revenue += q*ing.salePrice;
+    });
+  });
+  const gross = revenue - cogs;
+  const net = gross - sp.expense;
+  return {
+    invested: sp.invested, expense: sp.expense,
+    revenue, cogs, gross, net,
+    grossMarginPct: revenue>0 ? gross/revenue*100 : null,
+    netMarginPct: revenue>0 ? net/revenue*100 : null,
+    hadOutflows,
+    receiptsCount: receipts.filter(r=>inPeriod(r.date)).length
+  };
 }
 
 /* La unidad con la que este negocio REALMENTE trabaja: la más repetida en su
