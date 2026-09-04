@@ -432,10 +432,7 @@ function dashboardView(){
           <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
           <span style="font-size:16px;font-weight:800;color:var(--navy);">${money(0)}</span>
         </button>`}
-      <div style="display:flex;gap:14px;align-items:center;margin-top:2px;margin-bottom:-10px;flex-wrap:wrap;">
-        <button class="link-btn" id="btn-month-recap" style="padding:10px 0;color:var(--basil);font-weight:700;">${t('recap_btn')}</button>
-        <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 0;">${t('dash_see_all_months')}</button>
-      </div>
+      <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
       <!-- Órbita decorativa: todo lo que Dusty puede escanear girando despacio
