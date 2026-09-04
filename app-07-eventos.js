@@ -417,7 +417,36 @@ function attachEvents(){
       showAlertSettingsModal=false; render();
     };
     const btnOpenDeleteAccount=document.getElementById('btn-open-delete-account');
-    if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAlertSettingsModal=false; openDeleteAccountModal(); };
+    // La encuesta de salida (mes gratis + razón) se interpone ANTES del modal
+    // real de eliminación — ver exitSurveyModal en app-06.
+    if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAlertSettingsModal=false; openExitSurvey(); };
+  }
+
+  // Encuesta de salida: navegación de pasos, oferta y traspaso al delete real.
+  const exitOverlay=document.getElementById('exit-survey-overlay');
+  if(exitOverlay){
+    exitOverlay.onmousedown=(e)=>{ if(e.target===exitOverlay) closeExitSurvey(); };
+    const closeBtn=document.getElementById('btn-close-exit-survey');
+    if(closeBtn) closeBtn.onclick=closeExitSurvey;
+    const acceptBtn=document.getElementById('btn-exit-accept');
+    if(acceptBtn) acceptBtn.onclick=()=>{
+      sendExitFeedback('retention_offer_accepted', null, '');
+      closeExitSurvey();
+      showToast(t('exit_thanks_offer'));
+    };
+    document.querySelectorAll('[data-exit-reason]').forEach(b=>{
+      b.onclick=()=>{ exitReason=b.dataset.exitReason; render(); };
+    });
+    const nextBtn=document.getElementById('btn-exit-next');
+    if(nextBtn) nextBtn.onclick=()=>{
+      if(exitStep===1){
+        const txt=(document.getElementById('exit-reason-text')?.value||'').trim().slice(0,500);
+        sendExitFeedback('exit_survey', exitReason, txt);
+      }
+      exitStep++; render();
+    };
+    const delBtn=document.getElementById('btn-exit-delete');
+    if(delBtn) delBtn.onclick=()=>{ closeExitSurvey(); openDeleteAccountModal(); };
   }
 
   const deleteAccountOverlay=document.getElementById('delete-account-overlay');

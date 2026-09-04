@@ -766,6 +766,66 @@ function sendFeedback(){
     feedbackSubmitting=false; render();
   });
 }
+/* ================= ENCUESTA DE SALIDA (retención) =================
+   Se interpone ANTES del modal real de eliminar cuenta. Tres pasos con la misma
+   barra de progreso y porcentaje del tutorial de bienvenida (pedido del usuario:
+   "que no aburra, bien dinámico") — cada paso entra con la animación del tutorial
+   porque su contenedor cambia de id y morphdom lo recrea. Lo PRIMERO es la oferta
+   del mes gratis (regla del usuario); las respuestas van a la colección feedback
+   con kind propio, y aceptar la oferta cierra todo sin tocar la cuenta. */
+let showExitSurvey=false, exitStep=0, exitReason=null;
+const EXIT_REASONS=['use','scan','missing','price','other'];
+function openExitSurvey(){ showExitSurvey=true; exitStep=0; exitReason=null; render(); }
+function closeExitSurvey(){ showExitSurvey=false; render(); }
+function sendExitFeedback(kind, reason, text){
+  try{
+    if(!currentUser || typeof firebase==='undefined') return;
+    firebase.firestore().collection('feedback').add({
+      uid: currentUser.uid, email: currentUser.email||'', name: currentUserLabel(),
+      message: `[${kind}] ${reason?('reason='+reason+' '):''}${text||''}`.trim(),
+      userAgent: navigator.userAgent, createdAt: new Date().toISOString()
+    }).catch(()=>{});
+  }catch(e){}
+}
+function exitSurveyModal(){
+  const pct = Math.round((exitStep+1)/3*100);
+  const steps = [`
+      <div class="exit-step" id="exit-step-0">
+        <div class="exit-emoji">🎁</div>
+        <h3 class="basil" style="text-align:center;">${t('exit_offer_title')}</h3>
+        <div class="sub" style="text-align:center;">${t('exit_offer_sub')}</div>
+        <button type="button" class="btn btn-primary" id="btn-exit-accept" style="width:100%;margin-top:14px;">${t('exit_accept_offer')}</button>
+        <button type="button" class="btn btn-ghost" id="btn-exit-next" style="width:100%;margin-top:8px;">${t('exit_continue_delete')}</button>
+      </div>`,`
+      <div class="exit-step" id="exit-step-1">
+        <h3 class="saffron" style="text-align:center;">${t('exit_reason_title')}</h3>
+        <div class="sub" style="text-align:center;">${t('exit_reason_sub')}</div>
+        <div class="exit-reasons">
+          ${EXIT_REASONS.map(r=>`<button type="button" class="exit-reason-chip ${exitReason===r?'on':''}" data-exit-reason="${r}">${t('exit_r_'+r)}</button>`).join('')}
+        </div>
+        <textarea id="exit-reason-text" rows="2" placeholder="${t('exit_reason_ph')}" style="width:100%;margin-top:10px;"></textarea>
+        <button type="button" class="btn btn-primary" id="btn-exit-next" style="width:100%;margin-top:12px;" ${exitReason?'':'disabled'}>${t('exit_next')}</button>
+      </div>`,`
+      <div class="exit-step" id="exit-step-2">
+        <div class="exit-emoji">👋</div>
+        <h3 class="tomato" style="text-align:center;">${t('exit_final_title')}</h3>
+        <div class="sub" style="text-align:center;">${t('exit_final_sub')}</div>
+        <button type="button" class="btn btn-primary" id="btn-exit-delete" style="width:100%;margin-top:14px;background:var(--tomato);border-color:var(--tomato);">${t('exit_delete_btn')}</button>
+      </div>`];
+  return `
+  <div class="overlay" id="exit-survey-overlay">
+    <div class="modal">
+      <button type="button" class="modal-close-btn" id="btn-close-exit-survey" aria-label="${t('btn_cancel')}">✕</button>
+      <h3 class="navy" style="margin-bottom:2px;">${t('exit_title')}</h3>
+      <div class="welcome-progress-row" style="margin:10px 0 14px;">
+        <div class="welcome-progress-track"><div class="welcome-progress-fill" style="width:${pct}%;"></div></div>
+        <span class="welcome-progress-pct">${pct}%</span>
+      </div>
+      ${steps[exitStep]}
+    </div>
+  </div>`;
+}
+
 function feedbackModal(){
   return `
   <div class="overlay" id="feedback-overlay">

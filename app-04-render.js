@@ -180,6 +180,7 @@ function renderApp(){
     ${showOutflowsModal ? outflowsModal() : ''}
     ${showProductionHub ? productionHubModal() : ''}
     ${photoViewItemId ? itemPhotoViewerModal() : ''}
+    ${showExitSurvey ? exitSurveyModal() : ''}
     ${/* La hoja de la calculadora de pedido vive ACÁ y no dentro de inventarioView:
          .view-track tiene transform (swipe), y un ancestro con transform convierte
          el position:fixed en relativo a él — la hoja quedaba del tamaño del

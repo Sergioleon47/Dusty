@@ -878,6 +878,17 @@
   .pv-btn:active{background:rgba(16,19,24,.8);}
   .pv-btn-danger{color:var(--tomato);}
   .pv-caption{text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:var(--ink-mid);}
+  /* Encuesta de salida: pasos que entran con la animación del tutorial (el id del
+     contenedor cambia por paso, morphdom lo recrea y la animación corre de nuevo);
+     la barra de progreso se anima sola porque su width transiciona. */
+  .exit-step{animation:welcomeStepInFwd .45s var(--ease-soft);}
+  .exit-emoji{font-size:46px;text-align:center;margin:6px 0 2px;animation:welcomeStepInFwd .6s var(--ease-soft);}
+  .exit-reasons{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:center;}
+  .exit-reason-chip{padding:9px 14px;border-radius:20px;border:1px solid var(--line);background:var(--raised);
+    color:var(--ink-mid);font-size:13px;font-weight:600;cursor:pointer;transition:border-color .2s, background .2s, transform .15s;}
+  .exit-reason-chip:active{transform:scale(.96);}
+  .exit-reason-chip.on{border-color:var(--saffron);background:var(--saffron-soft);color:var(--saffron-ink);}
+  .welcome-progress-fill{transition:width .45s cubic-bezier(.32,.72,.25,1);}
   /* Valor total del inventario, arriba a la izquierda de la pestaña Inventario —
      verde: en esta app el verde es el color de "dato bueno" (es un activo). */
   .inv-total-value{font-size:26px;font-weight:800;color:var(--basil);font-variant-numeric:tabular-nums;line-height:1.15;}
