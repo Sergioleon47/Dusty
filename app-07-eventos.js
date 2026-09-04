@@ -430,6 +430,9 @@ function attachEvents(){
   const btnMonthRecap=document.getElementById('btn-month-recap');
   if(btnMonthRecap) btnMonthRecap.onclick=()=>{
     monthRecapKey = calendarViewMonth || localMonthStr(); // el mes que se está mirando
+    // Base de comparación consistente para TODAS las columnas: arranca en
+    // año-contra-año solo si ya existe al menos un par mes↔mismo mes.
+    recapBaseMode = recapDefaultBaseMode();
     showMonthRecap=true; render();
     // La hoja arranca en la columna del mes mirado (puede no ser la primera).
     requestAnimationFrame(()=>{
@@ -440,21 +443,50 @@ function attachEvents(){
   const recapSheet=document.getElementById('recap-sheet');
   if(recapSheet && showMonthRecap){
     document.getElementById('btn-close-month-recap').onclick=()=>{
-      showMonthRecap=false; recapMode='month'; recapDemo=false; render();
+      showMonthRecap=false; recapMode='month'; recapDemo=false;
+      recapCompare=false; recapComparePick=[]; render();
     };
-    // Modo mes/año: recalcula las columnas al nuevo grano.
+    // Modo mes/año: recalcula las columnas al nuevo grano. Las claves elegidas
+    // para comparar son del grano viejo — se descartan.
     document.querySelectorAll('[data-recap-mode]').forEach(b=>{
       b.onclick=()=>{
         const mode=b.dataset.recapMode;
         if(mode===recapMode) return;
-        recapMode=mode; render();
+        recapMode=mode; recapComparePick=[]; render();
+      };
+    });
+    // Comparador A | B | Δ: el chip prende el modo elegir; tocar una columna la
+    // elige (o des-elige), y la tercera elegida reemplaza a la más vieja.
+    const btnCompare=document.getElementById('btn-recap-compare');
+    if(btnCompare) btnCompare.onclick=()=>{
+      recapCompare=!recapCompare; recapComparePick=[]; render();
+    };
+    document.querySelectorAll('[data-recap-pick]').forEach(el=>{
+      el.onclick=()=>{
+        const k=el.dataset.recapPick;
+        const i=recapComparePick.indexOf(k);
+        if(i>=0) recapComparePick.splice(i,1);
+        else{
+          if(recapComparePick.length>=2) recapComparePick.shift();
+          recapComparePick.push(k);
+        }
+        render();
+      };
+    });
+    // Base de comparación (mes anterior ⇄ año pasado): global, todas las
+    // columnas cambian de vara juntas — nunca varas mezcladas en pantalla.
+    document.querySelectorAll('[data-recap-base]').forEach(b=>{
+      b.onclick=()=>{
+        const m=b.dataset.recapBase;
+        if(m===recapBaseMode) return;
+        recapBaseMode=m; render();
       };
     });
     // Ejemplo: columnas de muestra con dos años de un negocio creciendo,
     // para que el usuario nuevo vea el resultado antes de tener datos propios.
     const btnDemo=document.getElementById('btn-recap-demo');
     if(btnDemo) btnDemo.onclick=()=>{
-      recapDemo=!recapDemo; render();
+      recapDemo=!recapDemo; recapComparePick=[]; render();
       // Al encender, arrancar en la columna más nueva (el "hoy" de la muestra).
       if(recapDemo) requestAnimationFrame(()=>{
         const rail=document.getElementById('recap-cols');

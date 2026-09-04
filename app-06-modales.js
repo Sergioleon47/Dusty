@@ -785,6 +785,24 @@ function sendFeedback(){
    Todo se calcula de datos que ya existen; cero estado nuevo que sincronizar. */
 let showMonthRecap=false, monthRecapKey=null;
 let recapMode='month';
+// Base de comparación GLOBAL (rediseño contable 2026-09-04): antes cada columna
+// elegía su base en silencio (YoY si había, si no el mes anterior) y en la misma
+// pantalla convivían varas distintas. Ahora es un toggle: todas las columnas
+// comparan contra lo mismo, y si a una le falta la base lo dice en vez de
+// cambiar de vara. Arranca en YoY solo si ya existe al menos un par mes↔mes.
+let recapBaseMode='prev'; // 'prev' | 'yoy' — se fija al abrir la hoja
+// Comparador de dos períodos (el formato favorito de un contador: A | B | Δ):
+// con el chip "Comparar" prendido, tocás dos columnas y aparece la tabla
+// comparativa con la variación fila por fila. Tocar una columna elegida la
+// des-elige; elegir una tercera reemplaza a la más vieja de las dos.
+let recapCompare=false, recapComparePick=[];
+function recapDefaultBaseMode(){
+  const months = new Set();
+  receipts.forEach(r=>{ const k=monthKey(r.date); if(k) months.add(k); });
+  outflows.forEach(o=>{ const k=monthKey(o.date); if(k) months.add(k); });
+  for(const k of months){ if(months.has((Number(k.slice(0,4))-1)+k.slice(4))) return 'yoy'; }
+  return 'prev';
+}
 function recapKeyLabel(key){ return key.length===4 ? key : monthLabel(key, uiLang); }
 // Períodos con actividad (recibos o salidas), del más nuevo al más viejo, con el
 // período actual siempre presente — son las columnas de la hoja. Cap a 24.
@@ -795,13 +813,11 @@ function recapPeriodKeys(mode){
   set.add(mode==='year' ? localMonthStr().slice(0,4) : localMonthStr());
   return [...set].sort().reverse().slice(0,24);
 }
-// Base de comparación de una columna: para meses, el MISMO MES del año anterior
-// si tiene actividad (year-over-year, pedido del usuario: al completarse un año,
-// septiembre se compara con septiembre); si no, el mes anterior. Años: año previo.
-function recapBaseKey(key, keysWithData){
+// Base de una columna según el toggle: años → año previo siempre; meses → mismo
+// mes del año pasado (yoy) o el mes anterior (prev).
+function recapBaseKey(key){
   if(key.length===4) return String(Number(key)-1);
-  const lastYear = (Number(key.slice(0,4))-1) + key.slice(4);
-  if(keysWithData.has(lastYear)) return lastYear;
+  if(recapBaseMode==='yoy') return (Number(key.slice(0,4))-1) + key.slice(4);
   return shiftMonthStr(key, -1);
 }
 /* EJEMPLO 2 AÑOS (pedido del usuario): columnas de muestra para que un usuario
@@ -841,81 +857,244 @@ function recapDemoFin(key){
     hadOutflows:true, receiptsCount: 6 + Math.round(3*Math.abs(Math.sin(idx*1.7))) };
 }
 function monthRecapModal(){
-  // PÁGINA COMPLETA por columnas (rediseño 2026-09-04): reusa .oc-sheet — hereda
+  // PÁGINA COMPLETA por columnas (rediseño 2026-09-04) + cascada contable
+  // (revisión de contador 2026-09-04): cada columna se lee como un estado de
+  // resultados multi-paso de verdad — Ingresos, menos COGS, subtotal Bruta
+  // (raya simple), menos Gastos, total Neta (raya doble) — y debajo una
+  // sección de CAJA separada, porque comprar mercadería es activo, no gasto,
+  // y mezclarlos es la confusión #1 del dueño chico. Reusa .oc-sheet — hereda
   // el position:fixed correcto, la subida animada y el guard del swipe de tabs.
   // Se renderiza SIEMPRE (el shell) para que la transición CSS pueda correr;
-  // el contenido solo se computa abierta. Una columna por período con TODO
-  // adentro; cada valor lleva su delta contra la base que elige recapBaseKey
-  // (mismo mes del año pasado cuando existe — year-over-year — si no, el mes
-  // anterior). Ver periodFinancials en app-03 para la honestidad de estimados.
+  // el contenido solo se computa abierta. Ver periodFinancials en app-03.
   let body='';
   if(showMonthRecap){
     const demo = recapDemo;
     const finOf = demo ? recapDemoFin : periodFinancials;
     const keys = demo ? recapDemoKeys(recapMode) : recapPeriodKeys(recapMode);
-    // Claves con actividad real: deciden la base YoY y si una columna muestra deltas.
+    // Claves con actividad real (mes Y año a la vez): deciden si hay base para
+    // comparar y si el acumulado del año tiene contra qué medirse.
     const withData = new Set();
-    if(demo){ keys.forEach(k=>withData.add(k)); if(recapMode==='month') recapDemoKeys('month').forEach(k=>withData.add(k)); }
+    const addK = (k)=>{ if(k){ withData.add(k); withData.add(k.slice(0,4)); } };
+    if(demo){ recapDemoKeys('month').forEach(addK); }
     else{
-      receipts.forEach(r=>{ const k=monthKey(r.date); if(k) withData.add(recapMode==='year'?k.slice(0,4):k); });
-      outflows.forEach(o=>{ const k=monthKey(o.date); if(k) withData.add(recapMode==='year'?k.slice(0,4):k); });
+      receipts.forEach(r=>addK(monthKey(r.date)));
+      outflows.forEach(o=>addK(monthKey(o.date)));
     }
     const nowKey = recapMode==='year' ? localMonthStr().slice(0,4) : localMonthStr();
     const focusKey = demo ? nowKey : (recapMode==='year' ? (monthRecapKey||nowKey).slice(0,4) : (monthRecapKey||nowKey));
     const invValue = demo ? 14350 : inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
     const potential = demo ? 22980 : inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
     const posNeg = (v)=> v>=0 ? 'var(--basil)' : 'var(--tomato)';
-    const pctTxt = (p)=> p===null ? '' : `<div class="recap-note">${p.toFixed(0)}% ${t('recap_margin')}</div>`;
-    // Delta chico bajo el valor: ▲/▼ % contra la base (gastos: bajar es bueno).
-    const badge=(a,b,goodUp)=>{
-      if(b===null || (a===0 && b===0)) return '';
-      const delta = b!==0 ? (a-b)/Math.abs(b)*100 : 100;
+    // Formato contable: negativos con signo "−" adelante, nunca "$-120.00".
+    const moneyAbs = (v)=> v<0 ? '−'+money(-v) : money(v);
+    const dAmt = (v)=> (v>=0?'+':'−')+'$'+Math.abs(Math.round(v));
+    const dCnt = (v)=> (v>=0?'+':'−')+Math.abs(v);
+    // Margen como sub-nota, y su delta en PUNTOS PORCENTUALES (pp) — pasar de
+    // 30% a 35% de margen es "+5 pp", no "+17%": el % de un % marea a cualquiera.
+    const pctTxt = (p,bp)=>{
+      if(p===null || p===undefined) return '';
+      let d='';
+      if(bp!==null && bp!==undefined){
+        const pp = p-bp;
+        if(Math.abs(pp)>=0.5) d = ` <span style="color:${pp>=0?'var(--basil)':'var(--tomato)'};">${pp>0?'▲':'▼'} ${Math.abs(pp).toFixed(0)} pp</span>`;
+      }
+      return `<div class="recap-note">${p.toFixed(0)}% ${t('recap_margin')}${d}</div>`;
+    };
+    // Delta bajo el valor: ▲/▼ % Y el monto (+$450) — el % compara períodos de
+    // distinto tamaño, el monto es el que le habla al dueño. Base 0 → "nuevo"
+    // (no existe % de variación desde cero; el 100% de antes era inventado).
+    const badge=(a,b,goodUp,fmt)=>{
+      if(b===null || b===undefined || (a===0 && b===0)) return '';
+      if(b===0) return `<span class="recap-delta" style="color:var(--ink-soft);">${t('recap_new_delta')}</span>`;
+      const delta = (a-b)/Math.abs(b)*100;
+      if(delta===0) return `<span class="recap-delta">＝</span>`;
       const good = goodUp===false ? delta<=0 : delta>=0;
       const shown = Math.abs(delta)>=1000 ? '999+' : Math.abs(delta).toFixed(0);
-      return `<span class="recap-delta">${delta===0?'＝':`<span style="color:${good?'var(--basil)':'var(--tomato)'};">${delta>0?'▲':'▼'} ${shown}%</span>`}</span>`;
+      return `<span class="recap-delta" style="color:${good?'var(--basil)':'var(--tomato)'};">${delta>0?'▲':'▼'} ${shown}% (${(fmt||dAmt)(a-b)})</span>`;
     };
-    const crow=(icon,label,value,color,extra)=>`
-      <div class="recap-row"><span class="recap-label">${icon} ${label}</span>
+    // op: el operador de la cascada (− / =) pegado a la etiqueta; cls: rsub
+    // (subtotal, raya simple) o rtotal (resultado final, raya doble).
+    const crow=(icon,label,value,color,extra,op,cls)=>`
+      <div class="recap-row ${cls||''}"><span class="recap-label">${op?`<span class="recap-op">${op}</span>`:''}${icon} ${label}</span>
         <span class="recap-col-val"><strong style="color:${color||'var(--ink)'};">${value}</strong>${extra||''}</span></div>`;
-    const cols = keys.map((k,idx)=>{
-      const fin = finOf(k);
-      const baseKey = recapBaseKey(k, withData);
-      const base = withData.has(baseKey) ? finOf(baseKey) : null;
-      const isCur = k===nowKey;
-      const d=(a,b,gU)=> base ? badge(a,b,gU) : '';
+    // Suma financieros de varias claves de mes (para el acumulado del año).
+    const sumFin=(ks)=>{
+      const parts = ks.map(finOf);
+      const s=(g)=>parts.reduce((a,x)=>a+x[g],0);
+      const revenue=s('revenue'), cogs=s('cogs'), expense=s('expense');
+      const gross=revenue-cogs, net=gross-expense;
+      return { invested:s('invested'), expense, revenue, cogs, gross, net,
+        grossMarginPct: revenue>0?gross/revenue*100:null, netMarginPct: revenue>0?net/revenue*100:null,
+        hadOutflows: parts.some(x=>x.hadOutflows), receiptsCount:s('receiptsCount') };
+    };
+    // Mini-waterfall de la columna en foco: el "puente" del P&L en cuatro
+    // barras — Ingresos, bajan COGS, bajan Gastos, queda la Neta. Hace obvio
+    // a dónde se fue la plata sin leer ni un número.
+    const wfSvg=(fin)=>{
+      const w=210, h=66, padT=6, padB=15;
+      const min=Math.min(0,fin.net), max=Math.max(fin.revenue,fin.gross,1), span=max-min;
+      const Y=v=> padT+(max-v)/span*(h-padT-padB);
+      const bw=36, gap=(w-4*bw)/5, X=i=> gap+(bw+gap)*i;
+      const bar=(i,v0,v1,color)=>{ const y0=Y(Math.max(v0,v1)); return `<rect x="${X(i).toFixed(1)}" y="${y0.toFixed(1)}" width="${bw}" height="${Math.max(2,Y(Math.min(v0,v1))-y0).toFixed(1)}" rx="3" fill="${color}"/>`; };
+      const conn=(i,v)=>`<line x1="${(X(i)+bw).toFixed(1)}" y1="${Y(v).toFixed(1)}" x2="${X(i+1).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-dasharray="2 3"/>`;
+      const lbl=(i,txt)=>`<text x="${(X(i)+bw/2).toFixed(1)}" y="${h-4}" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--ink-soft)">${txt}</text>`;
+      return `<div class="recap-wf"><svg viewBox="0 0 ${w} ${h}" aria-hidden="true">
+        ${bar(0,0,fin.revenue,'var(--sky-bright)')}${conn(0,fin.revenue)}
+        ${bar(1,fin.revenue,fin.gross,'var(--tomato)')}${conn(1,fin.gross)}
+        ${bar(2,fin.gross,fin.net,'var(--saffron)')}${conn(2,fin.net)}
+        ${bar(3,0,fin.net, fin.net>=0?'var(--basil)':'var(--tomato)')}
+        ${min<0?`<line x1="0" y1="${Y(0).toFixed(1)}" x2="${w}" y2="${Y(0).toFixed(1)}" stroke="var(--line)"/>`:''}
+        ${lbl(0,t('recap_wf_rev'))}${lbl(1,t('recap_wf_cogs'))}${lbl(2,t('recap_wf_exp'))}${lbl(3,t('recap_wf_net'))}
+      </svg><div class="recap-spark-cap" style="text-align:center;">${t('recap_bridge_label')}</div></div>`;
+    };
+    // Render de UNA columna — lo comparten las columnas de período y la de
+    // acumulado del año (YTD). base===null ⇒ sin deltas + nota de por qué.
+    // pickKey: clave que esta columna aporta al comparador (null = no elegible,
+    // como el acumulado del año — comparar YTD contra un mes sería mezclar granos).
+    const colHtml=(o)=>{
+      const { fin, base, headLabel, vsLabel, isCur, isFocus, idx, showBudget, pickKey } = o;
+      const d=(a,b,gU,fmt)=> base ? badge(a,b,gU,fmt) : '';
       const emptyCol = fin.receiptsCount===0 && fin.invested===0 && fin.expense===0 && !fin.hadOutflows;
+      const cashNet = fin.revenue - fin.invested - fin.expense;
+      const budgetPct = showBudget ? Math.round(fin.expense/monthlyBudget*100) : 0;
+      const budgetLeft = showBudget ? monthlyBudget - fin.expense : 0;
+      const pickAttr = (recapCompare && pickKey) ? ` data-recap-pick="${pickKey}"` : '';
+      const pickCls = (recapCompare && pickKey) ? (recapComparePick.includes(pickKey)?' picked':' pickable') : '';
       return `
-      <div class="recap-col ${k===focusKey?'focus':''}" style="animation-delay:${Math.min(idx,8)*70}ms">
+      <div class="recap-col ${isFocus?'focus':''}${pickCls}"${pickAttr} style="animation-delay:${Math.min(idx,8)*70}ms">
         <div class="recap-col-head">
-          <div class="recap-col-period">${recapKeyLabel(k)}</div>
-          ${base ? `<div class="recap-col-vs">${t('recap_vs').replace('{p}', recapKeyLabel(baseKey))}</div>` : ''}
+          <div class="recap-col-period">${headLabel}</div>
+          ${base ? `<div class="recap-col-vs">${t('recap_vs').replace('{p}', vsLabel)}</div>`
+            : (emptyCol ? '' : `<div class="recap-col-vs muted">${t('recap_no_base').replace('{p}', vsLabel)}</div>`)}
+          ${isFocus && fin.hadOutflows ? `<div class="recap-verdict ${fin.net>=0?'pos':'neg'}">${fin.net>=0?'✅':'⚠️'} ${t(fin.net>=0?'recap_verdict_pos':'recap_verdict_neg')} · ${moneyAbs(fin.net)}</div>` : ''}
         </div>
         ${emptyCol ? `<div class="oc-empty" style="margin:14px 0;">${t('recap_empty')}</div>` : `
-        ${crow('📦', t('spend_invested'), money(fin.invested), 'var(--basil)', d(fin.invested, base&&base.invested, true))}
-        ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--saffron)', d(fin.expense, base&&base.expense, false))}
-        ${!demo && monthlyBudget && recapMode==='month' ? crow('🎯', t('recap_budget_used'), Math.round(fin.expense/monthlyBudget*100)+'%', budgetStatus(Math.round(fin.expense/monthlyBudget*100))==='crit'?'var(--tomato)':'var(--ink)') : ''}
         <div class="recap-section-title">${t('recap_pl_title')}</div>
         ${fin.hadOutflows ? `
-        ${crow('🧾', t('recap_revenue'), money(fin.revenue), 'var(--sky-bright)', d(fin.revenue, base&&base.revenue, true))}
-        ${crow('📤', t('recap_cogs'), money(fin.cogs), null, d(fin.cogs, base&&base.cogs, false))}
-        ${crow('💹', t('recap_gross'), money(fin.gross), posNeg(fin.gross), (d(fin.gross, base&&base.gross, true))+pctTxt(fin.grossMarginPct))}
-        ${crow('🏁', t('recap_net'), money(fin.net), posNeg(fin.net), (d(fin.net, base&&base.net, true))+pctTxt(fin.netMarginPct))}`
+        ${crow('💵', t('recap_revenue'), money(fin.revenue), 'var(--sky-bright)', d(fin.revenue, base&&base.revenue, true))}
+        ${crow('📤', t('recap_cogs'), money(fin.cogs), null, d(fin.cogs, base&&base.cogs, false), '−')}
+        ${crow('💹', t('recap_gross'), moneyAbs(fin.gross), posNeg(fin.gross), (d(fin.gross, base&&base.gross, true))+pctTxt(fin.grossMarginPct, base&&base.grossMarginPct), '=', 'rsub')}
+        ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--saffron)', d(fin.expense, base&&base.expense, false), '−')}
+        ${crow('🏁', t('recap_net'), moneyAbs(fin.net), posNeg(fin.net), (d(fin.net, base&&base.net, true))+pctTxt(fin.netMarginPct, base&&base.netMarginPct), '=', 'rtotal')}
+        ${isFocus && fin.revenue>0 ? wfSvg(fin) : ''}`
         : `<div class="recap-note" style="padding:6px 2px;">${t('recap_no_outflows')}</div>`}
-        ${crow('🧾', t('recap_receipts'), String(fin.receiptsCount), null, d(fin.receiptsCount, base&&base.receiptsCount, true))}
+        <div class="recap-section-title">${t('recap_cash_title')}</div>
+        ${crow('📦', t('recap_cash_purchases'), money(fin.invested), 'var(--basil)', d(fin.invested, base&&base.invested, true))}
+        ${fin.hadOutflows ? '' : crow('💸', t('spend_expenses'), money(fin.expense), 'var(--saffron)', d(fin.expense, base&&base.expense, false))}
+        ${fin.hadOutflows ? crow('🪙', t('recap_cash_net'), moneyAbs(cashNet), posNeg(cashNet)) : ''}
+        ${showBudget ? crow('🎯', t('recap_budget_used'), budgetPct+'%', budgetStatus(budgetPct)==='crit'?'var(--tomato)':'var(--ink)',
+          `<div class="recap-note">${budgetLeft>=0 ? t('recap_budget_left').replace('{amount}', money(budgetLeft)) : t('recap_budget_over').replace('{amount}', money(-budgetLeft))}</div>`) : ''}
+        ${crow('🧾', t('recap_receipts'), String(fin.receiptsCount), null, d(fin.receiptsCount, base&&base.receiptsCount, true, dCnt))}
         ${isCur && (demo || canSeeFinancials()) ? `
         <div class="recap-section-title"></div>
         ${crow('💰', t('recap_value_today'), money(invValue), 'var(--basil)')}
         ${potential>0 ? crow('🏷', t('inv_potential_label'), money(potential), 'var(--sky-bright)') : ''}` : ''}
         `}
       </div>`;
+    };
+    // Columna "acumulado del año" (YTD) al frente en modo Mes — la pregunta que
+    // todo dueño hace en septiembre: "¿y cómo voy en el año?". Se compara
+    // contra el MISMO tramo del año pasado (ene–mes actual), no contra el año
+    // completo: comparar 9 meses contra 12 sería mentirse.
+    let ytdCol='';
+    if(recapMode==='month'){
+      const y = localMonthStr().slice(0,4), py = String(Number(y)-1);
+      const cm = Number(localMonthStr().slice(5,7));
+      const mk = (yy)=>{ const a=[]; for(let m=1;m<=cm;m++) a.push(yy+'-'+String(m).padStart(2,'0')); return a; };
+      const monthsWithData = mk(y).filter(k=>withData.has(k)).length;
+      if(demo || monthsWithData>1){
+        const baseHas = mk(py).some(k=>withData.has(k));
+        ytdCol = colHtml({ fin:sumFin(mk(y)), base:baseHas?sumFin(mk(py)):null,
+          headLabel:t('recap_ytd').replace('{y}', y), vsLabel:t('recap_ytd_base').replace('{y}', py),
+          isCur:false, isFocus:false, idx:0, showBudget:false, pickKey:null });
+      }
+    }
+    const cols = ytdCol + keys.map((k,idx)=>{
+      const baseKey = recapBaseKey(k);
+      return colHtml({ fin:finOf(k), base:withData.has(baseKey)?finOf(baseKey):null,
+        headLabel:recapKeyLabel(k), vsLabel:recapKeyLabel(baseKey),
+        isCur:k===nowKey, isFocus:k===focusKey, idx:idx+(ytdCol?1:0),
+        showBudget:!demo && !!monthlyBudget && recapMode==='month', pickKey:k });
     }).join('');
+    // Tabla comparativa A | B | Δ cuando hay dos períodos elegidos: el estado
+    // comparativo clásico — Δ en monto (lo que le habla al dueño) con el % debajo,
+    // y los márgenes comparados en puntos porcentuales.
+    let cmp='';
+    if(recapCompare && recapComparePick.length===2){
+      const [ka,kb] = [...recapComparePick].sort(); // viejo → nuevo: Δ = cómo cambió
+      const A=finOf(ka), B=finOf(kb);
+      const cmpMoney=(v)=> (v<0?'−':'')+'$'+Math.abs(Math.round(v));
+      const cmpCell=(a,b,goodUp,isMoney)=>{
+        const df=b-a;
+        if(df===0) return '＝';
+        const good = goodUp===false ? df<=0 : df>=0;
+        const amt=(df>0?'+':'−')+(isMoney===false?'':'$')+Math.abs(Math.round(df));
+        const pct = a!==0 ? `<div class="recap-note">${df>0?'▲':'▼'} ${Math.min(999,Math.abs(df/Math.abs(a)*100)).toFixed(0)}%</div>` : `<div class="recap-note">${t('recap_new_delta')}</div>`;
+        return `<span style="color:${good?'var(--basil)':'var(--tomato)'};font-weight:800;">${amt}</span>${pct}`;
+      };
+      const cmpPP=(a,b)=>{
+        if(a===null||a===undefined||b===null||b===undefined) return '—';
+        const pp=b-a;
+        if(Math.abs(pp)<0.5) return '＝';
+        return `<span style="color:${pp>=0?'var(--basil)':'var(--tomato)'};font-weight:800;">${pp>0?'+':'−'}${Math.abs(pp).toFixed(0)} pp</span>`;
+      };
+      const pctv=(p)=> p===null||p===undefined ? '—' : p.toFixed(0)+'%';
+      const cmpRow=(label,va,vb,vd,op,cls)=>`
+        <div class="cmp-row ${cls||''}">
+          <div class="cmp-l">${op?`<span class="recap-op">${op}</span>`:''}${label}</div>
+          <div class="cmp-v">${va}</div><div class="cmp-v">${vb}</div><div class="cmp-v">${vd}</div>
+        </div>`;
+      cmp = `<div class="recap-cmp">
+        ${cmpRow('', `<strong>${recapKeyLabel(ka)}</strong>`, `<strong>${recapKeyLabel(kb)}</strong>`, `<strong>${t('recap_compare_delta')}</strong>`, null, 'cmp-head')}
+        ${cmpRow(t('recap_revenue'), cmpMoney(A.revenue), cmpMoney(B.revenue), cmpCell(A.revenue,B.revenue,true))}
+        ${cmpRow(t('recap_cogs'), cmpMoney(A.cogs), cmpMoney(B.cogs), cmpCell(A.cogs,B.cogs,false), '−')}
+        ${cmpRow(t('recap_gross'), cmpMoney(A.gross), cmpMoney(B.gross), cmpCell(A.gross,B.gross,true), '=', 'rsub')}
+        ${cmpRow(t('recap_margin_gross'), pctv(A.grossMarginPct), pctv(B.grossMarginPct), cmpPP(A.grossMarginPct,B.grossMarginPct))}
+        ${cmpRow(t('spend_expenses'), cmpMoney(A.expense), cmpMoney(B.expense), cmpCell(A.expense,B.expense,false), '−')}
+        ${cmpRow(t('recap_net'), cmpMoney(A.net), cmpMoney(B.net), cmpCell(A.net,B.net,true), '=', 'rtotal')}
+        ${cmpRow(t('recap_margin_net'), pctv(A.netMarginPct), pctv(B.netMarginPct), cmpPP(A.netMarginPct,B.netMarginPct))}
+        ${cmpRow(t('recap_cash_purchases'), cmpMoney(A.invested), cmpMoney(B.invested), cmpCell(A.invested,B.invested,true))}
+        ${cmpRow(t('recap_receipts'), String(A.receiptsCount), String(B.receiptsCount), cmpCell(A.receiptsCount,B.receiptsCount,true,false))}
+      </div>`;
+    }
+    // Sparkline de 13 meses de Ganancia neta: la tendencia de un vistazo (13 y
+    // no 12 para que el mismo mes del año pasado entre y se vea la estacionalidad).
+    let spark='';
+    if(recapMode==='month'){
+      const cur = localMonthStr();
+      const ms=[]; for(let i=12;i>=0;i--) ms.push(shiftMonthStr(cur,-i));
+      const vals = ms.map(k=> (demo||withData.has(k)) ? finOf(k).net : 0);
+      if(vals.some(v=>v!==0)){
+        const w=300, h=36, pad=3;
+        const min=Math.min(0,...vals), max=Math.max(0,...vals), span=(max-min)||1;
+        const X=i=> pad+i*(w-2*pad)/(vals.length-1);
+        const Y=v=> h-pad-(v-min)/span*(h-2*pad);
+        const pts = vals.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+        const last = vals[vals.length-1];
+        spark = `<div class="recap-spark">
+          <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+            ${min<0&&max>0 ? `<line x1="${pad}" y1="${Y(0).toFixed(1)}" x2="${w-pad}" y2="${Y(0).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/>` : ''}
+            <polyline points="${pts}" fill="none" stroke="var(--basil)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="${X(vals.length-1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="3" fill="${last>=0?'var(--basil)':'var(--tomato)'}"/>
+          </svg>
+          <div class="recap-spark-cap">${t('recap_trend_label')}</div>
+        </div>`;
+      }
+    }
     body = `
-    <div class="recap-mode" style="margin:2px 0 10px;">
+    <div class="recap-mode" style="margin:2px 0 6px;">
       <button type="button" class="exit-reason-chip ${recapMode==='month'?'on':''}" data-recap-mode="month">${t('recap_mode_month')}</button>
       <button type="button" class="exit-reason-chip ${recapMode==='year'?'on':''}" data-recap-mode="year">${t('recap_mode_year')}</button>
       <button type="button" class="exit-reason-chip ${demo?'on':''}" id="btn-recap-demo">${t('recap_demo_btn')}</button>
+      <button type="button" class="exit-reason-chip ${recapCompare?'on':''}" id="btn-recap-compare">${t('recap_compare')}</button>
     </div>
+    ${recapMode==='month' ? `<div class="recap-mode" style="margin:0 0 10px;">
+      <button type="button" class="exit-reason-chip ${recapBaseMode==='prev'?'on':''}" data-recap-base="prev">${t('recap_base_prev')}</button>
+      <button type="button" class="exit-reason-chip ${recapBaseMode==='yoy'?'on':''}" data-recap-base="yoy">${t('recap_base_yoy')}</button>
+    </div>` : ''}
     ${demo ? `<div class="recap-demo-banner">${t('recap_demo_note')}</div>` : ''}
+    ${recapCompare && !cmp ? `<div class="recap-demo-banner">${t('recap_compare_hint')}</div>` : ''}
+    ${cmp || spark}
     <div class="recap-cols" id="recap-cols">${cols}</div>
     ${demo ? '' : `<div class="recap-note" style="padding:10px 2px 4px;">${t('recap_est_note')}</div>`}`;
   }
