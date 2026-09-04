@@ -30,7 +30,12 @@
 // v15: producción y salidas (recetas + escáner de estante) — archivo NUEVO
 // app-08-produccion.js + cambios cruzados en app-02..07, index.html y dusty.css;
 // además el header de marca pasó a vivir dentro del Dashboard (app-04).
-const CACHE_NAME = 'patron-shell-v15';
+// v16: día grande de UI/UX (2026-09-03) — calculadora de pedido (hoja completa,
+// enviar/copiar, persistencia), barra de stock con "lleno" (stockFullRef),
+// tarjetas-botón en 2/3 columnas con selector de vista y buscador, visor de foto,
+// Eat out (gastos sin stock), categorías creadas por IA e inline, sin zoom,
+// transiciones nativas, arreglo del swipe sobre la calculadora.
+const CACHE_NAME = 'patron-shell-v16';
 
 const PRECACHE_URLS = [
   '/',
