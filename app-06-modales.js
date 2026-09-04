@@ -777,6 +777,72 @@ function sendFeedback(){
     feedbackSubmitting=false; render();
   });
 }
+/* ================= CIERRE DE MES =================
+   La "conclusión" del arco (conversación con el usuario 2026-09-03): la app pide
+   datos todos los días — este modal es el momento de cosecha, donde se los
+   devuelve digeridos: inversión, gastos, presupuesto, valor y potencial del
+   inventario, producto estrella, mayor proveedor y el mayor cambio de precio.
+   Todo se calcula de datos que ya existen; cero estado nuevo que sincronizar. */
+let showMonthRecap=false;
+function monthRecapModal(){
+  const key = localMonthStr();
+  const sp = spendSplitForMonth(key);
+  const monthReceipts = receipts.filter(r=>monthKey(r.date)===key);
+  const monthPurchases = purchases.filter(p=>monthKey(p.date)===key);
+  // Producto estrella: el de mayor $ comprado este mes.
+  let star=null;
+  if(monthPurchases.length){
+    const byIng={};
+    monthPurchases.forEach(p=>{ byIng[p.ingId]=(byIng[p.ingId]||0)+(p.totalPrice||0); });
+    const topId=Object.keys(byIng).sort((a,b)=>byIng[b]-byIng[a])[0];
+    const ing=inventory.find(i=>i.id===topId);
+    if(ing) star={name:ing.name, amount:byIng[topId], ing};
+  }
+  // Mayor proveedor del mes por $ total de recibos.
+  let topSupplier=null;
+  if(monthReceipts.length){
+    const bySup={};
+    monthReceipts.forEach(r=>{ const s=(r.supplier||'').trim()||t('no_supplier_name'); bySup[s]=(bySup[s]||0)+(r.total||0); });
+    const top=Object.keys(bySup).sort((a,b)=>bySup[b]-bySup[a])[0];
+    topSupplier={name:top, amount:bySup[top]};
+  }
+  // Mayor cambio de precio entre los productos con historial comparable.
+  let priceMove=null;
+  inventory.forEach(i=>{
+    if(i.expenseOnly) return;
+    const pct=lastPriceChangePct(i.id, purchasesForIng(i.id));
+    if(pct!==null && isFinite(pct) && (!priceMove || Math.abs(pct)>Math.abs(priceMove.pct))) priceMove={name:i.name, pct};
+  });
+  const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
+  const potential = inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
+  const empty = monthReceipts.length===0 && sp.invested===0 && sp.expense===0;
+  const row=(icon,label,value,color)=>`
+    <div class="recap-row"><span class="recap-label">${icon} ${label}</span><strong style="color:${color||'var(--ink)'};">${value}</strong></div>`;
+  return `
+  <div class="overlay" id="month-recap-overlay">
+    <div class="modal">
+      <button type="button" class="modal-close-btn" id="btn-close-month-recap" aria-label="${t('btn_cancel')}">✕</button>
+      <h3 class="basil">${t('recap_title')}</h3>
+      <div class="sub">${monthLabel(key, uiLang)}</div>
+      ${empty ? `<div class="oc-empty" style="margin:18px 0;">${t('recap_empty')}</div>` : `
+      <div class="recap-list">
+        ${row('📦', t('spend_invested'), money(sp.invested), 'var(--basil)')}
+        ${row('💸', t('spend_expenses'), money(sp.expense), 'var(--saffron)')}
+        ${monthlyBudget ? row('🎯', t('recap_budget_used'), Math.round(sp.expense/monthlyBudget*100)+'%', budgetStatus(Math.round(sp.expense/monthlyBudget*100))==='crit'?'var(--tomato)':'var(--ink)') : ''}
+        ${canSeeFinancials() ? row('💰', t('inv_value_label'), money(invValue), 'var(--basil)') : ''}
+        ${canSeeFinancials() && potential>0 ? row('🏷', t('inv_potential_label'), money(potential), 'var(--sky-bright)') : ''}
+        ${star ? row('⭐', t('recap_star'), `${escapeHtml(invShortName(star.name))}<div class="recap-note">${t('recap_star_note').replace('{amount}', money(star.amount))}</div>`) : ''}
+        ${topSupplier ? row('🚚', t('recap_top_supplier'), `${escapeHtml(topSupplier.name)}<div class="recap-note">${money(topSupplier.amount)}</div>`) : ''}
+        ${priceMove ? row('📈', t('recap_price_move'), `${escapeHtml(invShortName(priceMove.name))} <span style="color:${priceMove.pct>0?'var(--tomato)':'var(--basil)'};">${priceMove.pct>0?'+':''}${priceMove.pct.toFixed(0)}%</span>`) : ''}
+        ${row('🧾', t('recap_receipts'), String(monthReceipts.length))}
+      </div>`}
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="btn-recap-ok" style="width:100%;">${t('btn_close')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 /* ================= GASTO MANUAL (sin recibo) =================
    Tocar el monto del mes en el Dashboard abre esto: un gasto en efectivo o sin
    recibo entra como RECIBO MANUAL (mismo shape, sin fotos ni productos) — así

@@ -426,6 +426,16 @@ function attachEvents(){
     if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAlertSettingsModal=false; openExitSurvey(); };
   }
 
+  // Cierre de mes: el momento de cosecha — los datos del mes digeridos.
+  const btnMonthRecap=document.getElementById('btn-month-recap');
+  if(btnMonthRecap) btnMonthRecap.onclick=()=>{ showMonthRecap=true; render(); };
+  const monthRecapOverlay=document.getElementById('month-recap-overlay');
+  if(monthRecapOverlay){
+    const closeRecap=()=>{ showMonthRecap=false; render(); };
+    monthRecapOverlay.onmousedown=(e)=>{ if(e.target===monthRecapOverlay) closeRecap(); };
+    document.getElementById('btn-close-month-recap').onclick=closeRecap;
+    document.getElementById('btn-recap-ok').onclick=closeRecap;
+  }
   // Gasto manual sin recibo: el monto del mes es un botón que abre el modal.
   const btnAddManualSpend=document.getElementById('btn-add-manual-spend');
   if(btnAddManualSpend) btnAddManualSpend.onclick=openManualSpendModal;
