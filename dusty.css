@@ -894,18 +894,26 @@
   .cal-recap-btn{width:100%;margin-top:12px;padding:10px;border-radius:10px;border:1px solid var(--line);
     background:var(--raised);color:var(--basil);font-weight:700;font-size:13.5px;cursor:pointer;}
   .cal-recap-btn:active{transform:scale(.98);}
-  /* Controles del cierre de mes: chips de modo (Mes/Año/Comparar) + navegadores
-     de período ‹ etiqueta ›; en comparación, el período B con tinte propio. */
-  .recap-controls{margin:8px 0 6px;display:flex;flex-direction:column;gap:8px;}
+  /* Cierre de mes a página completa: chips de modo (Mes/Año) arriba y un carril
+     horizontal de columnas — una tarjeta por período, la más nueva primero, con
+     scroll-snap para que cada columna "encaje" como páginas. La columna del mes
+     que se estaba mirando en el calendario lleva .focus (borde verde). Entran en
+     cascada con la animación del tutorial vía animation-delay por índice. */
   .recap-mode{display:flex;gap:6px;flex-wrap:wrap;}
-  .recap-period{display:flex;align-items:center;justify-content:center;gap:6px;}
-  .recap-period-label{min-width:110px;text-align:center;font-weight:800;font-size:14px;color:var(--ink);}
-  .recap-period-b .recap-period-label{color:var(--sky-bright);}
+  .recap-cols{display:flex;gap:12px;overflow-x:auto;flex:1;min-height:0;align-items:stretch;
+    padding:4px 2px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;}
+  .recap-col{flex:0 0 76%;max-width:300px;min-width:225px;scroll-snap-align:start;
+    background:var(--raised);border:1px solid var(--line);border-radius:16px;padding:14px 14px 10px;
+    overflow-y:auto;animation:welcomeStepInFwd .45s var(--ease-soft) backwards;}
+  .recap-col.focus{border-color:var(--basil);box-shadow:0 0 0 1px var(--basil);}
+  .recap-col-head{padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:2px;}
+  .recap-col-period{font-weight:800;font-size:15px;color:var(--ink);}
+  .recap-col-vs{font-size:11px;font-weight:700;color:var(--sky-bright);margin-top:1px;}
+  .recap-col-val{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:0;}
+  /* En columnas angostas la etiqueta larga cede y envuelve; el monto no se toca. */
+  .recap-col .recap-label{flex-shrink:1;min-width:0;}
   .recap-section-title{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-soft);padding:12px 2px 2px;}
-  .recap-cmp{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
-  .recap-cmp strong{font-size:14px;}
-  .recap-cmp-b{font-size:12px;color:var(--sky-bright);font-variant-numeric:tabular-nums;}
-  .recap-delta{font-size:10.5px;font-weight:800;}
+  .recap-delta{font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums;}
   /* Cierre de mes: filas del resumen — etiqueta a la izquierda, dato fuerte a la
      derecha, notas chicas debajo del dato. */
   .recap-list{display:flex;flex-direction:column;margin:6px 0 4px;}

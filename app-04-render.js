@@ -182,12 +182,12 @@ function renderApp(){
     ${photoViewItemId ? itemPhotoViewerModal() : ''}
     ${showExitSurvey ? exitSurveyModal() : ''}
     ${showManualSpendModal ? manualSpendModal() : ''}
-    ${showMonthRecap ? monthRecapModal() : ''}
-    ${/* La hoja de la calculadora de pedido vive ACÁ y no dentro de inventarioView:
+    ${/* Las hojas a página completa (.oc-sheet) viven ACÁ y no dentro de las vistas:
          .view-track tiene transform (swipe), y un ancestro con transform convierte
          el position:fixed en relativo a él — la hoja quedaba del tamaño del
-         contenido en vez de cubrir la pantalla. Se renderiza siempre (no
-         condicional) para que la transición CSS de subida/bajada pueda correr. */''}
+         contenido en vez de cubrir la pantalla. Se renderizan siempre (no
+         condicionales) para que la transición CSS de subida/bajada pueda correr. */''}
+    ${monthRecapModal()}
     ${inventory.length>0 ? orderCalcPanel() : ''}
     ${bottomNav()}
   `;
