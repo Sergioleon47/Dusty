@@ -58,6 +58,9 @@ async function readStockFromPhoto(image){
   const parsed = await callDustyAI('/.netlify/functions/identify-product', {
     image: image,
     stock: true,
+    // Las notas visibles (visible_note, sticker_color) salen en el idioma de la
+    // app del usuario — sin esto llegaban SIEMPRE en español (fuga reportada).
+    lang: uiLang,
     inventoryNames: inventory.map(i => i.name)
   }, {
     notFoundKey: 'err_function_not_found_product',
@@ -620,7 +623,7 @@ function shelfScanModal(){
             <div style="background:var(--sky-soft);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
               <div style="font-size:11.5px;font-weight:700;color:var(--sky-ink);margin-bottom:6px;">${t('shelf_capacity_ask')}</div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <input data-shelf-capacity="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(it.capacityDraft)}" placeholder="Ej. 500" style="flex:1;">
+                <input data-shelf-capacity="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(it.capacityDraft)}" placeholder="${t('ph_capacity_example')}" style="flex:1;">
                 <span style="font-size:12px;color:var(--sky-ink);font-weight:700;">${escapeHtml(unitLabel(ing.unit))}</span>
               </div>
               <div style="font-size:10.5px;color:var(--sky-ink);margin-top:5px;">${t('shelf_capacity_helper').replace('{u}', unitLabel(ing.unit))}</div>

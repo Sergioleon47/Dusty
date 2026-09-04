@@ -102,8 +102,14 @@ Elegí para cada producto la que mejor le quede (criterio, no comparación liter
    no una meditación. Las reglas anti-trampa de abajo salieron de pruebas reales:
    la cinta de embalar duplicaba conteos de cajas (16 contadas vs 8 reales) hasta
    que se agregó la regla de la sombra/desalineación. */
-function buildStockPrompt(inventoryNames){
+function buildStockPrompt(inventoryNames, lang){
   const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
+  // Los textos que el USUARIO ve (visible_note, sticker_color) salen en el idioma
+  // de SU app — inglés por defecto (es el idioma principal de Dusty); español solo
+  // si su app está en español. El prompt en sí puede seguir en español: la IA lo
+  // entiende igual, lo que importa es el idioma del OUTPUT visible.
+  const noteLang = lang === 'es' ? 'en español' : 'EN INGLÉS (el usuario usa la app en inglés)';
+  const colorEj = lang === 'es' ? '"amarillo"' : '"yellow"';
   return `Eres un sistema experto en leer CANTIDADES de inventario a partir de una foto del estante, la mesa o las piezas de un negocio. No estás dando de alta productos: estás contando/estimando cuánto hay de cada uno.
 
 CASO ESPECIAL — LISTA ESCRITA (detectalo ANTES que nada):
@@ -133,7 +139,7 @@ REGLAS ANTI-TRAMPA (aprendidas de errores reales):
 - CINTA vs. DIVISIÓN: la cinta de embalar sobre la unión de tapas de una caja parece una división entre dos cajas. Una división REAL tiene hendidura con sombra y bordes desalineados entre camadas (patrón de ladrillo); una línea plana, brillante y perfectamente alineada de arriba a abajo es cinta — es UNA caja, no dos.
 - ENCUADRE: si la pila/el grupo toca el borde de la foto, no ves sus límites — confidence "baja" y anotalo en visible_note.
 - VISTO vs. INFERIDO: en pilas solo ves las caras del frente; el interior es inferencia. Si inferiste profundidad, decilo en visible_note ("2 de fondo inferido").
-- MARCAS DE COLOR: si unidades por lo demás idénticas se distinguen con stickers/marcas de color, devolvé UN objeto por color con "sticker_color" (ej. "amarillo"), y otro para las que no tienen marca (sticker_color null).
+- MARCAS DE COLOR: si unidades por lo demás idénticas se distinguen con stickers/marcas de color, devolvé UN objeto por color con "sticker_color" (nombre del color ${noteLang}, ej. ${colorEj}), y otro para las que no tienen marca (sticker_color null).
 - Nunca des un número con confianza alta si fue inferencia o estimación — la confianza honesta vale más que el número redondo.
 
 Devolvé JSON puro (sin markdown, sin backticks, sin texto extra) con este formato exacto:
@@ -148,7 +154,7 @@ Devolvé JSON puro (sin markdown, sin backticks, sin texto extra) con este forma
       "fill_percent": number 0-100 o null,
       "sticker_color": "string o null",
       "confidence": "alta" | "media" | "baja",
-      "visible_note": "string corta o null (qué fue inferido/qué falta ver, en español)",
+      "visible_note": "string corta o null (qué fue inferido/qué falta ver — escrita ${noteLang})",
       "box": {"x": number, "y": number, "w": number, "h": number} o null
     }
   ]
@@ -184,10 +190,11 @@ exports.handler = async (event) => {
   }
   const callerUid = caller.uid;
 
-  let image, categoryNames, inventoryNames, ownerUid, multi = false, stock = false;
+  let image, categoryNames, inventoryNames, ownerUid, multi = false, stock = false, lang = 'en';
   try {
     const parsed = JSON.parse(event.body || '{}');
     if (parsed.image && typeof parsed.image.base64 === 'string') image = parsed.image;
+    if (parsed.lang === 'es') lang = 'es'; // inglés por defecto — idioma principal
     if (Array.isArray(parsed.categoryNames)) {
       categoryNames = parsed.categoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50);
     }
@@ -271,7 +278,7 @@ exports.handler = async (event) => {
             role: 'user',
             content: [
               { type: 'image', source: { type: 'base64', media_type: image.mediaType || 'image/jpeg', data: image.base64 } },
-              { type: 'text', text: stock ? buildStockPrompt(inventoryNames) : (multi ? buildMultiPrompt(categoryNames, inventoryNames) : buildPrompt(categoryNames, inventoryNames)) }
+              { type: 'text', text: stock ? buildStockPrompt(inventoryNames, lang) : (multi ? buildMultiPrompt(categoryNames, inventoryNames) : buildPrompt(categoryNames, inventoryNames)) }
             ]
           }
         ]

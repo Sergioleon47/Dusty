@@ -1012,7 +1012,7 @@ function itemModal(){
         </div>
         <div class="field-row" style="margin-bottom:0;">
           <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
-          <div class="field" style="margin-bottom:0;"><label for="fi-capacity">${t('capacity_label')}</label><input id="fi-capacity" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.capacityFull||'')}" placeholder="Ej. 500"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-capacity">${t('capacity_label')}</label><input id="fi-capacity" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.capacityFull||'')}" placeholder="${t('ph_capacity_example')}"></div>
         </div>
         <div class="helper-note" style="margin:8px 0 0;">${t('capacity_helper')}</div>
       </div>
