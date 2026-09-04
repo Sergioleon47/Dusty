@@ -323,10 +323,16 @@ function stockAnalyticsCard(){
   if(inventory.length===0) return '';
   const allRows = stockRowsData();
   // El anillo de salud y las alertas críticas miran el inventario ENTERO —
-  // buscar no debe cambiar la foto de salud del negocio; solo filtra la grilla.
-  const rows = allRows.filter(r=>invMatches(r.ing.name, invSearch));
+  // son la foto de salud del negocio, no dependen de lo listado abajo.
   const criticalCount = allRows.filter(r=>r.status==='crit').length;
   const ccDueIds = cycleCountDueIds();
+  /* INVERSIÓN 2026-09-04 (pedido del usuario): el Dashboard lista SOLO los
+     productos que toca contar hoy — es la tarea del día, no el catálogo; el
+     inventario completo vive entero en su propia pestaña (que ya no se filtra).
+     Antes era al revés: el Dashboard mostraba todo e Inventario se filtraba a
+     lo pendiente. Sin conteo pendiente, acá queda una nota y los resúmenes. */
+  const dueRows = allRows.filter(r=>ccDueIds.has(r.ing.id));
+  const rows = dueRows.filter(r=>invMatches(r.ing.name, invSearch));
   // Sin la caja .stock-card alrededor (mismo criterio que en Inventario, pedido
   // del usuario): las tarjetas ya son cajas — todo vive directo sobre el fondo.
   return `
@@ -335,14 +341,20 @@ function stockAnalyticsCard(){
       <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
       ${stockHealthRing(allRows)}
     </div>
+    ${dueRows.length===0 ? `<div class="helper-note" style="margin:12px 0 2px;">${t('dash_cc_empty')}</div>` : `
+    ${/* Banner igual al de Inventario: dice cuántos tocan y tocarlo abre el
+         modal de conteo (id propio — cc-banner ya existe en Inventario). */''}
+    <div class="alert-banner" id="cc-banner-dash" style="cursor:pointer;margin-top:10px;">
+      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
+      <span>${t('cc_banner_text').replace('{n}', dueRows.length)}</span>
+    </div>
     ${/* Mismo lenguaje que Inventario (pedido del usuario): cada ítem es una
-         tarjeta-botón (tocar abre la ficha; la ✕ se fue — eliminar vive adentro),
-         en grilla que respeta el MISMO selector de vista compartido (invLayout).
-         La barra de % se conserva: es la gracia de esta tarjeta. Prefijo
-         dashtile- en el view-transition-name: los tiles de Inventario ya usan
-         invtile- y nombres duplicados en el DOM abortan la transición. */''}
+         tarjeta-botón (tocar abre la ficha), en grilla que respeta el MISMO
+         selector de vista compartido (invLayout). La barra de % se conserva.
+         Prefijo dashtile- en el view-transition-name: los tiles de Inventario
+         ya usan invtile- y nombres duplicados en el DOM abortan la transición. */''}
     ${/* Buscador con solo la lupita (sin palabras — pedido del usuario), alineado
-         en la misma fila que el selector de vista, ocupando el hueco marcado. */''}
+         en la misma fila que el selector de vista. Busca entre lo pendiente. */''}
     <div class="inv-toolbar" style="margin:10px 0 14px;display:flex;align-items:center;gap:8px;">
       <div class="inv-search-wrap">
         <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -371,6 +383,7 @@ function stockAnalyticsCard(){
       </div>
     `).join('')}
     </div>
+    `}
     <div class="stock-summary">
       <div id="btn-critical-alerts" ${criticalCount>0?'style="cursor:pointer;"':''}>
         <div class="stock-summary-label">${t('stock_critical_alerts')}</div>
@@ -502,14 +515,6 @@ function dashboardEmptyState(){
 }
 
 /* ---------- INVENTARIO ---------- */
-// Mientras hay un conteo cíclico pendiente, Inventario muestra SOLO esos productos
-// en vez de la lista completa — a propósito, para que sea imposible perderse cuál
-// tocaba contar entre el resto. showFullInventoryDespiteCycleCount es la única
-// salida: un link chico para ver el resto del inventario igual (agregar un
-// producto nuevo, editar precio de algo que no le toca contar hoy, etc.) sin tener
-// que esperar a terminar el conteo. Se resetea solo al recargar la página — es una
-// preferencia de la sesión, no algo que haya que guardar.
-let showFullInventoryDespiteCycleCount = false;
 // Filtro de categoría activado desde los botones del Dashboard — al tocar una
 // categoría se guarda su id acá y se cambia a la pestaña Inventario, que lo lee y
 // muestra solo esos productos (ver inventarioView). También es preferencia de
@@ -581,7 +586,9 @@ function stockRowHtml(r, ccDueIds){
   // cada tarjeta hacia su nueva celda en lugar de fundir la lista entera.
   const vtName = 'invtile-' + String(i.id).replace(/[^a-zA-Z0-9_-]/g, '');
   return `
-  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" title="${escapeHtml(i.name)}" style="view-transition-name:${vtName};">
+  ${/* data-status: lo usa el atajo "Alertas críticas" del Dashboard para saltar
+       acá y hacer latir los críticos (ya no se listan en el Dashboard). */''}
+  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}" style="view-transition-name:${vtName};">
     <div class="inv-tile-top">
       <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
@@ -781,13 +788,13 @@ function inventarioView(){
   const ccDue = isCycleCountDue();
   const ccDueIds = cycleCountDueIds();
   const filterCategory = inventoryCategoryFilter ? categories.find(c=>c.id===inventoryCategoryFilter) : null;
-  // El filtro de categoría (activado desde los botones del Dashboard) tiene prioridad
-  // sobre el filtro de conteo cíclico — mostrar los dos combinados sería confuso, y
-  // el usuario llegó acá a propósito a ver una categoría puntual.
-  const filteringToCC = !filterCategory && ccDue && !showFullInventoryDespiteCycleCount;
+  // INVERSIÓN 2026-09-04 (pedido del usuario): Inventario muestra SIEMPRE el
+  // catálogo completo — el filtro "solo lo que toca contar" se mudó al Dashboard,
+  // que ahora lista únicamente los pendientes de conteo. Acá los pendientes solo
+  // parpadean (cc-due-blink) y el banner sigue abriendo el conteo.
   const rows = filterCategory
     ? allRows.filter(r=>r.ing.categoryId===filterCategory.id)
-    : (filteringToCC ? allRows.filter(r=>ccDueIds.has(r.ing.id)) : allRows);
+    : allRows;
   const groups = groupRowsByCategory(rows);
   // Valor total del inventario (cantidad × costo de cada producto) — vive arriba a
   // la izquierda, encima de la calculadora. Reemplaza al título "Inventario"
@@ -862,11 +869,6 @@ function inventarioView(){
   <div class="alert-banner" id="cc-banner" style="cursor:pointer;">
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
     <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
-  </div>
-  <div class="helper-note" style="margin-top:-4px;">
-    ${filteringToCC
-      ? `${t('cc_filtered_note')} <button type="button" id="btn-show-full-inventory" class="link-btn" style="padding:0;">${t('cc_show_all_link')}</button>`
-      : `<button type="button" id="btn-show-pending-only" class="link-btn" style="padding:0;">${t('cc_show_pending_link')}</button>`}
   </div>` : '')}
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (
     // Sin la caja .stock-card alrededor: las tarjetas ya son cajas por sí

@@ -552,13 +552,20 @@ function attachEvents(){
 
   const btnCriticalAlerts=document.getElementById('btn-critical-alerts');
   if(btnCriticalAlerts) btnCriticalAlerts.onclick=()=>{
-    // Las filas del Dashboard ahora son .inv-tile (mismo rediseño que Inventario)
-    // — el selector matchea por data-status, presente solo en esas tarjetas.
-    const critRows = document.querySelectorAll('[data-status="crit"]');
-    if(critRows.length===0) return;
-    critRows[0].scrollIntoView({behavior:'smooth', block:'center'});
-    critRows.forEach(r=>r.classList.add('crit-flash'));
-    setTimeout(()=>critRows.forEach(r=>r.classList.remove('crit-flash')), 2400);
+    // Los críticos ya no se listan en el Dashboard (solo lo pendiente de conteo,
+    // inversión 2026-09-04) — este atajo salta a la pestaña Inventario y los hace
+    // latir allá (los tiles de Inventario llevan data-status para esto).
+    const flash=()=>{
+      const critRows = document.querySelectorAll('[data-status="crit"]');
+      if(critRows.length===0) return;
+      critRows[0].scrollIntoView({behavior:'smooth', block:'center'});
+      critRows.forEach(r=>r.classList.add('crit-flash'));
+      setTimeout(()=>critRows.forEach(r=>r.classList.remove('crit-flash')), 2400);
+    };
+    if(activeTab!=='inventario'){
+      switchToTab('inventario');
+      requestAnimationFrame(()=>requestAnimationFrame(flash));
+    } else flash();
   };
   const btnSuggestedOrder=document.getElementById('btn-suggested-order');
   if(btnSuggestedOrder) btnSuggestedOrder.onclick=()=>{ showSuggestedOrderModal=true; render(); };
@@ -582,13 +589,10 @@ function attachEvents(){
   if(btnCycleCount) btnCycleCount.onclick=openCycleCountModal;
   const ccBanner=document.getElementById('cc-banner');
   if(ccBanner) ccBanner.onclick=openCycleCountModal;
-  // Mismo canal animado que el selector de vista: al alternar "ver inventario
-  // completo" / "solo lo que toca contar", las tarjetas que quedan vuelan a su
-  // nueva posición y las que entran/salen se funden (View Transition, app-04).
-  const btnShowFullInv=document.getElementById('btn-show-full-inventory');
-  if(btnShowFullInv) btnShowFullInv.onclick=(e)=>{ e.stopPropagation(); showFullInventoryDespiteCycleCount=true; invLayoutTransitionPending=true; render(); };
-  const btnShowPendingOnly=document.getElementById('btn-show-pending-only');
-  if(btnShowPendingOnly) btnShowPendingOnly.onclick=(e)=>{ e.stopPropagation(); showFullInventoryDespiteCycleCount=false; invLayoutTransitionPending=true; render(); };
+  // Banner gemelo del Dashboard (la lista de pendientes de conteo vive ahí desde
+  // la inversión 2026-09-04) — mismo destino: abrir el modal de conteo.
+  const ccBannerDash=document.getElementById('cc-banner-dash');
+  if(ccBannerDash) ccBannerDash.onclick=openCycleCountModal;
   const cycleCountOverlay=document.getElementById('cycle-count-overlay');
   if(cycleCountOverlay){
     cycleCountOverlay.onmousedown=(e)=>{ if(e.target===cycleCountOverlay) closeCycleCountModal(); };
@@ -617,9 +621,6 @@ function attachEvents(){
         });
         cycleCountLastDate=localDateStr();
         cycleCountCursor=(cycleCountCursor+batch.length)%Math.max(inventory.length,1);
-        // Conteo terminado -> vuelve a filtrar por defecto la próxima vez que toque
-        // contar, aunque acá el usuario hubiera elegido ver el inventario completo.
-        showFullInventoryDespiteCycleCount=false;
       }
       saveState();
       closeCycleCountModal();
