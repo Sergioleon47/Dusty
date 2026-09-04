@@ -793,11 +793,26 @@ function inventarioView(){
          bloque flotante con aire muerto que quedaba arriba. */''}
     ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? `
       <div class="inv-left-col">
-        ${canSeeFinancials() ? `
+        ${canSeeFinancials() ? (()=>{
+          // Potencial de venta: qty × precio de venta de cada producto que lo
+          // tiene puesto. Los que no tienen precio de venta no suman (y se avisa
+          // cuántos faltan) — mejor un potencial honesto-parcial que uno inflado
+          // mezclando costos. expenseOnly no participa (qty 0 por diseño).
+          const withSale = inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0);
+          const missingSale = inventory.filter(i=>!i.expenseOnly && !(i.salePrice>0) && (i.qtyOnHand||0)>0).length;
+          const potential = withSale.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
+          return `
         <div>
           <div class="inv-value-label">${t('inv_value_label')}</div>
           <div class="inv-total-value">$${invValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        </div>` : ''}
+          ${potential>0 ? `
+          <div class="inv-potential">
+            <span class="inv-potential-label">🏷 ${t('inv_potential_label')}</span>
+            <span class="inv-potential-value">$${potential.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+            ${missingSale>0 ? `<span class="inv-potential-note">${t('inv_potential_missing').replace('{n}', missingSale)}</span>` : ''}
+          </div>` : ''}
+        </div>`;
+        })() : ''}
         ${orderCalcCard()}
       </div>` : ''}${shelfScanFab()}</div>` : ''}
     <div class="inv-header-actions">

@@ -896,6 +896,12 @@
   /* Valor total del inventario, arriba a la izquierda de la pestaña Inventario —
      verde: en esta app el verde es el color de "dato bueno" (es un activo). */
   .inv-total-value{font-size:26px;font-weight:800;color:var(--basil);font-variant-numeric:tabular-nums;line-height:1.15;}
+  /* Potencial a precio de venta, debajo del Valor (costo) — verde más claro:
+     mismo lado del semáforo, distinta intensidad. */
+  .inv-potential{margin-top:4px;display:flex;flex-direction:column;gap:1px;}
+  .inv-potential-label{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-soft);}
+  .inv-potential-value{font-size:15px;font-weight:800;color:var(--sky-bright);font-variant-numeric:tabular-nums;}
+  .inv-potential-note{font-size:10.5px;color:var(--ink-soft);}
   .oc-total-label{font-size:13px;color:var(--ink-mid);}
   .oc-total{font-size:23px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;}
   .oc-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
