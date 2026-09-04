@@ -577,7 +577,10 @@ function stockRowHtml(r, ccDueIds){
       <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
     </div>
-    <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchasesForIng(i.id)))}${marginBadge(i)}</div>
+    ${/* Sin marginBadge: los % de ganancia salen de la vista pública de la lista
+         (pedido del usuario — pantallas compartidas). La ganancia vive en la
+         ficha, y solo para quien canSeeFinancials() lo permite. */''}
+    <div class="inv-row-meta">${money(i.costPerUnit)}/${escapeHtml(unitLabel(i.unit))}${priceChangeBadge(lastPriceChangePct(i.id, purchasesForIng(i.id)))}</div>
     <div class="stock-caption" style="margin:0;">${i.expenseOnly ? t('expense_only_tag') : `${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} ${t('inv_in_stock_suffix')}`}</div>
   </div>`;
 }
@@ -790,10 +793,11 @@ function inventarioView(){
          bloque flotante con aire muerto que quedaba arriba. */''}
     ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? `
       <div class="inv-left-col">
+        ${canSeeFinancials() ? `
         <div>
           <div class="inv-value-label">${t('inv_value_label')}</div>
           <div class="inv-total-value">$${invValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        </div>
+        </div>` : ''}
         ${orderCalcCard()}
       </div>` : ''}${shelfScanFab()}</div>` : ''}
     <div class="inv-header-actions">

@@ -89,6 +89,7 @@ function ensurePatronFirebaseReady(){
               inventory: inventory.slice(), purchases: purchases.slice(), receipts: receipts.slice(),
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
+              profitsVisibleToMembers,
               categories: categories ? categories.slice() : categories,
               calNotes: calNotes.slice(),
               recipes: recipes.slice(), outflows: outflows.slice()
@@ -566,6 +567,7 @@ function metaContentShape(m){
     priceAlertThreshold: m.priceAlertThreshold, cycleCountPct: m.cycleCountPct,
     cycleCountIntervalDays: m.cycleCountIntervalDays, cycleCountLastDate: m.cycleCountLastDate,
     cycleCountCursor: m.cycleCountCursor, businessName: m.businessName, monthlyBudget: m.monthlyBudget,
+    profitsVisibleToMembers: m.profitsVisibleToMembers === true,
     categories: m.categories,
     calNotes: m.calNotes || [], recipes: m.recipes || [], outflows: m.outflows || [],
     deletedInventoryIds: m.deletedInventoryIds || [], deletedReceiptIds: m.deletedReceiptIds || [],
@@ -576,7 +578,7 @@ function metaContentShape(m){
 function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, categories, calNotes,
+    businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes,
     recipes: recipesForCloud(), outflows,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
   });
@@ -711,7 +713,7 @@ function syncAllToFirestore(){
     const metaHash = valueHash(metaContent);
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
-        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, categories, calNotes,
+        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes,
         recipes: recipesForCloud(), outflows
       }));
       const FV = firebase.firestore.FieldValue;
@@ -998,7 +1000,7 @@ function applyRemoteMetaSnapshot(doc){
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1537,6 +1539,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         cycleCountIntervalDays: metaSnap.exists ? remoteMeta.cycleCountIntervalDays : localSnapshot.cycleCountIntervalDays,
         cycleCountLastDate: metaSnap.exists ? remoteMeta.cycleCountLastDate : localSnapshot.cycleCountLastDate,
         cycleCountCursor: metaSnap.exists ? remoteMeta.cycleCountCursor : localSnapshot.cycleCountCursor,
+        profitsVisibleToMembers: metaSnap.exists ? remoteMeta.profitsVisibleToMembers : localSnapshot.profitsVisibleToMembers,
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
@@ -1571,6 +1574,14 @@ let draftBusinessName = businessName;
 // en ese caso el Dashboard no muestra la barra.
 let monthlyBudget = null;
 let draftMonthlyBudget = monthlyBudget;
+/* Visibilidad financiera para MIEMBROS del equipo (decisión del dueño, viaja en
+   meta): apagado (default), un miembro unido ve costos y stock pero NO el % de
+   ganancia, ni el precio de venta, ni el Valor del inventario. El dueño (o un
+   uso sin equipo) siempre ve todo. La aplicación es del lado del cliente — un
+   miembro técnico podría leer los datos crudos; el cierre server-side (reglas
+   por campo) queda como trabajo futuro si el caso lo amerita. */
+let profitsVisibleToMembers = false;
+function canSeeFinancials(){ return !joinedOwnerUid || profitsVisibleToMembers === true; }
 // Categorías de inventario (ej. Comida/Hogar/Ropa/Mantenimiento) — el usuario las crea,
 // renombra y borra a mano, no vienen fijas en el código. null = todavía no se cargó nada
 // guardado (ni local ni de la nube); un array, aunque esté vacío, significa que el

@@ -352,6 +352,8 @@ const I18N = {
     oc_search_ph:'Buscar producto…', oc_no_match:'Ningún producto coincide', oc_close:'Cerrar',
     inv_value_label:'Valor',
     spend_invested:'Inversión en mercadería', spend_expenses:'Gastos operativos',
+    team_profits_toggle:'Los miembros pueden ver ganancias y el valor del inventario',
+    team_profits_helper:'Apagado: cada miembro ve costos y stock, pero no el % de ganancia, el precio de venta ni el Valor. Solo vos controlás esto.',
     manual_spend_title:'Agregar gasto sin recibo',
     manual_spend_sub:'Se suma al gasto del mes como un recibo manual — lo podés ver y borrar después en Recibos.',
     manual_spend_amount:'Monto', manual_spend_desc:'Descripción (opcional)',
@@ -719,6 +721,8 @@ const I18N = {
     oc_search_ph:'Search product…', oc_no_match:'No product matches', oc_close:'Close',
     inv_value_label:'Value',
     spend_invested:'Stock investment', spend_expenses:'Operating expenses',
+    team_profits_toggle:'Members can see profits and inventory value',
+    team_profits_helper:'Off: members see costs and stock, but not profit %, sale price, or the Value header. Only you control this.',
     manual_spend_title:'Add expense without receipt',
     manual_spend_sub:'Adds to the month’s spending as a manual receipt — you can view and delete it later in Receipts.',
     manual_spend_amount:'Amount', manual_spend_desc:'Description (optional)',
@@ -869,7 +873,7 @@ function saveState(){
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-      businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
+      businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
       recipes, outflows, deletedRecipeIds
     }));
   }catch(e){
@@ -920,6 +924,7 @@ function applyStateData(data){
   if(typeof data.cycleCountIntervalDays==='number') cycleCountIntervalDays = data.cycleCountIntervalDays;
   if(typeof data.cycleCountLastDate==='string') cycleCountLastDate = data.cycleCountLastDate;
   if(typeof data.cycleCountCursor==='number') cycleCountCursor = data.cycleCountCursor;
+  if(typeof data.profitsVisibleToMembers==='boolean') profitsVisibleToMembers = data.profitsVisibleToMembers;
   if(Array.isArray(data.deletedInventoryIds)) deletedInventoryIds = data.deletedInventoryIds;
   if(Array.isArray(data.deletedReceiptIds)) deletedReceiptIds = data.deletedReceiptIds;
   if(Array.isArray(data.deletedPurchaseIds)) deletedPurchaseIds = data.deletedPurchaseIds;
@@ -977,7 +982,7 @@ function exportData(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
+    businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
     recipes, outflows, deletedRecipeIds,
     exportedAt: new Date().toISOString()
   };

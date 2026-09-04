@@ -161,6 +161,12 @@ function attachEvents(){
     teamOverlay.onmousedown=(e)=>{ if(e.target===teamOverlay) closeTeamModal(); };
     document.getElementById('btn-close-team').onclick=closeTeamModal;
     document.getElementById('btn-sign-out-team').onclick=()=>{ closeTeamModal(); firebase.auth().signOut(); };
+    // Toggle del dueño: ganancias/Valor visibles para miembros — viaja por meta.
+    const teamProfitsCb=document.getElementById('team-profits-visible');
+    if(teamProfitsCb) teamProfitsCb.onchange=()=>{
+      profitsVisibleToMembers = teamProfitsCb.checked;
+      saveState();
+    };
     const btnCopyCode=document.getElementById('btn-copy-invite-code');
     if(btnCopyCode) btnCopyCode.onclick=()=>{
       copyInviteCode();
@@ -940,8 +946,10 @@ function attachEvents(){
     // en el DOM, sin tocar el resto de la ventana — ni tiembla, ni hace falta el truco
     // de devolver el foco/cursor de antes (el campo nunca se destruye).
     function handleProfitFieldInput(){
+      const saleEl = document.getElementById('fi-sale-price');
+      if(!saleEl) return; // sin permiso financiero la fila de ganancia no existe
       const cost = document.getElementById('fi-cost').value;
-      const sale = document.getElementById('fi-sale-price').value;
+      const sale = saleEl.value;
       const margin = profitMarginPct(cost, sale);
       const display = margin===null ? '—' : `${margin.toFixed(0)}%`;
       const color = margin===null ? 'var(--ink-soft)' : margin<0 ? 'var(--tomato)' : margin<15 ? 'var(--saffron)' : 'var(--basil)';
@@ -1022,7 +1030,9 @@ function attachEvents(){
         updated:draftItem.updated||false,
         qtyOnHand:parseFloat(document.getElementById('fi-stock').value)||0,
         photo:draftItem.photo||null,
-        salePrice:parseFloat(document.getElementById('fi-sale-price').value)||0,
+        // Sin permiso financiero el campo no se renderiza — se conserva el
+        // salePrice que el ítem ya tenía en vez de pisarlo con 0.
+        salePrice:(el=>el ? (parseFloat(el.value)||0) : (draftItem.salePrice||0))(document.getElementById('fi-sale-price')),
         sku:document.getElementById('fi-sku').value.trim(),
         supplier:document.getElementById('fi-supplier').value.trim(),
         // '__create__' es la opción "crear nueva" sin nombre confirmado — nunca

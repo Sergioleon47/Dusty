@@ -700,6 +700,17 @@ function teamModal(){
           <div class="helper-note" style="margin-bottom:0;">${t('team_your_code_hint')}</div>
         </div>
 
+        ${/* Visibilidad financiera — SOLO el dueño la controla (esta rama del
+             modal es la del dueño). Apagado por defecto: los miembros ven costos
+             y stock pero no ganancias ni el Valor. Viaja por meta al equipo. */''}
+        <div class="settings-card">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="team-profits-visible" ${profitsVisibleToMembers?'checked':''} style="width:18px;height:18px;accent-color:var(--basil);flex-shrink:0;">
+            <span style="font-size:13.5px;font-weight:600;color:var(--ink);">${t('team_profits_toggle')}</span>
+          </label>
+          <div class="helper-note" style="margin:8px 0 0;">${t('team_profits_helper')}</div>
+        </div>
+
         <div class="settings-card">
           ${settingsCardHeader('clock','var(--navy-wash)','var(--navy)',t('team_members_label'))}
           <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
@@ -975,6 +986,11 @@ function itemModal(){
           </div>
           <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         </div>
+        ${/* Precio de venta y % de ganancia: SOLO para quien el dueño lo permite
+             (canSeeFinancials) — un miembro sin permiso ve costo y stock, pero no
+             la ganancia. El save conserva el salePrice previo cuando el campo no
+             se renderiza (ver el guard en app-07). */''}
+        ${canSeeFinancials() ? `
         <div class="field-row" style="margin-bottom:0;">
           <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
           <div class="field" style="margin-bottom:0;"><label id="fi-profit-label">${t('lbl_profit_pct')}</label>
@@ -985,7 +1001,7 @@ function itemModal(){
               return `<div id="fi-profit-display" role="status" aria-labelledby="fi-profit-label" style="padding:9px 11px;font-size:14px;font-weight:700;color:${color};">${display}</div>`;
             })()}
           </div>
-        </div>
+        </div>` : ''}
       </div>
 
       <div class="settings-card">
