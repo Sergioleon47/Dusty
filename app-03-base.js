@@ -352,6 +352,7 @@ const I18N = {
     oc_search_ph:'Buscar producto…', oc_no_match:'Ningún producto coincide', oc_close:'Cerrar',
     inv_value_label:'Valor',
     spend_invested:'Inversión en mercadería', spend_expenses:'Gastos operativos',
+    dash_investment_of:'Inversión de',
     inv_potential_label:'Potencial de venta', inv_potential_missing:'{n} sin precio de venta',
     team_profits_toggle:'Los miembros pueden ver ganancias y el valor del inventario',
     team_profits_helper:'Apagado: cada miembro ve costos y stock, pero no el % de ganancia, el precio de venta ni el Valor. Solo vos controlás esto.',
@@ -722,6 +723,7 @@ const I18N = {
     oc_search_ph:'Search product…', oc_no_match:'No product matches', oc_close:'Close',
     inv_value_label:'Value',
     spend_invested:'Stock investment', spend_expenses:'Operating expenses',
+    dash_investment_of:'Investment for',
     inv_potential_label:'Sale potential', inv_potential_missing:'{n} without sale price',
     team_profits_toggle:'Members can see profits and inventory value',
     team_profits_helper:'Off: members see costs and stock, but not profit %, sale price, or the Value header. Only you control this.',
@@ -897,7 +899,7 @@ function saveState(){
           inventory, purchases, receipts, aliasMap, priceAlertThreshold,
           cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
           deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-          businessName, monthlyBudget, categories, calNotes, deletedCalNoteIds,
+          businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
           recipes, outflows, deletedRecipeIds
         }));
         retried = true;
