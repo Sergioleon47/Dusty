@@ -889,6 +889,10 @@
   .exit-reason-chip:active{transform:scale(.96);}
   .exit-reason-chip.on{border-color:var(--saffron);background:var(--saffron-soft);color:var(--saffron-ink);}
   .welcome-progress-fill{transition:width .45s cubic-bezier(.32,.72,.25,1);}
+  /* División del gasto del mes: inversión (verde) vs gastos operativos (ámbar). */
+  .spend-split{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+  .spend-split-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;color:var(--ink-soft);}
+  .spend-split-row strong{font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap;}
   /* Valor total del inventario, arriba a la izquierda de la pestaña Inventario —
      verde: en esta app el verde es el color de "dato bueno" (es un activo). */
   .inv-total-value{font-size:26px;font-weight:800;color:var(--basil);font-variant-numeric:tabular-nums;line-height:1.15;}

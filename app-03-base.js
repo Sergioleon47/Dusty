@@ -351,6 +351,7 @@ const I18N = {
     oc_minus_aria:'Menos {name}', oc_plus_aria:'Más {name}', oc_type_aria:'Escribir cantidad de {name}',
     oc_search_ph:'Buscar producto…', oc_no_match:'Ningún producto coincide', oc_close:'Cerrar',
     inv_value_label:'Valor',
+    spend_invested:'Inversión en mercadería', spend_expenses:'Gastos operativos',
     manual_spend_title:'Agregar gasto sin recibo',
     manual_spend_sub:'Se suma al gasto del mes como un recibo manual — lo podés ver y borrar después en Recibos.',
     manual_spend_amount:'Monto', manual_spend_desc:'Descripción (opcional)',
@@ -717,6 +718,7 @@ const I18N = {
     oc_minus_aria:'Less {name}', oc_plus_aria:'More {name}', oc_type_aria:'Type amount of {name}',
     oc_search_ph:'Search product…', oc_no_match:'No product matches', oc_close:'Close',
     inv_value_label:'Value',
+    spend_invested:'Stock investment', spend_expenses:'Operating expenses',
     manual_spend_title:'Add expense without receipt',
     manual_spend_sub:'Adds to the month’s spending as a manual receipt — you can view and delete it later in Receipts.',
     manual_spend_amount:'Amount', manual_spend_desc:'Description (optional)',
@@ -1115,6 +1117,31 @@ function allMonths(){
    si algo no se leyó bien). Por ahora el gasto se basa 100% en recibos. */
 function spendForMonth(key){
   return receipts.filter(r=>monthKey(r.date)===key).reduce((s,r)=>s+(r.total||0),0);
+}
+/* División del gasto del mes (idea del usuario 2026-09-03): comprar mercadería
+   NO es "gastar" — es convertir plata en stock (vive en el Valor del inventario).
+   invested = líneas que entraron al inventario; expense = servicios (unidad
+   'servicio'), consumos Eat out (productos expenseOnly), gastos manuales y
+   recibos sin líneas. El resto del total (impuestos/cargos que no vienen como
+   línea) se reparte proporcionalmente entre ambos lados. Clasifica solo, sin
+   pedirle nada al usuario — todo sale de datos que los recibos ya tienen. */
+function spendSplitForMonth(key){
+  let invested=0, expense=0;
+  receipts.filter(r=>monthKey(r.date)===key).forEach(r=>{
+    const total = r.total||0;
+    if(r.manual){ expense+=total; return; }
+    let inv=0, exp=0;
+    (r.appliedItems||[]).forEach(it=>{
+      const ing = it.ingName ? inventory.find(i=>i.name===it.ingName) : null;
+      const isExpense = it.unit==='servicio' || (ing && ing.expenseOnly);
+      if(isExpense) exp += it.totalPrice||0; else inv += it.totalPrice||0;
+    });
+    const itemsSum = inv+exp;
+    if(itemsSum<=0){ expense+=total; return; }
+    const factor = total/itemsSum; // reparte impuestos/cargos pro-rata (y normaliza si total < suma)
+    invested += inv*factor; expense += exp*factor;
+  });
+  return {invested, expense};
 }
 
 /* La unidad con la que este negocio REALMENTE trabaja: la más repetida en su

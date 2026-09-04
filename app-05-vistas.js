@@ -399,6 +399,17 @@ function dashboardView(){
            sin recibo" — compras en efectivo, gastos sueltos. Crea un recibo
            manual, así el mes suma con la misma contabilidad de siempre. */''}
       <button type="button" class="stat-value saffron" id="btn-add-manual-spend" style="background:none;border:none;padding:0;margin:0;cursor:pointer;text-align:left;display:block;" title="${t('manual_spend_title')}">${money(currentSpend)}</button>
+      ${/* El total dividido en sus dos naturalezas (idea del usuario): inversión
+           en mercadería (verde: sigue siendo tuya, vive en el Valor) vs gastos
+           operativos (ámbar: plata que se fue). Solo cuando hay gasto. */''}
+      ${currentSpend>0 ? (()=>{
+        const sp = spendSplitForMonth(currentMonthKey);
+        return `
+        <div class="spend-split">
+          ${sp.invested>0.005 ? `<div class="spend-split-row"><span>📦 ${t('spend_invested')}</span><strong style="color:var(--basil);">${money(sp.invested)}</strong></div>` : ''}
+          ${sp.expense>0.005 ? `<div class="spend-split-row"><span>💸 ${t('spend_expenses')}</span><strong style="color:var(--saffron);">${money(sp.expense)}</strong></div>` : ''}
+        </div>`;
+      })() : ''}
       ${monthlyBudget ? (()=>{
         const pct = Math.round((currentSpend/monthlyBudget)*100);
         return `
