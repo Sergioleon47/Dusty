@@ -781,7 +781,7 @@ function inventarioView(){
   const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   return `
   <div class="section-head">
-    <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : (businessName.trim() ? `<h2>${escapeHtml(businessName.trim())}</h2>` : '')}</div>
+    <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : ''}</div>
     ${/* El FAB del escáner de estante va ANTES que la fila de botones (pedido del
          usuario: el menú debajo del escáner) y en su propia fila a la derecha,
          calibrado para quedar en la MISMA posición de pantalla (alto Y ancho) que el
@@ -1398,15 +1398,8 @@ function alertSettingsModal(){
       <h3 class="saffron">${t('alert_title')}</h3>
       <div class="sub">${t('alert_sub')}</div>
 
-      <div class="settings-card">
-        ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('business_name_title'))}
-        <div class="field">
-          <label>${t('business_name_label')}</label>
-          <input id="business-name-input" type="text" maxlength="40" placeholder="${t('business_name_placeholder')}" value="${escapeHtml(draftBusinessName)}">
-        </div>
-        <div class="helper-note" style="margin-bottom:0;">${t('business_name_helper')}</div>
-      </div>
-
+      ${/* La sección "Business name" se eliminó de raíz (pedido del usuario) —
+           el campo, su guardado y el título que pintaba en Inventario. */''}
       <div class="settings-card">
         ${settingsCardHeader('bell','var(--saffron-soft)','var(--saffron-ink)',t('alert_threshold_title'))}
         <div class="field">

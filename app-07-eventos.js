@@ -415,8 +415,6 @@ function attachEvents(){
     if(saveAlertBtn) saveAlertBtn.onclick=()=>{
       const val=parseFloat(document.getElementById('alert-threshold-input').value);
       if(val>0) priceAlertThreshold=val;
-      const nameVal=document.getElementById('business-name-input').value;
-      businessName = nameVal.trim();
       const budgetRaw=document.getElementById('budget-input').value.trim();
       monthlyBudget = budgetRaw==='' ? null : Math.max(0, parseFloat(budgetRaw)||0);
       saveState();
