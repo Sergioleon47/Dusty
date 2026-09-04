@@ -783,8 +783,8 @@ function sendFeedback(){
    suma al mes, aparece en el calendario y la lista de Recibos, sincroniza por
    doc como cualquier recibo, y se borra con el flujo de siempre. Editar "el
    número" directo no existe a propósito: el gasto es la suma de sus recibos. */
-let showManualSpendModal=false, manualSpendError=false;
-function openManualSpendModal(){ showManualSpendModal=true; manualSpendError=false; render(); }
+let showManualSpendModal=false, manualSpendError=false, manualSpendKind='expense';
+function openManualSpendModal(){ showManualSpendModal=true; manualSpendError=false; manualSpendKind='expense'; render(); }
 function closeManualSpendModal(){ showManualSpendModal=false; render(); }
 function saveManualSpend(){
   const amt = parseFloat(document.getElementById('ms-amount').value);
@@ -794,7 +794,10 @@ function saveManualSpend(){
   const rec = {
     id: uid('r'), images: [], supplier: desc || t('manual_expense_label'), date,
     total: Math.round(amt*100)/100, itemCount: 0, appliedItems: [],
-    createdAt: new Date().toISOString(), purchaseIds: [], manual: true
+    createdAt: new Date().toISOString(), purchaseIds: [], manual: true,
+    // 'expense' (default) va a gastos operativos; 'investment' a inversión —
+    // una compra de mercadería en efectivo sin recibo también existe.
+    manualKind: manualSpendKind
   };
   receipts.push(rec);
   saveState();
@@ -808,6 +811,12 @@ function manualSpendModal(){
     <div class="modal">
       <h3 class="saffron">${t('manual_spend_title')}</h3>
       <div class="sub">${t('manual_spend_sub')}</div>
+      <div class="field"><label>${t('manual_kind_label')}</label>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="exit-reason-chip ${manualSpendKind==='expense'?'on':''}" data-ms-kind="expense" style="flex:1;">💸 ${t('manual_kind_expense')}</button>
+          <button type="button" class="exit-reason-chip ${manualSpendKind==='investment'?'on':''}" data-ms-kind="investment" style="flex:1;">📦 ${t('manual_kind_investment')}</button>
+        </div>
+      </div>
       <div class="field"><label for="ms-amount">${t('manual_spend_amount')}</label>
         <input id="ms-amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
         ${manualSpendError ? `<div style="font-size:12px;color:var(--tomato);margin-top:4px;">${t('manual_spend_err')}</div>` : ''}

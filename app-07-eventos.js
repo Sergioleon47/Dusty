@@ -434,6 +434,13 @@ function attachEvents(){
     manualSpendOverlay.onmousedown=(e)=>{ if(e.target===manualSpendOverlay) closeManualSpendModal(); };
     document.getElementById('btn-cancel-manual-spend').onclick=closeManualSpendModal;
     document.getElementById('btn-save-manual-spend').onclick=saveManualSpend;
+    document.querySelectorAll('[data-ms-kind]').forEach(b=>{
+      b.onclick=()=>{
+        manualSpendKind=b.dataset.msKind;
+        // Sin render(): un redibujado pisaría lo ya tipeado en monto/descripción.
+        document.querySelectorAll('[data-ms-kind]').forEach(x=>x.classList.toggle('on', x===b));
+      };
+    });
   }
   // Encuesta de salida: navegación de pasos, oferta y traspaso al delete real.
   const exitOverlay=document.getElementById('exit-survey-overlay');

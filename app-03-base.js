@@ -353,6 +353,7 @@ const I18N = {
     inv_value_label:'Valor',
     spend_invested:'Inversión en mercadería', spend_expenses:'Gastos operativos',
     dash_investment_of:'Inversión de', ph_capacity_example:'Ej. 500',
+    manual_kind_label:'Tipo', manual_kind_expense:'Gasto operativo', manual_kind_investment:'Inversión (mercadería)',
     inv_potential_label:'Potencial de venta', inv_potential_missing:'{n} sin precio de venta',
     team_profits_toggle:'Los miembros pueden ver ganancias y el valor del inventario',
     team_profits_helper:'Apagado: cada miembro ve costos y stock, pero no el % de ganancia, el precio de venta ni el Valor. Solo vos controlás esto.',
@@ -724,6 +725,7 @@ const I18N = {
     inv_value_label:'Value',
     spend_invested:'Stock investment', spend_expenses:'Operating expenses',
     dash_investment_of:'Investment for', ph_capacity_example:'e.g. 500',
+    manual_kind_label:'Type', manual_kind_expense:'Operating expense', manual_kind_investment:'Stock investment',
     inv_potential_label:'Sale potential', inv_potential_missing:'{n} without sale price',
     team_profits_toggle:'Members can see profits and inventory value',
     team_profits_helper:'Off: members see costs and stock, but not profit %, sale price, or the Value header. Only you control this.',
@@ -1138,7 +1140,7 @@ function spendSplitForMonth(key){
   let invested=0, expense=0;
   receipts.filter(r=>monthKey(r.date)===key).forEach(r=>{
     const total = r.total||0;
-    if(r.manual){ expense+=total; return; }
+    if(r.manual){ if(r.manualKind==='investment') invested+=total; else expense+=total; return; }
     let inv=0, exp=0;
     (r.appliedItems||[]).forEach(it=>{
       const ing = it.ingName ? inventory.find(i=>i.name===it.ingName) : null;
