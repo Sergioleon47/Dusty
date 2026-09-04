@@ -766,6 +766,53 @@ function sendFeedback(){
     feedbackSubmitting=false; render();
   });
 }
+/* ================= GASTO MANUAL (sin recibo) =================
+   Tocar el monto del mes en el Dashboard abre esto: un gasto en efectivo o sin
+   recibo entra como RECIBO MANUAL (mismo shape, sin fotos ni productos) — así
+   suma al mes, aparece en el calendario y la lista de Recibos, sincroniza por
+   doc como cualquier recibo, y se borra con el flujo de siempre. Editar "el
+   número" directo no existe a propósito: el gasto es la suma de sus recibos. */
+let showManualSpendModal=false, manualSpendError=false;
+function openManualSpendModal(){ showManualSpendModal=true; manualSpendError=false; render(); }
+function closeManualSpendModal(){ showManualSpendModal=false; render(); }
+function saveManualSpend(){
+  const amt = parseFloat(document.getElementById('ms-amount').value);
+  if(isNaN(amt) || amt<=0){ manualSpendError=true; render(); return; }
+  const desc = (document.getElementById('ms-desc').value||'').trim();
+  const date = document.getElementById('ms-date').value || localDateStr();
+  const rec = {
+    id: uid('r'), images: [], supplier: desc || t('manual_expense_label'), date,
+    total: Math.round(amt*100)/100, itemCount: 0, appliedItems: [],
+    createdAt: new Date().toISOString(), purchaseIds: [], manual: true
+  };
+  receipts.push(rec);
+  saveState();
+  logActivity('receipt_added', rec.supplier);
+  closeManualSpendModal();
+  showToast(t('manual_spend_added'));
+}
+function manualSpendModal(){
+  return `
+  <div class="overlay" id="manual-spend-overlay">
+    <div class="modal">
+      <h3 class="saffron">${t('manual_spend_title')}</h3>
+      <div class="sub">${t('manual_spend_sub')}</div>
+      <div class="field"><label for="ms-amount">${t('manual_spend_amount')}</label>
+        <input id="ms-amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+        ${manualSpendError ? `<div style="font-size:12px;color:var(--tomato);margin-top:4px;">${t('manual_spend_err')}</div>` : ''}
+      </div>
+      <div class="field"><label for="ms-desc">${t('manual_spend_desc')}</label>
+        <input id="ms-desc" type="text" maxlength="60" placeholder="${t('manual_spend_ph')}"></div>
+      <div class="field"><label for="ms-date">${t('lbl_date')}</label>
+        <input id="ms-date" type="date" value="${localDateStr()}"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-manual-spend">${t('btn_cancel')}</button>
+        <button class="btn btn-primary" id="btn-save-manual-spend">${t('manual_spend_save')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 /* ================= ENCUESTA DE SALIDA (retención) =================
    Se interpone ANTES del modal real de eliminar cuenta. Tres pasos con la misma
    barra de progreso y porcentaje del tutorial de bienvenida (pedido del usuario:

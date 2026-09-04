@@ -422,6 +422,15 @@ function attachEvents(){
     if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAlertSettingsModal=false; openExitSurvey(); };
   }
 
+  // Gasto manual sin recibo: el monto del mes es un botón que abre el modal.
+  const btnAddManualSpend=document.getElementById('btn-add-manual-spend');
+  if(btnAddManualSpend) btnAddManualSpend.onclick=openManualSpendModal;
+  const manualSpendOverlay=document.getElementById('manual-spend-overlay');
+  if(manualSpendOverlay){
+    manualSpendOverlay.onmousedown=(e)=>{ if(e.target===manualSpendOverlay) closeManualSpendModal(); };
+    document.getElementById('btn-cancel-manual-spend').onclick=closeManualSpendModal;
+    document.getElementById('btn-save-manual-spend').onclick=saveManualSpend;
+  }
   // Encuesta de salida: navegación de pasos, oferta y traspaso al delete real.
   const exitOverlay=document.getElementById('exit-survey-overlay');
   if(exitOverlay){

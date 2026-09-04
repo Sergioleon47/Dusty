@@ -395,7 +395,10 @@ function dashboardView(){
   <div class="grid-summary">
     <div class="stat-card">
       <div class="stat-label">${t('dash_spending_of')} ${monthLabel(currentMonthKey, uiLang)}</div>
-      <div class="stat-value saffron">${money(currentSpend)}</div>
+      ${/* El monto es un BOTÓN (pedido del usuario): tocarlo abre "agregar gasto
+           sin recibo" — compras en efectivo, gastos sueltos. Crea un recibo
+           manual, así el mes suma con la misma contabilidad de siempre. */''}
+      <button type="button" class="stat-value saffron" id="btn-add-manual-spend" style="background:none;border:none;padding:0;margin:0;cursor:pointer;text-align:left;display:block;" title="${t('manual_spend_title')}">${money(currentSpend)}</button>
       ${monthlyBudget ? (()=>{
         const pct = Math.round((currentSpend/monthlyBudget)*100);
         return `
