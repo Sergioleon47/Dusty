@@ -890,6 +890,10 @@
   .exit-reason-chip.on{border-color:var(--saffron);background:var(--saffron-soft);color:var(--saffron-ink);}
   .welcome-progress-fill{transition:width .45s cubic-bezier(.32,.72,.25,1);}
   /* División del gasto del mes: inversión (verde) vs gastos operativos (ámbar). */
+  /* Botón del cierre de mes al pie del calendario de Recibos. */
+  .cal-recap-btn{width:100%;margin-top:12px;padding:10px;border-radius:10px;border:1px solid var(--line);
+    background:var(--raised);color:var(--basil);font-weight:700;font-size:13.5px;cursor:pointer;}
+  .cal-recap-btn:active{transform:scale(.98);}
   /* Cierre de mes: filas del resumen — etiqueta a la izquierda, dato fuerte a la
      derecha, notas chicas debajo del dato. */
   .recap-list{display:flex;flex-direction:column;margin:6px 0 4px;}

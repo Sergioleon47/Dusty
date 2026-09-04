@@ -1016,6 +1016,9 @@ function receiptCalendarWidget(){
     <div class="cal-grid">
       ${cells.join('')}
     </div>
+    ${/* Cierre de mes, ubicado acá (decisión del usuario): resume el mes que el
+         calendario está mostrando — la conclusión del arco, junto a sus datos. */''}
+    <button type="button" class="cal-recap-btn" id="btn-month-recap">${t('recap_btn')}</button>
   </div>`;
 }
 

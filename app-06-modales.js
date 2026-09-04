@@ -783,9 +783,11 @@ function sendFeedback(){
    devuelve digeridos: inversión, gastos, presupuesto, valor y potencial del
    inventario, producto estrella, mayor proveedor y el mayor cambio de precio.
    Todo se calcula de datos que ya existen; cero estado nuevo que sincronizar. */
-let showMonthRecap=false;
+let showMonthRecap=false, monthRecapKey=null;
 function monthRecapModal(){
-  const key = localMonthStr();
+  // Vive en el calendario de Recibos: resume el MES QUE SE ESTÁ MIRANDO —
+  // navegás a julio y el recap cuenta julio, no siempre el mes actual.
+  const key = monthRecapKey || localMonthStr();
   const sp = spendSplitForMonth(key);
   const monthReceipts = receipts.filter(r=>monthKey(r.date)===key);
   const monthPurchases = purchases.filter(p=>monthKey(p.date)===key);

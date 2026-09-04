@@ -428,7 +428,10 @@ function attachEvents(){
 
   // Cierre de mes: el momento de cosecha — los datos del mes digeridos.
   const btnMonthRecap=document.getElementById('btn-month-recap');
-  if(btnMonthRecap) btnMonthRecap.onclick=()=>{ showMonthRecap=true; render(); };
+  if(btnMonthRecap) btnMonthRecap.onclick=()=>{
+    monthRecapKey = calendarViewMonth || localMonthStr(); // el mes que se está mirando
+    showMonthRecap=true; render();
+  };
   const monthRecapOverlay=document.getElementById('month-recap-overlay');
   if(monthRecapOverlay){
     const closeRecap=()=>{ showMonthRecap=false; render(); };
