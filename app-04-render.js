@@ -142,6 +142,9 @@ function renderApp(){
   // en app-03) — se reconstruye en cada render, así nunca queda desactualizado
   // frente a mutaciones in-place del array de compras.
   purchasesByIngIndex = buildPurchasesByIng();
+  // Cache financiero por render (periodFinancials/spendSplitForMonth) — mismo
+  // criterio: vive un ciclo, se tira acá para que jamás muestre datos viejos.
+  resetFinancialCache();
   /* El topbar (marca Dusty + botones de cuenta/ajustes/idioma) vive DENTRO de la
      página del Dashboard, no arriba del carrusel: la marca aparece una sola vez en
      la app, se desliza junto con el Dashboard en el swipe, e Inventario y Recibos

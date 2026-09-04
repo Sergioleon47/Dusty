@@ -212,7 +212,7 @@ function receiptDetailModal(){
     <div class="modal wide" style="view-transition-name:${receiptVtName(r.id)};">
       <h3 class="navy">${escapeHtml(r.supplier)||t('no_supplier_name')}</h3>
       <div class="sub">${escapeHtml(r.date)} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
-      ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${escapeHtml(receiptImageSrc(img))}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
+      ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${escapeHtml(receiptImgSrc(img))}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
       <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">${t('rd_applied_label')}</label>
       ${(r.appliedItems||[]).map(it=>`
         <div class="matched-item" style="cursor:default;">
@@ -828,7 +828,14 @@ let recapDemo=false;
 function recapDemoKeys(mode){
   const cur = localMonthStr();
   const months=[]; for(let i=0;i<24;i++) months.push(shiftMonthStr(cur,-i)); // nuevo→viejo
-  if(mode==='year') return [...new Set(months.map(k=>k.slice(0,4)))];
+  if(mode==='year'){
+    // Solo el año en curso y años COMPLETOS de la muestra: el más viejo suele
+    // tener 2-3 meses y compararlo como año entero inventaba un crecimiento
+    // absurdo (~+300%) que no representa el modelo del ~4.5% mensual.
+    const counts = {};
+    months.forEach(k=>{ const y=k.slice(0,4); counts[y]=(counts[y]||0)+1; });
+    return [...new Set(months.map(k=>k.slice(0,4)))].filter(y=>y===cur.slice(0,4) || counts[y]===12);
+  }
   return months;
 }
 function recapDemoFin(key){
@@ -907,7 +914,8 @@ function monthRecapModal(){
       if(b===null || b===undefined || (a===0 && b===0)) return '';
       if(b===0) return `<span class="recap-delta" style="color:var(--ink-soft);">${t('recap_new_delta')}</span>`;
       const delta = (a-b)/Math.abs(b)*100;
-      if(delta===0) return `<span class="recap-delta">＝</span>`;
+      // <0.5% se muestra como "＝" — un "▲ 0%" es ruido que parece cambio.
+      if(Math.abs(delta)<0.5) return `<span class="recap-delta">＝</span>`;
       const good = goodUp===false ? delta<=0 : delta>=0;
       const shown = Math.abs(delta)>=1000 ? '999+' : Math.abs(delta).toFixed(0);
       return `<span class="recap-delta" style="color:${good?'var(--basil)':'var(--tomato)'};">${delta>0?'▲':'▼'} ${shown}% (${(fmt||dAmt)(a-b)})</span>`;
@@ -1059,23 +1067,42 @@ function monthRecapModal(){
     }
     // Sparkline de 13 meses de Ganancia neta: la tendencia de un vistazo (13 y
     // no 12 para que el mismo mes del año pasado entre y se vea la estacionalidad).
+    // HONESTIDAD: solo grafica meses donde el P&L es computable (hubo salidas) —
+    // un mes con recibos pero sin salidas tiene net = −gastos, una "pérdida" que
+    // la propia columna se niega a mostrar; y un mes sin datos se SALTEA (corta la
+    // línea) en vez de dibujarse como un 0 que inventa forma de tendencia.
     let spark='';
     if(recapMode==='month'){
       const cur = localMonthStr();
       const ms=[]; for(let i=12;i>=0;i--) ms.push(shiftMonthStr(cur,-i));
-      const vals = ms.map(k=> (demo||withData.has(k)) ? finOf(k).net : 0);
-      if(vals.some(v=>v!==0)){
+      const vals = ms.map(k=>{
+        if(!demo && !withData.has(k)) return null;
+        const f = finOf(k);
+        return f.hadOutflows ? f.net : null;
+      });
+      const real = vals.filter(v=>v!==null);
+      if(real.length>=2){
         const w=300, h=36, pad=3;
-        const min=Math.min(0,...vals), max=Math.max(0,...vals), span=(max-min)||1;
+        const min=Math.min(0,...real), max=Math.max(0,...real), span=(max-min)||1;
         const X=i=> pad+i*(w-2*pad)/(vals.length-1);
         const Y=v=> h-pad-(v-min)/span*(h-2*pad);
-        const pts = vals.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
-        const last = vals[vals.length-1];
+        // Tramos de meses consecutivos con dato — cada hueco corta la línea.
+        const segs=[]; let seg=[];
+        vals.forEach((v,i)=>{
+          if(v===null){ if(seg.length>1) segs.push(seg); seg=[]; return; }
+          seg.push(`${X(i).toFixed(1)},${Y(v).toFixed(1)}`);
+        });
+        if(seg.length>1) segs.push(seg);
+        const dots = vals.map((v,i)=> v===null ? '' :
+          `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="1.6" fill="var(--basil)"/>`).join('');
+        const lastIdx = vals.length-1-[...vals].reverse().findIndex(v=>v!==null);
+        const last = vals[lastIdx];
         spark = `<div class="recap-spark">
           <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
             ${min<0&&max>0 ? `<line x1="${pad}" y1="${Y(0).toFixed(1)}" x2="${w-pad}" y2="${Y(0).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/>` : ''}
-            <polyline points="${pts}" fill="none" stroke="var(--basil)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-            <circle cx="${X(vals.length-1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="3" fill="${last>=0?'var(--basil)':'var(--tomato)'}"/>
+            ${segs.map(s=>`<polyline points="${s.join(' ')}" fill="none" stroke="var(--basil)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
+            ${dots}
+            <circle cx="${X(lastIdx).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="3" fill="${last>=0?'var(--basil)':'var(--tomato)'}"/>
           </svg>
           <div class="recap-spark-cap">${t('recap_trend_label')}</div>
         </div>`;
@@ -1261,12 +1288,6 @@ function openItemModal(item){
   showItemModal = true; render();
 }
 // profitMarginPct ahora vive en patron-core.js.
-function marginBadge(item){
-  const margin = profitMarginPct(item.costPerUnit, item.salePrice);
-  if(margin===null) return '';
-  const color = margin<0 ? 'var(--tomato)' : margin<15 ? 'var(--saffron)' : 'var(--basil)';
-  return `<span style="color:${color};font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;">· ${margin.toFixed(0)}% ${t('lbl_profit_pct_short')}</span>`;
-}
 function itemModal(){
   return `
   <div class="overlay" id="item-overlay">
@@ -1324,7 +1345,7 @@ function itemModal(){
           <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
             <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
           </div>
-          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         </div>
         ${/* Precio de venta y % de ganancia: SOLO para quien el dueño lo permite
              (canSeeFinancials) — un miembro sin permiso ve costo y stock, pero no
@@ -1332,7 +1353,7 @@ function itemModal(){
              se renderiza (ver el guard en app-07). */''}
         ${canSeeFinancials() ? `
         <div class="field-row" style="margin-bottom:0;">
-          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
           <div class="field" style="margin-bottom:0;"><label id="fi-profit-label">${t('lbl_profit_pct')}</label>
             ${(()=>{
               const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
@@ -1351,7 +1372,7 @@ function itemModal(){
           <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
         </div>
         <div class="field-row" style="margin-bottom:0;">
-          <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
           <div class="field" style="margin-bottom:0;"><label for="fi-capacity">${t('capacity_label')}</label><input id="fi-capacity" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.capacityFull||'')}" placeholder="${t('ph_capacity_example')}"></div>
         </div>
         <div class="helper-note" style="margin:8px 0 0;">${t('capacity_helper')}</div>
@@ -1757,6 +1778,17 @@ function scanModal(){
           <input id="scan-invoice-total" type="number" step="0.01" value="${scanInvoiceTotal!==null?scanInvoiceTotal:''}" placeholder="${t('ph_invoice_total')}">
         </div>
         <div class="helper-note">${t('invoice_total_helper')}</div>
+        ${(()=>{
+          /* Aviso suave si el total impreso y la suma de líneas difieren mucho
+             (>1.5× para cualquiera de los dos lados): el clásico OCR que lee
+             $4,189.00 donde decía $41.89 entraba directo al gasto del mes sin
+             ninguna señal (auditoría 2026-09-04). No bloquea nada — solo avisa. */
+          const sum = scanExtracted.reduce((s,it)=>s+(it.totalPrice>0&&it.qty>0?it.totalPrice:0),0);
+          if(scanInvoiceTotal===null || sum<=0) return '';
+          const ratio = scanInvoiceTotal/sum;
+          if(ratio<=1.5 && ratio>=1/1.5) return '';
+          return `<div class="scan-error" style="margin-top:8px;">⚠ ${t('scan_total_mismatch').replace('{total}', money(scanInvoiceTotal)).replace('{sum}', money(sum))}</div>`;
+        })()}
 
         ${(()=>{
           const increases = scanExtracted.filter(item=>{
@@ -2835,6 +2867,10 @@ function applyScanResults(){
 
   const appliedItems = [];
   const createdPurchaseIds = [];
+  // Si el usuario borró el campo fecha (input date vacío emite ''), el recibo caía
+  // con date:'' y desaparecía de TODOS los meses — gasto perdido en silencio
+  // (auditoría 2026-09-04). Mismo fallback que ya usaba el gasto manual.
+  const applyDate = isValidDateStr(scanDate) ? scanDate : localDateStr();
   scanExtracted.forEach(item=>{
     if(item.qty<=0 || item.totalPrice<=0 || !item.rawName || !item.rawName.trim()) return;
     let ingId = item.matchedIngId;
@@ -2908,9 +2944,14 @@ function applyScanResults(){
     // comparar el precio de dos compras del mismo producto podía estar comparando libras
     // contra cajas sin darse cuenta, mostrando subas de precio "de 800%" que en realidad
     // eran solo un cambio de unidad mal leído — ver lastPriceChangePct().
-    purchases.push({id:purchaseId, ingId, qty:item.qty, unit:item.unit, totalPrice:item.totalPrice, supplier:scanSupplier||t('fallback_scanned'), date:scanDate});
+    purchases.push({id:purchaseId, ingId, qty:item.qty, unit:item.unit, totalPrice:item.totalPrice, supplier:scanSupplier||t('fallback_scanned'), date:applyDate});
     createdPurchaseIds.push(purchaseId);
-    appliedItems.push({rawName:item.rawName, qty:item.qty, unit:item.unit, totalPrice:item.totalPrice, ingName});
+    // ingId + expenseOnly como SNAPSHOT: la clasificación inversión/gasto de este
+    // recibo queda congelada acá — renombrar o borrar el producto después ya no
+    // reclasifica meses cerrados (antes el split buscaba por nombre actual).
+    const ingNow = inventory.find(i=>i.id===ingId);
+    appliedItems.push({rawName:item.rawName, qty:item.qty, unit:item.unit, totalPrice:item.totalPrice, ingName,
+      ingId, expenseOnly: !!(ingNow && ingNow.expenseOnly)});
   });
 
   if(appliedItems.length>0){
@@ -2923,7 +2964,7 @@ function applyScanResults(){
       // En modo lote cada recibo guarda solo la foto de la que salió (scanCurrentImages);
       // en modo normal, todas las páginas como siempre.
       id:uid('r'), images: scanCurrentImages ? scanCurrentImages.slice() : scanImages.slice(),
-      supplier:scanSupplier||t('fallback_unspecified'), date:scanDate,
+      supplier:scanSupplier||t('fallback_unspecified'), date:applyDate,
       total: receiptTotal,
       itemCount: appliedItems.length, appliedItems, createdAt: new Date().toISOString(),
       purchaseIds: createdPurchaseIds
@@ -3035,7 +3076,7 @@ function printReceipt(r){
   const rows = (r.appliedItems||[]).map(it=>`
     <tr><td>${escapeHtml(it.rawName)}</td><td>${escapeHtml(it.qty)} ${escapeHtml(unitLabel(it.unit))}</td><td>${money(it.totalPrice)}</td></tr>
   `).join('');
-  const imgsHtml = receiptImages(r).map(img=>`<img src="${escapeHtml(receiptImageSrc(img))}" alt="">`).join('');
+  const imgsHtml = receiptImages(r).map(img=>`<img src="${escapeHtml(receiptImgSrc(img))}" alt="">`).join('');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(r.supplier)||t('no_supplier_name')}</title>
     <style>
       body{font-family:-apple-system,sans-serif;padding:24px;color:#1C1C1E;max-width:480px;margin:0 auto;}

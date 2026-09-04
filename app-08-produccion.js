@@ -19,8 +19,16 @@ let deletedRecipeIds = []; // lápidas — mismo mecanismo que deletedInventoryI
    meta (como calNotes) — por eso se CAPA a las últimas OUTFLOWS_MAX entradas: el
    registro financiero de verdad son las compras/recibos, esto es el "qué salió y
    cuándo" informativo. Más nuevo primero. */
-let outflows = []; // {id, type:'production'|'adjust', recipeId, recipeName, count, items:[{ingId, ingName, qty, unit}], date, createdAt, by, byLabel}
+let outflows = []; // {id, type:'production'|'adjust', recipeId, recipeName, count, items:[{ingId, ingName, qty, unit, costAt, priceAt}], date, createdAt, by, byLabel, reason?, saleTotal?, costTotal?}
 const OUTFLOWS_MAX = 400;
+/* Resumen financiero de las salidas que el cap evictó: {'YYYY-MM': {revenue, cogs}}.
+   Sin esto, el Cierre de mes perdía ingresos de los meses viejos en silencio a
+   medida que el cap de 400 iba descartando salidas (revisión de contador
+   2026-09-04). Se alimenta en recordOutflow con los MISMOS números (outflowPL,
+   app-03) que usaría periodFinancials, así el total del mes no cambia al evictar.
+   Viaja en meta como outflows; se mergea por máximo por mes (la evicción es
+   determinística sobre los mismos docs, dos dispositivos convergen al mismo valor). */
+let outflowArchive = {};
 
 let showRecipeModal = false, draftRecipe = null, editingRecipeId = null;
 let recipeScanState = 'idle', recipeScanError = '', recipeScanNote = '', recipeScanRequestId = 0;
@@ -30,6 +38,10 @@ let showOutflowsModal = false;
    con su propia cámara — ver el guard de render() en app-04, que también protege
    este <video> de ser arrancado por un redibujado de fondo. */
 let showShelfModal = false, shelfState = 'camera', shelfItems = [], shelfUnmatched = [], shelfError = '', shelfRequestId = 0;
+// Qué representan las salidas de este ajuste: 'sale' (default — la intención del
+// escáner de salidas) o 'loss' (merma). Decide si el Cierre de mes las cuenta
+// como ingresos estimados o solo como costo.
+let shelfReason = 'sale';
 // Burbuja de instrucciones del badge "−" del escáner de estante (ver shelfScanFab).
 let showShelfInfoBubble = false;
 let shelfCamStream = null;
@@ -42,7 +54,19 @@ function recipePhotoSrc(r){
 }
 function recordOutflow(entry){
   outflows.unshift(entry);
-  if(outflows.length > OUTFLOWS_MAX) outflows.length = OUTFLOWS_MAX;
+  if(outflows.length > OUTFLOWS_MAX){
+    // Antes de descartar, el aporte financiero de cada salida evictada se
+    // consolida en el archivo mensual — la historia del P&L no se achica.
+    outflows.slice(OUTFLOWS_MAX).forEach(o=>{
+      const pl = outflowPL(o);
+      const k = o && monthKey(o.date);
+      if(!pl || !k) return;
+      const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
+      a.revenue = roundQty(a.revenue + pl.revenue);
+      a.cogs = roundQty(a.cogs + pl.cogs);
+    });
+    outflows.length = OUTFLOWS_MAX;
+  }
 }
 
 /* ---------- LLAMADA AL MODO STOCK (leer cantidades de una foto) ---------- */
@@ -150,8 +174,8 @@ function productionHubModal(){
 /* ---------- MODAL: RECETA (crear/editar) ---------- */
 function openRecipeModal(recipe){
   draftRecipe = recipe
-    ? {id:recipe.id, name:recipe.name, photo:recipe.photo||null, components:(recipe.components||[]).map(c=>({...c}))}
-    : {id:uid('rc'), name:'', photo:null, components:[]};
+    ? {id:recipe.id, name:recipe.name, photo:recipe.photo||null, salePrice:recipe.salePrice||null, components:(recipe.components||[]).map(c=>({...c}))}
+    : {id:uid('rc'), name:'', photo:null, salePrice:null, components:[]};
   editingRecipeId = recipe ? recipe.id : null;
   recipeScanState='idle'; recipeScanError=''; recipeScanNote=''; recipeScanRequestId++;
   showRecipeModal = true; render();
@@ -216,6 +240,15 @@ function recipeModal(){
           <span id="recipe-cost-display" style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--basil);">${money(cost.total)}</span>
         </div>
         ${cost.missing>0 ? `<div class="helper-note" style="margin:8px 0 0;color:var(--saffron-ink);">⚠ ${t('recipe_cost_missing').replace('{n}', cost.missing)}</div>` : ''}
+        ${/* Precio de venta por pieza (opcional): la ÚNICA forma honesta de que el
+             Cierre de mes estime ingresos de una producción — antes se valuaban
+             los insumos consumidos al salePrice de cada insumo, que inventaba
+             ingresos o pérdidas (revisión de contador 2026-09-04). */''}
+        <div class="field" style="margin:12px 0 0;">
+          <label for="recipe-sale-price">${t('recipe_sale_price_label')}</label>
+          <input id="recipe-sale-price" type="number" step="0.01" min="0" inputmode="decimal" value="${draftRecipe.salePrice??''}" placeholder="0.00">
+          <div class="helper-note" style="margin:6px 0 0;">${t('recipe_sale_price_helper')}</div>
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -292,7 +325,10 @@ function saveRecipeFromModal(){
     .map(c=>({ingId:c.ingId, qty: roundQty(parseFloat(c.qty)||0)}))
     .filter(c=>c.ingId && c.qty>0);
   if(components.length===0){ showToast(t('recipe_need_components'), 'error'); return; }
+  const spInput = document.getElementById('recipe-sale-price');
+  const sp = spInput ? roundQty(Math.max(0, parseFloat(spInput.value)||0)) : (draftRecipe.salePrice||0);
   const rec = {id: draftRecipe.id, name, photo: draftRecipe.photo||null, components,
+    salePrice: sp>0 ? sp : null,
     createdAt: (editingRecipeId && recipeById(editingRecipeId)?.createdAt) || new Date().toISOString()};
   if(currentUser){ rec.lastEditedBy = currentUserLabel(); rec.lastEditedAt = new Date().toISOString(); }
   const idx = editingRecipeId ? recipes.findIndex(r=>r.id===editingRecipeId) : -1;
@@ -369,7 +405,7 @@ function produceModal(){
             <span style="font-family:'IBM Plex Mono';font-size:12.5px;color:var(--ink-soft);white-space:nowrap;">${escapeHtml(p.current)} → <strong style="color:var(--ink);">${escapeHtml(p.after)}</strong> ${escapeHtml(unitLabel(p.unit))}</span>
           </div>
           <div style="font-size:12px;color:var(--ink-soft);">−${escapeHtml(p.deduct)} ${escapeHtml(unitLabel(p.unit))}</div>
-          ${p.short>0 ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">⚠ ${t('produce_short_note').replace('{n}', p.short).replace('{u}', unitLabel(p.unit))}</div>` : ''}
+          ${p.short>0 ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">⚠ ${t('produce_short_note').replace('{n}', p.short).replace('{u}', escapeHtml(unitLabel(p.unit)))}</div>` : ''}
         </div>`;
       }).join('')}
 
@@ -400,11 +436,18 @@ function applyProduction(){
     ing.qtyOnHand = p.after;
     if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
     // Lo REALMENTE descontado (si faltaba stock, el descuento se frenó en 0).
-    items.push({ingId: p.ingId, ingName: p.name, qty: roundQty(p.deduct - p.short), unit: p.unit});
+    // costAt: snapshot del costo unitario de HOY — sin él, el P&L de meses viejos
+    // se revaluaba a precios actuales y borrar un producto borraba su historia.
+    items.push({ingId: p.ingId, ingName: p.name, qty: roundQty(p.deduct - p.short), unit: p.unit,
+      costAt: Number(ing.costPerUnit)||0});
   });
+  // saleTotal/costTotal: el P&L de una producción se estima por el precio de la
+  // PIEZA (si la receta lo tiene), no por el salePrice de los insumos consumidos.
+  const costTotal = roundQty(items.reduce((s,it)=>s + Math.abs(it.qty)*it.costAt, 0));
+  const saleTotal = (rec.salePrice||0)>0 ? roundQty(count * rec.salePrice) : null;
   recordOutflow({
     id: uid('o'), type:'production', recipeId: rec.id, recipeName: rec.name, count,
-    items, date: localDateStr(), createdAt: new Date().toISOString(),
+    items, saleTotal, costTotal, date: localDateStr(), createdAt: new Date().toISOString(),
     by: currentUser ? currentUser.uid : null, byLabel: currentUser ? currentUserLabel() : ''
   });
   saveState();
@@ -456,7 +499,7 @@ function openShelfModal(){
     ensureTrialAccount().catch(()=>{});
   }
   shelfRequestId++;
-  shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError='';
+  shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason='sale';
   showShelfModal = true; render();
   startShelfCamera();
 }
@@ -599,6 +642,11 @@ function shelfScanModal(){
 
       ${shelfState==='review' ? `
         ${shelfItems.length>0 ? `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('shelf_review_hint')}</div>` : ''}
+        ${shelfItems.length>0 ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px;">
+          <span style="font-size:12px;font-weight:700;color:var(--ink-mid);">${t('shelf_reason_label')}</span>
+          <button type="button" class="exit-reason-chip ${shelfReason==='sale'?'on':''}" data-shelf-reason="sale">${t('shelf_reason_sale')}</button>
+          <button type="button" class="exit-reason-chip ${shelfReason==='loss'?'on':''}" data-shelf-reason="loss">${t('shelf_reason_loss')}</button>
+        </div>` : ''}
         ${shelfItems.map((it,idx)=>{
           const ing = inventory.find(i=>i.id===it.ingId);
           if(!ing) return '';
@@ -626,7 +674,7 @@ function shelfScanModal(){
                 <input data-shelf-capacity="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(it.capacityDraft)}" placeholder="${t('ph_capacity_example')}" style="flex:1;">
                 <span style="font-size:12px;color:var(--sky-ink);font-weight:700;">${escapeHtml(unitLabel(ing.unit))}</span>
               </div>
-              <div style="font-size:10.5px;color:var(--sky-ink);margin-top:5px;">${t('shelf_capacity_helper').replace('{u}', unitLabel(ing.unit))}</div>
+              <div style="font-size:10.5px;color:var(--sky-ink);margin-top:5px;">${t('shelf_capacity_helper').replace('{u}', escapeHtml(unitLabel(ing.unit)))}</div>
             </div>` : ''}
             <div class="mi-fields" style="align-items:center;">
               <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_final_label')}</label>
@@ -677,12 +725,18 @@ function applyShelfAdjust(){
     if(newQty===current) return; // capacidad guardada arriba, pero sin movimiento que registrar
     ing.qtyOnHand = newQty;
     if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
-    // qty siempre positiva: cuánto salió.
-    items.push({ingId: ing.id, ingName: ing.name, qty: roundQty(current - newQty), unit: ing.unit});
+    // qty siempre positiva: cuánto salió. costAt/priceAt: snapshot de costo y
+    // precio de venta de HOY — el P&L histórico deja de moverse cuando cambian
+    // los precios o se borra el producto (revisión de contador 2026-09-04).
+    items.push({ingId: ing.id, ingName: ing.name, qty: roundQty(current - newQty), unit: ing.unit,
+      costAt: Number(ing.costPerUnit)||0, priceAt: Number(ing.salePrice)||0});
   });
   if(items.length>0){
     recordOutflow({
       id: uid('o'), type:'adjust', recipeId:null, recipeName:'', count:null,
+      // reason: 'sale' (default, la intención del escáner de salidas) o 'loss'
+      // (merma/rotura/vencido) — sin esto, tirar mercadería inflaba los Ingresos.
+      reason: shelfReason==='loss' ? 'loss' : 'sale',
       items, date: localDateStr(), createdAt: new Date().toISOString(),
       by: currentUser ? currentUser.uid : null, byLabel: currentUser ? currentUserLabel() : ''
     });
@@ -883,5 +937,13 @@ function attachProductionEvents(){
     });
     const btnApply=document.getElementById('btn-apply-shelf');
     if(btnApply) btnApply.onclick=applyShelfAdjust;
+    // Ventas ⇄ pérdida/merma del ajuste — decide cómo lo cuenta el Cierre de mes.
+    document.querySelectorAll('[data-shelf-reason]').forEach(b=>{
+      b.onclick=()=>{
+        const r=b.dataset.shelfReason;
+        if(r===shelfReason) return;
+        shelfReason=r; render();
+      };
+    });
   }
 }

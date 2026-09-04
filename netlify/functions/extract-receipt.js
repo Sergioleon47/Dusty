@@ -189,14 +189,16 @@ exports.handler = async (event) => {
     } else if (parsed.imageBase64) {
       images = [{ base64: parsed.imageBase64, mediaType: parsed.mediaType || 'image/jpeg' }];
     }
+    // slice(0,120) por string: la lista ya venía capada en cantidad, pero un nombre
+    // individual sin tope inflaba los tokens de entrada del prompt gratis.
     if (Array.isArray(parsed.inventoryNames)) {
-      inventoryNames = parsed.inventoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
+      inventoryNames = parsed.inventoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300).map(n => n.slice(0, 120));
     }
     if (Array.isArray(parsed.caseTrackedNames)) {
-      caseTrackedNames = parsed.caseTrackedNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
+      caseTrackedNames = parsed.caseTrackedNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300).map(n => n.slice(0, 120));
     }
     if (Array.isArray(parsed.categoryNames)) {
-      categoryNames = parsed.categoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50);
+      categoryNames = parsed.categoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50).map(n => n.slice(0, 120));
     }
     multi = parsed.multi === true;
     ownerUid = typeof parsed.ownerUid === 'string' && parsed.ownerUid ? parsed.ownerUid : callerUid;
@@ -352,6 +354,7 @@ exports.handler = async (event) => {
     // cobrado nada — se devuelve la unidad reservada. Los 502 de más arriba
     // (Claude contestó pero mal) NO refundan: esa llamada costó plata real.
     await refundScanUsage(ownerUid, 1, reservation.period);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno', code: 'internal' }) };
+    // Genérico a propósito: err.message crudo filtraba detalles internos al cliente.
+    return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }
 };

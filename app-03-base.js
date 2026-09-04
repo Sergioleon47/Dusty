@@ -30,7 +30,7 @@ function setLang(l){
 const I18N = {
   es: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos',
-    dash_spending_of:'Gasto de', dash_see_all_months:'Ver todos los meses',
+    dash_see_all_months:'Ver todos los meses',
     dash_budget_of:'Presupuesto:', dash_edit_budget:'Editar',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
     stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
@@ -58,16 +58,14 @@ const I18N = {
     dash_empty_title:'Vamos a armar tu inventario', dash_empty_sub:'Escaneá tu primer recibo y Dusty carga los productos y precios solo, o agregá uno a mano si preferís empezar simple.',
     dash_empty_scan_btn:'Escanear recibo', dash_empty_manual_btn:'+ Agregar producto a mano',
     empty_receipts_title:'Aún no hay recibos guardados',
-    inv_title:'Inventario', inv_sub:'Tus productos y su costo actual por unidad, siempre al día',
     inv_in_stock_suffix:'en stock',
-    btn_new_item:'+ Nuevo producto',
     th_ingredient:'Producto', th_cost_unit:'Costo/unidad', lbl_stock:'Cantidad en stock',
     btn_edit:'Editar', btn_delete:'Eliminar',
     rec_title:'Recibos', rec_sub:'Historial de recibos escaneados o subidos — cada uno alimentó el inventario automáticamente',
     no_supplier_name:'Proveedor sin nombre', product_singular:'producto', products_plural:'productos',
     rec_search_placeholder:'Buscar por proveedor o producto...', rec_no_matches:'Ningún recibo coincide con la búsqueda.',
     rec_month_total:'Total del mes', btn_print:'Imprimir', btn_share:'Enviar',
-    btn_cal_prev:'Mes anterior', btn_cal_next:'Mes siguiente', day_receipts_title:'Recibos de ese día',
+    btn_cal_prev:'Mes anterior', btn_cal_next:'Mes siguiente',
     btn_cal_year_view:'Ver todo el año', btn_cal_month_view:'Volver al mes',
     rec_amount_search_placeholder:'Buscar por monto o producto...',
     confirm_delete_receipt:'¿Eliminar este recibo? También se van a quitar las compras que generó del historial y del gasto mensual.',
@@ -83,8 +81,6 @@ const I18N = {
     ms_title:'Gasto por mes', ms_sub:'Todos los meses con compras registradas, uno al lado del otro',
     ms_no_purchases:'Todavía no hay compras registradas.', ms_current_month:'mes actual',
     alert_title:'Alertas de precio', alert_sub:'Ajustá cuándo un aumento de precio al escanear un recibo se marca como algo que requiere revisión inmediata.',
-    business_name_title:'Nombre del negocio', business_name_label:'Nombre', business_name_placeholder:'Ej. Pedro\'s',
-    business_name_helper:'Si lo completás, reemplaza el título "Inventario" en esta cuenta. Dejalo vacío para no cambiar nada. Solo afecta a esta cuenta, nunca a otras.',
     alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
     budget_title:'Presupuesto mensual', budget_label:'Monto ($)', budget_placeholder:'Ej. 2000',
     budget_helper:'Se repite todos los meses hasta que lo cambies. Dejalo vacío para no mostrar la barra de presupuesto.',
@@ -114,28 +110,20 @@ const I18N = {
     pb_open_btn:'📷 Escanear productos',
     pb_title:'Armá tu inventario con una foto',
     pb_sub:'Sacá UNA foto con varios productos a la vista (el estante, la mesa, las compras) — la IA identifica cada uno y los agregás todos juntos.',
-    pb_tap_photo:'Tocá para sacar la foto',
     pb_loading:'Identificando los productos de la foto…',
-    pb_retry:'Probar con otra foto',
     pb_none_found:'No se reconoció ningún producto en la foto — probá con más luz o más de cerca.',
     pb_review_hint:'Se detectaron {n} productos. Revisá cada uno, destildá los que no quieras, y corregí lo que haga falta antes de agregar.',
     pb_already_in_inventory:'Ya está en tu inventario — quedó destildado para no duplicarlo.',
     pb_low_confidence:'La IA no está segura de este — revisá el nombre antes de agregar.',
     pb_cost_ph:'Costo',
     pb_add_btn:'Agregar {n} al inventario',
-    ids_open_btn:'🔎 Identificar',
-    ids_title:'¿Qué producto es?',
-    ids_sub:'Apuntá la cámara al producto y tocá el botón — te decimos qué es y si ya lo tenés en tu inventario.',
     ids_capture:'Identificar',
     ids_use_native_camera:'📷 Usar la cámara del sistema',
-    ids_loading:'Identificando el producto…',
     ids_found_in_inventory:'Ya está en tu inventario',
-    ids_not_in_inventory:'No está en tu inventario todavía',
     ids_stock:'Stock',
     ids_cost:'Costo',
     ids_scan_again:'Escanear otro',
     ids_open_item:'Ver producto',
-    ids_add_item:'+ Agregarlo',
     auth_continue_google:'Continuar con Google', auth_or:'o', auth_password:'Contraseña',
     auth_forgot_password:'¿Olvidaste tu contraseña?', auth_no_account:'¿No tenés cuenta?',
     auth_have_account:'¿Ya tenés cuenta?', auth_create_account:'Crear cuenta', auth_loading:'Un momento…',
@@ -217,13 +205,13 @@ const I18N = {
     barcode_scan_camera_error:'No se pudo acceder a la cámara — revisá los permisos del navegador.',
     barcode_scan_looking:'Buscando el producto…',
     barcode_not_found:'No encontramos ese código — completá los datos a mano.',
-    lbl_sale_price:'Precio de venta', lbl_profit_pct:'% de ganancia', lbl_profit_pct_short:'ganancia',
+    lbl_sale_price:'Precio de venta', lbl_profit_pct:'% de ganancia',
     lbl_sku:'SKU / Código', ph_sku_example:'Ej. SKU-1042', lbl_item_supplier:'Proveedor',
     lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp',
     item_name_required:'Ponele un nombre al producto para poder guardarlo.',
     lbl_unit:'Unidad', lbl_cost_unit:'Costo por unidad',
     item_helper:'Al registrar una compra o escanear un recibo, el costo se actualiza solo.',
-    item_section_photo:'Foto', item_section_basic:'Datos básicos', item_section_pricing:'Precio y ganancia', item_section_ids:'Identificación y stock',
+    item_section_basic:'Datos básicos', item_section_pricing:'Precio y ganancia', item_section_ids:'Identificación y stock',
     btn_remove_photo:'Quitar foto', lbl_qty_bought:'Cantidad comprada',
     lbl_total_paid:'Precio total pagado', lbl_supplier:'Proveedor',
     ph_supplier_example:'Ej. US Foods', lbl_date:'Fecha',
@@ -347,26 +335,24 @@ const I18N = {
     oc_title:'Calculadora de pedido', oc_clear:'Limpiar',
     oc_sub:'Tu inventario como teclas — precio de la última compra',
     oc_empty:'Tocá los productos de abajo para armar el pedido',
-    oc_total:'Total del pedido', oc_more_aria:'Ver más productos',
+    oc_total:'Total del pedido',
     oc_minus_aria:'Menos {name}', oc_plus_aria:'Más {name}', oc_type_aria:'Escribir cantidad de {name}',
     oc_search_ph:'Buscar producto…', oc_no_match:'Ningún producto coincide', oc_close:'Cerrar',
     inv_value_label:'Valor',
-    spend_invested:'Inversión en mercadería', spend_expenses:'Gastos operativos',
+    spend_expenses:'Gastos operativos',
     dash_investment_of:'Inversión de', ph_capacity_example:'Ej. 500',
     manual_kind_label:'Tipo', manual_kind_expense:'Gasto operativo', manual_kind_investment:'Inversión (mercadería)',
     recap_btn:'💲 Cierre de mes', recap_title:'Tu mes en Dusty',
     recap_revenue:'Ingresos (est.)', recap_cogs:'Costo de lo vendido',
     recap_gross:'Ganancia bruta', recap_net:'Ganancia neta',
-    recap_margin:'margen', recap_compare:'⇄ Comparar', recap_single:'Un período',
+    recap_margin:'margen', recap_compare:'⇄ Comparar',
     recap_mode_month:'Mes', recap_mode_year:'Año',
     recap_value_today:'Valor del inventario (hoy)',
     recap_est_note:'Ganancias estimadas según tus salidas registradas (producciones y escáner de salidas) × tus precios de venta.',
     recap_no_outflows:'Sin salidas registradas en este período — registrá producciones o usá el escáner de salidas y acá aparecen las ganancias estimadas.',
     recap_pl_title:'Resultados (estimados)', recap_vs:'vs {p}',
     recap_demo_btn:'✨ Ejemplo', recap_demo_note:'Datos de muestra — así se verá tu cierre después de dos años usando Dusty. Registrá tus recibos y salidas y este será tu resultado real.',
-    recap_star:'Producto estrella', recap_star_note:'{amount} comprado este mes',
-    recap_receipts:'Recibos del mes', recap_top_supplier:'Mayor proveedor',
-    recap_price_move:'Mayor cambio de precio', recap_budget_used:'Presupuesto usado',
+    recap_receipts:'Recibos del mes', recap_budget_used:'Presupuesto usado',
     recap_empty:'Todavía no hay movimientos este mes — escaneá tu primer recibo y acá se arma la historia.',
     recap_cash_title:'Movimiento de caja', recap_cash_purchases:'Compras de mercadería',
     recap_cash_net:'Caja neta (est.)', recap_new_delta:'nuevo',
@@ -381,6 +367,11 @@ const I18N = {
     recap_margin_gross:'Margen bruto', recap_margin_net:'Margen neto',
     recap_bridge_label:'De ingresos a ganancia neta',
     recap_wf_rev:'Ing.', recap_wf_cogs:'COGS', recap_wf_exp:'Gtos.', recap_wf_net:'Neta',
+    recipe_sale_price_label:'Precio de venta por pieza (opcional)',
+    recipe_sale_price_helper:'Con esto el Cierre de mes puede estimar los ingresos de tus producciones. Sin precio, la producción no entra a los resultados (nunca inventamos números).',
+    shelf_reason_label:'Estas salidas fueron:',
+    shelf_reason_sale:'Ventas', shelf_reason_loss:'Pérdida / merma',
+    scan_total_mismatch:'El total del recibo ({total}) difiere mucho de la suma de las líneas ({sum}) — revisá los montos antes de guardar.',
     inv_potential_label:'Potencial de venta', inv_potential_missing:'{n} sin precio de venta',
     team_profits_toggle:'Los miembros pueden ver ganancias y el valor del inventario',
     team_profits_helper:'Apagado: cada miembro ve costos y stock, pero no el % de ganancia, el precio de venta ni el Valor. Solo vos controlás esto.',
@@ -429,7 +420,7 @@ const I18N = {
   },
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
-    dash_spending_of:'Spending for', dash_see_all_months:'See all months',
+    dash_see_all_months:'See all months',
     dash_budget_of:'Budget:', dash_edit_budget:'Edit',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
     stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
@@ -457,16 +448,14 @@ const I18N = {
     dash_empty_title:'Let\'s build your inventory', dash_empty_sub:'Scan your first receipt and Dusty loads the products and prices on its own, or add one by hand if you\'d rather keep it simple.',
     dash_empty_scan_btn:'Scan receipt', dash_empty_manual_btn:'+ Add product by hand',
     empty_receipts_title:'No receipts saved yet',
-    inv_title:'Inventory', inv_sub:'Your products and their current cost per unit, always up to date',
     inv_in_stock_suffix:'in stock',
-    btn_new_item:'+ New product',
     th_ingredient:'Product', th_cost_unit:'Cost/unit', lbl_stock:'Quantity in stock',
     btn_edit:'Edit', btn_delete:'Delete',
     rec_title:'Receipts', rec_sub:'History of scanned or uploaded receipts — each one automatically updated your inventory',
     no_supplier_name:'Unnamed supplier', product_singular:'product', products_plural:'products',
     rec_search_placeholder:'Search by supplier or product...', rec_no_matches:'No receipts match your search.',
     rec_month_total:'Month total', btn_print:'Print', btn_share:'Share',
-    btn_cal_prev:'Previous month', btn_cal_next:'Next month', day_receipts_title:'Receipts for that day',
+    btn_cal_prev:'Previous month', btn_cal_next:'Next month',
     btn_cal_year_view:'View the whole year', btn_cal_month_view:'Back to month',
     rec_amount_search_placeholder:'Search by amount or item...',
     confirm_delete_receipt:"Delete this receipt? This will also remove the purchases it created from your history and monthly spend.",
@@ -482,8 +471,6 @@ const I18N = {
     ms_title:'Spending by month', ms_sub:'All months with recorded purchases, side by side',
     ms_no_purchases:'No purchases recorded yet.', ms_current_month:'current month',
     alert_title:'Price alerts', alert_sub:'Adjust when a price increase on a scanned receipt gets flagged as something that needs immediate review.',
-    business_name_title:'Business name', business_name_label:'Name', business_name_placeholder:"E.g. Pedro's",
-    business_name_helper:'If you fill this in, it replaces the "Inventory" title on this account. Leave it blank to change nothing. Only affects this account, never others.',
     alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
     budget_title:'Monthly budget', budget_label:'Amount ($)', budget_placeholder:'E.g. 2000',
     budget_helper:'Repeats every month until you change it. Leave it blank to hide the budget bar.',
@@ -513,28 +500,20 @@ const I18N = {
     pb_open_btn:'📷 Scan products',
     pb_title:'Build your inventory from one photo',
     pb_sub:'Take ONE photo with several products in view (the shelf, the table, your haul) — the AI identifies each one and you add them all at once.',
-    pb_tap_photo:'Tap to take the photo',
     pb_loading:'Identifying the products in the photo…',
-    pb_retry:'Try another photo',
     pb_none_found:'No products were recognized in the photo — try with more light or closer up.',
     pb_review_hint:'{n} products detected. Review each one, untick the ones you don\'t want, and fix anything before adding.',
     pb_already_in_inventory:'Already in your inventory — unticked so it isn\'t duplicated.',
     pb_low_confidence:'The AI isn\'t sure about this one — double-check the name before adding.',
     pb_cost_ph:'Cost',
     pb_add_btn:'Add {n} to inventory',
-    ids_open_btn:'🔎 Identify',
-    ids_title:'What product is this?',
-    ids_sub:'Point the camera at the product and tap the button — we tell you what it is and whether it\'s already in your inventory.',
     ids_capture:'Identify',
     ids_use_native_camera:'📷 Use the system camera',
-    ids_loading:'Identifying the product…',
     ids_found_in_inventory:'Already in your inventory',
-    ids_not_in_inventory:'Not in your inventory yet',
     ids_stock:'Stock',
     ids_cost:'Cost',
     ids_scan_again:'Scan another',
     ids_open_item:'View product',
-    ids_add_item:'+ Add it',
     auth_continue_google:'Continue with Google', auth_or:'or', auth_password:'Password',
     auth_forgot_password:'Forgot your password?', auth_no_account:"Don't have an account?",
     auth_have_account:'Already have an account?', auth_create_account:'Create account', auth_loading:'One moment…',
@@ -616,13 +595,13 @@ const I18N = {
     barcode_scan_camera_error:"Couldn't access the camera — check your browser permissions.",
     barcode_scan_looking:'Looking up the product…',
     barcode_not_found:"Couldn't find that barcode — fill in the details by hand.",
-    lbl_sale_price:'Sale price', lbl_profit_pct:'Profit %', lbl_profit_pct_short:'profit',
+    lbl_sale_price:'Sale price', lbl_profit_pct:'Profit %',
     lbl_sku:'SKU / Code', ph_sku_example:'e.g. SKU-1042', lbl_item_supplier:'Supplier',
     lbl_name:'Name', ph_name_example:'e.g. Medium shrimp',
     item_name_required:'Give the product a name so it can be saved.',
     lbl_unit:'Unit', lbl_cost_unit:'Cost per unit',
     item_helper:'When you log a purchase or scan a receipt, the cost updates automatically.',
-    item_section_photo:'Photo', item_section_basic:'Basic info', item_section_pricing:'Price & profit', item_section_ids:'Identification & stock',
+    item_section_basic:'Basic info', item_section_pricing:'Price & profit', item_section_ids:'Identification & stock',
     btn_remove_photo:'Remove photo', lbl_qty_bought:'Quantity bought',
     lbl_total_paid:'Total price paid', lbl_supplier:'Supplier',
     ph_supplier_example:'e.g. US Foods', lbl_date:'Date',
@@ -746,26 +725,24 @@ const I18N = {
     oc_title:'Order calculator', oc_clear:'Clear',
     oc_sub:'Your inventory as keys — last purchase price',
     oc_empty:'Tap the products below to build your order',
-    oc_total:'Order total', oc_more_aria:'Show more products',
+    oc_total:'Order total',
     oc_minus_aria:'Less {name}', oc_plus_aria:'More {name}', oc_type_aria:'Type amount of {name}',
     oc_search_ph:'Search product…', oc_no_match:'No product matches', oc_close:'Close',
     inv_value_label:'Value',
-    spend_invested:'Stock investment', spend_expenses:'Operating expenses',
+    spend_expenses:'Operating expenses',
     dash_investment_of:'Investment for', ph_capacity_example:'e.g. 500',
     manual_kind_label:'Type', manual_kind_expense:'Operating expense', manual_kind_investment:'Stock investment',
     recap_btn:'💲 Month recap', recap_title:'Your month in Dusty',
     recap_revenue:'Revenue (est.)', recap_cogs:'Cost of goods sold',
     recap_gross:'Gross profit', recap_net:'Net profit',
-    recap_margin:'margin', recap_compare:'⇄ Compare', recap_single:'Single period',
+    recap_margin:'margin', recap_compare:'⇄ Compare',
     recap_mode_month:'Month', recap_mode_year:'Year',
     recap_value_today:'Inventory value (today)',
     recap_est_note:'Profits estimated from your recorded outflows (production runs and the outflow scanner) × your sale prices.',
     recap_no_outflows:'No outflows recorded in this period — log production runs or use the outflow scanner and estimated profits appear here.',
     recap_pl_title:'Results (estimated)', recap_vs:'vs {p}',
     recap_demo_btn:'✨ Example', recap_demo_note:'Sample data — this is how your recap will look after two years of using Dusty. Log your receipts and outflows and this becomes your real result.',
-    recap_star:'Star product', recap_star_note:'{amount} purchased this month',
-    recap_receipts:'Receipts this month', recap_top_supplier:'Top supplier',
-    recap_price_move:'Biggest price move', recap_budget_used:'Budget used',
+    recap_receipts:'Receipts this month', recap_budget_used:'Budget used',
     recap_empty:'No activity this month yet — scan your first receipt and the story starts here.',
     recap_cash_title:'Cash movement', recap_cash_purchases:'Inventory purchases',
     recap_cash_net:'Net cash (est.)', recap_new_delta:'new',
@@ -780,6 +757,11 @@ const I18N = {
     recap_margin_gross:'Gross margin', recap_margin_net:'Net margin',
     recap_bridge_label:'From revenue to net profit',
     recap_wf_rev:'Rev', recap_wf_cogs:'COGS', recap_wf_exp:'Exp', recap_wf_net:'Net',
+    recipe_sale_price_label:'Sale price per piece (optional)',
+    recipe_sale_price_helper:'This lets the Month recap estimate revenue from your production runs. Without a price, production stays out of the results (we never invent numbers).',
+    shelf_reason_label:'These outflows were:',
+    shelf_reason_sale:'Sales', shelf_reason_loss:'Loss / shrinkage',
+    scan_total_mismatch:'The receipt total ({total}) is far from the line-item sum ({sum}) — double-check the amounts before saving.',
     inv_potential_label:'Sale potential', inv_potential_missing:'{n} without sale price',
     team_profits_toggle:'Members can see profits and inventory value',
     team_profits_helper:'Off: members see costs and stock, but not profit %, sale price, or the Value header. Only you control this.',
@@ -889,9 +871,38 @@ function cycleCountDueIds(){
    que no son comida, donde ningún ícono automático tiene sentido) — local en
    base64 mientras no haya sincronización en la nube, URL de Storage una vez que
    la fase de fotos en la nube esté lista. Devuelve null si no tiene ninguna. */
+/* Cache de blob-URLs para fotos en base64 (auditoría de rendimiento 2026-09-04):
+   inyectar el data-URI completo (135-270KB por página) como src en los templates
+   era el costo #1 de cada render — cada tap concatenaba y parseaba varios MB de
+   HTML. Con el cache, el template lleva un "blob:..." de ~50 caracteres y el
+   decode del base64 ocurre UNA vez por foto por sesión. Sin evicción a propósito:
+   está acotado por las fotos vivas en el estado (la evicción de 30 días de abajo)
+   y un blob-URL huérfano solo retiene memoria hasta cerrar la pestaña. */
+const _photoUrlCache = new Map(); // base64 -> blob: URL
+function cachedPhotoUrl(base64, mediaType){
+  let u = _photoUrlCache.get(base64);
+  if(u) return u;
+  try{
+    const bin = atob(base64);
+    const arr = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+    u = URL.createObjectURL(new Blob([arr], {type: mediaType||'image/jpeg'}));
+  }catch(e){
+    u = `data:${mediaType||'image/jpeg'};base64,${base64}`; // fallback: el camino de siempre
+  }
+  _photoUrlCache.set(base64, u);
+  return u;
+}
+// Versión cacheada de receiptImageSrc (patron-core) para los TEMPLATES — misma
+// prioridad (base64 local primero, URL de Storage después), src corto.
+function receiptImgSrc(img){
+  if(!img) return null;
+  if(img.base64) return cachedPhotoUrl(img.base64, img.mediaType);
+  return img.url || null;
+}
 function itemPhotoSrc(item){
   if(!item || !item.photo) return null;
-  if(item.photo.base64) return `data:${item.photo.mediaType||'image/jpeg'};base64,${item.photo.base64}`;
+  if(item.photo.base64) return cachedPhotoUrl(item.photo.base64, item.photo.mediaType);
   if(item.photo.url) return item.photo.url;
   return null;
 }
@@ -934,7 +945,7 @@ function saveState(){
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
       businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
-      recipes, outflows, deletedRecipeIds
+      recipes, outflows, outflowArchive, deletedRecipeIds
     }));
   }catch(e){
     // El motivo más común es que el almacenamiento del navegador se llenó (las fotos
@@ -956,7 +967,7 @@ function saveState(){
           cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
           deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
           businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
-          recipes, outflows, deletedRecipeIds
+          recipes, outflows, outflowArchive, deletedRecipeIds
         }));
         retried = true;
       }
@@ -1014,6 +1025,7 @@ function applyStateData(data){
     });
   }
   if(Array.isArray(data.outflows)) outflows = data.outflows.filter(o=>o && o.id).slice(0, OUTFLOWS_MAX);
+  if(data.outflowArchive && typeof data.outflowArchive==='object' && !Array.isArray(data.outflowArchive)) outflowArchive = data.outflowArchive;
 }
 function loadState(){
   try{
@@ -1043,7 +1055,7 @@ function exportData(){
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
-    recipes, outflows, deletedRecipeIds,
+    recipes, outflows, outflowArchive, deletedRecipeIds,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -1190,15 +1202,40 @@ function spendForMonth(key){
    recibos sin líneas. El resto del total (impuestos/cargos que no vienen como
    línea) se reparte proporcionalmente entre ambos lados. Clasifica solo, sin
    pedirle nada al usuario — todo sale de datos que los recibos ya tienen. */
+/* Cache POR RENDER de los cálculos financieros: el Cierre de mes abierto llama
+   periodFinancials hasta ~85 veces por render (columnas + bases + YTD + sparkline)
+   y cada llamada barría receipts/outflows/inventory completos — cientos de ms por
+   tap con años de datos. El cache vive UN ciclo de render (renderApp lo resetea al
+   arrancar), así nunca puede quedar desactualizado entre mutaciones y pantalla. */
+let finRenderCache = null;
+function resetFinancialCache(){ finRenderCache = null; }
+function finCache(){
+  if(!finRenderCache){
+    const byId = new Map(), byName = new Map();
+    inventory.forEach(i=>{ if(i){ byId.set(i.id, i); if(i.name) byName.set(i.name, i); } });
+    finRenderCache = { byId, byName, split:{}, fin:{} };
+  }
+  return finRenderCache;
+}
 function spendSplitForMonth(key){
+  const cache = finCache();
+  if(cache.split[key]) return cache.split[key];
   let invested=0, expense=0;
   receipts.filter(r=>monthKey(r.date)===key).forEach(r=>{
     const total = r.total||0;
     if(r.manual){ if(r.manualKind==='investment') invested+=total; else expense+=total; return; }
     let inv=0, exp=0;
     (r.appliedItems||[]).forEach(it=>{
-      const ing = it.ingName ? inventory.find(i=>i.name===it.ingName) : null;
-      const isExpense = it.unit==='servicio' || (ing && ing.expenseOnly);
+      // Clasificación con snapshot: expenseOnly se congela al aplicar el escaneo
+      // (renombrar o borrar el producto ya no reclasifica meses cerrados). Las
+      // líneas viejas sin snapshot caen al lookup por id/nombre de siempre.
+      let isExpense;
+      if(it.unit==='servicio') isExpense = true;
+      else if(typeof it.expenseOnly==='boolean') isExpense = it.expenseOnly;
+      else{
+        const ing = (it.ingId && cache.byId.get(it.ingId)) || (it.ingName ? cache.byName.get(it.ingName) : null);
+        isExpense = !!(ing && ing.expenseOnly);
+      }
       if(isExpense) exp += it.totalPrice||0; else inv += it.totalPrice||0;
     });
     const itemsSum = inv+exp;
@@ -1206,7 +1243,7 @@ function spendSplitForMonth(key){
     const factor = total/itemsSum; // reparte impuestos/cargos pro-rata (y normaliza si total < suma)
     invested += inv*factor; expense += exp*factor;
   });
-  return {invested, expense};
+  return (cache.split[key] = {invested, expense});
 }
 
 /* ESTADO DE RESULTADOS por período — la estructura multi-paso estándar de un
@@ -1227,32 +1264,85 @@ function periodSpendSplit(key){
   }
   return spendSplitForMonth(key);
 }
+/* Aporte de UNA salida al P&L (revisión de contador 2026-09-04) — devuelve
+   {revenue, cogs} o null si la salida no puede estimarse honestamente:
+   - adjust: cada baja de estante es venta estimada (qty × precio) salvo que el
+     usuario la haya marcado como pérdida/merma (reason:'loss') — la merma cuenta
+     su costo (COGS de lo perdido) pero NUNCA infla los Ingresos.
+   - production: se estima por el precio de la PIEZA (recipe.salePrice × count),
+     no por el salePrice de los insumos consumidos; sin precio de pieza la
+     producción queda FUERA del P&L (antes pintaba pérdidas ficticias).
+   Los snapshots costAt/priceAt congelan los precios del día de la salida; las
+   salidas viejas sin snapshot caen al precio actual (lo mejor disponible). */
+function outflowPL(o){
+  if(!o) return null;
+  const cache = finCache();
+  if(o.type==='production'){
+    const rec = typeof recipeById==='function' ? recipeById(o.recipeId) : null;
+    const sale = (typeof o.saleTotal==='number' && o.saleTotal>0) ? o.saleTotal
+      : (rec && (rec.salePrice||0)>0 ? (o.count||0)*rec.salePrice : 0);
+    if(!(sale>0)) return null;
+    let cogs = (typeof o.costTotal==='number') ? o.costTotal : null;
+    if(cogs===null){
+      cogs = 0;
+      (o.items||[]).forEach(it=>{
+        const ing = cache.byId.get(it.ingId);
+        const c = (typeof it.costAt==='number') ? it.costAt : (ing ? ing.costPerUnit||0 : 0);
+        cogs += Math.abs(it.qty||0)*c;
+      });
+    }
+    return {revenue: sale, cogs};
+  }
+  let revenue=0, cogs=0, any=false;
+  (o.items||[]).forEach(it=>{
+    const q = Math.abs(it.qty||0);
+    if(!q) return;
+    const ing = cache.byId.get(it.ingId);
+    if(ing && ing.expenseOnly) return;
+    const hasSnap = typeof it.costAt==='number';
+    if(!hasSnap && !ing) return; // salida vieja de un producto borrado: sin datos
+    const cost = hasSnap ? it.costAt : (ing.costPerUnit||0);
+    const price = (typeof it.priceAt==='number') ? it.priceAt : (ing ? ing.salePrice||0 : 0);
+    any = true;
+    cogs += q*cost;
+    if(o.reason!=='loss' && price>0) revenue += q*price;
+  });
+  return any ? {revenue, cogs} : null;
+}
 function periodFinancials(key){
+  const cache = finCache();
+  if(cache.fin[key]) return cache.fin[key];
   const sp = periodSpendSplit(key);
   const inPeriod = d => key.length===4 ? String(d||'').slice(0,4)===key : monthKey(d)===key;
   let revenue=0, cogs=0, hadOutflows=false;
   outflows.forEach(o=>{
     if(!o || !inPeriod(o.date)) return;
-    (o.items||[]).forEach(it=>{
-      const ing = inventory.find(i=>i.id===it.ingId);
-      if(!ing || ing.expenseOnly) return;
-      const q = Math.abs(it.qty||0);
-      if(!q) return;
-      hadOutflows = true;
-      cogs += q*(ing.costPerUnit||0);
-      if((ing.salePrice||0)>0) revenue += q*ing.salePrice;
-    });
+    const pl = outflowPL(o);
+    if(!pl) return;
+    hadOutflows = true;
+    revenue += pl.revenue;
+    cogs += pl.cogs;
+  });
+  // Salidas viejas que el cap de 400 evictó: su aporte vive consolidado por mes
+  // en outflowArchive (app-08) — el P&L histórico ya no se achica en silencio.
+  Object.keys(outflowArchive||{}).forEach(k=>{
+    if(key.length===4 ? k.slice(0,4)!==key : k!==key) return;
+    const a = outflowArchive[k];
+    if(!a) return;
+    revenue += a.revenue||0;
+    cogs += a.cogs||0;
+    hadOutflows = true;
   });
   const gross = revenue - cogs;
   const net = gross - sp.expense;
-  return {
+  return (cache.fin[key] = {
     invested: sp.invested, expense: sp.expense,
     revenue, cogs, gross, net,
     grossMarginPct: revenue>0 ? gross/revenue*100 : null,
     netMarginPct: revenue>0 ? net/revenue*100 : null,
     hadOutflows,
     receiptsCount: receipts.filter(r=>inPeriod(r.date)).length
-  };
+  });
 }
 
 /* La unidad con la que este negocio REALMENTE trabaja: la más repetida en su

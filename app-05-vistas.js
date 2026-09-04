@@ -676,6 +676,12 @@ function orderCalcPanel(){
   // la clase .open — así morphdom no la recrea y la transición de transform corre.
   // Con toda la pantalla, el teclado entero va con scroll y el buscador filtra en
   // inventarios grandes (50+ productos) — ya no hace falta la partición 9+flecha.
+  // CERRADA, solo el cascarón (mismo truco que monthRecapModal): generar el
+  // teclado completo con las fotos de todos los productos en CADA render de
+  // fondo multiplicaba el HTML ×2 sin que nadie lo viera (perf 2026-09-04).
+  if(!orderCalcOpen){
+    return `<div class="oc-sheet" id="oc-panel" role="dialog" aria-modal="true" aria-label="${t('oc_title')}" aria-hidden="true"></div>`;
+  }
   const prods = orderCalcProducts();
   const query = orderCalcSearch.trim().toLowerCase();
   const filtered = query ? prods.filter(i=>(i.name||'').toLowerCase().includes(query)) : prods;
@@ -994,11 +1000,14 @@ function receiptCalendarWidget(){
     // compositor) — antes cada celda decidía entre 3 comportamientos distintos.
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
-        ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">`
           : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
           : `<span class="cal-day-num">${day}</span>`}
         ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
-        ${dayNotes.length ? `<span class="cal-day-note-dot">${dayNotes[0].icon||'📌'}${dayNotes.length>1?`<i>${dayNotes.length}</i>`:''}</span>` : ''}
+        ${/* escapeHtml en el icon: viaja por meta/settings que cualquier miembro
+             puede escribir vía SDK — sin escape era un XSS almacenado que corría
+             en la sesión de todo el equipo (auditoría 2026-09-04). */''}
+        ${dayNotes.length ? `<span class="cal-day-note-dot">${escapeHtml(dayNotes[0].icon||'📌')}${dayNotes.length>1?`<i>${dayNotes.length}</i>`:''}</span>` : ''}
       </div>
     `);
   }
@@ -1046,7 +1055,7 @@ function dayModal(){
           return `
           <div class="day-receipt-row" data-view-receipt="${r.id}">
             <div class="day-receipt-thumb">
-              ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
+              ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:13.5px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -1061,7 +1070,7 @@ function dayModal(){
       <div style="display:flex;flex-direction:column;gap:6px;">
         ${dayNotes.map(n=>`
         <div class="cal-note-row">
-          <span class="cal-note-emoji">${n.icon||'📌'}</span>
+          <span class="cal-note-emoji">${escapeHtml(n.icon||'📌')}</span>
           <div style="flex:1;min-width:0;">
             <div class="cal-note-text">${escapeHtml(n.text)}</div>
             ${calNoteWhenText(n) ? `<div class="cal-note-when">${escapeHtml(calNoteWhenText(n))}</div>` : ''}
@@ -1138,7 +1147,7 @@ function recibosView(){
           const cover = imgs[0];
           return `
           <div class="dish-card" style="cursor:pointer;position:relative;${showReceiptDetail===r.id?'':`view-transition-name:${receiptVtName(r.id)};`}" data-view-receipt="${r.id}">
-            ${cover ? `<img src="${escapeHtml(receiptImageSrc(cover))}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
+            ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
               <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>

@@ -388,6 +388,7 @@ exports.handler = async (event) => {
     // Fetch a Claude reventó por red: lo más probable es que no se haya cobrado —
     // se devuelve la unidad reservada. Los 502 (Claude contestó mal) no refundan.
     await refundScanUsage(ownerUid, 1, reservation.period);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'Error interno', code: 'internal' }) };
+    // Genérico a propósito: err.message crudo filtraba detalles internos al cliente.
+    return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }
 };

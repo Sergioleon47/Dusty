@@ -1099,13 +1099,15 @@ function attachEvents(){
       const item={
         id:draftItem.id, name,
         unit:document.getElementById('fi-unit').value,
-        costPerUnit:parseFloat(document.getElementById('fi-cost').value)||0,
+        // Math.max(0,…): stock/costo/precio negativos tipeados a mano contaminaban
+        // el Valor del inventario y el potencial (auditoría 2026-09-04).
+        costPerUnit:Math.max(0, parseFloat(document.getElementById('fi-cost').value)||0),
         updated:draftItem.updated||false,
-        qtyOnHand:parseFloat(document.getElementById('fi-stock').value)||0,
+        qtyOnHand:Math.max(0, parseFloat(document.getElementById('fi-stock').value)||0),
         photo:draftItem.photo||null,
         // Sin permiso financiero el campo no se renderiza — se conserva el
         // salePrice que el ítem ya tenía en vez de pisarlo con 0.
-        salePrice:(el=>el ? (parseFloat(el.value)||0) : (draftItem.salePrice||0))(document.getElementById('fi-sale-price')),
+        salePrice:(el=>el ? Math.max(0, parseFloat(el.value)||0) : (draftItem.salePrice||0))(document.getElementById('fi-sale-price')),
         sku:document.getElementById('fi-sku').value.trim(),
         supplier:document.getElementById('fi-supplier').value.trim(),
         // '__create__' es la opción "crear nueva" sin nombre confirmado — nunca

@@ -48,6 +48,17 @@ function ensurePatronFirebaseReady(){
     .then(()=>loadExternalScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js'))
     .then(()=>{
       firebase.initializeApp(firebaseConfig);
+      /* Persistencia de Firestore (auditoría 2026-09-04): sin esto, los 4 listeners
+         de colecciones completas re-DESCARGABAN todos los docs en cada apertura de
+         la app — lecturas facturadas y arranque lento creciendo con los años de
+         datos. Con la caché local, los snapshots llegan de disco y solo se leen
+         deltas. Best-effort: si falla (varias pestañas viejas, navegador sin
+         soporte), la app sigue exactamente como antes. */
+      try{
+        firebase.firestore().enablePersistence({synchronizeTabs:true}).catch(err=>{
+          console.warn('[Dusty] persistencia de Firestore no disponible:', err && err.code);
+        });
+      }catch(e){}
       firebase.auth().getRedirectResult().catch(err=>{
         console.error('[Dusty] sign-in redirect result failed:', err);
       });
@@ -76,7 +87,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; resetSyncedHashes();
               saveState();
               applyingRemoteSnapshot = false;
             }
@@ -92,7 +103,8 @@ function ensurePatronFirebaseReady(){
               profitsVisibleToMembers,
               categories: categories ? categories.slice() : categories,
               calNotes: calNotes.slice(),
-              recipes: recipes.slice(), outflows: outflows.slice()
+              recipes: recipes.slice(), outflows: outflows.slice(),
+              outflowArchive: Object.assign({}, outflowArchive)
             };
             // Importante: los listeners en tiempo real recién se conectan DESPUÉS de que
             // termine (o falle) la reconciliación — así el primer snapshot que llega ya
@@ -570,6 +582,7 @@ function metaContentShape(m){
     profitsVisibleToMembers: m.profitsVisibleToMembers === true,
     categories: m.categories,
     calNotes: m.calNotes || [], recipes: m.recipes || [], outflows: m.outflows || [],
+    outflowArchive: m.outflowArchive || {},
     deletedInventoryIds: m.deletedInventoryIds || [], deletedReceiptIds: m.deletedReceiptIds || [],
     deletedPurchaseIds: m.deletedPurchaseIds || [], deletedCalNoteIds: m.deletedCalNoteIds || [],
     deletedRecipeIds: m.deletedRecipeIds || []
@@ -579,9 +592,24 @@ function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes,
-    recipes: recipesForCloud(), outflows,
+    recipes: recipesForCloud(), outflows, outflowArchive,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
   });
+}
+/* Merge del archivo financiero de salidas evictadas: por mes, gana el valor MAYOR
+   de cada campo — la evicción es determinística sobre los mismos docs, así que dos
+   dispositivos convergen al mismo total y el máximo nunca duplica ni pierde. */
+function mergeOutflowArchives(remote, local){
+  const out = Object.assign({}, remote || {});
+  Object.keys(local || {}).forEach(k=>{
+    const l = local[k];
+    if(!l) return;
+    const r = out[k];
+    out[k] = r
+      ? {revenue: Math.max(l.revenue||0, r.revenue||0), cogs: Math.max(l.cogs||0, r.cogs||0)}
+      : {revenue: l.revenue||0, cogs: l.cogs||0};
+  });
+  return out;
 }
 
 /* ETAPA A: sellar cada edición local con cuándo y quién. Se llama desde saveState()
@@ -638,6 +666,19 @@ function scheduleCloudSync(){
   clearTimeout(cloudSyncRetryTimer);
   cloudSyncDebounceTimer = setTimeout(syncAllToFirestore, 400);
 }
+/* Flush al ocultar/cerrar la pestaña (auditoría 2026-09-04): una edición hecha
+   <400ms antes de cerrar quedaba solo en localStorage — subía recién cuando ESTE
+   dispositivo volviera a abrir la app, y el equipo no la veía hasta entonces.
+   Al pasar a hidden se dispara la subida ya: Firestore suele completar el write
+   antes de que el SO mate el proceso, y si no llega, el sello + espejo persistido
+   siguen de red de seguridad (sube en el próximo arranque, como hasta ahora). */
+function flushCloudSyncOnHide(){
+  if(!currentUser || !cloudSyncDirty) return;
+  clearTimeout(cloudSyncDebounceTimer);
+  try{ syncAllToFirestore(); }catch(e){}
+}
+window.addEventListener('pagehide', flushCloudSyncOnHide);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushCloudSyncOnHide(); });
 // Firestore no deja más de 500 operaciones en un mismo "batch". Antes esta función
 // metía TODO el inventario + todas las compras + todos los recibos en un solo batch
 // cada vez que se guardaba cualquier cosa — en una cuenta con bastante uso real (todo
@@ -677,11 +718,19 @@ function syncAllToFirestore(){
       // Borrados: cualquier id que la nube conoce (espejo o último snapshot) y que
       // localmente ya no está — cubre lápidas nuevas y el doc duplicado de un remap.
       const knownRemote = new Set(Object.keys(lastSyncedHashes[kind]));
-      (lastKnownIds || []).forEach(id=>{ if(id) knownRemote.add(id); });
+      const snapshotIds = new Set(lastKnownIds || []);
+      snapshotIds.forEach(id=>{ if(id) knownRemote.add(id); });
+      const tombs = new Set(deletedIds);
       knownRemote.forEach(id=>{
         // El guard de id falsy es el mismo de los recibos fantasma: doc(undefined)
         // tira una excepción síncrona que deja el sync muerto para siempre.
         if(!id || presentIds[id]) return;
+        // Resguardo S2 (auditoría 2026-09-04): un id que solo conoce el ESPEJO
+        // persistido, sin lápida local ni confirmación de un snapshot de ESTA
+        // sesión, puede ser un espejo desalineado del estado (setItem del estado
+        // falló por quota mientras el del espejo entró) — borrar ahí destruiría
+        // un doc vigente del equipo. Se espera a que el snapshot lo confirme.
+        if(!snapshotIds.has(id) && !tombs.has(id)) return;
         ops.push({kind, id, del:true, ref:refFn(uid).doc(id)});
       });
       // Y lápidas que la nube podría tener sin que este dispositivo lo sepa aún
@@ -714,7 +763,11 @@ function syncAllToFirestore(){
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
         aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes,
-        recipes: recipesForCloud(), outflows
+        recipes: recipesForCloud(), outflows,
+        // outflowArchive viaja en el mismo set con {merge:true}: Firestore mergea
+        // los mapas por clave, así dos dispositivos archivando meses distintos no
+        // se pisan (misma razón por la que aliasMap puede viajar así).
+        outflowArchive
       }));
       const FV = firebase.firestore.FieldValue;
       [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds]]
@@ -995,12 +1048,13 @@ function applyRemoteMetaSnapshot(doc){
   const remoteOutIdsIn = new Set(remoteOutIn.map(o=>o.id));
   incomingMeta.outflows = remoteOutIn.concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
     .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+  incomingMeta.outflowArchive = mergeOutflowArchives(incomingMeta.outflowArchive, outflowArchive);
   incomingMeta.aliasMap = Object.assign({}, aliasMap, incomingMeta.aliasMap || {});
   // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1039,7 +1093,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; resetSyncedHashes();
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -1286,7 +1340,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; resetSyncedHashes();
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -1491,6 +1545,10 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // Historial más nuevo primero, con el mismo tope que recordOutflow() (app-08).
     const mergedOutflows = remoteOutflows.concat(localOnlyOutflows)
       .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+    // El archivo de salidas evictadas se fusiona por máximo por mes (ver
+    // mergeOutflowArchives) — un reconcile jamás debe achicar el P&L histórico.
+    const mergedOutflowArchive = mergeOutflowArchives(remoteMetaData.outflowArchive, localSnapshot.outflowArchive);
+    const archiveChanged = !sameJSON(mergedOutflowArchive, remoteMetaData.outflowArchive || {});
     // Lápidas LOCALES que la nube todavía no conoce (borrados hechos offline)
     // también obligan a escribir meta — sin esto, el tombstone de un borrado
     // offline no subía en el reconcile y otro dispositivo podía resucitar el
@@ -1503,7 +1561,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
       const rem = new Set(Array.isArray(remoteMetaData[k]) ? remoteMetaData[k] : []);
       return arr.some(id=>!rem.has(id));
     });
-    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0 || localOnlyTombstones;
+    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0 || archiveChanged || localOnlyTombstones;
     if(newInv.length===0 && updInv.length===0 && missingPur.length===0 && updPur.length===0 && missingRec.length===0 && updRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
     // Mismo límite de 500 operaciones por batch que syncAllToFirestore() — un primer
     // sincronizado grande (por ejemplo, activar la nube con cientos de productos ya
@@ -1546,6 +1604,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         calNotes: mergedCalNotes,
         recipes: mergedRecipes.map(stripRecipePhotoForCloud),
         outflows: mergedOutflows,
+        outflowArchive: mergedOutflowArchive,
         deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
       }))});
     }

@@ -110,11 +110,16 @@ function shiftMonthStr(key, delta){
    undefined contra una unidad real también cuenta como "distinta" a propósito, para no
    confiar a ciegas en datos viejos sin esa información.
    "purchases" se recibe como parámetro (en vez de leer la lista global) para que esto
-   se pueda probar con datos de prueba, sin depender del estado real de la app. */
+   se pueda probar con datos de prueba, sin depender del estado real de la app.
+   Empate de fecha (dos compras el MISMO día — las fechas son solo YYYY-MM-DD):
+   gana la que entró DESPUÉS a la lista. Sin este desempate, el sort estable dejaba
+   primero la compra más vieja del día y el % de cambio salía con el signo al revés. */
 function lastPriceChangePct(ingId, purchases){
   const relevant = purchases
-    .filter(p=>p.ingId===ingId && p.qty>0)
-    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+    .map((p,idx)=>({p, idx}))
+    .filter(x=>x.p.ingId===ingId && x.p.qty>0)
+    .sort((a,b)=>(new Date(b.p.date)-new Date(a.p.date)) || (b.idx-a.idx))
+    .map(x=>x.p);
   if(relevant.length<2) return null;
   if(relevant[0].unit!==relevant[1].unit) return 'unit-mismatch';
   const latest = relevant[0].totalPrice/relevant[0].qty;
@@ -139,15 +144,19 @@ function roundQty(n){ return Math.round(n*100)/100; }
 
 /* Costo de producir UNA pieza de una receta: suma de (cantidad × costo actual) de
    cada insumo. "missing" cuenta componentes cuyo producto ya no existe en el
-   inventario (se borró después de armar la receta) — el costo devuelto es parcial
-   en ese caso y el llamador decide cómo avisarlo. */
+   inventario (se borró después de armar la receta) O cuyo costo no es un número
+   usable (dato viejo/sincronizado tipo "1,50") — antes ese costo basura sumaba $0
+   en silencio y el costo de la receta quedaba subestimado sin ningún aviso. El
+   costo devuelto es parcial en esos casos y el llamador decide cómo avisarlo. */
 function recipeCostTotal(components, inventory){
   let total = 0, missing = 0;
   (components||[]).forEach(c=>{
     const ing = inventory.find(i=>i.id===c.ingId);
     const qty = Number(c.qty);
     if(!ing || !Number.isFinite(qty) || qty<0){ missing++; return; }
-    total += qty * (Number(ing.costPerUnit)||0);
+    const cost = Number(ing.costPerUnit);
+    if(!Number.isFinite(cost)){ missing++; return; }
+    total += qty * cost;
   });
   return {total: roundQty(total), missing};
 }

@@ -105,6 +105,8 @@ exports.handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (err) {
     console.error('[Dusty] delete-account failed:', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || 'No se pudo borrar la cuenta, intentá de nuevo' }) };
+    // Mensaje genérico a propósito: err.message crudo filtraba detalles internos
+    // (paths, nombres de servicios) al cliente. El detalle queda en el log de arriba.
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo borrar la cuenta, intentá de nuevo' }) };
   }
 };

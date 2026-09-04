@@ -125,6 +125,17 @@ test('lastPriceChangePct: caso normal, mismo producto, misma unidad', () => {
   assert.equal(lastPriceChangePct('i1', purchases), 25);
 });
 
+test('lastPriceChangePct: dos compras el MISMO día — gana la que entró después', () => {
+  // Bug real: con fechas iguales (solo YYYY-MM-DD), el sort estable dejaba primero
+  // la compra más vieja del día y el % salía con el signo invertido (−20% en vez
+  // de +25% para harina que subió de $4 a $5 en el mismo día).
+  const purchases = [
+    {ingId:'i1', qty:1, unit:'lb', totalPrice:4, date:'2026-08-01'}, // mañana: $4/lb
+    {ingId:'i1', qty:1, unit:'lb', totalPrice:5, date:'2026-08-01'}  // tarde: $5/lb
+  ];
+  assert.equal(lastPriceChangePct('i1', purchases), 25);
+});
+
 test('lastPriceChangePct: unidades distintas -> "unit-mismatch", nunca un % inventado', () => {
   // Este es el bug real de hoy: "Margarita Salt" comparando 1 "unidad" contra 5 "lb"
   // mostraba una suba de precio de 847% que no era real.
@@ -198,6 +209,14 @@ test('recipeCostTotal: un insumo borrado del inventario cuenta como "missing", n
   assert.deepEqual(recipeCostTotal([{ingId:'i1', qty:'abc'}, {ingId:'i1', qty:-2}], inv), {total:0, missing:2});
   assert.deepEqual(recipeCostTotal([], inv), {total:0, missing:0});
   assert.deepEqual(recipeCostTotal(null, inv), {total:0, missing:0});
+});
+
+test('recipeCostTotal: costo no numérico cuenta como "missing", no como $0 silencioso', () => {
+  // Dato viejo/sincronizado tipo costPerUnit:"1,50" — antes aportaba $0 sin aviso
+  // y el costo de la receta quedaba subestimado. costPerUnit:0 sigue siendo válido.
+  const inv = [{id:'i1', costPerUnit:'1,50'}, {id:'i2', costPerUnit:2}, {id:'i3', costPerUnit:0}];
+  assert.deepEqual(recipeCostTotal([{ingId:'i1', qty:3}, {ingId:'i2', qty:1}], inv), {total:2, missing:1});
+  assert.deepEqual(recipeCostTotal([{ingId:'i3', qty:5}], inv), {total:0, missing:0});
 });
 
 test('recipeCostTotal: sin colas de float (0.1×3 debe dar 0.3, no 0.30000000000000004)', () => {

@@ -35,10 +35,7 @@
     /* Variantes hover/press calculadas con color-mix() en vez de hex sueltos
        repetidos por todo el archivo — un solo lugar para ajustar "cuánto se
        oscurece al tocar" en toda la app. */
-    --navy-press:color-mix(in oklch, var(--navy), black 18%);
     --saffron-press:color-mix(in oklch, var(--saffron), black 20%);
-    --tomato-press:color-mix(in oklch, var(--tomato), black 18%);
-    --basil-press:color-mix(in oklch, var(--basil), black 18%);
     /* Las tintas "-ink" en el tema claro se OSCURECÍAN para ganar contraste; en
        oscuro es al revés: se aclaran para que el texto de acento pase 4.5:1 sobre
        los tintes soft y los paneles. */
@@ -313,7 +310,6 @@
   .stock-icon-ring.warn{border-color:var(--stock-warn);}
   .stock-icon-ring.crit{border-color:var(--stock-crit);}
   .stock-icon-ring.none{border-color:#3a414b;}
-  .stock-main{flex:1;min-width:0;}
   /* overflow-wrap:anywhere — nombres de producto sin espacios (SKUs, nombres pegados)
      se salían de .stock-main y quedaban flotando encima de los botones de
      editar/borrar en vez de cortar la línea. min-width:0 en .stock-main (flexbox)
@@ -339,8 +335,6 @@
   .budget-bar-fill.none{background:var(--line);}
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
   .stock-caption-muted{font-style:italic;}
-  .stock-actions{flex-shrink:0;text-align:center;}
-  .stock-actions-btns{display:flex;gap:6px;}
   .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--on-accent);transition:transform .2s ease;}
   .stock-icon-btn:active{transform:scale(0.9);}
   .stock-icon-btn svg{width:16px;height:16px;stroke:var(--on-accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
@@ -358,31 +352,36 @@
      de conteo cíclico — igual en Dashboard e Inventario. Antes esto era solo un borde
      interior de 2px cambiando de opacidad — casi invisible a simple vista en un
      celular, mirando una lista. Ahora también pulsa un tinte de fondo (mismo rojo)
-     para que el movimiento se note sin tener que fijarse en el borde. */
-  @keyframes cc-due-pulse{
-    0%, 100%{box-shadow:inset 0 0 0 2px rgba(255,92,92,0.3); background:rgba(255,92,92,0.05);}
-    50%{box-shadow:inset 0 0 0 2px rgba(255,92,92,0.85); background:rgba(255,92,92,0.14);}
+     para que el movimiento se note sin tener que fijarse en el borde.
+     RENDIMIENTO (auditoría 2026-09-04): antes se animaban box-shadow+background
+     directo (repaint continuo a 60fps con 20-30 tarjetas parpadeando en gama
+     baja). Ahora el borde+tinte se pintan UNA vez en un ::after y solo se anima
+     su OPACITY (composited, sin repaint). Base opacity:0: al terminar una
+     animación finita (crit-flash, 2 pulsos) el overlay se apaga solo. */
+  @keyframes ccDueFade{
+    0%, 100%{opacity:.3;}
+    50%{opacity:1;}
   }
-  /* La animación va en .stock-row (el hijo), no en .stock-row-static (el padre):
-     .stock-row tiene su propio background:var(--panel) opaco que, al pintarse
-     encima, tapaba por completo el parpadeo del padre — la animación corría (se
-     podía confirmar por getComputedStyle) pero nunca se veía en pantalla. */
-  .stock-row-static.cc-due-blink .stock-row{animation:cc-due-pulse 1.6s ease-in-out infinite;border-radius:10px;}
-  /* Las tarjetas nuevas del inventario (.inv-tile) no tienen el hijo .stock-row —
-     sin esta regla propia, el parpadeo del conteo cíclico moría con el rediseño
-     (reporte del usuario: "ya no parpadea el ítem que hay que contar"). */
-  .inv-tile.cc-due-blink{animation:cc-due-pulse 1.6s ease-in-out infinite;}
-  .inv-tile.crit-flash{animation:cc-due-pulse 1.2s ease-in-out 2;}
-  @media (prefers-reduced-motion: reduce){
-    .stock-row-static.cc-due-blink .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(255,92,92,0.5);background:rgba(255,92,92,0.08);}
-    .inv-tile.cc-due-blink, .inv-tile.crit-flash{animation:none;box-shadow:inset 0 0 0 2px rgba(255,92,92,0.5);background:rgba(255,92,92,0.08);}
+  /* El overlay va sobre .stock-row (el hijo), no sobre .stock-row-static (el
+     padre): .stock-row tiene su propio background:var(--panel) opaco que tapaba
+     cualquier pintura del padre — lección aprendida de la versión anterior. */
+  .stock-row-static.cc-due-blink .stock-row, .stock-row-static.crit-flash .stock-row,
+  .inv-tile.cc-due-blink, .inv-tile.crit-flash{position:relative;}
+  .stock-row-static.cc-due-blink .stock-row::after, .stock-row-static.crit-flash .stock-row::after,
+  .inv-tile.cc-due-blink::after, .inv-tile.crit-flash::after{
+    content:'';position:absolute;inset:0;border-radius:10px;pointer-events:none;opacity:0;
+    box-shadow:inset 0 0 0 2px rgba(255,92,92,0.85);background:rgba(255,92,92,0.14);
+    animation:ccDueFade 1.6s ease-in-out infinite;
   }
-  /* Igual que cc-due-blink pero disparado a mano al tocar "Alertas críticas" — dos
-     pulsos y se apaga solo (ver btn-critical-alerts en attachEvents), en vez de
-     quedar prendido todo el tiempo como cc-due-blink. */
-  .stock-row-static.crit-flash .stock-row{animation:cc-due-pulse 1.2s ease-in-out 2;border-radius:10px;}
+  .inv-tile.cc-due-blink::after, .inv-tile.crit-flash::after{border-radius:inherit;}
+  /* crit-flash: disparado a mano al tocar "Alertas críticas" — dos pulsos y el
+     overlay vuelve solo a opacity:0 (ver btn-critical-alerts en attachEvents). */
+  .stock-row-static.crit-flash .stock-row::after, .inv-tile.crit-flash::after{animation:ccDueFade 1.2s ease-in-out 2;}
   @media (prefers-reduced-motion: reduce){
-    .stock-row-static.crit-flash .stock-row{animation:none;box-shadow:inset 0 0 0 2px rgba(255,92,92,0.5);background:rgba(255,92,92,0.08);}
+    .stock-row-static.cc-due-blink .stock-row::after, .stock-row-static.crit-flash .stock-row::after,
+    .inv-tile.cc-due-blink::after, .inv-tile.crit-flash::after{
+      animation:none;opacity:.55;
+    }
   }
 
   /* Tarjetas de recibos (grid con foto de portada), pestaña Recibos */
@@ -431,10 +430,16 @@
   .cal-day.has-note:not(.has-receipt){box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--basil) 45%, var(--bg));}
   .cal-day.has-note.today{box-shadow:inset 0 0 0 2px var(--saffron);}
   .cal-day.today{box-shadow:inset 0 0 0 2px var(--saffron);}
-  .cal-day.blink{animation:calBlink 1s ease-in-out infinite;}
-  @keyframes calBlink{
-    0%,100%{box-shadow:inset 0 0 0 2px var(--tomato);}
-    50%{box-shadow:inset 0 0 0 2px transparent;}
+  /* Mismo patrón composited que ccDueFade: el borde rojo se pinta una vez en un
+     ::after y solo parpadea su opacity — cero repaint por frame. */
+  .cal-day.blink::after{
+    content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    box-shadow:inset 0 0 0 2px var(--tomato);
+    animation:calBlinkFade 1s ease-in-out infinite;
+  }
+  @keyframes calBlinkFade{
+    0%,100%{opacity:1;}
+    50%{opacity:0;}
   }
   .cal-day img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
   .cal-day-num{position:relative;font-size:13px;font-weight:600;color:var(--ink-soft);}
@@ -550,7 +555,6 @@
   .welcome-step-card{border-radius:14px;padding:26px 20px;text-align:center;margin:16px 0;animation:welcomeStepInFwd .4s var(--ease-soft);cursor:grab;touch-action:pan-y;}
   .welcome-step-card:active{cursor:grabbing;}
   .welcome-step-card.dir-back{animation-name:welcomeStepInBack;}
-  .welcome-step-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;color:var(--on-accent);margin-bottom:14px;box-shadow:var(--shadow);}
   .welcome-step-title{display:block;font-size:16px;margin-bottom:6px;}
   .welcome-step-sub{font-size:13px;color:var(--ink-mid);line-height:1.45;}
   /* Entra deslizando desde el lado del que "viene" (derecha al avanzar, izquierda al
@@ -571,7 +575,9 @@
      vea corriendo suave incluso si el usuario salta varios pasos de una. */
   .welcome-progress-row{display:flex;align-items:center;gap:10px;margin:14px 0 16px;}
   .welcome-progress-track{flex:1;height:4px;border-radius:99px;background:var(--bg);overflow:hidden;}
-  .welcome-progress-fill{height:100%;border-radius:99px;background:var(--basil);transition:width .35s var(--ease-soft);}
+  /* La transición de width la define la regla de más abajo (junto a la encuesta
+     de salida) — antes estaba duplicada acá y la de abajo la pisaba igual. */
+  .welcome-progress-fill{height:100%;border-radius:99px;background:var(--basil);}
   .welcome-progress-pct{font-family:'IBM Plex Mono';font-size:11.5px;font-weight:700;color:var(--basil-ink);min-width:32px;text-align:right;font-variant-numeric:tabular-nums;}
   .welcome-dots{display:flex;justify-content:center;gap:9px;margin-bottom:4px;}
   .welcome-dot{width:7px;height:7px;border-radius:50%;cursor:pointer;padding:6px;margin:-6px;background-clip:content-box;transition:transform .25s ease,background .25s ease;}
@@ -925,7 +931,6 @@
   .recap-delta{font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums;}
   /* Cierre de mes: filas del resumen — etiqueta a la izquierda, dato fuerte a la
      derecha, notas chicas debajo del dato. */
-  .recap-list{display:flex;flex-direction:column;margin:6px 0 4px;}
   .recap-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);}
   .recap-row:last-child{border-bottom:none;}
   .recap-label{font-size:13px;color:var(--ink-mid);font-weight:600;flex-shrink:0;}
@@ -963,9 +968,6 @@
   .dash-pencil-btn{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--raised);
     color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .dash-pencil-btn:active{transform:scale(.92);}
-  .spend-split{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
-  .spend-split-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;color:var(--ink-soft);}
-  .spend-split-row strong{font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap;}
   /* Valor total del inventario, arriba a la izquierda de la pestaña Inventario —
      verde: en esta app el verde es el color de "dato bueno" (es un activo). */
   .inv-total-value{font-size:26px;font-weight:800;color:var(--basil);font-variant-numeric:tabular-nums;line-height:1.15;}

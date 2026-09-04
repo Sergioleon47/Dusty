@@ -11,16 +11,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sergioleon47/PATRON.git"
+    "url": "git+https://github.com/Sergioleon47/Dusty.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/Sergioleon47/PATRON/issues"
+    "url": "https://github.com/Sergioleon47/Dusty/issues"
   },
-  "homepage": "https://github.com/Sergioleon47/PATRON#readme",
+  "homepage": "https://github.com/Sergioleon47/Dusty#readme",
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
