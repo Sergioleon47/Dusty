@@ -473,7 +473,6 @@ function dashboardView(){
    filtran. Los ids no cambian: attachEvents los encuentra igual en cualquier
    pestaña (las tres páginas del carrusel se renderizan siempre). */
 function inventoryMenuRow(){
-  const ccDue = isCycleCountDue();
   return `
   <div class="inv-header-actions" style="margin-bottom:16px;">
     ${/* Escanear primero y en amarillo (es EL camino recomendado: la IA nombra,
@@ -486,15 +485,15 @@ function inventoryMenuRow(){
          attachProductionEvents() lo cablea pero nadie lo renderizaba — se quitó
          el 2026-09-02 "por ahora" y las salidas del escáner quedaron invisibles. */''}
     <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
-    <button class="btn btn-ghost inv-row-btn" id="btn-cycle-count">
-      ${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}
-    </button>
+    ${/* "Crear categoría" con botón propio (pedido del usuario 2026-09-04); la
+         GESTIÓN de categorías y el conteo cíclico se mudaron a Ajustes — son
+         configuración, no acciones del día a día (ver alertSettingsModal). */''}
+    <button class="btn btn-ghost inv-row-btn" id="btn-create-category">${t('btn_create_category')}</button>
     ${(currentUser || hadCloudSessionBefore()) ? `
     <button class="btn btn-ghost inv-row-btn" id="btn-inventory-activity">
       ${t('btn_inventory_activity')}${unreadActivityCount()>0?`<span class="count-badge">${unreadActivityCount()>99?'99+':unreadActivityCount()}</span>`:''}
     </button>
     ` : ''}
-    <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
   </div>`;
 }
 /* Fila de chips de categoría — vive en INVENTARIO (antes en el Dashboard):
@@ -1472,6 +1471,20 @@ function alertSettingsModal(){
           })()}
         </div>
         <div class="helper-note" style="margin-bottom:0;">${t('budget_helper')}</div>
+      </div>
+
+      ${/* Categorías (gestión) y Conteo cíclico viven acá desde 2026-09-04
+           (pedido del usuario): son configuración del inventario, no acciones
+           del día a día. Sus ids son los de siempre — los handlers de
+           attachEvents los encuentran igual, solo cierran este modal antes. */''}
+      <div class="settings-card">
+        ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('settings_inventory_title'))}
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="btn-manage-categories">${t('btn_manage_categories')}</button>
+          <button class="btn btn-ghost btn-sm" id="btn-cycle-count" style="position:relative;">
+            ${t('cc_btn')}${isCycleCountDue()?'<span class="cc-due-dot"></span>':''}
+          </button>
+        </div>
       </div>
 
       <div class="settings-card">

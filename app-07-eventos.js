@@ -299,8 +299,14 @@ function attachEvents(){
   }
 
   const btnNewItem=document.getElementById('btn-new-item'); if(btnNewItem) btnNewItem.onclick=()=>openItemModal(null);
+  // Gestión de categorías y conteo cíclico viven en Ajustes (2026-09-04) — al
+  // abrirlos se cierra el modal de Ajustes primero (si no, quedaba encima).
   const btnManageCategories=document.getElementById('btn-manage-categories');
-  if(btnManageCategories) btnManageCategories.onclick=openCategoriesModal;
+  if(btnManageCategories) btnManageCategories.onclick=()=>{ showAlertSettingsModal=false; openCategoriesModal(); };
+  // "Crear categoría" con botón propio en el menú del Dashboard: abre el mismo
+  // modal de categorías, que arranca con el campo de crear arriba de todo.
+  const btnCreateCategory=document.getElementById('btn-create-category');
+  if(btnCreateCategory) btnCreateCategory.onclick=openCategoriesModal;
   document.querySelectorAll('[data-open-category]').forEach(btn=>{
     btn.onclick=()=>{
       inventoryCategoryFilter = btn.dataset.openCategory;
@@ -591,7 +597,7 @@ function attachEvents(){
   }
 
   const btnCycleCount=document.getElementById('btn-cycle-count');
-  if(btnCycleCount) btnCycleCount.onclick=openCycleCountModal;
+  if(btnCycleCount) btnCycleCount.onclick=()=>{ showAlertSettingsModal=false; openCycleCountModal(); };
   const ccBanner=document.getElementById('cc-banner');
   if(ccBanner) ccBanner.onclick=openCycleCountModal;
   const cycleCountOverlay=document.getElementById('cycle-count-overlay');
