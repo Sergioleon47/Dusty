@@ -777,9 +777,14 @@
      debajo — max-height + opacity animados, morphdom solo cambia la clase .open. */
   /* Columna izquierda de la fila del escáner de estante: Valor del inventario
      arriba, calculadora debajo — apilados llenan el hueco (antes el valor
-     flotaba solo en el encabezado con aire muerto hasta la tarjeta). */
-  .inv-left-col{margin-right:auto;align-self:center;display:flex;flex-direction:column;gap:32px;
-    flex:1 1 auto;max-width:200px;min-width:0;}
+     flotaba solo en el encabezado con aire muerto hasta la tarjeta).
+     max-width 340 (antes 200): la tarjeta de la calculadora terminaba a mitad
+     de pantalla y quedaba un vacío hasta el escáner (captura del usuario
+     2026-09-04) — ahora se estira y llena la fila; en pantallas anchas el tope
+     evita una tarjeta gigante (margin-right:auto la deja anclada a la izquierda
+     ahí, con el escáner a la derecha como siempre). */
+  .inv-left-col{margin-right:auto;align-self:center;display:flex;flex-direction:column;gap:24px;
+    flex:1 1 auto;max-width:340px;min-width:0;padding-right:14px;box-sizing:border-box;}
   /* Etiqueta del valor: con color y algo más grande que un stat-label (pedido del
      usuario) — misma familia verde que el monto, se leen como una sola pieza. */
   .inv-value-label{font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
