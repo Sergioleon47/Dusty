@@ -461,18 +461,49 @@ function dashboardView(){
   </div>
 
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
-  ${inventory.length>0 && categories.length>0 ? categoryChipsRow() : ''}
+  ${inventory.length>0 ? inventoryMenuRow() : ''}
   ${priceAlertsCard()}
   ${stockAnalyticsCard()}
   `;
 }
-/* Fila de botones de categoría en el Dashboard — tocar uno filtra Inventario a
-   esa categoría (ver btn-manage-categories/data-open-category en attachEvents y
-   el filtro inventoryCategoryFilter en inventarioView). El número es cuántos
-   productos tiene esa categoría ahora mismo, no un conteo fijo. */
+/* INTERCAMBIO 2026-09-04 (pedido del usuario): el menú de acciones del
+   inventario (escanear productos, alta manual, producción, conteo, actividad,
+   categorías) vive en el DASHBOARD — donde estaban los chips de categoría — y
+   los chips se mudaron a la pestaña Inventario, junto a los productos que
+   filtran. Los ids no cambian: attachEvents los encuentra igual en cualquier
+   pestaña (las tres páginas del carrusel se renderizan siempre). */
+function inventoryMenuRow(){
+  const ccDue = isCycleCountDue();
+  return `
+  <div class="inv-header-actions" style="margin-bottom:16px;">
+    ${/* Escanear primero y en amarillo (es EL camino recomendado: la IA nombra,
+         categoriza y llena todo); el alta manual queda segunda y neutra, como
+         el resto del menú — reordenado a pedido del usuario 2026-09-03. */''}
+    <button class="btn btn-primary inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
+    <button class="btn btn-ghost inv-row-btn" id="btn-new-item">${t('btn_add_manually')}</button>
+    ${/* Sin este botón, el hub de Producción entero (recetas, producir, y el
+         historial de salidas que alimenta el escáner de estante) queda inalcanzable:
+         attachProductionEvents() lo cablea pero nadie lo renderizaba — se quitó
+         el 2026-09-02 "por ahora" y las salidas del escáner quedaron invisibles. */''}
+    <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
+    <button class="btn btn-ghost inv-row-btn" id="btn-cycle-count">
+      ${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}
+    </button>
+    ${(currentUser || hadCloudSessionBefore()) ? `
+    <button class="btn btn-ghost inv-row-btn" id="btn-inventory-activity">
+      ${t('btn_inventory_activity')}${unreadActivityCount()>0?`<span class="count-badge">${unreadActivityCount()>99?'99+':unreadActivityCount()}</span>`:''}
+    </button>
+    ` : ''}
+    <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
+  </div>`;
+}
+/* Fila de chips de categoría — vive en INVENTARIO (antes en el Dashboard):
+   tocar uno filtra la lista a esa categoría (data-open-category en attachEvents
+   y el filtro inventoryCategoryFilter). El número es cuántos productos tiene
+   esa categoría ahora mismo, no un conteo fijo. Se arrastra para reordenar. */
 function categoryChipsRow(){
   return `
-  <div class="category-chip-row">
+  <div class="category-chip-row" style="flex:1 1 100%;min-width:0;">
     ${categories.map(c=>{
       const count = inventory.filter(i=>i.categoryId===c.id).length;
       return `<button type="button" class="category-chip" data-open-category="${c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
@@ -828,27 +859,10 @@ function inventarioView(){
         })() : ''}
         ${orderCalcCard()}
       </div>` : ''}${shelfScanFab()}</div>` : ''}
-    <div class="inv-header-actions">
-      ${/* Escanear primero y en amarillo (es EL camino recomendado: la IA nombra,
-           categoriza y llena todo); el alta manual queda segunda y neutra, como
-           el resto del menú — reordenado a pedido del usuario 2026-09-03. */''}
-      <button class="btn btn-primary inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
-      <button class="btn btn-ghost inv-row-btn" id="btn-new-item">${t('btn_add_manually')}</button>
-      ${/* Sin este botón, el hub de Producción entero (recetas, producir, y el
-           historial de salidas que alimenta el escáner de estante) queda inalcanzable:
-           attachProductionEvents() lo cablea pero nadie lo renderizaba — se quitó
-           el 2026-09-02 "por ahora" y las salidas del escáner quedaron invisibles. */''}
-      <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
-      <button class="btn btn-ghost inv-row-btn" id="btn-cycle-count">
-        ${t('cc_btn')}${ccDue?'<span class="cc-due-dot"></span>':''}
-      </button>
-      ${(currentUser || hadCloudSessionBefore()) ? `
-      <button class="btn btn-ghost inv-row-btn" id="btn-inventory-activity">
-        ${t('btn_inventory_activity')}${unreadActivityCount()>0?`<span class="count-badge">${unreadActivityCount()>99?'99+':unreadActivityCount()}</span>`:''}
-      </button>
-      ` : ''}
-      <button class="btn btn-ghost" id="btn-manage-categories" title="${t('btn_manage_categories')}">${t('btn_manage_categories')}</button>
-    </div>
+    ${/* Los chips de categoría viven acá desde el intercambio 2026-09-04 (el
+         menú de botones se fue al Dashboard, ver inventoryMenuRow): filtran la
+         lista que tienen justo debajo. */''}
+    ${inventory.length>0 && categories.length>0 && !filterCategory ? categoryChipsRow() : ''}
   </div>
   ${/* Producción y escáner de estante (app-08) viven arriba como los dos botones
        redondos junto al título — las recetas se abren en su propio modal (hub). */''}

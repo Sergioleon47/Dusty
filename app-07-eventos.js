@@ -304,7 +304,10 @@ function attachEvents(){
   document.querySelectorAll('[data-open-category]').forEach(btn=>{
     btn.onclick=()=>{
       inventoryCategoryFilter = btn.dataset.openCategory;
-      switchToTab('inventario');
+      // Los chips viven en Inventario (intercambio 2026-09-04): estando ahí,
+      // switchToTab a la misma pestaña solo "asienta" sin redibujar — el filtro
+      // recién elegido necesita un render explícito.
+      if(activeTab==='inventario') render(); else switchToTab('inventario');
     };
   });
   const btnClearCategoryFilter=document.getElementById('btn-clear-category-filter');
