@@ -331,8 +331,7 @@ function stockAnalyticsCard(){
      inventario completo vive entero en su propia pestaña (que ya no se filtra).
      Antes era al revés: el Dashboard mostraba todo e Inventario se filtraba a
      lo pendiente. Sin conteo pendiente, acá queda una nota y los resúmenes. */
-  const dueRows = allRows.filter(r=>ccDueIds.has(r.ing.id));
-  const rows = dueRows.filter(r=>invMatches(r.ing.name, invSearch));
+  const rows = allRows.filter(r=>ccDueIds.has(r.ing.id));
   // Sin la caja .stock-card alrededor (mismo criterio que en Inventario, pedido
   // del usuario): las tarjetas ya son cajas — todo vive directo sobre el fondo.
   return `
@@ -341,28 +340,18 @@ function stockAnalyticsCard(){
       <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
       ${stockHealthRing(allRows)}
     </div>
-    ${dueRows.length===0 ? `<div class="helper-note" style="margin:12px 0 2px;">${t('dash_cc_empty')}</div>` : `
-    ${/* Banner igual al de Inventario: dice cuántos tocan y tocarlo abre el
-         modal de conteo (id propio — cc-banner ya existe en Inventario). */''}
-    <div class="alert-banner" id="cc-banner-dash" style="cursor:pointer;margin-top:10px;">
-      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
-      <span>${t('cc_banner_text').replace('{n}', dueRows.length)}</span>
-    </div>
-    ${/* Mismo lenguaje que Inventario (pedido del usuario): cada ítem es una
-         tarjeta-botón (tocar abre la ficha), en grilla que respeta el MISMO
-         selector de vista compartido (invLayout). La barra de % se conserva.
-         Prefijo dashtile- en el view-transition-name: los tiles de Inventario
-         ya usan invtile- y nombres duplicados en el DOM abortan la transición. */''}
-    ${/* Buscador con solo la lupita (sin palabras — pedido del usuario), alineado
-         en la misma fila que el selector de vista. Busca entre lo pendiente. */''}
-    <div class="inv-toolbar" style="margin:10px 0 14px;display:flex;align-items:center;gap:8px;">
-      <div class="inv-search-wrap">
-        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="dash-inv-search" type="search" value="${escapeHtml(invSearch)}" aria-label="${t('inv_search_aria')}" autocomplete="off">
-      </div>
+    ${rows.length===0 ? `<div class="helper-note" style="margin:12px 0 2px;">${t('dash_cc_empty')}</div>` : `
+    ${/* Sin banner ni buscador acá (pedido del usuario, captura 2026-09-04): la
+         lista pendiente es corta y se explica sola — el buscador vive en
+         Inventario, donde están todos los ítems. Tocar una tarjeta abre su
+         ficha y desde ahí se cuenta; el botón de conteo sigue en Inventario.
+         Mismo lenguaje que Inventario: tarjetas-botón en la grilla del MISMO
+         selector de vista compartido (invLayout). Prefijo dashtile- en el
+         view-transition-name: los tiles de Inventario ya usan invtile- y
+         nombres duplicados en el DOM abortan la transición. */''}
+    <div class="inv-toolbar" style="margin:10px 0 14px;">
       ${invLayoutToggleHtml()}
     </div>
-    ${rows.length===0 ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>` : ''}
     <div class="inv-grid ${invLayout}">
     ${rows.map(r=>`
       <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
@@ -792,9 +781,11 @@ function inventarioView(){
   // catálogo completo — el filtro "solo lo que toca contar" se mudó al Dashboard,
   // que ahora lista únicamente los pendientes de conteo. Acá los pendientes solo
   // parpadean (cc-due-blink) y el banner sigue abriendo el conteo.
-  const rows = filterCategory
+  // La lupa vive ACÁ (pedido del usuario, captura 2026-09-04): se busca donde
+  // están todos los ítems. Filtra también dentro de una categoría abierta.
+  const rows = (filterCategory
     ? allRows.filter(r=>r.ing.categoryId===filterCategory.id)
-    : allRows;
+    : allRows).filter(r=>invMatches(r.ing.name, invSearch));
   const groups = groupRowsByCategory(rows);
   // Valor total del inventario (cantidad × costo de cada producto) — vive arriba a
   // la izquierda, encima de la calculadora. Reemplaza al título "Inventario"
@@ -870,19 +861,29 @@ function inventarioView(){
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
     <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
   </div>` : '')}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (rows.length===0 ? (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (
     // Sin la caja .stock-card alrededor: las tarjetas ya son cajas por sí
-    // mismas — caja dentro de caja era redundante (captura del usuario). El
-    // selector de vista (fila / 2 col / 3 col) va a la derecha, arriba de la
-    // primera grilla — punto que el usuario marcó en su captura.
-    `<div class="inv-toolbar">${invLayoutToggleHtml()}</div>` + (
-    groups.length>1
+    // mismas — caja dentro de caja era redundante (captura del usuario). La
+    // lupa a la izquierda (margin-right:auto de .inv-search-wrap) y el selector
+    // de vista a la derecha — la barra se renderiza AUNQUE la búsqueda no
+    // encuentre nada, para poder borrar lo tipeado.
+    `<div class="inv-toolbar" style="align-items:center;gap:8px;">
+      <div class="inv-search-wrap">
+        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="inv-search" type="search" value="${escapeHtml(invSearch)}" aria-label="${t('inv_search_aria')}" autocomplete="off">
+      </div>
+      ${invLayoutToggleHtml()}
+    </div>` + (
+    rows.length===0
+      ? (invSearch.trim() ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
+        : (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))))
+      : (groups.length>1
       ? groups.map(g=>`
         <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
         <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>
       `).join('')
-      : `<div class="inv-grid ${invLayout}">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`)
-  ))}
+      : `<div class="inv-grid ${invLayout}">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`))
+  )}
   `;
 }
 

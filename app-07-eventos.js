@@ -589,10 +589,6 @@ function attachEvents(){
   if(btnCycleCount) btnCycleCount.onclick=openCycleCountModal;
   const ccBanner=document.getElementById('cc-banner');
   if(ccBanner) ccBanner.onclick=openCycleCountModal;
-  // Banner gemelo del Dashboard (la lista de pendientes de conteo vive ahí desde
-  // la inversión 2026-09-04) — mismo destino: abrir el modal de conteo.
-  const ccBannerDash=document.getElementById('cc-banner-dash');
-  if(ccBannerDash) ccBannerDash.onclick=openCycleCountModal;
   const cycleCountOverlay=document.getElementById('cycle-count-overlay');
   if(cycleCountOverlay){
     cycleCountOverlay.onmousedown=(e)=>{ if(e.target===cycleCountOverlay) closeCycleCountModal(); };
@@ -865,14 +861,16 @@ function attachEvents(){
   document.querySelectorAll('[data-delete-stock-item]').forEach(b=>{
     b.onclick=(e)=>{ e.stopPropagation(); deleteStockItem(b.dataset.deleteStockItem, b); };
   });
-  // Buscador del Dashboard: filtra en vivo con cada tecla, patrón debounce+foco
-  // de receipt-search (el render recrea el input a mitad de tipeo sin esto).
-  const dashInvSearch=document.getElementById('dash-inv-search');
-  if(dashInvSearch) dashInvSearch.oninput=(e)=>{
+  // Buscador del inventario (vive en la pestaña Inventario desde 2026-09-04 —
+  // se busca donde están todos los ítems): filtra en vivo con cada tecla,
+  // patrón debounce+foco de receipt-search (el render recrea el input a mitad
+  // de tipeo sin esto).
+  const invSearchInp=document.getElementById('inv-search');
+  if(invSearchInp) invSearchInp.oninput=(e)=>{
     const cursorPos=e.target.selectionStart;
     invSearch=e.target.value;
     scheduleSearchTriggeredRender(()=>{
-      const fresh=document.getElementById('dash-inv-search');
+      const fresh=document.getElementById('inv-search');
       if(fresh){ fresh.focus(); try{ fresh.setSelectionRange(cursorPos,cursorPos); }catch(err){} }
     });
   };
