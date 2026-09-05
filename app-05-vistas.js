@@ -873,7 +873,9 @@ function inventarioView(){
     <span>${t('inv_filtered_by_category').replace('{name}', escapeHtml(filterCategory.name))}</span>
     <button type="button" class="link-btn" id="btn-clear-category-filter" style="padding:0;color:var(--navy-ink);">${t('btn_clear_category_filter')}</button>
   </div>` : (ccDue && inventory.length>0 ? `
-  <div class="alert-banner" id="cc-banner" style="cursor:pointer;">
+  ${/* Sin la caja .alert-banner (pedido del usuario, captura 2026-09-04): el
+       aviso de conteo es una línea suelta — mismo tap, mismo destino. */''}
+  <div id="cc-banner" role="button" tabindex="0" style="cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--tomato-ink);font-size:13.5px;font-weight:600;margin:0 2px 14px;">
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
     <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
   </div>` : '')}
