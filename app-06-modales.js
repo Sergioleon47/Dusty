@@ -768,9 +768,10 @@ function teamModal(){
         </div>
       `}
       ${teamError ? `<div class="scan-error" style="margin-top:12px;">${escapeHtml(teamError)}</div>` : ''}
+      ${/* "Cerrar sesión" se mudó a Ajustes → Cuenta (pedido del usuario
+           2026-09-04): compartir y salir de la cuenta son cosas distintas. */''}
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-sign-out-team">${t('team_sign_out_btn')}</button>
-        <button class="btn btn-primary" id="btn-close-team">${t('btn_close')}</button>
+        <button class="btn btn-primary" id="btn-close-team" style="width:100%;">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;

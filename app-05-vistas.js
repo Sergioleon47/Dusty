@@ -1513,6 +1513,13 @@ function accountModal(){
         <div class="helper-note" style="margin-top:10px;margin-bottom:0;">${t('backup_section_hint')}</div>
       </div>
 
+      ${/* Cerrar sesión vive acá (se mudó del modal de equipo 2026-09-04):
+           compartir la cuenta y salir de ella son cosas distintas. */''}
+      ${currentUser && !currentUser.isAnonymous ? `
+      <div class="settings-card">
+        <button class="btn btn-ghost btn-sm" id="btn-sign-out-account" style="width:100%;">${t('team_sign_out_btn')}</button>
+      </div>
+      ` : ''}
       ${currentUser ? `
       <div class="settings-card" style="background:var(--tomato-soft);">
         <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:color-mix(in srgb, var(--tomato) 35%, var(--panel));">${t('delete_account_btn')}</button>

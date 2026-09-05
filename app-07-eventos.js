@@ -166,7 +166,6 @@ function attachEvents(){
     document.getElementById('btn-close-team').onclick=closeTeamModal;
     const btnCloseTeamX=document.getElementById('btn-close-team-x');
     if(btnCloseTeamX) btnCloseTeamX.onclick=closeTeamModal;
-    document.getElementById('btn-sign-out-team').onclick=()=>{ closeTeamModal(); firebase.auth().signOut(); };
     // Toggle del dueño: ganancias/Valor visibles para miembros — viaja por meta.
     const teamProfitsCb=document.getElementById('team-profits-visible');
     if(teamProfitsCb) teamProfitsCb.onchange=()=>{
@@ -454,6 +453,14 @@ function attachEvents(){
     accountOverlay.onmousedown=(e)=>{ if(e.target===accountOverlay) closeAccountModal(); };
     const btnCloseAccountFooter=document.getElementById('btn-close-account-footer');
     if(btnCloseAccountFooter) btnCloseAccountFooter.onclick=closeAccountModal;
+    // Cerrar sesión (vivía en el modal de equipo): cierra todo sin volver a
+    // Ajustes — deslogueado, no hay Ajustes pendiente que tenga sentido.
+    const btnSignOutAccount=document.getElementById('btn-sign-out-account');
+    if(btnSignOutAccount) btnSignOutAccount.onclick=()=>{
+      settingsReturnPending=false; showAccountModal=false;
+      try{ firebase.auth().signOut(); }catch(e){}
+      render();
+    };
     const btnOpenDeleteAccount=document.getElementById('btn-open-delete-account');
     // La encuesta de salida (mes gratis + razón) se interpone ANTES del modal
     // real de eliminación — ver exitSurveyModal en app-06. Cuenta se cierra SIN
