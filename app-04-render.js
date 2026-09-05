@@ -299,8 +299,11 @@ function topbar(){
         <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </button>
       ${currentUser && !currentUser.isAnonymous ? `
+      ${/* Nube rediseñada (pedido del usuario 2026-09-04): la silueta clásica
+           cerrada (Feather "cloud") en vez del trazo abierto de antes, con el
+           check adentro — se lee como nube de un vistazo a 17px. */''}
       <button class="lang-toggle ${cloudSyncDirty ? 'pending' : 'synced'}" id="btn-cloud-sync" title="${cloudSyncDirty ? t('cloud_sync_pending') : t('cloud_sync_signed_in').replace('{email}', escapeHtml(currentUserLabel()))}">
-        <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6.5 16"/><path d="m9 15 2 2 4-4"/></svg>
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="9.5 14 11.5 16 15 12.5"/></svg>
       </button>
       ` : `
       <button class="cloud-signin-btn" id="btn-cloud-sign-in" title="${currentUser ? t('trial_upgrade_title') : t('cloud_sync_signed_out')}">
