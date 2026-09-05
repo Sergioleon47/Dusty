@@ -442,8 +442,6 @@ function attachEvents(){
   const accountOverlay=document.getElementById('account-overlay');
   if(accountOverlay){
     accountOverlay.onmousedown=(e)=>{ if(e.target===accountOverlay) closeAccountModal(); };
-    const btnCloseAccount=document.getElementById('btn-close-account');
-    if(btnCloseAccount) btnCloseAccount.onclick=closeAccountModal;
     const btnCloseAccountFooter=document.getElementById('btn-close-account-footer');
     if(btnCloseAccountFooter) btnCloseAccountFooter.onclick=closeAccountModal;
     const btnOpenDeleteAccount=document.getElementById('btn-open-delete-account');

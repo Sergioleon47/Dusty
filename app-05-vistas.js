@@ -1475,6 +1475,16 @@ function alertSettingsModal(){
         <button class="btn btn-ghost btn-sm" id="btn-open-account" style="width:100%;">${t('account_btn')}</button>
       </div>
 
+      ${/* Idioma DE ÚLTIMO (pedido del usuario 2026-09-04): vivía en el topbar,
+           pero se cambia una sola vez — no merecía lugar permanente en la barra.
+           El rótulo va en el idioma DESTINO a propósito: quien no entiende el
+           idioma actual tiene que poder reconocer el suyo. Mismo id de siempre,
+           el handler de attachEvents lo encuentra acá igual; setLang re-renderiza
+           y el modal queda abierto con el rótulo ya cambiado. */''}
+      <div class="settings-card">
+        <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Switch to English':'🌐 Cambiar a español'}</button>
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-alert-settings">${t('btn_save')}</button>
@@ -1493,7 +1503,8 @@ function accountModal(){
   return `
   <div class="overlay" id="account-overlay">
     <div class="modal">
-      <button type="button" class="modal-close-btn" id="btn-close-account" aria-label="${t('btn_close')}">✕</button>
+      ${/* Sin ✕ (pedido del usuario): el modal es corto, el botón Cerrar del
+           pie está siempre a la vista y el fondo también cierra. */''}
       <h3 class="sky">${t('account_title')}</h3>
 
       <div class="settings-card">
