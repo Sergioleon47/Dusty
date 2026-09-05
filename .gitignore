@@ -17,3 +17,15 @@ android/.idea/
 # nueva). Guardado aparte, fuera de git, con backup propio.
 android/keystore/
 android/keystore.properties
+
+# iOS (Capacitor): artefactos de build y copias generadas — el equivalente de
+# www/ para Xcode. App/App/public y su capacitor.config.json se regeneran en
+# cada `npm run cap:sync`; Pods/ y DerivedData son de la máquina que compila.
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/Pods/
+ios/App/output/
+ios/App/App/DerivedData/
+ios/DerivedData/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/

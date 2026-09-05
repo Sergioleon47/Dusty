@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --test",
     "build": "node scripts/build-www.js",
-    "cap:sync": "npm run build && npx cap sync android",
+    "cap:sync": "npm run build && npx cap sync",
     "cap:open:android": "npx cap open android"
   },
   "repository": {
@@ -26,6 +26,7 @@
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.1",
     "@capacitor/splash-screen": "^8.0.2"
   },
   "devDependencies": {
