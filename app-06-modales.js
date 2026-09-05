@@ -682,7 +682,12 @@ function teamModal(){
   return `
   <div class="overlay" id="team-overlay">
     <div class="modal">
-      <h3 class="basil">${t('team_title')}</h3>
+      ${/* ✕ arriba (pedido del usuario 2026-09-04): cerrar sin bajar hasta los
+           botones del pie — y sin riesgo de tocar "Cerrar sesión" por error. */''}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <h3 class="basil" style="flex:1;margin:0;">${t('team_title')}</h3>
+        <button type="button" class="oc-close" id="btn-close-team-x" aria-label="${t('btn_close')}">✕</button>
+      </div>
       ${joinedOwnerUid ? `
         <div class="settings-card" style="background:var(--basil-soft);">
           ${settingsCardHeader('cloud','var(--basil-soft)','var(--basil-ink)',t('team_title'))}

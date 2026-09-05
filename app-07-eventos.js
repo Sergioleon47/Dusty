@@ -160,6 +160,8 @@ function attachEvents(){
   if(teamOverlay){
     teamOverlay.onmousedown=(e)=>{ if(e.target===teamOverlay) closeTeamModal(); };
     document.getElementById('btn-close-team').onclick=closeTeamModal;
+    const btnCloseTeamX=document.getElementById('btn-close-team-x');
+    if(btnCloseTeamX) btnCloseTeamX.onclick=closeTeamModal;
     document.getElementById('btn-sign-out-team').onclick=()=>{ closeTeamModal(); firebase.auth().signOut(); };
     // Toggle del dueño: ganancias/Valor visibles para miembros — viaja por meta.
     const teamProfitsCb=document.getElementById('team-profits-visible');
