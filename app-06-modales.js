@@ -692,8 +692,11 @@ function teamModal(){
       ` : `
         <div class="settings-card">
           ${settingsCardHeader('share','var(--basil-soft)','var(--basil-ink)',t('team_your_code_label'))}
+          ${/* flex:1+min-width:0 en el input: sin esto, su ancho mínimo nativo
+               (~180px) + Compartir + Copiar desbordaban el modal en teléfonos —
+               el código tiene 6 caracteres, puede ceder ancho tranquilo. */''}
           <div style="display:flex;gap:8px;align-items:center;">
-            <input id="team-code-display" type="text" value="${escapeHtml(teamInviteCode)}" readonly placeholder="${teamLoading?'…':''}" style="font-weight:700;letter-spacing:2px;text-align:center;">
+            <input id="team-code-display" type="text" value="${escapeHtml(teamInviteCode)}" readonly placeholder="${teamLoading?'…':''}" style="font-weight:700;letter-spacing:2px;text-align:center;flex:1 1 80px;min-width:0;">
             ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-ghost" id="btn-share-invite-code" ${teamInviteCode?'':'disabled'}>${t('team_share_btn')}</button>` : ''}
             <button type="button" class="btn btn-ghost" id="btn-copy-invite-code" ${teamInviteCode?'':'disabled'}>${t('team_copy_btn')}</button>
           </div>
@@ -737,7 +740,7 @@ function teamModal(){
         <div class="settings-card" style="margin-bottom:0;">
           ${settingsCardHeader('share','var(--sky-soft)','var(--sky-ink)',t('team_join_label'))}
           <div style="display:flex;gap:8px;">
-            <input id="team-join-input" type="text" value="${escapeHtml(teamJoinCode)}" placeholder="${t('team_join_placeholder')}" style="text-transform:uppercase;">
+            <input id="team-join-input" type="text" value="${escapeHtml(teamJoinCode)}" placeholder="${t('team_join_placeholder')}" style="text-transform:uppercase;flex:1 1 80px;min-width:0;">
             <button type="button" class="btn btn-ghost" id="btn-join-team" ${teamLoading?'disabled':''}>${t('team_join_btn')}</button>
           </div>
         </div>

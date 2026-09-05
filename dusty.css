@@ -485,7 +485,11 @@
      lentos al tocar un botón): .65s→.75s, deformación inicial más suave
      (.82→.9) y curva de desaceleración tipo iOS en vez del resorte — llega
      calmado, sin pop de juguete. */
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .75s cubic-bezier(.32,.72,.25,1);}
+  /* min-width:0: el modal es flex-item del overlay y su min-width:auto lo
+     inflaba al ancho mínimo del contenido — en teléfonos, la fila código+
+     Compartir+Copiar del modal de equipo lo empujaba más allá de la pantalla
+     y quedaba recortado de ambos lados (captura del usuario 2026-09-04). */
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;width:100%;max-width:460px;min-width:0;box-shadow:var(--shadow-lg);max-height:88vh;overflow-y:auto;transform-origin:top center;animation:modalPopIn .75s cubic-bezier(.32,.72,.25,1);}
   @keyframes overlayFadeIn{ from{opacity:0;} to{opacity:1;} }
   /* Fundido de la View Transition al abrir/cerrar modales (ver render()) — más
      pausado que el default de 250ms del navegador (mismo pase nativo de arriba):
