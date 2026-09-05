@@ -141,8 +141,13 @@ function attachEvents(){
     const btnSendFeedback=document.getElementById('btn-send-feedback');
     if(btnSendFeedback) btnSendFeedback.onclick=sendFeedback;
   }
+  // La nube ya NO abre el modal de equipo (arrancado de raíz 2026-09-04: eso
+  // vive en "Compartir cuenta" del menú del Dashboard) — queda como indicador
+  // de sincronización; tocarla dice el estado en un toast.
   const btnCloudSync=document.getElementById('btn-cloud-sync');
-  if(btnCloudSync) btnCloudSync.onclick=()=>{ openTeamModal(); };
+  if(btnCloudSync) btnCloudSync.onclick=()=>{
+    showToast(cloudSyncDirty ? t('cloud_sync_pending') : t('cloud_sync_signed_in').replace('{email}', currentUserLabel()), cloudSyncDirty ? 'info' : 'success');
+  };
   const btnCloudSignIn=document.getElementById('btn-cloud-sign-in');
   if(btnCloudSignIn) btnCloudSignIn.onclick=()=>{
     // El modal no necesita el SDK para dibujarse — se abre al toque y Firebase
