@@ -502,7 +502,10 @@ function inventoryMenuRow(){
    esa categoría ahora mismo, no un conteo fijo. Se arrastra para reordenar. */
 function categoryChipsRow(){
   return `
-  <div class="category-chip-row" style="flex:1 1 100%;min-width:0;">
+  ${/* margin/padding inferior a 0: dentro del section-head, el margen propio de
+       la fila + el del section-head apilaban ~38px de vacío hasta el banner
+       (captura del usuario 2026-09-04) — con el margen del section-head alcanza. */''}
+  <div class="category-chip-row" style="flex:1 1 100%;min-width:0;margin-bottom:0;padding-bottom:2px;">
     ${categories.map(c=>{
       const count = inventory.filter(i=>i.categoryId===c.id).length;
       return `<button type="button" class="category-chip" data-open-category="${c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
