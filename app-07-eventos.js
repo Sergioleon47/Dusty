@@ -302,11 +302,16 @@ function attachEvents(){
   // abrirlos se cierra el modal de Ajustes primero (si no, quedaba encima).
   const btnManageCategories=document.getElementById('btn-manage-categories');
   if(btnManageCategories) btnManageCategories.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; openCategoriesModal(); };
-  // "Crear categoría" con botón propio en el menú del Dashboard: abre el mismo
-  // modal de categorías, que arranca con el campo de crear arriba de todo.
-  // (settingsReturnPending=false: desde acá NO se vuelve a Ajustes al cerrar.)
-  const btnCreateCategory=document.getElementById('btn-create-category');
-  if(btnCreateCategory) btnCreateCategory.onclick=()=>{ settingsReturnPending=false; openCategoriesModal(); };
+  // "Compartir cuenta" (menú del Dashboard): con sesión real abre el modal de
+  // equipo directo; trial anónimo → guardar la cuenta primero; sin sesión →
+  // login. Mismo criterio que los botones de nube del topbar.
+  const btnShareAccount=document.getElementById('btn-share-account');
+  if(btnShareAccount) btnShareAccount.onclick=()=>{
+    if(currentUser && !currentUser.isAnonymous){ openTeamModal(); return; }
+    ensurePatronFirebaseReady().catch(()=>{});
+    if(currentUser && currentUser.isAnonymous) openUpgradeModal();
+    else openAuthModal();
+  };
   document.querySelectorAll('[data-open-category]').forEach(btn=>{
     btn.onclick=()=>{
       inventoryCategoryFilter = btn.dataset.openCategory;

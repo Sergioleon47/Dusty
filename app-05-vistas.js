@@ -475,25 +475,21 @@ function dashboardView(){
 function inventoryMenuRow(){
   return `
   <div class="inv-header-actions" style="margin-bottom:16px;">
-    ${/* Escanear primero y en amarillo (es EL camino recomendado: la IA nombra,
-         categoriza y llena todo); el alta manual queda segunda y neutra, como
-         el resto del menú — reordenado a pedido del usuario 2026-09-03. */''}
+    ${/* Orden pedido por el usuario 2026-09-04: Escanear primero y en amarillo
+         (EL camino recomendado), Alta manual, COMPARTIR CUENTA tercero (abre
+         el modal de equipo; sin sesión real, primero login/guardar cuenta),
+         Actividad, y Producción DE ÚLTIMO. "Crear categoría" salió de raíz:
+         vive en Ajustes → Categorías. Producción sigue acá — sin este botón,
+         el hub entero (recetas, producir, historial de salidas) es inalcanzable. */''}
     <button class="btn btn-primary inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
     <button class="btn btn-ghost inv-row-btn" id="btn-new-item">${t('btn_add_manually')}</button>
-    ${/* Sin este botón, el hub de Producción entero (recetas, producir, y el
-         historial de salidas que alimenta el escáner de estante) queda inalcanzable:
-         attachProductionEvents() lo cablea pero nadie lo renderizaba — se quitó
-         el 2026-09-02 "por ahora" y las salidas del escáner quedaron invisibles. */''}
-    <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
-    ${/* "Crear categoría" con botón propio (pedido del usuario 2026-09-04); la
-         GESTIÓN de categorías y el conteo cíclico se mudaron a Ajustes — son
-         configuración, no acciones del día a día (ver alertSettingsModal). */''}
-    <button class="btn btn-ghost inv-row-btn" id="btn-create-category">${t('btn_create_category')}</button>
+    <button class="btn btn-ghost inv-row-btn" id="btn-share-account">${t('share_account_btn')}</button>
     ${(currentUser || hadCloudSessionBefore()) ? `
     <button class="btn btn-ghost inv-row-btn" id="btn-inventory-activity">
       ${t('btn_inventory_activity')}${unreadActivityCount()>0?`<span class="count-badge">${unreadActivityCount()>99?'99+':unreadActivityCount()}</span>`:''}
     </button>
     ` : ''}
+    <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
   </div>`;
 }
 /* Fila de chips de categoría — vive en INVENTARIO (antes en el Dashboard):
