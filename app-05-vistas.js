@@ -1451,33 +1451,9 @@ function alertSettingsModal(){
         <div class="helper-note" style="margin-bottom:0;">${t('alert_helper')}</div>
       </div>
 
-      <div class="settings-card">
-        ${settingsCardHeader('chart','var(--basil-soft)','var(--basil-ink)',t('budget_title'))}
-        <div class="field">
-          <label>${t('budget_label')}</label>
-          ${(()=>{
-            /* Placeholder inteligente: si nunca definió presupuesto pero YA hay
-               gasto registrado, se le sugiere su propio gasto reciente redondeado
-               hacia arriba — un número real de SU negocio en vez de un "Ej. 2000"
-               inventado. Es placeholder (no value) a propósito: prellenar el input
-               guardaría un presupuesto que nunca eligió con solo tocar "Guardar". */
-            let ph = t('budget_placeholder');
-            const noBudget = draftMonthlyBudget===null || draftMonthlyBudget===undefined || draftMonthlyBudget==='';
-            if(noBudget){
-              const prev = spendForMonth(shiftMonthStr(localMonthStr(), -1));
-              const curr = spendForMonth(localMonthStr());
-              const base = prev>0 ? prev : curr;
-              if(base>0){
-                const sugerido = Math.ceil(base/50)*50;
-                ph = t('budget_placeholder_suggested').replace('{n}', sugerido).replace('{s}', money(base));
-              }
-            }
-            return `<input id="budget-input" type="number" min="0" step="1" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">`;
-          })()}
-        </div>
-        <div class="helper-note" style="margin-bottom:0;">${t('budget_helper')}</div>
-      </div>
-
+      ${/* El presupuesto mensual salió de acá DE RAÍZ (pedido del usuario
+           2026-09-04): se edita solo desde el lápiz del Dashboard, que abre su
+           propio mini-modal (budgetModal) — un único lugar, sin duplicados. */''}
       ${/* Categorías (gestión) y Conteo cíclico viven acá desde 2026-09-04
            (pedido del usuario): son configuración del inventario, no acciones
            del día a día. Sus ids son los de siempre — los handlers de
@@ -1542,6 +1518,48 @@ function accountModal(){
 
       <div class="modal-actions">
         <button class="btn btn-primary" id="btn-close-account-footer" style="width:100%;">${t('btn_close')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ================= MODAL: PRESUPUESTO MENSUAL =================
+   El lápiz del Dashboard abría Ajustes entero scrolleado al campo; ahora el
+   presupuesto tiene su propio mini-modal y salió de Ajustes de raíz (pedido
+   del usuario 2026-09-04) — un único lugar para editarlo. Sin autofocus
+   (regla de la casa: el teclado lo abre el usuario). */
+let showBudgetModal = false;
+function openBudgetModal(){ draftMonthlyBudget = monthlyBudget; showBudgetModal = true; render(); }
+function closeBudgetModal(){ showBudgetModal = false; render(); }
+function budgetModal(){
+  /* Placeholder inteligente: si nunca definió presupuesto pero YA hay gasto
+     registrado, se le sugiere su propio gasto reciente redondeado hacia
+     arriba — un número real de SU negocio en vez de un "Ej. 2000" inventado.
+     Es placeholder (no value) a propósito: prellenar el input guardaría un
+     presupuesto que nunca eligió con solo tocar "Guardar". */
+  let ph = t('budget_placeholder');
+  const noBudget = draftMonthlyBudget===null || draftMonthlyBudget===undefined || draftMonthlyBudget==='';
+  if(noBudget){
+    const prev = spendForMonth(shiftMonthStr(localMonthStr(), -1));
+    const curr = spendForMonth(localMonthStr());
+    const base = prev>0 ? prev : curr;
+    if(base>0){
+      const sugerido = Math.ceil(base/50)*50;
+      ph = t('budget_placeholder_suggested').replace('{n}', sugerido).replace('{s}', money(base));
+    }
+  }
+  return `
+  <div class="overlay" id="budget-overlay">
+    <div class="modal">
+      <h3 class="basil">${t('budget_title')}</h3>
+      <div class="field" style="margin-top:10px;">
+        <label>${t('budget_label')}</label>
+        <input id="budget-input" type="number" min="0" step="1" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">
+      </div>
+      <div class="helper-note">${t('budget_helper')}</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-budget">${t('btn_cancel')}</button>
+        <button class="btn btn-primary" id="btn-save-budget">${t('btn_save')}</button>
       </div>
     </div>
   </div>`;

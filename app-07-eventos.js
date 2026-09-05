@@ -76,7 +76,6 @@ function manageModalA11y(){
 let modalTabTrapAttached = false;
 // "Edit budget" (Dashboard) abre el modal de ajustes pidiendo foco directo en el
 // campo de presupuesto — se consume en el attach del overlay, un solo render.
-let pendingBudgetFocus = false;
 // Selector de archivo + resize para la foto de un producto — lo usan el toque en
 // la miniatura sin foto (lista) y el botón "cambiar" del visor de foto.
 function promptItemPhotoUpload(item){
@@ -402,22 +401,26 @@ function attachEvents(){
   };
   const btnAlertSettings=document.getElementById('btn-alert-settings');
   if(btnAlertSettings) btnAlertSettings.onclick=openAlertSettings;
+  // El lápiz del presupuesto abre su propio mini-modal (budgetModal, app-05) —
+  // el presupuesto salió de Ajustes de raíz (pedido del usuario 2026-09-04).
   const btnEditBudget=document.getElementById('btn-edit-budget');
-  // "Edit budget" abre el MISMO modal de ajustes, pero el campo de presupuesto es
-  // la tercera tarjeta — en un teléfono queda abajo del pliegue y parecía que el
-  // botón llevaba a un menú equivocado. El flag hace que al abrir por acá el modal
-  // aparezca ya scrolleado al presupuesto y con el teclado listo en ese campo.
-  if(btnEditBudget) btnEditBudget.onclick=()=>{ pendingBudgetFocus=true; openAlertSettings(); };
+  if(btnEditBudget) btnEditBudget.onclick=openBudgetModal;
+  const budgetOverlay=document.getElementById('budget-overlay');
+  if(budgetOverlay){
+    budgetOverlay.onmousedown=(e)=>{ if(e.target===budgetOverlay) closeBudgetModal(); };
+    const btnCancelBudget=document.getElementById('btn-cancel-budget');
+    if(btnCancelBudget) btnCancelBudget.onclick=closeBudgetModal;
+    const btnSaveBudget=document.getElementById('btn-save-budget');
+    if(btnSaveBudget) btnSaveBudget.onclick=()=>{
+      const budgetRaw=document.getElementById('budget-input').value.trim();
+      monthlyBudget = budgetRaw==='' ? null : Math.max(0, parseFloat(budgetRaw)||0);
+      saveState();
+      closeBudgetModal();
+    };
+  }
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
   if(alertSettingsOverlay){
-    if(pendingBudgetFocus){
-      pendingBudgetFocus=false;
-      // Solo scroll, SIN focus(): enfocar abriría el teclado del teléfono solo —
-      // dónde escribir lo decide el usuario tocando el campo (pedido explícito).
-      const bi=document.getElementById('budget-input');
-      if(bi) bi.scrollIntoView({block:'center'});
-    }
     alertSettingsOverlay.onmousedown=(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } };
     const closeAlertSettingsBtn=document.getElementById('btn-close-alert-settings');
     if(closeAlertSettingsBtn) closeAlertSettingsBtn.onclick=()=>{ showAlertSettingsModal=false; render(); };
@@ -427,8 +430,6 @@ function attachEvents(){
     if(saveAlertBtn) saveAlertBtn.onclick=()=>{
       const val=parseFloat(document.getElementById('alert-threshold-input').value);
       if(val>0) priceAlertThreshold=val;
-      const budgetRaw=document.getElementById('budget-input').value.trim();
-      monthlyBudget = budgetRaw==='' ? null : Math.max(0, parseFloat(budgetRaw)||0);
       saveState();
       showAlertSettingsModal=false; render();
     };
@@ -1370,6 +1371,7 @@ document.addEventListener('keydown', (e)=>{
   if(showPriceHistoryModal){ closePriceHistoryModal(); return; }
   if(showMonthlySpendModal){ closeMonthlySpendModal(); return; }
   if(showCycleCountModal){ closeCycleCountModal(); return; }
+  if(showBudgetModal){ closeBudgetModal(); return; }
   if(showAccountModal){ closeAccountModal(); return; }
   if(showAlertSettingsModal){ showAlertSettingsModal=false; render(); return; }
   if(showDeleteAccountModal){ if(!deleteAccountLoading) closeDeleteAccountModal(); return; }

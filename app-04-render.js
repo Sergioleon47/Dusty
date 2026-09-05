@@ -170,6 +170,7 @@ function renderApp(){
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
     ${showAccountModal ? accountModal() : ''}
+    ${showBudgetModal ? budgetModal() : ''}
     ${showDeleteAccountModal ? deleteAccountModal() : ''}
     ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
     ${showCycleCountModal ? cycleCountModal() : ''}
