@@ -432,10 +432,24 @@ function attachEvents(){
       saveState();
       showAlertSettingsModal=false; render();
     };
+    // "Cuenta": submodal con respaldo local, borrar cuenta y privacidad —
+    // Ajustes queda compacto y al cerrar Cuenta se vuelve acá.
+    const btnOpenAccount=document.getElementById('btn-open-account');
+    if(btnOpenAccount) btnOpenAccount.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; showAccountModal=true; render(); };
+  }
+
+  const accountOverlay=document.getElementById('account-overlay');
+  if(accountOverlay){
+    accountOverlay.onmousedown=(e)=>{ if(e.target===accountOverlay) closeAccountModal(); };
+    const btnCloseAccount=document.getElementById('btn-close-account');
+    if(btnCloseAccount) btnCloseAccount.onclick=closeAccountModal;
+    const btnCloseAccountFooter=document.getElementById('btn-close-account-footer');
+    if(btnCloseAccountFooter) btnCloseAccountFooter.onclick=closeAccountModal;
     const btnOpenDeleteAccount=document.getElementById('btn-open-delete-account');
     // La encuesta de salida (mes gratis + razón) se interpone ANTES del modal
-    // real de eliminación — ver exitSurveyModal en app-06.
-    if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; openExitSurvey(); };
+    // real de eliminación — ver exitSurveyModal en app-06. Cuenta se cierra SIN
+    // consumir el flag: cancelar la encuesta o el borrado devuelve a Ajustes.
+    if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAccountModal=false; openExitSurvey(); };
   }
 
   // Cierre de mes: hoja a página completa con una columna por período.
@@ -1356,6 +1370,7 @@ document.addEventListener('keydown', (e)=>{
   if(showPriceHistoryModal){ closePriceHistoryModal(); return; }
   if(showMonthlySpendModal){ closeMonthlySpendModal(); return; }
   if(showCycleCountModal){ closeCycleCountModal(); return; }
+  if(showAccountModal){ closeAccountModal(); return; }
   if(showAlertSettingsModal){ showAlertSettingsModal=false; render(); return; }
   if(showDeleteAccountModal){ if(!deleteAccountLoading) closeDeleteAccountModal(); return; }
   if(showSuggestedOrderModal){ showSuggestedOrderModal=false; render(); return; }

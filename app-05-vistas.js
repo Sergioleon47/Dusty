@@ -1492,6 +1492,34 @@ function alertSettingsModal(){
         </div>
       </div>
 
+      ${/* "Cuenta" agrupa respaldo local, borrar cuenta y privacidad en su
+           propio submodal (pedido del usuario 2026-09-04: Ajustes más
+           compacto) — vuelve acá al cerrarse, como Categorías y el Conteo. */''}
+      <div class="settings-card">
+        <button class="btn btn-ghost btn-sm" id="btn-open-account" style="width:100%;">${t('account_btn')}</button>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>
+        <button class="btn btn-primary" id="btn-save-alert-settings">${t('btn_save')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ================= MODAL: CUENTA (respaldo, borrar, privacidad) =================
+   Submodal de Ajustes (2026-09-04): las tarjetas viajaron acá tal cual, con los
+   MISMOS ids — los handlers de export/import/borrar de attachEvents los
+   encuentran igual. Cerrar vuelve a Ajustes (settingsReturnPending). */
+let showAccountModal = false;
+function closeAccountModal(){ showAccountModal=false; reopenSettingsIfPending(); render(); }
+function accountModal(){
+  return `
+  <div class="overlay" id="account-overlay">
+    <div class="modal">
+      <button type="button" class="modal-close-btn" id="btn-close-account" aria-label="${t('btn_close')}">✕</button>
+      <h3 class="sky">${t('account_title')}</h3>
+
       <div class="settings-card">
         ${settingsCardHeader('cloud','var(--sky-soft)','var(--sky-ink)',t('backup_section_title'))}
         <div style="display:flex;flex-direction:column;gap:8px;">
@@ -1513,8 +1541,7 @@ function alertSettingsModal(){
       </div>
 
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>
-        <button class="btn btn-primary" id="btn-save-alert-settings">${t('btn_save')}</button>
+        <button class="btn btn-primary" id="btn-close-account-footer" style="width:100%;">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;

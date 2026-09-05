@@ -169,6 +169,7 @@ function renderApp(){
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
+    ${showAccountModal ? accountModal() : ''}
     ${showDeleteAccountModal ? deleteAccountModal() : ''}
     ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
     ${showCycleCountModal ? cycleCountModal() : ''}
