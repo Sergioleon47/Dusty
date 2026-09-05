@@ -3,7 +3,7 @@ function openDeleteAccountModal(){
   deleteAccountStep='confirm'; deleteAccountPassword=''; deleteAccountError=''; deleteAccountLoading=false;
   showDeleteAccountModal=true; render();
 }
-function closeDeleteAccountModal(){ showDeleteAccountModal=false; render(); }
+function closeDeleteAccountModal(){ showDeleteAccountModal=false; reopenSettingsIfPending(); render(); }
 
 // Firebase exige una sesión "reciente" antes de dejar borrar una cuenta
 // (reauthenticateWith* falla con auth/requires-recent-login si no) — se rama por
@@ -69,6 +69,8 @@ async function performAccountDeletion(){
       localStorage.removeItem(LEGACY_STORAGE_KEY);
     }catch(e){}
     showDeleteAccountModal=false; deleteAccountLoading=false;
+    // La cuenta ya no existe: no hay Ajustes al que "volver" — el flag muere acá.
+    settingsReturnPending=false;
     showToast(t('delete_account_success'), 'success');
     render();
   }catch(err){
@@ -142,7 +144,22 @@ function openCycleCountModal(){
   draftCycleCountInterval = cycleCountIntervalDays;
   showCycleCountModal = true; render();
 }
-function closeCycleCountModal(){ showCycleCountModal=false; render(); }
+/* Volver a Ajustes (reporte del usuario 2026-09-04): Categorías, Conteo
+   cíclico y el flujo de borrar cuenta se abren DESDE el modal de Ajustes —
+   cancelar cualquiera de ellos tiraba a la pantalla principal en vez de
+   devolver a Ajustes. El flag se enciende al salir de Ajustes hacia un hijo
+   y se consume en el primer cierre que vuelve (guardar también vuelve). */
+let settingsReturnPending = false;
+function reopenSettingsIfPending(){
+  if(!settingsReturnPending) return;
+  settingsReturnPending = false;
+  // Mismos drafts que openAlertSettings (app-07) — reabrir = abrir de nuevo.
+  draftThreshold = priceAlertThreshold;
+  draftBusinessName = businessName;
+  draftMonthlyBudget = monthlyBudget;
+  showAlertSettingsModal = true;
+}
+function closeCycleCountModal(){ showCycleCountModal=false; reopenSettingsIfPending(); render(); }
 
 function cycleCountModal(){
   const due = isCycleCountDue();
@@ -1209,7 +1226,7 @@ function manualSpendModal(){
 let showExitSurvey=false, exitStep=0, exitReason=null;
 const EXIT_REASONS=['use','scan','missing','price','other'];
 function openExitSurvey(){ showExitSurvey=true; exitStep=0; exitReason=null; render(); }
-function closeExitSurvey(){ showExitSurvey=false; render(); }
+function closeExitSurvey(){ showExitSurvey=false; reopenSettingsIfPending(); render(); }
 function sendExitFeedback(kind, reason, text){
   try{
     if(!currentUser || typeof firebase==='undefined') return;
@@ -1527,7 +1544,7 @@ function openCategoriesModal(){
   draftCategories = categories.map(c=>({...c}));
   showCategoriesModal = true; render();
 }
-function closeCategoriesModal(){ showCategoriesModal=false; render(); }
+function closeCategoriesModal(){ showCategoriesModal=false; reopenSettingsIfPending(); render(); }
 // Confirmado el long-press (ver el pointerdown que llama a esto en attachEvents), la
 // fila se levanta y sigue al dedo — mismo truco de reinserción en vivo en el DOM que
 // attachCategoryChipDragHandlers ya usa para los chips del Dashboard (reordenar se

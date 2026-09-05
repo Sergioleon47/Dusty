@@ -302,11 +302,12 @@ function attachEvents(){
   // Gestión de categorías y conteo cíclico viven en Ajustes (2026-09-04) — al
   // abrirlos se cierra el modal de Ajustes primero (si no, quedaba encima).
   const btnManageCategories=document.getElementById('btn-manage-categories');
-  if(btnManageCategories) btnManageCategories.onclick=()=>{ showAlertSettingsModal=false; openCategoriesModal(); };
+  if(btnManageCategories) btnManageCategories.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; openCategoriesModal(); };
   // "Crear categoría" con botón propio en el menú del Dashboard: abre el mismo
   // modal de categorías, que arranca con el campo de crear arriba de todo.
+  // (settingsReturnPending=false: desde acá NO se vuelve a Ajustes al cerrar.)
   const btnCreateCategory=document.getElementById('btn-create-category');
-  if(btnCreateCategory) btnCreateCategory.onclick=openCategoriesModal;
+  if(btnCreateCategory) btnCreateCategory.onclick=()=>{ settingsReturnPending=false; openCategoriesModal(); };
   document.querySelectorAll('[data-open-category]').forEach(btn=>{
     btn.onclick=()=>{
       inventoryCategoryFilter = btn.dataset.openCategory;
@@ -434,7 +435,7 @@ function attachEvents(){
     const btnOpenDeleteAccount=document.getElementById('btn-open-delete-account');
     // La encuesta de salida (mes gratis + razón) se interpone ANTES del modal
     // real de eliminación — ver exitSurveyModal en app-06.
-    if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ showAlertSettingsModal=false; openExitSurvey(); };
+    if(btnOpenDeleteAccount) btnOpenDeleteAccount.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; openExitSurvey(); };
   }
 
   // Cierre de mes: hoja a página completa con una columna por período.
@@ -545,7 +546,10 @@ function attachEvents(){
       exitStep++; render();
     };
     const delBtn=document.getElementById('btn-exit-delete');
-    if(delBtn) delBtn.onclick=()=>{ closeExitSurvey(); openDeleteAccountModal(); };
+    // Sin closeExitSurvey(): eso consumiría el flag de "volver a Ajustes" a
+    // mitad de la cadena — el flag debe sobrevivir hasta el cierre del modal
+    // de borrado (cancelar ahí también devuelve a Ajustes).
+    if(delBtn) delBtn.onclick=()=>{ showExitSurvey=false; openDeleteAccountModal(); };
   }
 
   const deleteAccountOverlay=document.getElementById('delete-account-overlay');
@@ -597,7 +601,7 @@ function attachEvents(){
   }
 
   const btnCycleCount=document.getElementById('btn-cycle-count');
-  if(btnCycleCount) btnCycleCount.onclick=()=>{ showAlertSettingsModal=false; openCycleCountModal(); };
+  if(btnCycleCount) btnCycleCount.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; openCycleCountModal(); };
   const ccBanner=document.getElementById('cc-banner');
   if(ccBanner) ccBanner.onclick=openCycleCountModal;
   const cycleCountOverlay=document.getElementById('cycle-count-overlay');
