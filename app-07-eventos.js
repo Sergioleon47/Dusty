@@ -122,7 +122,7 @@ function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
   manageModalA11y();
   attachModalTabTrap();
-  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], #btn-critical-alerts').forEach(makeKeyboardClickable);
+  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
@@ -469,24 +469,20 @@ function attachEvents(){
     const waInp=document.getElementById('catalog-wa-input');
     if(waInp) waInp.onchange=()=>{ catalogWhatsApp=waInp.value.trim(); saveState(); };
     // La selección vive EN cada ítem/receta (inCatalog) y sincroniza con ellos.
-    document.querySelectorAll('[data-cat-item]').forEach(cb=>{
-      cb.onchange=()=>{
-        const it=inventory.find(i=>i.id===cb.dataset.catItem);
-        if(!it) return;
-        it.inCatalog=cb.checked;
-        if(currentUser){ it.lastEditedBy=currentUserLabel(); it.lastEditedAt=new Date().toISOString(); }
+    // Tarjeta-botón como en el Inventario: tocarla marca/desmarca (el render
+    // repinta el ✓ y el atenuado). Sello de edición en recetas: el merge por
+    // lastEditedAt (app-02) necesita saber que esta copia es la más nueva, o un
+    // snapshot viejo desmarcaría.
+    document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
+      el.onclick=()=>{
+        const s=el.dataset.catToggle, sep=s.indexOf(':');
+        const kind=s.slice(0,sep), id=s.slice(sep+1);
+        const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
+        if(!target) return;
+        target.inCatalog=!target.inCatalog;
+        if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
         saveState();
-      };
-    });
-    document.querySelectorAll('[data-cat-recipe]').forEach(cb=>{
-      cb.onchange=()=>{
-        const r=recipes.find(x=>x && x.id===cb.dataset.catRecipe);
-        if(!r) return;
-        r.inCatalog=cb.checked;
-        // Sello de edición: el merge de recetas por lastEditedAt (app-02) necesita
-        // saber que esta copia es la más nueva, o un snapshot viejo desmarcaría.
-        if(currentUser){ r.lastEditedBy=currentUserLabel(); r.lastEditedAt=new Date().toISOString(); }
-        saveState();
+        render();
       };
     });
     const btnPublishCatalog=document.getElementById('btn-publish-catalog');

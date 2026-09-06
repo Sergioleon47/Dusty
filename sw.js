@@ -55,7 +55,9 @@
 // mezclar CSS viejo (300%) con las 4 páginas nuevas rompería el swipe entero.
 // v22: la pestaña Catálogo agrupa los productos por categoría como el
 // Inventario (groupRowsByCategory) — app-03/05.
-const CACHE_NAME = 'patron-shell-v22';
+// v23: el Catálogo usa las MISMAS tarjetas y grilla fila/2col/3col del
+// Inventario (selector compartido); tocar la tarjeta marca/desmarca — app-05/07.
+const CACHE_NAME = 'patron-shell-v23';
 
 const PRECACHE_URLS = [
   '/',

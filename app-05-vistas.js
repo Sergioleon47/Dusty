@@ -1681,15 +1681,27 @@ function catalogPhotoThumbSrc(photo){
 function catalogoView(){
   const sellables = inventory.filter(i=>i && !isExpenseItem(i));
   const sellableRecipes = recipes.filter(r=>r && r.id);
-  const row = (kind, id, name, photo, price, checked)=>`
-    <label style="display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
-      <input type="checkbox" data-cat-${kind}="${id}" ${checked?'checked':''} style="width:18px;height:18px;flex-shrink:0;accent-color:var(--navy);">
-      <span class="stock-icon-ring" style="width:30px;height:30px;flex-shrink:0;overflow:hidden;">${photo?`<img src="${escapeHtml(photo)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:lineIcon('tag',13)}</span>
-      <span style="flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere;">${escapeHtml(name)}</span>
-      ${price>0
-        ? `<strong style="font-size:13px;font-variant-numeric:tabular-nums;flex-shrink:0;">${money(price)}</strong>`
-        : `<span style="font-size:10px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);border-radius:6px;padding:2px 6px;flex-shrink:0;">${t('catalog_no_price_tag')}</span>`}
-    </label>`;
+  // Tarjeta-botón IGUAL que la del Inventario (misma .inv-tile en la misma
+  // .inv-grid con el mismo selector fila/2col/3col — pedido del usuario
+  // 2026-09-06): tocarla marca/desmarca el producto para el catálogo. La
+  // seleccionada va a pleno color con su ✓ verde; la no seleccionada, apagada.
+  const tile = (kind, id, name, photoHtml, price, checked)=>`
+    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;${checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.62;'}">
+      ${checked?`<span style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:''}
+      <div class="inv-tile-top">
+        <div class="stock-icon-ring" style="width:48px;height:48px;flex-shrink:0;">${photoHtml}</div>
+        <div class="inv-tile-name">${escapeHtml(invShortName(name))}</div>
+      </div>
+      <div class="inv-row-meta">${price>0?money(price):`<span style="color:var(--saffron-ink);font-weight:700;">${t('catalog_no_price_tag')}</span>`}</div>
+    </div>`;
+  // Los productos usan el MISMO ícono/foto que sus tarjetas del inventario;
+  // las recetas arman el suyo con su foto (o la etiqueta genérica).
+  const itemTile = (i)=> tile('item', i.id, i.name, stockIconSvg(i), i.salePrice, !!i.inCatalog);
+  const recipeTile = (r)=>{
+    const src = catalogPhotoThumbSrc(r.photo);
+    const ph = src ? `<img src="${escapeHtml(src)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">` : lineIcon('tag',16);
+    return tile('recipe', r.id, r.name, ph, r.salePrice, !!r.inCatalog);
+  };
   const url = catalogUrl();
   return `
   <div class="section-head">
@@ -1716,15 +1728,18 @@ function catalogoView(){
     ? `<div class="helper-note" style="margin-top:8px;">${t('catalog_no_sellables')}</div>`
     : `
     ${/* Misma organización que el Inventario (pedido del usuario 2026-09-06):
-         los productos agrupados por SU categoría con groupRowsByCategory — mismo
-         orden de categorías, "Sin categoría" al final, encabezado con conteo. La
-         página pública ya agrupaba así; ahora la selección se ve igual. */''}
+         grupos por categoría (groupRowsByCategory) Y las mismas tarjetas en la
+         misma grilla fila/2col/3col, con el MISMO selector de vista (comparte
+         invLayout — cambiarlo acá también cambia el Inventario, es una sola
+         preferencia de "cómo me gusta ver mis productos"). */''}
+    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
-      <div class="category-group-header" style="margin-top:8px;">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
-      ${g.rows.map(r=>row('item', r.ing.id, r.ing.name, catalogPhotoThumbSrc(r.ing.photo), r.ing.salePrice, !!r.ing.inCatalog)).join('')}
+      <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
+      <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>
     `).join('')}
-    ${sellableRecipes.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>` : ''}
-    ${sellableRecipes.map(r=>row('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), r.salePrice, !!r.inCatalog)).join('')}`}
+    ${sellableRecipes.length>0 ? `
+      <div class="category-group-header">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>
+      <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${sellableRecipes.map(recipeTile).join('')}</div>` : ''}`}
   <div style="margin:18px 0 30px;">
     <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
   </div>`;
