@@ -48,6 +48,10 @@ const I18N = {
     dash_cc_empty:'✔ Nada pendiente de conteo por ahora — tu inventario completo vive en la pestaña Inventario.',
     share_account_btn:'🔗 Compartir cuenta',
     settings_inventory_title:'Inventario',
+    budget_exp_title:'Gastos y servicios',
+    budget_exp_note:'Estas categorías no aparecen en el inventario: son gasto (luz, agua, consumos), no mercadería. Tocá una para editarla.',
+    budget_exp_uncat:'Servicios',
+    budget_spent_line:'Gastado este mes: {amount}',
     account_btn:'👤 Cuenta', account_title:'Cuenta',
     btn_export_data:'Exportar respaldo (.json)', btn_import_data:'Importar respaldo (.json)',
     backup_section_title:'Respaldo local', backup_section_hint:'Guarda o restaura una copia de tus datos en un archivo — independiente de la sincronización en la nube.',
@@ -440,6 +444,10 @@ const I18N = {
     dash_cc_empty:'✔ Nothing waiting to be counted right now — your full inventory lives in the Inventory tab.',
     share_account_btn:'🔗 Share account',
     settings_inventory_title:'Inventory',
+    budget_exp_title:'Bills & services',
+    budget_exp_note:'These categories don\'t show in your inventory: they\'re spending (utilities, eat out), not stock. Tap one to edit it.',
+    budget_exp_uncat:'Services',
+    budget_spent_line:'Spent this month: {amount}',
     account_btn:'👤 Account', account_title:'Account',
     btn_export_data:'Export backup (.json)', btn_import_data:'Import backup (.json)',
     backup_section_title:'Local backup', backup_section_hint:'Save or restore a copy of your data as a file — independent from cloud sync.',
@@ -842,6 +850,12 @@ function showToast(message, type){
   }catch(e){}
 }
 function unitLabel(u){ return u==='unidad' ? t('unit_unidad') : u==='caja' ? t('unit_caja') : u==='servicio' ? t('unit_servicio') : u; }
+/* ¿Este ítem es GASTO y no mercadería? (agua/luz = unidad 'servicio', consumos
+   Eat out = expenseOnly). Misma regla que usa spendSplitForMonth para el P&L.
+   Estos ítems viven en el botón de Presupuesto (pedido del usuario 2026-09-05),
+   no en el inventario: no salen en la grilla, chips, anillo de salud, conteo
+   cíclico ni calculadora de pedido. */
+function isExpenseItem(i){ return !!(i && (i.expenseOnly || i.unit==='servicio')); }
 
 /* ================= UTILIDADES ================= */
 function uid(p){return p+Math.random().toString(36).slice(2,9);}
@@ -856,10 +870,13 @@ function isCycleCountDue(){
 /* Toma el siguiente % del inventario a partir de cycleCountCursor, rotando (con wrap-around)
    para que cada conteo cíclico caiga sobre productos distintos en vez de repetir los mismos. */
 function cycleCountBatch(){
-  if(inventory.length===0) return [];
-  const n = Math.min(inventory.length, Math.max(1, Math.round(inventory.length*(cycleCountPct/100))));
+  // Solo mercadería real: contar "Luz CFE" o un café de Eat out no significa
+  // nada (qty 0 por diseño) — los ítems de gasto quedan fuera de la rotación.
+  const countable = inventory.filter(i=>!isExpenseItem(i));
+  if(countable.length===0) return [];
+  const n = Math.min(countable.length, Math.max(1, Math.round(countable.length*(cycleCountPct/100))));
   const list = [];
-  for(let i=0;i<n;i++){ list.push(inventory[(cycleCountCursor+i)%inventory.length]); }
+  for(let i=0;i<n;i++){ list.push(countable[(cycleCountCursor+i)%countable.length]); }
   return list;
 }
 // Ids de los productos que le tocan en la tanda de conteo cíclico ACTUAL — para

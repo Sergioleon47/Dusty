@@ -253,10 +253,9 @@ function budgetStatus(pct){ return pct>=100 ? 'crit' : pct>=80 ? 'warn' : 'ok'; 
    estimación de siempre. Un ingrediente sin compras y en 0 no es "crítico" de
    verdad — se marca aparte ('none') en vez de asustar con todo en rojo el día 1. */
 function stockRowsData(){
-  return inventory.map(i=>{
-    // Ítems "solo gasto" (Eat out): rastrean plata, no mercadería — nunca son
-    // críticos ni pintan barra roja, y con qtyOnHand 0 tampoco suman al valor.
-    if(i.expenseOnly) return {ing:i, target:0, pct:0, status:'none'};
+  // Los ítems de GASTO (servicios, Eat out) no son mercadería: viven en el
+  // botón de Presupuesto, no en estas grillas (pedido del usuario 2026-09-05).
+  return inventory.filter(i=>!isExpenseItem(i)).map(i=>{
     const hasHistory = (i.qtyOnHand||0)>0 || purchasesForIng(i.id).length>0;
     const target = i.stockFullRef || i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
     const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
@@ -503,7 +502,10 @@ function categoryChipsRow(){
        (captura del usuario 2026-09-04) — con el margen del section-head alcanza. */''}
   <div class="category-chip-row" style="flex:1 1 100%;min-width:0;margin-bottom:0;padding-bottom:2px;">
     ${categories.map(c=>{
-      const count = inventory.filter(i=>i.categoryId===c.id).length;
+      // Solo mercadería real: las categorías de gasto (Utilities, Eat out)
+      // viven en el botón de Presupuesto y acá ni aparecen (chips "0" fuera).
+      const count = inventory.filter(i=>i.categoryId===c.id && !isExpenseItem(i)).length;
+      if(count===0) return '';
       return `<button type="button" class="category-chip" data-open-category="${c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
     }).join('')}
   </div>
@@ -648,7 +650,7 @@ function orderCalcProducts(){
   // Los más comprados primero: en un inventario grande, las 9 teclas visibles
   // deben ser las que el usuario pide siempre, no las primeras por orden de alta.
   // Sin los "solo gasto" (Eat out): un pedido al proveedor no lleva cafés.
-  return inventory.filter(i=>!i.expenseOnly).sort((a,b)=>
+  return inventory.filter(i=>!isExpenseItem(i)).sort((a,b)=>
     purchasesForIng(b.id).length - purchasesForIng(a.id).length
     || a.name.localeCompare(b.name, undefined, {numeric:true}));
 }
@@ -1571,6 +1573,39 @@ function budgetModal(){
         <input id="budget-input" type="number" min="0" step="1" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">
       </div>
       <div class="helper-note">${t('budget_helper')}</div>
+      ${(()=>{
+        /* LA CASA de los ítems de gasto (pedido del usuario 2026-09-05): agua,
+           luz, Eat out y demás salieron del inventario (no son mercadería) y
+           viven acá, junto al presupuesto que consumen — agrupados por su
+           categoría, con su último monto, y tocables (abren la ficha de
+           siempre para renombrar/corregir/borrar). */
+        const exp = inventory.filter(isExpenseItem);
+        if(exp.length===0) return '';
+        const groups = {};
+        exp.forEach(i=>{
+          const cat = categories.find(c=>c.id===i.categoryId);
+          const name = cat ? cat.name : t('budget_exp_uncat');
+          (groups[name] = groups[name] || []).push(i);
+        });
+        const spent = spendSplitForMonth(localMonthStr()).expense;
+        return `
+      <div class="settings-card" style="margin-top:14px;">
+        ${settingsCardHeader('chart','var(--saffron-soft)','var(--saffron-ink)',t('budget_exp_title'))}
+        ${spent>0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('budget_spent_line').replace('{amount}', money(spent))}</div>` : ''}
+        ${Object.keys(groups).sort().map(g=>`
+          <div class="category-group-header" style="margin-top:8px;">${escapeHtml(g)} <span>${groups[g].length}</span></div>
+          ${groups[g].map(i=>`
+          <div data-open-item="${i.id}" role="button" tabindex="0" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
+            <span style="font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;">${escapeHtml(i.name)}</span>
+            <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+              <strong style="font-size:13px;font-variant-numeric:tabular-nums;">${money(i.costPerUnit||0)}</strong>
+              <span style="color:var(--ink-soft);font-size:12px;">›</span>
+            </span>
+          </div>`).join('')}
+        `).join('')}
+        <div class="helper-note" style="margin:10px 0 0;">${t('budget_exp_note')}</div>
+      </div>`;
+      })()}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-budget">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-budget">${t('btn_save')}</button>

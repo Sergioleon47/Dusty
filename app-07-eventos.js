@@ -661,7 +661,9 @@ function attachEvents(){
           }
         });
         cycleCountLastDate=localDateStr();
-        cycleCountCursor=(cycleCountCursor+batch.length)%Math.max(inventory.length,1);
+        // El cursor rota sobre la lista CONTABLE (sin ítems de gasto) — mismo
+        // universo que usa cycleCountBatch para armar cada tanda.
+        cycleCountCursor=(cycleCountCursor+batch.length)%Math.max(inventory.filter(i=>!isExpenseItem(i)).length,1);
       }
       saveState();
       closeCycleCountModal();

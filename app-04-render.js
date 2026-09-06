@@ -158,6 +158,9 @@ function renderApp(){
         <div class="view-page">${recibosView()}</div>
       </div>
     </div>
+    ${/* Presupuesto ANTES de itemModal a propósito: sus filas de gastos abren
+         la ficha del ítem, que debe apilarse ENCIMA (el orden del DOM manda). */''}
+    ${showBudgetModal ? budgetModal() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}
     ${showCategoriesModal ? categoriesModal() : ''}
@@ -170,7 +173,6 @@ function renderApp(){
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
     ${showAlertSettingsModal ? alertSettingsModal() : ''}
     ${showAccountModal ? accountModal() : ''}
-    ${showBudgetModal ? budgetModal() : ''}
     ${showDeleteAccountModal ? deleteAccountModal() : ''}
     ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
     ${showCycleCountModal ? cycleCountModal() : ''}
