@@ -72,7 +72,10 @@
 // v29: fotos del Catálogo con subida desde galería (botón junto a la cámara) y
 // 4 filtros (Vívido/Cálido/Retro/B&N, a puro píxel) en el modal de asignar —
 // app-03/05/07.
-const CACHE_NAME = 'patron-shell-v29';
+// v30: las fotos del Catálogo van TODAS a pleno brillo (adiós al atenuado de
+// las no seleccionadas — la pantalla se veía apagada); la selección la marca
+// solo el ✓ verde con su borde — app-05.
+const CACHE_NAME = 'patron-shell-v30';
 
 const PRECACHE_URLS = [
   '/',

@@ -1741,10 +1741,12 @@ function catalogoView(){
   // Tarjeta = SOLO la foto, semi-cuadrada (pedido del usuario 2026-09-06: sin
   // círculos y sin descripción — igual que la página pública). El nombre y el
   // precio no se muestran; el title/aria los conserva. Sin foto, el nombre
-  // centrado hace de imagen (si no, el cuadrado sería mudo). La selección se
-  // lee por el ✓ verde y el atenuado.
+  // centrado hace de imagen (si no, el cuadrado sería mudo). TODAS las fotos van
+  // a pleno brillo (el atenuado de las no seleccionadas hacía ver la pantalla
+  // apagada — pedido del usuario 2026-09-06); la selección se lee SOLO por el
+  // ✓ verde y su borde.
   const tile = (kind, id, name, photoSrc, checked)=>`
-    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.55;'}">
+    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':''}">
       ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:''}
       ${photoSrc
         ? `<img src="${escapeHtml(photoSrc)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">`
