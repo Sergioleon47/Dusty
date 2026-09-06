@@ -60,7 +60,9 @@
 // v24: Catálogo sin el bloque de arriba (abre directo con los productos; lo
 // operativo al final) + FAB de cámara con modo fotos para cambiar la foto de
 // productos/recetas al toque — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v24';
+// v25: la cámara del Catálogo (modo fotos) pasa al MISMO punto de pantalla que
+// el escáner de estante del Inventario — FAB de 76px con badge ✎ — app-05.
+const CACHE_NAME = 'patron-shell-v25';
 
 const PRECACHE_URLS = [
   '/',

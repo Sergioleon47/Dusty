@@ -1723,16 +1723,25 @@ function catalogoView(){
     ${/* Misma organización que el Inventario: grupos por categoría
          (groupRowsByCategory) y las mismas tarjetas en la misma grilla
          fila/2col/3col con el selector compartido (invLayout). */''}
-    <div class="inv-toolbar" style="justify-content:space-between;align-items:center;margin-top:10px;">
-      ${/* Cámara SOLO para fotos (pedido del usuario, con la referencia del FAB
-           del escáner): prendida entra en modo fotos — sin rings de pulso a
-           propósito, no es un escáner y no debe latir como uno. */''}
-      <button type="button" class="shelf-scan-fab" id="btn-catalog-photo-mode" aria-pressed="${catalogPhotoMode}" aria-label="${t('catalog_photo_fab_aria')}" title="${t('catalog_photo_fab_aria')}" style="width:52px;height:52px;flex-shrink:0;${catalogPhotoMode?'box-shadow:0 0 0 3px var(--sky);':''}">
-        ${lineIcon('camera',24)}
-      </button>
-      ${invLayoutToggleHtml()}
+    ${/* Cámara SOLO para fotos, en EL MISMO punto de pantalla que el escáner de
+         estante del Inventario (pedido del usuario 2026-09-06, captura): misma
+         estructura section-head + .shelf-fab-row + .shelf-scan-fab de 76px, así
+         los FABs laten en el mismo lugar al deslizar entre pestañas. Sin rings
+         de pulso a propósito (no es un escáner) y con badge de lápiz: esta
+         cámara EDITA fotos, no descuenta stock. */''}
+    ${/* margin-top calibrado midiendo ambos centros a 375px (misma práctica que
+         el propio .shelf-fab-row): deja ESTA cámara en el mismo punto exacto de
+         pantalla que la del Inventario al deslizar entre pestañas. */''}
+    <div class="shelf-fab-row" style="width:100%;margin-top:93px;">
+      <div class="shelf-fab-wrap">
+        <button type="button" class="shelf-scan-fab" id="btn-catalog-photo-mode" aria-pressed="${catalogPhotoMode}" aria-label="${t('catalog_photo_fab_aria')}" title="${t('catalog_photo_fab_aria')}" style="${catalogPhotoMode?'box-shadow:0 0 0 4px var(--sky);':''}">
+          ${lineIcon('camera',32)}
+        </button>
+        <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
+      </div>
     </div>
-    ${catalogPhotoMode ? `<div style="font-size:12px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:7px 10px;border-radius:8px;margin:8px 0 4px;">📷 ${t('catalog_photo_mode_hint')}</div>` : ''}
+    ${catalogPhotoMode ? `<div style="font-size:12px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:7px 10px;border-radius:8px;margin:0 0 8px;">📷 ${t('catalog_photo_mode_hint')}</div>` : ''}
+    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
       <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>
