@@ -975,7 +975,7 @@ function saveState(){
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-      businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
+      businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
       recipes, outflows, outflowArchive, deletedRecipeIds
     }));
   }catch(e){
@@ -997,7 +997,7 @@ function saveState(){
           inventory, purchases, receipts, aliasMap, priceAlertThreshold,
           cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
           deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-          businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
+          businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
           recipes, outflows, outflowArchive, deletedRecipeIds
         }));
         retried = true;
@@ -1033,6 +1033,7 @@ function applyStateData(data){
   if(typeof data.businessName==='string') businessName = data.businessName;
   if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
   if(Array.isArray(data.categories)) categories = data.categories;
+  if(Array.isArray(data.expenseCategories)) expenseCategories = data.expenseCategories;
   // Las lápidas de notas se aplican ANTES de las notas: un snapshot de la nube que
   // todavía traiga una nota borrada en este dispositivo llega ya filtrado.
   if(Array.isArray(data.deletedCalNoteIds)) deletedCalNoteIds = data.deletedCalNoteIds;
@@ -1085,7 +1086,7 @@ function exportData(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds,
+    businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
     recipes, outflows, outflowArchive, deletedRecipeIds,
     exportedAt: new Date().toISOString()
   };

@@ -102,6 +102,7 @@ function ensurePatronFirebaseReady(){
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
               profitsVisibleToMembers,
               categories: categories ? categories.slice() : categories,
+              expenseCategories: expenseCategories.slice(),
               calNotes: calNotes.slice(),
               recipes: recipes.slice(), outflows: outflows.slice(),
               outflowArchive: Object.assign({}, outflowArchive)
@@ -581,6 +582,7 @@ function metaContentShape(m){
     cycleCountCursor: m.cycleCountCursor, businessName: m.businessName, monthlyBudget: m.monthlyBudget,
     profitsVisibleToMembers: m.profitsVisibleToMembers === true,
     categories: m.categories,
+    expenseCategories: m.expenseCategories || [],
     calNotes: m.calNotes || [], recipes: m.recipes || [], outflows: m.outflows || [],
     outflowArchive: m.outflowArchive || {},
     deletedInventoryIds: m.deletedInventoryIds || [], deletedReceiptIds: m.deletedReceiptIds || [],
@@ -591,7 +593,7 @@ function metaContentShape(m){
 function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes,
+    businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes,
     recipes: recipesForCloud(), outflows, outflowArchive,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
   });
@@ -762,7 +764,7 @@ function syncAllToFirestore(){
     const metaHash = valueHash(metaContent);
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
-        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes,
+        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes,
         recipes: recipesForCloud(), outflows,
         // outflowArchive viaja en el mismo set con {merge:true}: Firestore mergea
         // los mapas por clave, así dos dispositivos archivando meses distintos no
@@ -1054,7 +1056,7 @@ function applyRemoteMetaSnapshot(doc){
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, profitsVisibleToMembers, categories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1601,6 +1603,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
+        expenseCategories: metaSnap.exists ? (remoteMeta.expenseCategories || localSnapshot.expenseCategories || []) : (localSnapshot.expenseCategories || []),
         calNotes: mergedCalNotes,
         recipes: mergedRecipes.map(stripRecipePhotoForCloud),
         outflows: mergedOutflows,
@@ -1648,6 +1651,13 @@ function canSeeFinancials(){ return !joinedOwnerUid || profitsVisibleToMembers =
 // pisarla con las categorías por defecto. La siembra real pasa después de loadState(),
 // ver más abajo cerca de "loadState();".
 let categories = null;
+/* Categorías de GASTO — universo TOTALMENTE separado de las de inventario
+   (pedido del usuario 2026-09-05): los bills/servicios/Eat out se agrupan por
+   estas, nunca por las del inventario. Compartir nombre con una de inventario
+   es válido y no se tocan entre sí (ids distintos, listas distintas). Viven
+   en meta como categories; los ítems de gasto las referencian con
+   expenseCategoryId (categoryId queda null en ellos). */
+let expenseCategories = [];
 let showCategoriesModal = false;
 let draftCategories = [];
 function defaultCategories(){

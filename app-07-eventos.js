@@ -1122,6 +1122,41 @@ function attachEvents(){
         else if(e.key==='Escape'){ fiNewCatInp.value=''; fiNewCatInp.blur(); }
       };
     }
+    // Espejo del creador de arriba pero para las categorías de GASTO (lista
+    // expenseCategories, universo aparte del inventario): la ficha de gasto
+    // renderiza fi-exp-category en vez de fi-category. Compartir nombre con una
+    // categoría de inventario es válido — ids y listas nunca se cruzan.
+    const fiExpCategorySel=document.getElementById('fi-exp-category');
+    const fiNewExpCatInp=document.getElementById('fi-new-exp-category');
+    if(fiExpCategorySel && fiNewExpCatInp){
+      fiExpCategorySel.onchange=()=>{
+        if(fiExpCategorySel.value==='__create__'){
+          fiNewExpCatInp.style.display='block';
+          fiNewExpCatInp.focus();
+        } else {
+          fiNewExpCatInp.style.display='none';
+          if(draftItem) draftItem.expenseCategoryId = fiExpCategorySel.value || null;
+        }
+      };
+      const commitNewExpCat=()=>{
+        const name=fiNewExpCatInp.value.trim();
+        if(!name){
+          fiExpCategorySel.value = (draftItem && draftItem.expenseCategoryId) || '';
+          fiNewExpCatInp.style.display='none';
+          return;
+        }
+        let cat = expenseCategories.find(c=>c.name.trim().toLowerCase()===name.toLowerCase());
+        if(!cat){ cat={id:uid('xcat'), name}; expenseCategories.push(cat); saveState(); }
+        if(draftItem) draftItem.expenseCategoryId=cat.id;
+        fiNewExpCatInp.value='';
+        render();
+      };
+      fiNewExpCatInp.onblur=commitNewExpCat;
+      fiNewExpCatInp.onkeydown=(e)=>{
+        if(e.key==='Enter'){ e.preventDefault(); fiNewExpCatInp.blur(); }
+        else if(e.key==='Escape'){ fiNewExpCatInp.value=''; fiNewExpCatInp.blur(); }
+      };
+    }
     document.getElementById('btn-save-item').onclick=()=>{
       const nameInput=document.getElementById('fi-name');
       const name=nameInput.value.trim();
@@ -1170,8 +1205,10 @@ function attachEvents(){
         // ficha lo "convertía" en producto normal en silencio (bug pre-existente).
         expenseOnly:!!draftItem.expenseOnly,
         // '__create__' es la opción "crear nueva" sin nombre confirmado — nunca
-        // debe guardarse como si fuera un id de categoría real.
-        categoryId:(v=>v==='__create__' ? null : (v||null))(document.getElementById('fi-category').value),
+        // debe guardarse como si fuera un id de categoría real. La ficha de
+        // gasto no renderiza fi-category (usa fi-exp-category, lista aparte).
+        categoryId:(el=>el ? ((v=>v==='__create__' ? null : (v||null))(el.value)) : null)(document.getElementById('fi-category')),
+        expenseCategoryId:(el=>el ? ((v=>v==='__create__' ? null : (v||null))(el.value)) : (draftItem.expenseCategoryId||null))(document.getElementById('fi-exp-category')),
         // Capacidad del envase lleno (para el escáner de estante) — vacío o 0 se
         // guarda como null, nunca como un cero que el escáner tomaría por real.
         capacityFull:(()=>{ const el=document.getElementById('fi-capacity'); if(!el) return draftItem.capacityFull||null; const v=parseFloat(el.value); return Number.isFinite(v) && v>0 ? v : null; })()

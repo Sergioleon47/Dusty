@@ -1596,7 +1596,9 @@ function budgetModal(){
         if(exp.length>0){
           const groups = {};
           exp.forEach(i=>{
-            const cat = categories.find(c=>c.id===i.categoryId);
+            // Agrupa por la categoría de GASTO (lista aparte del inventario);
+            // ítems viejos sin expenseCategoryId caen al grupo genérico.
+            const cat = expenseCategories.find(c=>c.id===i.expenseCategoryId);
             const name = cat ? cat.name : t('budget_exp_uncat');
             (groups[name] = groups[name] || []).push(i);
           });

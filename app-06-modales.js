@@ -1361,6 +1361,21 @@ function itemModal(){
         <div class="field"><label for="fi-cost">${t('lbl_bill_amount')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
         ` : ''}
+        ${isExp ? `
+        ${/* Categorías de GASTO: lista TOTALMENTE separada de la del inventario
+             (pedido del usuario 2026-09-05) — acá jamás aparecen las de
+             mercadería, y crear una "Utilities" de gasto no toca al inventario
+             aunque exista una de inventario con el mismo nombre. */''}
+        <div class="field" style="margin-bottom:0;">
+          <label for="fi-exp-category">${t('lbl_category')}</label>
+          <select id="fi-exp-category">
+            <option value="">${t('category_none_option')}</option>
+            ${expenseCategories.map(c=>`<option value="${c.id}" ${draftItem.expenseCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+            <option value="__create__">＋ ${t('category_create_option')}</option>
+          </select>
+          <input id="fi-new-exp-category" type="text" maxlength="30" placeholder="${t('category_create_ph')}" style="display:none;margin-top:8px;">
+        </div>
+        ` : `
         <div class="field" style="margin-bottom:0;">
           <label for="fi-category">${t('lbl_category')}</label>
           <select id="fi-category">
@@ -1374,6 +1389,7 @@ function itemModal(){
           </select>
           <input id="fi-new-category" type="text" maxlength="30" placeholder="${t('category_create_ph')}" style="display:none;margin-top:8px;">
         </div>
+        `}
       </div>
 
       ${isExp ? '' : `
@@ -2920,12 +2936,13 @@ function applyScanResults(){
       // el stock ni el valor del inventario (regla del usuario: gasto e inventario
       // no se contaminan). Vive como producto expenseOnly en la categoría
       // automática "Eat out" — se crea sola la primera vez.
-      let eatCat = categories.find(c=>c.name.trim().toLowerCase()==='eat out');
-      if(!eatCat){ eatCat = {id:uid('cat'), name:t('eat_out_category')}; categories.push(eatCat); }
+      // Eat out vive en las categorías de GASTO (universo aparte del inventario).
+      let eatCat = expenseCategories.find(c=>c.name.trim().toLowerCase()==='eat out');
+      if(!eatCat){ eatCat = {id:uid('xcat'), name:t('eat_out_category')}; expenseCategories.push(eatCat); }
       let ing = inventory.find(i=>i.expenseOnly && i.name.trim().toLowerCase()===item.rawName.trim().toLowerCase());
       if(!ing){
         ing = {id:uid('i'), name:item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty,
-          updated:false, qtyOnHand:0, expenseOnly:true, categoryId:eatCat.id};
+          updated:false, qtyOnHand:0, expenseOnly:true, categoryId:null, expenseCategoryId:eatCat.id};
         if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
         inventory.push(ing);
       } else {
