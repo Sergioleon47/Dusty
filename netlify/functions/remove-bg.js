@@ -1,4 +1,9 @@
-// netlify/functions/remove-background.js
+// netlify/functions/remove-bg.js
+//
+// OJO CON EL NOMBRE: Netlify trata a toda función terminada en "-background"
+// como función de segundo plano (devuelve 202 vacío y corre async, sin
+// respuesta) — por eso este archivo NO puede llamarse remove-background.js
+// (así se llamó primero y el 202 mudo se llevó una hora de depuración).
 //
 // CÁMARA PRO: quita el fondo de una foto de producto (segmentación con IA vía
 // Replicate) — el cliente después la compone sobre el fondo que elija (blanco

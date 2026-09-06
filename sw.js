@@ -87,7 +87,9 @@
 // v34: QUITAR FONDO (cámara Pro) — segmentación vía Replicate (función
 // remove-background, cobra 1 escaneo del cupo), composición local sobre el
 // color de fondo elegido — app-03/05/07 + función nueva.
-const CACHE_NAME = 'patron-shell-v34';
+// v35: la función de quitar fondo se renombra a remove-bg — Netlify trataba a
+// "remove-background" como función de segundo plano (202 vacío) — app-07.
+const CACHE_NAME = 'patron-shell-v35';
 
 const PRECACHE_URLS = [
   '/',

@@ -662,12 +662,12 @@ function attachEvents(){
         catalogRemovingBg=true; render();
         try{
           const opts={notFoundKey:'err_function_not_found', genericKey:'catalog_rembg_error'};
-          const start=await callDustyAI('/.netlify/functions/remove-background', {action:'start', imageBase64:catalogEditFull.base64, mediaType:catalogEditFull.mediaType||'image/jpeg'}, opts);
+          const start=await callDustyAI('/.netlify/functions/remove-bg', {action:'start', imageBase64:catalogEditFull.base64, mediaType:catalogEditFull.mediaType||'image/jpeg'}, opts);
           let result=null;
           for(let i=0;i<55 && !result;i++){
             await new Promise(r=>setTimeout(r,1600));
             if(!catalogEditorOpen || !catalogEditFull){ catalogRemovingBg=false; return; } // canceló mientras tanto
-            const st=await callDustyAI('/.netlify/functions/remove-background', {action:'status', id:start.id}, opts);
+            const st=await callDustyAI('/.netlify/functions/remove-bg', {action:'status', id:start.id}, opts);
             if(st.status==='succeeded') result=st;
             else if(st.status==='failed') throw new Error(st.error || t('catalog_rembg_error'));
           }
