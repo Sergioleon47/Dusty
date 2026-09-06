@@ -434,6 +434,10 @@ function attachEvents(){
       openItemModal(null);
       if(draftItem){ draftItem.unit='servicio'; render(); }
     };
+    // Fotografiar la boleta: el escáner de recibos de siempre (cierra Budget
+    // primero — el escáner es pantalla completa y maneja solo trial/login).
+    const btnScanBill=document.getElementById('btn-scan-bill');
+    if(btnScanBill) btnScanBill.onclick=()=>{ closeBudgetModal(); openScanModal(); };
   }
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');

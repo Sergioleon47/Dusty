@@ -1621,7 +1621,14 @@ function budgetModal(){
         ${settingsCardHeader('chart','var(--saffron-soft)','var(--saffron-ink)',t('budget_exp_title'))}
         ${spent>0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('budget_spent_line').replace('{amount}', money(spent))}</div>` : ''}
         ${body}
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-expense-item" style="width:100%;margin-top:10px;">${t('budget_exp_add_btn')}</button>
+        ${/* La foto de la boleta se toma con el ESCÁNER DE RECIBOS de siempre
+             (pregunta del usuario 2026-09-05): la IA detecta el servicio y lo
+             trae acá solo; la foto queda en el recibo (calendario de Recibos).
+             Este botón lo abre sin salir a buscar la cámara del Dashboard. */''}
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-scan-bill" style="flex:1.2;">${t('budget_exp_scan_btn')}</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-expense-item" style="flex:1;">${t('budget_exp_add_btn')}</button>
+        </div>
       </div>`;
       })()}
       <div class="modal-actions">
