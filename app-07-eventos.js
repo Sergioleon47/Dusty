@@ -1152,24 +1152,29 @@ function attachEvents(){
       }
       const item={
         id:draftItem.id, name,
-        unit:document.getElementById('fi-unit').value,
+        // La ficha de GASTO (servicios/Eat out) no renderiza unidad, stock,
+        // precio de venta, SKU ni capacidad — cada campo ausente conserva el
+        // valor que el ítem ya tenía en vez de pisarlo (mismo criterio que ya
+        // usaba salePrice sin permiso financiero).
+        unit:(el=>el ? el.value : draftItem.unit)(document.getElementById('fi-unit')),
         // Math.max(0,…): stock/costo/precio negativos tipeados a mano contaminaban
         // el Valor del inventario y el potencial (auditoría 2026-09-04).
         costPerUnit:Math.max(0, parseFloat(document.getElementById('fi-cost').value)||0),
         updated:draftItem.updated||false,
-        qtyOnHand:Math.max(0, parseFloat(document.getElementById('fi-stock').value)||0),
+        qtyOnHand:(el=>el ? Math.max(0, parseFloat(el.value)||0) : (draftItem.qtyOnHand||0))(document.getElementById('fi-stock')),
         photo:draftItem.photo||null,
-        // Sin permiso financiero el campo no se renderiza — se conserva el
-        // salePrice que el ítem ya tenía en vez de pisarlo con 0.
         salePrice:(el=>el ? Math.max(0, parseFloat(el.value)||0) : (draftItem.salePrice||0))(document.getElementById('fi-sale-price')),
-        sku:document.getElementById('fi-sku').value.trim(),
-        supplier:document.getElementById('fi-supplier').value.trim(),
+        sku:(el=>el ? el.value.trim() : (draftItem.sku||''))(document.getElementById('fi-sku')),
+        supplier:(el=>el ? el.value.trim() : (draftItem.supplier||''))(document.getElementById('fi-supplier')),
+        // expenseOnly viaja SIEMPRE: sin esto, editar un ítem de Eat out por la
+        // ficha lo "convertía" en producto normal en silencio (bug pre-existente).
+        expenseOnly:!!draftItem.expenseOnly,
         // '__create__' es la opción "crear nueva" sin nombre confirmado — nunca
         // debe guardarse como si fuera un id de categoría real.
         categoryId:(v=>v==='__create__' ? null : (v||null))(document.getElementById('fi-category').value),
         // Capacidad del envase lleno (para el escáner de estante) — vacío o 0 se
         // guarda como null, nunca como un cero que el escáner tomaría por real.
-        capacityFull:(()=>{ const v=parseFloat(document.getElementById('fi-capacity').value); return Number.isFinite(v) && v>0 ? v : null; })()
+        capacityFull:(()=>{ const el=document.getElementById('fi-capacity'); if(!el) return draftItem.capacityFull||null; const v=parseFloat(el.value); return Number.isFinite(v) && v>0 ? v : null; })()
       };
       // stockFullRef no tiene campo en el formulario, así que hay que arrastrarlo a
       // mano (este objeto se reconstruye desde cero y lo perdería). Subir el stock

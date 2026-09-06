@@ -1315,6 +1315,12 @@ function openItemModal(item){
 }
 // profitMarginPct ahora vive en patron-core.js.
 function itemModal(){
+  /* FICHA DE GASTO simplificada (pedido del usuario 2026-09-05): una cuenta de
+     luz o un consumo Eat out no se vende ni lleva stock — su ficha es nombre,
+     monto, proveedor y categoría, nada más. Fuera: foto/escáneres, unidad,
+     precio de venta, % de ganancia, SKU, stock y capacidad (el guardado en
+     app-07 conserva los campos no renderizados). */
+  const isExp = isExpenseItem(draftItem);
   return `
   <div class="overlay" id="item-overlay">
     <div class="modal">
@@ -1323,9 +1329,10 @@ function itemModal(){
            modal de ajustes (.modal-close-btn). */''}
       <button type="button" class="modal-close-btn" id="btn-close-item-modal" aria-label="${t('btn_cancel')}">✕</button>
       <h3 class="navy">${editingItem?t('item_edit_title'):t('item_new_title')}</h3>
-      <div class="sub">${t('item_sub')}</div>
+      <div class="sub">${isExp ? t('expense_item_note') : t('item_sub')}</div>
       ${editingItem && draftItem.lastEditedBy ? `<div class="helper-note">${t('activity_last_edit').replace('{who}', escapeHtml(draftItem.lastEditedBy)).replace('{when}', timeAgo(draftItem.lastEditedAt))}</div>` : ''}
 
+      ${isExp ? '' : `
       <div class="settings-card">
         ${/* Sin el encabezado "📷 Photo" (pedido del usuario): la foto y sus
              botones se explican solos y la ficha gana altura. */''}
@@ -1345,11 +1352,15 @@ function itemModal(){
         </div>
         ${productScanState==='loading' ? `<div class="scan-status" style="margin-top:14px;margin-bottom:0;"><div class="spinner"></div> ${t('product_scan_loading')}</div>` : ''}
         ${productScanState==='error' ? `<div class="scan-error" style="margin-top:14px;margin-bottom:0;">⚠ ${productScanError||t('product_scan_error')}</div>` : ''}
-      </div>
+      </div>`}
 
       <div class="settings-card">
         ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('item_section_basic'))}
         <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
+        ${isExp ? `
+        <div class="field"><label for="fi-cost">${t('lbl_bill_amount')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+        <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
+        ` : ''}
         <div class="field" style="margin-bottom:0;">
           <label for="fi-category">${t('lbl_category')}</label>
           <select id="fi-category">
@@ -1365,6 +1376,7 @@ function itemModal(){
         </div>
       </div>
 
+      ${isExp ? '' : `
       <div class="settings-card">
         ${settingsCardHeader('chart','var(--basil-soft)','var(--basil-ink)',t('item_section_pricing'))}
         <div class="field-row">
@@ -1393,6 +1405,7 @@ function itemModal(){
 
       <div class="settings-card">
         ${settingsCardHeader('printer','var(--saffron-soft)','var(--saffron-ink)',t('item_section_ids'))}
+        ${''/* (cerrado más abajo — toda esta tarjeta también es solo-mercadería) */}
         <div class="field-row">
           <div class="field"><label for="fi-sku">${t('lbl_sku')}</label><input id="fi-sku" type="text" value="${escapeHtml(draftItem.sku||'')}" placeholder="${t('ph_sku_example')}"></div>
           <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
@@ -1402,9 +1415,9 @@ function itemModal(){
           <div class="field" style="margin-bottom:0;"><label for="fi-capacity">${t('capacity_label')}</label><input id="fi-capacity" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.capacityFull||'')}" placeholder="${t('ph_capacity_example')}"></div>
         </div>
         <div class="helper-note" style="margin:8px 0 0;">${t('capacity_helper')}</div>
-      </div>
+      </div>`}
 
-      <div class="helper-note">${t('item_helper')}</div>
+      ${isExp ? '' : `<div class="helper-note">${t('item_helper')}</div>`}
       <div class="modal-actions">
         ${/* Eliminar vive ACÁ desde que las filas del inventario no tienen ✕:
              tocar el ítem abre esta ficha, y desde acá se edita o se borra. */''}
