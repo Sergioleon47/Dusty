@@ -67,7 +67,7 @@ let calendarBlinkDates = []; // fechas "YYYY-MM-DD" que coinciden con calendarAm
 // la última pestaña usada en este dispositivo.
 let activeTab = 'dashboard';
 try{ activeTab = localStorage.getItem('patron_active_tab') || 'dashboard'; }catch(e){}
-const TAB_ORDER = ['dashboard','inventario','recibos'];
+const TAB_ORDER = ['dashboard','inventario','recibos','catalogo'];
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
 // Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
 let welcomeStep = 0;

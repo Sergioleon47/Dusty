@@ -103,8 +103,10 @@
   /* will-change:transform promueve el track a su propia capa de composición: el
      navegador anima el transform en la GPU, así el arrastre y el resorte se ven
      fluidos aunque el hilo principal esté ocupado (Firestore, un render pesado). */
-  .view-track{display:flex;align-items:flex-start;width:300%;will-change:transform;}
-  .view-page{width:calc(100%/3);min-width:0;flex-shrink:0;}
+  /* 4 páginas desde 2026-09-06 (se sumó Catálogo) — el ancho del track y el de
+     cada página tienen que coincidir con TAB_ORDER.length (app-01). */
+  .view-track{display:flex;align-items:flex-start;width:400%;will-change:transform;}
+  .view-page{width:calc(100%/4);min-width:0;flex-shrink:0;}
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
   .topbar .brand{order:1;}

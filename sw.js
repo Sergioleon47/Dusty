@@ -50,7 +50,10 @@
 // ítems/recetas, catalogWhatsApp/catalogId en meta) — app-02/03/04/05/07.
 // catalogo.html NO se precachea a propósito: es la página de los CLIENTES del
 // negocio, no parte del shell de la app.
-const CACHE_NAME = 'patron-shell-v20';
+// v21: el Catálogo pasa de modal a 4.ª PESTAÑA del carrusel (TAB_ORDER, track al
+// 400%, nav de abajo con ícono de vitrina) — app-01/03/04/05/07 + dusty.css:
+// mezclar CSS viejo (300%) con las 4 páginas nuevas rompería el swipe entero.
+const CACHE_NAME = 'patron-shell-v21';
 
 const PRECACHE_URLS = [
   '/',

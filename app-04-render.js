@@ -152,16 +152,16 @@ function renderApp(){
      acciones (p. ej. el futuro escáner de estante). */
   const html = `
     <div class="view-viewport">
-      <div class="view-track" style="transform:translateX(-${tabIdx*(100/3)}%);">
+      <div class="view-track" style="transform:translateX(-${tabIdx*(100/TAB_ORDER.length)}%);">
         <div class="view-page">${topbar()}${dashboardView()}</div>
         <div class="view-page">${inventarioView()}</div>
         <div class="view-page">${recibosView()}</div>
+        <div class="view-page">${catalogoView()}</div>
       </div>
     </div>
     ${/* Presupuesto ANTES de itemModal a propósito: sus filas de gastos abren
          la ficha del ítem, que debe apilarse ENCIMA (el orden del DOM manda). */''}
     ${showBudgetModal ? budgetModal() : ''}
-    ${showCatalogModal ? catalogModal() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}
     ${showCategoriesModal ? categoriesModal() : ''}
@@ -329,6 +329,8 @@ function bottomNav(){
     {tab:'dashboard', label:t('tab_dashboard'), icon:`<polyline points="3 11 12 4 21 11"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/>`},
     {tab:'inventario', label:t('tab_inventory'), icon:`<polygon points="12 3 21 7.5 21 16.5 12 21 3 16.5 3 7.5"/><polyline points="3 7.5 12 12 21 7.5"/><line x1="12" y1="12" x2="12" y2="21"/>`},
     {tab:'recibos', label:t('tab_receipts'), icon:`<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>`},
+    // Vitrina/tienda: la pestaña del catálogo que el negocio comparte con sus clientes.
+    {tab:'catalogo', label:t('tab_catalog'), icon:`<path d="M4 9l1.5-5h13L20 9"/><path d="M5 9v11h14V9"/><path d="M9.5 20v-5.5h5V20"/><path d="M4 9h16"/>`},
   ];
   return `
   <div class="bottom-nav">

@@ -437,7 +437,6 @@ function dashboardView(){
           <span style="font-size:16px;font-weight:800;color:var(--navy);">${money(0)}</span>
         </button>`}
       <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
-      <button class="link-btn" id="btn-open-catalog" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('catalog_dash_btn')}</button>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
       <!-- Órbita decorativa: todo lo que Dusty puede escanear girando despacio
@@ -1665,21 +1664,21 @@ function budgetModal(){
 }
 
 /* ================= CATÁLOGO PARA CLIENTES =================
-   El dueño marca qué productos/piezas mostrar, pone su WhatsApp y publica: una
-   función de Netlify (publish-catalog) escribe el doc público y sube las fotos —
-   el cliente final abre patronsc.netlify.app/c/<id> (catalogo.html) sin cuenta ni
-   app, y pide por WhatsApp. La selección viaja como inCatalog en cada ítem/receta
-   (sincroniza gratis con ellos); el número y el id del catálogo viajan por meta. */
-let showCatalogModal = false, catalogPublishing = false;
-function openCatalogModal(){ showCatalogModal = true; catalogPublishing = false; render(); }
-function closeCatalogModal(){ showCatalogModal = false; render(); }
+   Pestaña propia (4.ª del carrusel — pedido del usuario 2026-09-06: "tiene que
+   haber otra pantalla"): el dueño marca qué productos/piezas mostrar, pone su
+   WhatsApp y publica; una función de Netlify (publish-catalog) escribe el doc
+   público y sube las fotos — el cliente final abre patronsc.netlify.app/c/<id>
+   (catalogo.html) sin cuenta ni app, y pide por WhatsApp. La selección viaja como
+   inCatalog en cada ítem/receta (sincroniza gratis con ellos); el número y el id
+   del catálogo viajan por meta. */
+let catalogPublishing = false;
 function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
 function catalogPhotoThumbSrc(photo){
   if(!photo) return null;
   if(photo.base64) return cachedPhotoUrl(photo.base64, photo.mediaType);
   return photo.url || null;
 }
-function catalogModal(){
+function catalogoView(){
   const sellables = inventory.filter(i=>i && !isExpenseItem(i));
   const sellableRecipes = recipes.filter(r=>r && r.id);
   const row = (kind, id, name, photo, price, checked)=>`
@@ -1693,39 +1692,35 @@ function catalogModal(){
     </label>`;
   const url = catalogUrl();
   return `
-  <div class="overlay" id="catalog-overlay">
-    <div class="modal">
-      <h3 class="basil">${t('catalog_title')}</h3>
-      <div class="sub">${t('catalog_sub')}</div>
-      <div class="field" style="margin-top:10px;">
-        <label>${t('catalog_wa_label')}</label>
-        <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
-      </div>
-      <div class="helper-note">${t('catalog_wa_helper')}</div>
-      <div class="helper-note" style="margin-top:10px;">${t('catalog_pick_hint')}</div>
-      ${sellables.length===0 && sellableRecipes.length===0
-        ? `<div class="helper-note" style="margin-top:8px;">${t('catalog_no_sellables')}</div>`
-        : `
-        ${sellables.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_products_header')} <span>${sellables.length}</span></div>` : ''}
-        ${sellables.map(i=>row('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), i.salePrice, !!i.inCatalog)).join('')}
-        ${sellableRecipes.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>` : ''}
-        ${sellableRecipes.map(r=>row('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), r.salePrice, !!r.inCatalog)).join('')}`}
-      ${url ? `
-      <div class="settings-card" style="margin-top:14px;">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_link_label')}</label>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);background:var(--inset);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere;">${escapeHtml(url)}</div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
-          <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
-        </div>
-        <button type="button" class="link-btn" id="btn-unpublish-catalog" style="margin-top:6px;color:var(--tomato);">${t('catalog_unpublish_btn')}</button>
-      </div>` : ''}
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-close-catalog">${t('btn_close')}</button>
-        <button class="btn btn-primary" id="btn-publish-catalog" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
-      </div>
+  <div class="section-head">
+    <div><h2>${t('catalog_title')}</h2><p>${t('catalog_sub')}</p></div>
+  </div>
+  ${url ? `
+  <div class="settings-card" style="margin-bottom:16px;">
+    <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_link_label')}</label>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);background:var(--inset);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere;">${escapeHtml(url)}</div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
+      <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
     </div>
+    <button type="button" class="link-btn" id="btn-unpublish-catalog" style="margin-top:6px;color:var(--tomato);">${t('catalog_unpublish_btn')}</button>
+  </div>` : ''}
+  <div class="field" style="max-width:340px;">
+    <label>${t('catalog_wa_label')}</label>
+    <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
+  </div>
+  <div class="helper-note">${t('catalog_wa_helper')}</div>
+  <div class="helper-note" style="margin-top:10px;">${t('catalog_pick_hint')}</div>
+  ${sellables.length===0 && sellableRecipes.length===0
+    ? `<div class="helper-note" style="margin-top:8px;">${t('catalog_no_sellables')}</div>`
+    : `
+    ${sellables.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_products_header')} <span>${sellables.length}</span></div>` : ''}
+    ${sellables.map(i=>row('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), i.salePrice, !!i.inCatalog)).join('')}
+    ${sellableRecipes.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>` : ''}
+    ${sellableRecipes.map(r=>row('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), r.salePrice, !!r.inCatalog)).join('')}`}
+  <div style="margin:18px 0 30px;">
+    <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
   </div>`;
 }
 async function publishCatalogNow(){

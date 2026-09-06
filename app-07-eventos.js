@@ -460,16 +460,12 @@ function attachEvents(){
     });
   }
 
-  /* Catálogo para clientes (ver catalogModal en app-05) */
-  const btnOpenCatalog=document.getElementById('btn-open-catalog');
-  if(btnOpenCatalog) btnOpenCatalog.onclick=openCatalogModal;
-  const catalogOverlay=document.getElementById('catalog-overlay');
-  if(catalogOverlay){
-    catalogOverlay.onmousedown=(e)=>{ if(e.target===catalogOverlay) closeCatalogModal(); };
-    const btnCloseCatalog=document.getElementById('btn-close-catalog');
-    if(btnCloseCatalog) btnCloseCatalog.onclick=closeCatalogModal;
+  /* Catálogo para clientes — pestaña propia (catalogoView, app-05). Sus nodos
+     viven SIEMPRE en el DOM (las 4 páginas del carrusel se renderizan juntas),
+     así que se enganchan directo, sin overlay que chequear. */
+  {
     // El número se guarda al confirmar el campo (y también al publicar) — así
-    // sobrevive cerrar el modal sin publicar.
+    // sobrevive salir de la pestaña sin publicar.
     const waInp=document.getElementById('catalog-wa-input');
     if(waInp) waInp.onchange=()=>{ catalogWhatsApp=waInp.value.trim(); saveState(); };
     // La selección vive EN cada ítem/receta (inCatalog) y sincroniza con ellos.
