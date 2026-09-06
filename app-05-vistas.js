@@ -1715,6 +1715,9 @@ let catalogEditCutout = null;      // PNG transparente del producto
 let catalogEditFullBackup = null;  // la foto original, para "volver atrás"
 let catalogEditBg = '#ffffff';
 let catalogRemovingBg = false;
+// "Mejorar con IA" (súper-resolución Real-ESRGAN, la otra pata Pro): true
+// mientras la IA reconstruye la foto.
+let catalogEnhancing = false;
 async function composeCatalogCutout(){
   if(!catalogEditCutout) return;
   const img = await loadB64Image(catalogEditCutout);
@@ -1768,6 +1771,7 @@ async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
   const cy = Math.min(Math.max(e.offY*rh, side/2), rh - side/2);
   const oc = document.createElement('canvas'); oc.width = outSize; oc.height = outSize;
   const ctx = oc.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(rc, cx-side/2, cy-side/2, side, side, 0, 0, outSize, outSize);
   const d = ctx.getImageData(0, 0, outSize, outSize), p = d.data;
   const clamp = v=>v<0?0:v>255?255:v;
@@ -2035,7 +2039,7 @@ function catalogAssignModal(){
 async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
   try{
     if(!fullSrc || !currentUser || currentUser.isAnonymous) return;
-    let hi = await bakeCatalogEdit(1200, true, fullSrc, editSrc);
+    let hi = await bakeCatalogEdit(1440, true, fullSrc, editSrc);
     if(filterKey && filterKey!=='original') hi = await applyCatalogFilter(hi, filterKey);
     const res = await callDustyAI('/.netlify/functions/upload-catalog-photo', {
       imageBase64: hi.base64, mediaType: 'image/jpeg',
@@ -2074,13 +2078,14 @@ function catalogEditorModal(){
         <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto">✨ ${t('catalog_edit_auto')}</button>
         <button type="button" class="exit-reason-chip" id="btn-edit-rotate">↻ ${t('catalog_edit_rotate')}</button>
         <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')+' · PRO'}</button>
+        <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')+' · PRO'}</button>
       </div>
       ${catalogEditCutout ? `
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
         <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);">${t('catalog_rembg_bg')}</span>
         ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
-        <button type="button" class="link-btn" id="btn-rembg-revert" style="margin-left:auto;padding:4px 0;">${t('catalog_rembg_revert')}</button>
       </div>` : ''}
+      ${catalogEditFullBackup ? `<button type="button" class="link-btn" id="btn-rembg-revert" style="margin-top:6px;padding:4px 0;">${t('catalog_rembg_revert')}</button>` : ''}
       ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
       ${slider('bright', t('catalog_edit_bright'), -50, 50, e.bright)}
       ${slider('contrast', t('catalog_edit_contrast'), -50, 50, e.contrast)}

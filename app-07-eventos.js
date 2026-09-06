@@ -510,7 +510,8 @@ function attachEvents(){
           catalogAssignSuggestion = null;
           // Base COMPLETA para el editor (recorte/ajustes se hornean desde acá,
           // no desde el thumbnail) — la misma imagen alimenta a la IA de abajo.
-          catalogEditFull = resizeToBase64(img, 1400, 0.9);
+          // 1600px q0.92: la base de calidad del catálogo (la alta se hornea de acá).
+          catalogEditFull = resizeToBase64(img, 1600, 0.92);
           catalogEdit = Object.assign({}, CATALOG_EDIT_DEFAULTS);
           catalogEditorOpen = false; catalogEditPreviewUrl = null;
           catalogEditCutout = null; catalogEditFullBackup = null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
@@ -581,6 +582,7 @@ function attachEvents(){
         catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
         catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
         catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
+        catalogEnhancing=false;
         render();
       };
       assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
@@ -692,6 +694,44 @@ function attachEvents(){
           catalogRemovingBg=false;
           render();
           showToast(err.message || t('catalog_rembg_error'), 'error');
+        }
+      };
+      // MEJORAR CON IA (súper-resolución): se manda una copia a 800px y Real-ESRGAN
+      // la devuelve al doble con el detalle reconstruido — el resultado (re-encodado
+      // a JPEG 1600) pasa a ser la nueva base de edición.
+      const btnEnhance=document.getElementById('btn-enhance-photo');
+      if(btnEnhance) btnEnhance.onclick=async ()=>{
+        if(catalogEnhancing || catalogRemovingBg || !catalogEditFull) return;
+        if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
+        catalogEnhancing=true; render();
+        try{
+          const srcImg = await loadB64Image(catalogEditFull);
+          const small = resizeToBase64(srcImg, 800, 0.9);
+          const opts={notFoundKey:'err_function_not_found', genericKey:'catalog_enhance_error'};
+          const start=await callDustyAI('/.netlify/functions/enhance-photo', {action:'start', imageBase64:small.base64, mediaType:'image/jpeg'}, opts);
+          let result=null;
+          for(let i=0;i<55 && !result;i++){
+            await new Promise(r=>setTimeout(r,1600));
+            if(!catalogEditorOpen || !catalogEditFull){ catalogEnhancing=false; return; }
+            const st=await callDustyAI('/.netlify/functions/enhance-photo', {action:'status', id:start.id}, opts);
+            if(st.status==='succeeded') result=st;
+            else if(st.status==='failed') throw new Error(st.error || t('catalog_enhance_error'));
+          }
+          if(!result) throw new Error(t('catalog_enhance_error'));
+          const enhancedImg = await loadB64Image({base64:result.imageBase64, mediaType:result.mediaType||'image/png'});
+          if(!catalogEditFullBackup) catalogEditFullBackup=catalogEditFull;
+          catalogEditFull = resizeToBase64(enhancedImg, 1600, 0.9);
+          // La foto mejorada reemplaza a la base: si había recorte de fondo, ya no
+          // corresponde a esta imagen nueva.
+          catalogEditCutout=null;
+          catalogEnhancing=false;
+          render();
+          refreshCatalogEditPreview();
+          showToast(t('catalog_enhance_done'));
+        }catch(err){
+          catalogEnhancing=false;
+          render();
+          showToast(err.message || t('catalog_enhance_error'), 'error');
         }
       };
       document.querySelectorAll('[data-edit-bg]').forEach(sw=>{

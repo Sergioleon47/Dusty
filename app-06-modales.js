@@ -2036,10 +2036,27 @@ function resizeToBase64(img, maxSide, quality){
     width = Math.round(width*scale);
     height = Math.round(height*scale);
   }
+  /* Reescalado POR PASOS (calidad de cámara 2026-09-06): achicar una foto de
+     12MP a un thumbnail en UN drawImage tira la mayoría de los píxeles sin
+     promediarlos (aliasing — el detalle fino sale "sucio" o granulado). El
+     estándar de los editores: ir a la mitad en cada paso (cada píxel destino
+     promedia ~4 de origen) hasta acercarse al tamaño final, con el filtro de
+     suavizado del canvas en 'high'. Mejora TODAS las fotos de la app —
+     productos, recibos, recetas y el catálogo — gratis. */
+  let src = img, sw = img.width, sh = img.height;
+  while(sw/2 >= width && sh/2 >= height && sw > 32){
+    const half = document.createElement('canvas');
+    half.width = Math.round(sw/2); half.height = Math.round(sh/2);
+    const hctx = half.getContext('2d');
+    hctx.imageSmoothingEnabled = true; hctx.imageSmoothingQuality = 'high';
+    hctx.drawImage(src, 0, 0, half.width, half.height);
+    src = half; sw = half.width; sh = half.height;
+  }
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0, width, height);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, width, height);
   const dataUrl = canvas.toDataURL('image/jpeg', quality);
   return {base64: dataUrl.split(',')[1], mediaType: 'image/jpeg'};
 }

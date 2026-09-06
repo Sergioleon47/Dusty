@@ -92,7 +92,11 @@
 // v36: SÚPER CALIDAD — al asignar una foto se sube en segundo plano la versión
 // de 1200px con edición y filtro (upload-catalog-photo → photoHiUrl) y el
 // catálogo público la prefiere sobre el thumbnail de 300px — app-05/07 + funciones.
-const CACHE_NAME = 'patron-shell-v36';
+// v37: inyección de calidad a la cámara — reescalado por pasos con suavizado
+// 'high' (mata el aliasing en TODAS las fotos), base del catálogo a 1600px/alta
+// a 1440px, y "Mejorar IA" (súper-resolución Real-ESRGAN, 2.º botón Pro) —
+// app-03/05/06/07 + función enhance-photo.
+const CACHE_NAME = 'patron-shell-v37';
 
 const PRECACHE_URLS = [
   '/',
