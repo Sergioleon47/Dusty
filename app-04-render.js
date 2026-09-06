@@ -163,6 +163,7 @@ function renderApp(){
          la ficha del ítem, que debe apilarse ENCIMA (el orden del DOM manda). */''}
     ${showBudgetModal ? budgetModal() : ''}
     ${catalogPendingPhoto ? catalogAssignModal() : ''}
+    ${catalogPendingPhoto && catalogEditorOpen ? catalogEditorModal() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}
     ${showCategoriesModal ? categoriesModal() : ''}

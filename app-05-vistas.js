@@ -1692,6 +1692,105 @@ let catalogPendingFilter = 'original';
 let catalogAssignDetecting = false;
 let catalogAssignSuggestion = null; // {kind:'item'|'recipe', id}
 let catalogAssignReqId = 0;
+/* ---- EDITOR DE FOTO (pedido del usuario 2026-09-06: lo que la gente usa en
+   los editores) — recorte/encuadre con zoom y giro, Auto-mejora de un toque y
+   deslizadores de brillo/contraste/saturación/nitidez. NO destructivo: los
+   ajustes viven en catalogEdit y se re-hornean siempre desde la foto COMPLETA
+   (catalogEditFull, 1400px) — el resultado recién pisa el borrador al tocar
+   "Listo". Todo a puro canvas/píxel, sin servicios pagos. */
+let catalogEditorOpen = false;
+let catalogEditFull = null; // base 1400px de la foto recién sacada/subida
+const CATALOG_EDIT_DEFAULTS = {rot:0, zoom:1, offX:0.5, offY:0.5, bright:0, contrast:0, sat:0, sharp:0, auto:false};
+let catalogEdit = Object.assign({}, CATALOG_EDIT_DEFAULTS);
+let catalogEditBackup = null;   // para que Cancelar deshaga lo tocado en esta pasada
+let catalogEditPreviewUrl = null;
+let catalogEditBaking = false;
+let catalogEditPrevReq = 0;
+function loadB64Image(obj){
+  return new Promise((res, rej)=>{
+    const im = new Image();
+    im.onload = ()=>res(im);
+    im.onerror = ()=>rej(new Error(t('err_img_process')));
+    im.src = 'data:'+(obj.mediaType||'image/jpeg')+';base64,'+obj.base64;
+  });
+}
+/* Hornea la foto con TODOS los ajustes, a outSize px: giro → recorte cuadrado
+   (zoom + offset del encuadre) → auto-niveles → brillo/contraste/saturación →
+   nitidez (máscara de desenfoque). El preview usa 480px (instantáneo); el
+   guardado final, 300px como todas las fotos de producto. */
+async function bakeCatalogEdit(outSize){
+  const img = await loadB64Image(catalogEditFull);
+  const e = catalogEdit;
+  const rot = ((e.rot%360)+360)%360;
+  const rw = (rot===90||rot===270) ? img.naturalHeight : img.naturalWidth;
+  const rh = (rot===90||rot===270) ? img.naturalWidth : img.naturalHeight;
+  const rc = document.createElement('canvas'); rc.width = rw; rc.height = rh;
+  const rctx = rc.getContext('2d');
+  rctx.translate(rw/2, rh/2); rctx.rotate(rot*Math.PI/180);
+  rctx.drawImage(img, -img.naturalWidth/2, -img.naturalHeight/2);
+  const side = Math.min(rw, rh)/Math.max(1, e.zoom);
+  const cx = Math.min(Math.max(e.offX*rw, side/2), rw - side/2);
+  const cy = Math.min(Math.max(e.offY*rh, side/2), rh - side/2);
+  const oc = document.createElement('canvas'); oc.width = outSize; oc.height = outSize;
+  const ctx = oc.getContext('2d');
+  ctx.drawImage(rc, cx-side/2, cy-side/2, side, side, 0, 0, outSize, outSize);
+  const d = ctx.getImageData(0, 0, outSize, outSize), p = d.data;
+  const clamp = v=>v<0?0:v>255?255:v;
+  if(e.auto){
+    // Auto-niveles POR CANAL con recorte del 1%: estira exposición y contraste
+    // y de paso corrige el tinte (la luz amarilla del local) — el clásico "Auto".
+    for(let ch=0; ch<3; ch++){
+      const hist = new Uint32Array(256);
+      for(let i=ch; i<p.length; i+=4) hist[p[i]]++;
+      const cut = (p.length/4)*0.01;
+      let lo=0, acc=0; while(lo<255 && acc<cut) acc += hist[lo++];
+      let hi=255; acc=0; while(hi>0 && acc<cut) acc += hist[hi--];
+      const range = Math.max(1, hi-lo);
+      for(let i=ch; i<p.length; i+=4) p[i] = clamp((p[i]-lo)*255/range);
+    }
+  }
+  const br = e.bright*1.2, co = 1+e.contrast/100, sa = 1+e.sat/100;
+  if(br || e.contrast || e.sat){
+    for(let i=0; i<p.length; i+=4){
+      let r=p[i], g=p[i+1], b=p[i+2];
+      r=(r-128)*co+128+br; g=(g-128)*co+128+br; b=(b-128)*co+128+br;
+      const lum = 0.299*r+0.587*g+0.114*b;
+      r=lum+(r-lum)*sa; g=lum+(g-lum)*sa; b=lum+(b-lum)*sa;
+      p[i]=clamp(r); p[i+1]=clamp(g); p[i+2]=clamp(b);
+    }
+  }
+  if(e.sharp>0){
+    const amt = e.sharp/100*0.9, w = outSize, src = new Uint8ClampedArray(p);
+    for(let y=1; y<w-1; y++) for(let x=1; x<w-1; x++){
+      const i=(y*w+x)*4;
+      for(let ch=0; ch<3; ch++){
+        const c=i+ch;
+        const blur=(src[c-4]+src[c+4]+src[c-w*4]+src[c+w*4]+src[c]*4)/8;
+        p[c]=clamp(src[c]+amt*(src[c]-blur));
+      }
+    }
+  }
+  ctx.putImageData(d, 0, 0);
+  return {base64: oc.toDataURL('image/jpeg', 0.82).split(',')[1], mediaType:'image/jpeg'};
+}
+async function refreshCatalogEditPreview(){
+  if(!catalogEditFull) return;
+  const req = ++catalogEditPrevReq;
+  catalogEditBaking = true;
+  try{
+    const out = await bakeCatalogEdit(480);
+    if(req!==catalogEditPrevReq || !catalogEditorOpen) return;
+    catalogEditPreviewUrl = 'data:image/jpeg;base64,'+out.base64;
+  }catch(err){}
+  if(req!==catalogEditPrevReq) return;
+  catalogEditBaking = false;
+  // El preview se actualiza EN el <img> directo (sin render completo): un render
+  // por movimiento de deslizador reconstruiría el propio deslizador a mitad del
+  // arrastre. Solo si el nodo no existe todavía (primera pasada) se renderiza.
+  const img = document.getElementById('catalog-edit-preview');
+  if(img && catalogEditPreviewUrl) img.src = catalogEditPreviewUrl;
+  else render();
+}
 function resolveCatalogSuggestion(res){
   if(!res) return null;
   const norm = s=>String(s||'').toLowerCase().trim();
@@ -1861,6 +1960,7 @@ function catalogAssignModal(){
       ${/* Filtros (los 4 más usados + original): recalculan desde el original y
            la vista previa de arriba muestra el resultado al instante. */''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+        ${catalogEditFull ? `<button type="button" class="exit-reason-chip" id="btn-open-photo-editor" style="font-weight:800;">✂️ ${t('catalog_edit_btn')}</button>` : ''}
         ${['original','vivid','warm','retro','bw'].map(k=>`<button type="button" class="exit-reason-chip ${catalogPendingFilter===k?'on':''}" data-photo-filter="${k}">${t('catalog_filter_'+k)}</button>`).join('')}
       </div>
       ${catalogAssignDetecting ? `<div class="scan-status" style="margin-top:10px;"><div class="spinner"></div> ${t('catalog_detecting')}</div>` : ''}
@@ -1881,6 +1981,42 @@ function catalogAssignModal(){
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-assign-photo" style="width:100%;">${t('btn_cancel')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+/* El editor en sí: preview cuadrado arrastrable (encuadre), Auto y Girar como
+   chips, y los deslizadores. Brillo/contraste/saturación tienen vista previa
+   INSTANTÁNEA vía CSS filter mientras arrastrás (el horneado real corre al
+   soltar); zoom y nitidez se hornean al soltar. */
+function catalogEditorModal(){
+  const e = catalogEdit;
+  const slider = (key, label, min, max, val)=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+      <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);width:78px;flex-shrink:0;">${label}</span>
+      <input type="range" data-edit-slider="${key}" min="${min}" max="${max}" step="1" value="${val}" style="flex:1;accent-color:var(--sky);">
+    </div>`;
+  return `
+  <div class="overlay" id="catalog-editor-overlay">
+    <div class="modal">
+      <h3 class="sky">${t('catalog_edit_title')}</h3>
+      <div id="catalog-edit-wrap" style="position:relative;width:100%;aspect-ratio:1/1;background:#151515;border-radius:12px;overflow:hidden;touch-action:none;cursor:grab;">
+        ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;">` : ''}
+        ${catalogEditBaking ? `<div style="position:absolute;bottom:8px;right:8px;"><div class="spinner"></div></div>` : ''}
+      </div>
+      <div class="helper-note" style="margin:6px 0 0;">${t('catalog_edit_drag_hint')}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto">✨ ${t('catalog_edit_auto')}</button>
+        <button type="button" class="exit-reason-chip" id="btn-edit-rotate">↻ ${t('catalog_edit_rotate')}</button>
+      </div>
+      ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
+      ${slider('bright', t('catalog_edit_bright'), -50, 50, e.bright)}
+      ${slider('contrast', t('catalog_edit_contrast'), -50, 50, e.contrast)}
+      ${slider('sat', t('catalog_edit_sat'), -50, 50, e.sat)}
+      ${slider('sharp', t('catalog_edit_sharp'), 0, 100, e.sharp)}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-edit">${t('btn_cancel')}</button>
+        <button class="btn btn-primary" id="btn-apply-edit">${t('catalog_edit_done')}</button>
       </div>
     </div>
   </div>`;

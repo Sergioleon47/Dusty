@@ -78,7 +78,10 @@
 // v31: cámara inteligente del Catálogo — la IA del identificador reconoce el
 // producto de la foto y lo sugiere resaltado arriba de la lista de asignar
 // (solo cuentas reales; gasta 1 escaneo del cupo) — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v31';
+// v32: editor de fotos del Catálogo — recorte/encuadre con zoom y giro,
+// Auto-mejora (auto-niveles por canal) y deslizadores de brillo/contraste/
+// saturación/nitidez, todo a canvas sin servicios pagos — app-03/04/05/07.
+const CACHE_NAME = 'patron-shell-v32';
 
 const PRECACHE_URLS = [
   '/',

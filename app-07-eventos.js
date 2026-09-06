@@ -504,6 +504,11 @@ function attachEvents(){
           catalogPendingPhoto = catalogPendingOriginal;
           catalogPendingFilter = 'original';
           catalogAssignSuggestion = null;
+          // Base COMPLETA para el editor (recorte/ajustes se hornean desde acá,
+          // no desde el thumbnail) — la misma imagen alimenta a la IA de abajo.
+          catalogEditFull = resizeToBase64(img, 1400, 0.9);
+          catalogEdit = Object.assign({}, CATALOG_EDIT_DEFAULTS);
+          catalogEditorOpen = false; catalogEditPreviewUrl = null;
           // Cámara inteligente: la IA identifica el producto EN PARALELO mientras
           // el modal ya está abierto — la foto para la IA va a 1400px (a 300px el
           // thumbnail no alcanza para leer etiquetas). Solo cuentas reales (gasta
@@ -511,7 +516,7 @@ function attachEvents(){
           const canDetect = currentUser && !currentUser.isAnonymous
             && (inventory.some(i=>i && !isExpenseItem(i)) || recipes.some(r=>r && r.id));
           if(canDetect){
-            const detectImg = resizeToBase64(img, 1400, 0.9);
+            const detectImg = catalogEditFull;
             const reqId = ++catalogAssignReqId;
             catalogAssignDetecting = true;
             identifyProductFromPhoto(detectImg).then(res=>{
@@ -565,7 +570,13 @@ function attachEvents(){
     // Modal "¿de qué producto es esta foto?" (tras sacarla o subirla)
     const assignOverlay=document.getElementById('catalog-assign-overlay');
     if(assignOverlay){
-      const dropPending=()=>{ catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original'; catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++; render(); };
+      const dropPending=()=>{
+        catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original';
+        catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
+        catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
+        catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
+        render();
+      };
       assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
       const btnCancelAssign=document.getElementById('btn-cancel-assign-photo');
       if(btnCancelAssign) btnCancelAssign.onclick=dropPending;
@@ -585,6 +596,14 @@ function attachEvents(){
           }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
         };
       });
+      // Abrir el editor (snapshot para que Cancelar deshaga lo tocado)
+      const btnOpenEditor=document.getElementById('btn-open-photo-editor');
+      if(btnOpenEditor) btnOpenEditor.onclick=()=>{
+        catalogEditBackup = Object.assign({}, catalogEdit);
+        catalogEditorOpen = true;
+        render();
+        refreshCatalogEditPreview();
+      };
       document.querySelectorAll('[data-assign-photo]').forEach(el=>{
         el.onclick=()=>{
           const s=el.dataset.assignPhoto, sep=s.indexOf(':');
@@ -595,6 +614,8 @@ function attachEvents(){
           if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
           catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original';
           catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
+          catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
+          catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
           saveState();
           // La foto de una receta viaja por Storage (meta solo lleva la referencia).
           if(kind==='recipe') uploadRecipePhoto(target);
@@ -602,6 +623,71 @@ function attachEvents(){
           render();
         };
       });
+    }
+    // Editor de foto (encima del modal de asignar)
+    const editorOverlay=document.getElementById('catalog-editor-overlay');
+    if(editorOverlay){
+      const closeEditor=(revert)=>{
+        if(revert && catalogEditBackup) catalogEdit = Object.assign({}, catalogEditBackup);
+        catalogEditorOpen=false; catalogEditPreviewUrl=null;
+        render();
+      };
+      editorOverlay.onmousedown=(e)=>{ if(e.target===editorOverlay) closeEditor(true); };
+      const btnCancelEdit=document.getElementById('btn-cancel-edit');
+      if(btnCancelEdit) btnCancelEdit.onclick=()=>closeEditor(true);
+      const btnApplyEdit=document.getElementById('btn-apply-edit');
+      if(btnApplyEdit) btnApplyEdit.onclick=async ()=>{
+        try{
+          btnApplyEdit.disabled=true;
+          // El resultado editado pasa a ser el NUEVO original del borrador: los
+          // filtros (Vívido, etc.) del modal se recalculan sobre él.
+          const out = await bakeCatalogEdit(300);
+          catalogPendingOriginal = out;
+          catalogPendingPhoto = out;
+          catalogPendingFilter = 'original';
+          catalogEditorOpen=false; catalogEditPreviewUrl=null;
+          render();
+        }catch(err){ btnApplyEdit.disabled=false; showToast(err.message || t('err_img_process'), 'error'); }
+      };
+      const btnEditAuto=document.getElementById('btn-edit-auto');
+      if(btnEditAuto) btnEditAuto.onclick=()=>{ catalogEdit.auto=!catalogEdit.auto; btnEditAuto.classList.toggle('on', catalogEdit.auto); refreshCatalogEditPreview(); };
+      const btnEditRotate=document.getElementById('btn-edit-rotate');
+      if(btnEditRotate) btnEditRotate.onclick=()=>{ catalogEdit.rot=(catalogEdit.rot+90)%360; refreshCatalogEditPreview(); };
+      // Deslizadores: horneado en vivo con debounce corto (el preview de 480px
+      // tarda milisegundos) — el <img> se actualiza en el lugar, sin re-render.
+      let bakeTimer=null;
+      const scheduleBake=()=>{ clearTimeout(bakeTimer); bakeTimer=setTimeout(refreshCatalogEditPreview, 120); };
+      document.querySelectorAll('[data-edit-slider]').forEach(sl=>{
+        sl.oninput=()=>{
+          const k=sl.dataset.editSlider, v=parseInt(sl.value,10)||0;
+          if(k==='zoom') catalogEdit.zoom = Math.max(1, v/100);
+          else catalogEdit[k] = v;
+          scheduleBake();
+        };
+        sl.onchange=()=>refreshCatalogEditPreview();
+      });
+      // Arrastre del encuadre: mover el dedo corre la ventana de recorte (la
+      // aproximación 1/zoom alcanza — el horneado igual la fija a los bordes).
+      const wrap=document.getElementById('catalog-edit-wrap');
+      if(wrap){
+        wrap.onpointerdown=(ev)=>{
+          if(!catalogEditFull) return;
+          ev.preventDefault();
+          try{ wrap.setPointerCapture(ev.pointerId); }catch(e){}
+          const startX=ev.clientX, startY=ev.clientY;
+          const startOffX=catalogEdit.offX, startOffY=catalogEdit.offY;
+          const disp=wrap.getBoundingClientRect().width || 1;
+          wrap.onpointermove=(mv)=>{
+            catalogEdit.offX = Math.min(1, Math.max(0, startOffX - ((mv.clientX-startX)/disp)/catalogEdit.zoom));
+            catalogEdit.offY = Math.min(1, Math.max(0, startOffY - ((mv.clientY-startY)/disp)/catalogEdit.zoom));
+            scheduleBake();
+          };
+          wrap.onpointerup=wrap.onpointercancel=()=>{
+            wrap.onpointermove=null; wrap.onpointerup=null; wrap.onpointercancel=null;
+            refreshCatalogEditPreview();
+          };
+        };
+      }
     }
   }
 
