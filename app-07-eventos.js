@@ -78,7 +78,10 @@ let modalTabTrapAttached = false;
 // campo de presupuesto — se consume en el attach del overlay, un solo render.
 // Selector de archivo + resize para la foto de un producto — lo usan el toque en
 // la miniatura sin foto (lista) y el botón "cambiar" del visor de foto.
-function promptItemPhotoUpload(item){
+// afterSet (opcional): corre tras guardar la foto nueva — lo usa el modo fotos
+// del Catálogo para subir la foto de una RECETA a Storage (uploadRecipePhoto);
+// las fotos de productos no lo necesitan (viajan dentro de su doc de inventario).
+function promptItemPhotoUpload(item, afterSet){
   const input = document.createElement('input');
   input.type='file';
   input.accept='image/*';
@@ -95,7 +98,9 @@ function promptItemPhotoUpload(item){
     try{
       const img = await loadImageFromFile(file);
       item.photo = resizeToBase64(img, 300, 0.75);
-      saveState(); render();
+      saveState();
+      if(afterSet) afterSet();
+      render();
     }catch(err){
       showToast(err.message || t('err_img_process'), 'error');
     }
@@ -473,12 +478,20 @@ function attachEvents(){
     // repinta el ✓ y el atenuado). Sello de edición en recetas: el merge por
     // lastEditedAt (app-02) necesita saber que esta copia es la más nueva, o un
     // snapshot viejo desmarcaría.
+    // FAB de cámara: alterna el modo fotos (editar fotos, sin escanear nada).
+    const btnCatalogPhotoMode=document.getElementById('btn-catalog-photo-mode');
+    if(btnCatalogPhotoMode) btnCatalogPhotoMode.onclick=()=>{ catalogPhotoMode=!catalogPhotoMode; render(); };
     document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
       el.onclick=()=>{
         const s=el.dataset.catToggle, sep=s.indexOf(':');
         const kind=s.slice(0,sep), id=s.slice(sep+1);
         const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
         if(!target) return;
+        // Modo fotos: la tarjeta abre el selector de foto en vez de seleccionar.
+        if(catalogPhotoMode){
+          promptItemPhotoUpload(target, kind==='recipe' ? ()=>uploadRecipePhoto(target) : undefined);
+          return;
+        }
         target.inCatalog=!target.inCatalog;
         if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
         saveState();

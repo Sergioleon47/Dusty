@@ -57,7 +57,10 @@
 // Inventario (groupRowsByCategory) — app-03/05.
 // v23: el Catálogo usa las MISMAS tarjetas y grilla fila/2col/3col del
 // Inventario (selector compartido); tocar la tarjeta marca/desmarca — app-05/07.
-const CACHE_NAME = 'patron-shell-v23';
+// v24: Catálogo sin el bloque de arriba (abre directo con los productos; lo
+// operativo al final) + FAB de cámara con modo fotos para cambiar la foto de
+// productos/recetas al toque — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v24';
 
 const PRECACHE_URLS = [
   '/',

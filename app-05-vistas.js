@@ -1672,6 +1672,10 @@ function budgetModal(){
    inCatalog en cada ítem/receta (sincroniza gratis con ellos); el número y el id
    del catálogo viajan por meta. */
 let catalogPublishing = false;
+// Modo fotos (pedido del usuario 2026-09-06): el botón de cámara de esta pestaña
+// NO escanea nada — prendido, tocar una tarjeta abre el selector para cambiarle
+// la foto al producto/receta; apagado, tocar selecciona para el catálogo.
+let catalogPhotoMode = false;
 function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
 function catalogPhotoThumbSrc(photo){
   if(!photo) return null;
@@ -1685,9 +1689,13 @@ function catalogoView(){
   // .inv-grid con el mismo selector fila/2col/3col — pedido del usuario
   // 2026-09-06): tocarla marca/desmarca el producto para el catálogo. La
   // seleccionada va a pleno color con su ✓ verde; la no seleccionada, apagada.
+  // En modo fotos todas las tarjetas van a pleno color con el badge de cámara —
+  // la selección no cambia hasta salir del modo.
   const tile = (kind, id, name, photoHtml, price, checked)=>`
-    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;${checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.62;'}">
-      ${checked?`<span style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:''}
+    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;${catalogPhotoMode?'':(checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.62;')}">
+      ${catalogPhotoMode
+        ? `<span style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none;">${lineIcon('camera',12)}</span>`
+        : (checked?`<span style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:'')}
       <div class="inv-tile-top">
         <div class="stock-icon-ring" style="width:48px;height:48px;flex-shrink:0;">${photoHtml}</div>
         <div class="inv-tile-name">${escapeHtml(invShortName(name))}</div>
@@ -1704,35 +1712,27 @@ function catalogoView(){
   };
   const url = catalogUrl();
   return `
-  <div class="section-head">
-    <div><h2>${t('catalog_title')}</h2><p>${t('catalog_sub')}</p></div>
-  </div>
-  ${url ? `
-  <div class="settings-card" style="margin-bottom:16px;">
-    <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_link_label')}</label>
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);background:var(--inset);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere;">${escapeHtml(url)}</div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
-      <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
-    </div>
-    <button type="button" class="link-btn" id="btn-unpublish-catalog" style="margin-top:6px;color:var(--tomato);">${t('catalog_unpublish_btn')}</button>
-  </div>` : ''}
-  <div class="field" style="max-width:340px;">
-    <label>${t('catalog_wa_label')}</label>
-    <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
-  </div>
-  <div class="helper-note">${t('catalog_wa_helper')}</div>
-  <div class="helper-note" style="margin-top:10px;">${t('catalog_pick_hint')}</div>
+  ${/* SIN encabezado ni tarjeta de link arriba (el usuario lo tachó de raíz,
+       captura 2026-09-06): la pestaña abre directo con los productos — mismo
+       criterio que Inventario ("la pestaña de abajo ya dice dónde estás").
+       Todo lo operativo (WhatsApp, publicar, compartir, despublicar) vive
+       compacto al FINAL, después de la lista. */''}
   ${sellables.length===0 && sellableRecipes.length===0
-    ? `<div class="helper-note" style="margin-top:8px;">${t('catalog_no_sellables')}</div>`
+    ? `<div class="helper-note" style="margin-top:14px;">${t('catalog_no_sellables')}</div>`
     : `
-    ${/* Misma organización que el Inventario (pedido del usuario 2026-09-06):
-         grupos por categoría (groupRowsByCategory) Y las mismas tarjetas en la
-         misma grilla fila/2col/3col, con el MISMO selector de vista (comparte
-         invLayout — cambiarlo acá también cambia el Inventario, es una sola
-         preferencia de "cómo me gusta ver mis productos"). */''}
-    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
+    ${/* Misma organización que el Inventario: grupos por categoría
+         (groupRowsByCategory) y las mismas tarjetas en la misma grilla
+         fila/2col/3col con el selector compartido (invLayout). */''}
+    <div class="inv-toolbar" style="justify-content:space-between;align-items:center;margin-top:10px;">
+      ${/* Cámara SOLO para fotos (pedido del usuario, con la referencia del FAB
+           del escáner): prendida entra en modo fotos — sin rings de pulso a
+           propósito, no es un escáner y no debe latir como uno. */''}
+      <button type="button" class="shelf-scan-fab" id="btn-catalog-photo-mode" aria-pressed="${catalogPhotoMode}" aria-label="${t('catalog_photo_fab_aria')}" title="${t('catalog_photo_fab_aria')}" style="width:52px;height:52px;flex-shrink:0;${catalogPhotoMode?'box-shadow:0 0 0 3px var(--sky);':''}">
+        ${lineIcon('camera',24)}
+      </button>
+      ${invLayoutToggleHtml()}
+    </div>
+    ${catalogPhotoMode ? `<div style="font-size:12px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:7px 10px;border-radius:8px;margin:8px 0 4px;">📷 ${t('catalog_photo_mode_hint')}</div>` : ''}
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
       <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>
@@ -1741,7 +1741,18 @@ function catalogoView(){
       <div class="category-group-header">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>
       <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${sellableRecipes.map(recipeTile).join('')}</div>` : ''}`}
   <div style="margin:18px 0 30px;">
-    <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
+    <div class="field" style="max-width:340px;">
+      <label>${t('catalog_wa_label')}</label>
+      <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
+    </div>
+    <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;margin-top:10px;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
+    ${url ? `
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
+      <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
+    </div>
+    <button type="button" class="link-btn" id="btn-unpublish-catalog" style="margin-top:6px;color:var(--tomato);">${t('catalog_unpublish_btn')}</button>` : ''}
   </div>`;
 }
 async function publishCatalogNow(){
