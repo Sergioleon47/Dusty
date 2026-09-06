@@ -438,6 +438,26 @@ function attachEvents(){
     // primero — el escáner es pantalla completa y maneja solo trial/login).
     const btnScanBill=document.getElementById('btn-scan-bill');
     if(btnScanBill) btnScanBill.onclick=()=>{ closeBudgetModal(); openScanModal(); };
+    // ＋ por fila: registra el pago de ESTE mes del bill (recibo manual de
+    // gasto) sin abrir nada — la barra del presupuesto reacciona al instante.
+    // stopPropagation: la fila entera abre la ficha, el ＋ no debe hacerlo.
+    document.querySelectorAll('[data-pay-bill]').forEach(b=>{
+      b.onclick=(e)=>{
+        e.stopPropagation();
+        const item=inventory.find(i=>i.id===b.dataset.payBill);
+        if(!item) return;
+        if(!(item.costPerUnit>0)){ showToast(t('expense_pay_no_amount'), 'error'); return; }
+        receipts.push({
+          id: uid('r'), images: [], supplier: item.name, date: localDateStr(),
+          total: Math.round(item.costPerUnit*100)/100, itemCount: 0, appliedItems: [],
+          createdAt: new Date().toISOString(), purchaseIds: [], manual: true,
+          manualKind: 'expense'
+        });
+        saveState();
+        showToast(t('expense_payment_logged').replace('{name}', item.name));
+        render();
+      };
+    });
   }
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
