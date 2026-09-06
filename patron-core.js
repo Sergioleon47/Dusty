@@ -88,7 +88,9 @@ function receiptImageSrc(img){
 function monthKey(dateStr){ return dateStr ? dateStr.slice(0,7) : ''; }
 const MONTH_NAMES = {
   es: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
-  en: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  // "Sept" y no "Sep": la abreviatura inglesa convencional lleva la t (el único
+  // mes de 4 letras) — reporte del usuario 2026-09-05, "le falta una letra".
+  en: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sept','Oct','Nov','Dec']
 };
 // "lang" se pasa explícito (en vez de leer uiLang directo) para que esta función
 // se pueda probar sola sin necesitar el resto de la app cargado.

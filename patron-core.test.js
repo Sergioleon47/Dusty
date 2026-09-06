@@ -96,6 +96,9 @@ test('monthKey y monthLabel', () => {
   assert.equal(monthKey(''), '');
   assert.equal(monthLabel('2026-08', 'es'), 'Ago 2026');
   assert.equal(monthLabel('2026-08', 'en'), 'Aug 2026');
+  // "Sept" con t en inglés (la abreviatura convencional); "Sep" en español.
+  assert.equal(monthLabel('2026-09', 'en'), 'Sept 2026');
+  assert.equal(monthLabel('2026-09', 'es'), 'Sep 2026');
   assert.equal(monthLabel('2026-01', 'es'), 'Ene 2026');
   // Sin "lang" no debe reventar, y cae en INGLÉS — el idioma principal de la app.
   assert.equal(monthLabel('2026-01'), 'Jan 2026');

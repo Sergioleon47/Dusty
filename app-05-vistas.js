@@ -420,14 +420,17 @@ function dashboardView(){
         const expenseNow = spendSplitForMonth(currentMonthKey).expense;
         const pct = Math.round((expenseNow/monthlyBudget)*100);
         return `
-        <div class="budget-bar-track"><div class="budget-bar-fill ${budgetStatus(pct)}" style="width:${Math.min(Math.max(pct,3),100)}%;"></div></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;">
+        ${/* La barra va DEBAJO del monto del budget (pedido del usuario
+             2026-09-05): pegada al número de Inversión parecía medir la
+             inversión — el orden monto→barra deja claro de quién es. */''}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;">
           <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(monthlyBudget)}</strong> (${pct}%)</span>
           ${/* Lápiz en vez del texto "Edit" (lo tachó el usuario). */''}
           <button type="button" class="dash-pencil-btn" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>
-        </div>`;
+        </div>
+        <div class="budget-bar-track" style="margin-top:6px;"><div class="budget-bar-fill ${budgetStatus(pct)}" style="width:${Math.min(Math.max(pct,3),100)}%;"></div></div>`;
       })() : `
         <button id="btn-edit-budget" style="all:unset;cursor:pointer;display:flex;align-items:baseline;gap:6px;margin-top:10px;padding:10px 10px 10px 0;margin-bottom:-10px;">
           <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
