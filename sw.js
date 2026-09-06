@@ -66,7 +66,10 @@
 // nombre ni precio, como la página pública) — app-03/05.
 // v27: el modo fotos del Catálogo dispara LA CÁMARA directo (capture) al tocar
 // un producto, en vez del selector de archivos — app-03/07.
-const CACHE_NAME = 'patron-shell-v27';
+// v28: cámara-primero en el Catálogo — el FAB dispara la cámara AL TOQUE, y con
+// la foto sacada un modal pregunta de qué producto es (adiós modo fotos) —
+// app-03/04/05/07.
+const CACHE_NAME = 'patron-shell-v28';
 
 const PRECACHE_URLS = [
   '/',

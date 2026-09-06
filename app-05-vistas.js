@@ -1672,10 +1672,12 @@ function budgetModal(){
    inCatalog en cada ítem/receta (sincroniza gratis con ellos); el número y el id
    del catálogo viajan por meta. */
 let catalogPublishing = false;
-// Modo fotos (pedido del usuario 2026-09-06): el botón de cámara de esta pestaña
-// NO escanea nada — prendido, tocar una tarjeta abre el selector para cambiarle
-// la foto al producto/receta; apagado, tocar selecciona para el catálogo.
-let catalogPhotoMode = false;
+// CÁMARA-PRIMERO (iteración con el usuario 2026-09-06: "cuando le doy a la
+// cámara no me permite abrir la cámara"): tocar el botón dispara LA CÁMARA al
+// instante; con la foto ya sacada, este borrador guarda la imagen mientras un
+// modalcito pregunta "¿de qué producto es?" — tocás el producto y queda. Nada
+// de modos ni de tocar primero el producto.
+let catalogPendingPhoto = null;
 function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
 function catalogPhotoThumbSrc(photo){
   if(!photo) return null;
@@ -1693,13 +1695,10 @@ function catalogoView(){
   // círculos y sin descripción — igual que la página pública). El nombre y el
   // precio no se muestran; el title/aria los conserva. Sin foto, el nombre
   // centrado hace de imagen (si no, el cuadrado sería mudo). La selección se
-  // sigue leyendo por el ✓ verde y el atenuado; en modo fotos, badge de cámara
-  // y todas a pleno color.
+  // lee por el ✓ verde y el atenuado.
   const tile = (kind, id, name, photoSrc, checked)=>`
-    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${catalogPhotoMode?'':(checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.55;')}">
-      ${catalogPhotoMode
-        ? `<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none;">${lineIcon('camera',12)}</span>`
-        : (checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:'')}
+    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.55;'}">
+      ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:''}
       ${photoSrc
         ? `<img src="${escapeHtml(photoSrc)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">`
         : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-weight:800;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;background:var(--inset);">${escapeHtml(invShortName(name))}</div>`}
@@ -1730,13 +1729,12 @@ function catalogoView(){
          pantalla que la del Inventario al deslizar entre pestañas. */''}
     <div class="shelf-fab-row" style="width:100%;margin-top:93px;">
       <div class="shelf-fab-wrap">
-        <button type="button" class="shelf-scan-fab" id="btn-catalog-photo-mode" aria-pressed="${catalogPhotoMode}" aria-label="${t('catalog_photo_fab_aria')}" title="${t('catalog_photo_fab_aria')}" style="${catalogPhotoMode?'box-shadow:0 0 0 4px var(--sky);':''}">
+        <button type="button" class="shelf-scan-fab" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" title="${t('catalog_photo_fab_aria')}">
           ${lineIcon('camera',32)}
         </button>
         <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
       </div>
     </div>
-    ${catalogPhotoMode ? `<div style="font-size:12px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:7px 10px;border-radius:8px;margin:0 0 8px;">📷 ${t('catalog_photo_mode_hint')}</div>` : ''}
     <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
@@ -1758,6 +1756,34 @@ function catalogoView(){
       <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
     </div>
     <button type="button" class="link-btn" id="btn-unpublish-catalog" style="margin-top:6px;color:var(--tomato);">${t('catalog_unpublish_btn')}</button>` : ''}
+  </div>`;
+}
+/* Foto recién sacada con la cámara del Catálogo: modalcito que pregunta a qué
+   producto/pieza pertenece — la vista previa arriba, la lista tocable abajo. */
+function catalogAssignModal(){
+  const src = catalogPendingPhoto ? cachedPhotoUrl(catalogPendingPhoto.base64, catalogPendingPhoto.mediaType) : null;
+  const row = (kind, obj)=>{
+    const thumb = catalogPhotoThumbSrc(obj.photo);
+    return `
+    <div data-assign-photo="${kind}:${obj.id}" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
+      <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;overflow:hidden;">${thumb?`<img src="${escapeHtml(thumb)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:lineIcon('tag',14)}</span>
+      <span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(obj.name)}</span>
+      <span style="color:var(--ink-soft);">›</span>
+    </div>`;
+  };
+  return `
+  <div class="overlay" id="catalog-assign-overlay">
+    <div class="modal">
+      <h3 class="sky">${t('catalog_assign_title')}</h3>
+      ${src ? `<img src="${escapeHtml(src)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:block;">` : ''}
+      <div style="max-height:40vh;overflow-y:auto;margin-top:10px;">
+        ${inventory.filter(i=>i && !isExpenseItem(i)).map(i=>row('item', i)).join('')}
+        ${recipes.filter(r=>r && r.id).map(r=>row('recipe', r)).join('')}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-assign-photo" style="width:100%;">${t('btn_cancel')}</button>
+      </div>
+    </div>
   </div>`;
 }
 async function publishCatalogNow(){

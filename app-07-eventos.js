@@ -132,7 +132,7 @@ function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
   manageModalA11y();
   attachModalTabTrap();
-  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], #btn-critical-alerts').forEach(makeKeyboardClickable);
+  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
@@ -483,21 +483,36 @@ function attachEvents(){
     // repinta el ✓ y el atenuado). Sello de edición en recetas: el merge por
     // lastEditedAt (app-02) necesita saber que esta copia es la más nueva, o un
     // snapshot viejo desmarcaría.
-    // FAB de cámara: alterna el modo fotos (editar fotos, sin escanear nada).
-    const btnCatalogPhotoMode=document.getElementById('btn-catalog-photo-mode');
-    if(btnCatalogPhotoMode) btnCatalogPhotoMode.onclick=()=>{ catalogPhotoMode=!catalogPhotoMode; render(); };
+    // FAB de cámara: dispara LA CÁMARA al toque (capture) — la foto sacada queda
+    // como borrador (catalogPendingPhoto) y el modal de asignar pregunta de qué
+    // producto es. input.click() corre DENTRO del gesto del usuario, obligatorio
+    // para que iOS lo acepte.
+    const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
+    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>{
+      const input=document.createElement('input');
+      input.type='file'; input.accept='image/*';
+      input.setAttribute('capture','environment');
+      input.style.display='none';
+      document.body.appendChild(input);
+      input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
+      input.onchange=async ()=>{
+        const file=input.files[0];
+        if(input.parentNode) input.parentNode.removeChild(input);
+        if(!file || !/^image\//.test(file.type)) return;
+        try{
+          const img=await loadImageFromFile(file);
+          catalogPendingPhoto = resizeToBase64(img, 300, 0.75);
+          render();
+        }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
+      };
+      input.click();
+    };
     document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
       el.onclick=()=>{
         const s=el.dataset.catToggle, sep=s.indexOf(':');
         const kind=s.slice(0,sep), id=s.slice(sep+1);
         const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
         if(!target) return;
-        // Modo fotos: la tarjeta abre LA CÁMARA directo (useCamera) para sacarle
-        // la foto nueva al producto — no el selector de archivos.
-        if(catalogPhotoMode){
-          promptItemPhotoUpload(target, kind==='recipe' ? ()=>uploadRecipePhoto(target) : undefined, true);
-          return;
-        }
         target.inCatalog=!target.inCatalog;
         if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
         saveState();
@@ -520,6 +535,30 @@ function attachEvents(){
       if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
       else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
     };
+    // Modal "¿de qué producto es esta foto?" (tras sacarla con la cámara del FAB)
+    const assignOverlay=document.getElementById('catalog-assign-overlay');
+    if(assignOverlay){
+      const dropPending=()=>{ catalogPendingPhoto=null; render(); };
+      assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
+      const btnCancelAssign=document.getElementById('btn-cancel-assign-photo');
+      if(btnCancelAssign) btnCancelAssign.onclick=dropPending;
+      document.querySelectorAll('[data-assign-photo]').forEach(el=>{
+        el.onclick=()=>{
+          const s=el.dataset.assignPhoto, sep=s.indexOf(':');
+          const kind=s.slice(0,sep), id=s.slice(sep+1);
+          const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
+          if(!target || !catalogPendingPhoto) return;
+          target.photo = catalogPendingPhoto;
+          if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
+          catalogPendingPhoto=null;
+          saveState();
+          // La foto de una receta viaja por Storage (meta solo lleva la referencia).
+          if(kind==='recipe') uploadRecipePhoto(target);
+          showToast(t('catalog_photo_saved').replace('{name}', target.name));
+          render();
+        };
+      });
+    }
   }
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
