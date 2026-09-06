@@ -1718,6 +1718,26 @@ let catalogRemovingBg = false;
 // "Mejorar con IA" (súper-resolución Real-ESRGAN, la otra pata Pro): true
 // mientras la IA reconstruye la foto.
 let catalogEnhancing = false;
+/* Patrón iOS Fotos (pedido del usuario 2026-09-06, con captura de su Library):
+   tocar una tarjeta ABRE la foto completa (visor a pantalla completa); marcar
+   para el catálogo es un MODO aparte con el botón "Seleccionar" (→ "Listo"),
+   igual que Select en iOS — así ver y seleccionar no se pisan nunca. */
+let catalogSelectMode = false;
+let catalogViewPhoto = null; // {kind:'item'|'recipe', id} — visor abierto
+function catalogPhotoViewer(){
+  const s = catalogViewPhoto;
+  const obj = s.kind==='item' ? inventory.find(i=>i.id===s.id) : recipes.find(r=>r && r.id===s.id);
+  if(!obj) return '';
+  // La alta (photoHiUrl) si existe — es el visor, que se luzca la calidad.
+  const src = obj.photoHiUrl || catalogPhotoThumbSrc(obj.photo);
+  return `
+  <div class="overlay" id="catalog-photo-viewer" style="background:rgba(0,0,0,.93);align-items:center;justify-content:center;cursor:zoom-out;padding:0;">
+    ${src
+      ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(obj.name)}" style="max-width:100vw;max-height:100vh;object-fit:contain;">`
+      : `<div style="color:#fff;font-weight:800;font-size:18px;">${escapeHtml(obj.name)}</div>`}
+    <div style="position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 8px rgba(0,0,0,.85);pointer-events:none;">${escapeHtml(obj.name)}${obj.salePrice>0 ? ` · ${money(obj.salePrice)}` : ''}</div>
+  </div>`;
+}
 async function composeCatalogCutout(){
   if(!catalogEditCutout) return;
   const img = await loadB64Image(catalogEditCutout);
@@ -1962,7 +1982,11 @@ function catalogoView(){
         <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
       </div>
     </div>
-    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
+    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;gap:8px;">
+      <button type="button" class="exit-reason-chip ${catalogSelectMode?'on':''}" id="btn-catalog-select" style="font-weight:800;">${catalogSelectMode ? t('catalog_select_done') : t('catalog_select_btn')}</button>
+      ${invLayoutToggleHtml()}
+    </div>
+    ${catalogSelectMode ? `<div class="helper-note" style="margin:2px 0 6px;">${t('catalog_select_hint')}</div>` : ''}
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
       <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>

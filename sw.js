@@ -99,7 +99,10 @@
 // v38: ver la imagen COMPLETA — la ficha del catálogo muestra la foto entera
 // (contain) y tocarla abre pantalla completa; la alta conserva la forma
 // original cuando no se encuadró a propósito — app-05 + catalogo.html.
-const CACHE_NAME = 'patron-shell-v38';
+// v39: pestaña Catálogo estilo iOS Fotos — tocar ABRE la foto completa (visor
+// con la alta si existe); "Seleccionar"/"Listo" es el modo aparte para marcar
+// qué va al catálogo — app-03/04/05/07.
+const CACHE_NAME = 'patron-shell-v39';
 
 const PRECACHE_URLS = [
   '/',

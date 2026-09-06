@@ -545,18 +545,30 @@ function attachEvents(){
     if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>openCatalogPhotoPicker(true);
     const btnCatalogGallery=document.getElementById('btn-catalog-gallery');
     if(btnCatalogGallery) btnCatalogGallery.onclick=()=>openCatalogPhotoPicker(false);
+    // Patrón iOS Fotos: "Seleccionar" alterna el modo; sin modo, tocar ABRE la
+    // foto completa; con modo, tocar marca/desmarca para el catálogo.
+    const btnCatalogSelect=document.getElementById('btn-catalog-select');
+    if(btnCatalogSelect) btnCatalogSelect.onclick=()=>{ catalogSelectMode=!catalogSelectMode; render(); };
     document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
       el.onclick=()=>{
         const s=el.dataset.catToggle, sep=s.indexOf(':');
         const kind=s.slice(0,sep), id=s.slice(sep+1);
         const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
         if(!target) return;
+        if(!catalogSelectMode){
+          catalogViewPhoto={kind, id};
+          render();
+          return;
+        }
         target.inCatalog=!target.inCatalog;
         if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
         saveState();
         render();
       };
     });
+    // El visor se cierra tocando en cualquier lado.
+    const catalogViewerEl=document.getElementById('catalog-photo-viewer');
+    if(catalogViewerEl) catalogViewerEl.onclick=()=>{ catalogViewPhoto=null; render(); };
     const btnPublishCatalog=document.getElementById('btn-publish-catalog');
     if(btnPublishCatalog) btnPublishCatalog.onclick=publishCatalogNow;
     const btnUnpublishCatalog=document.getElementById('btn-unpublish-catalog');
