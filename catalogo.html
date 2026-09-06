@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- Página PÚBLICA del catálogo de un negocio (compartida por WhatsApp/QR a sus
+     clientes): sin cuenta, sin app, sin nada de Dusty cargado — solo lee
+     get-catalog por el id de la URL (?c=...) y arma la grilla. Todo texto entra
+     por textContent (nunca innerHTML con datos), los nombres los escriben los
+     dueños de los negocios. noindex: el link es la llave, no debe indexarse. -->
+<meta name="robots" content="noindex">
+<title>Catálogo</title>
+<style>
+  :root{
+    --bg:#faf7f2; --panel:#ffffff; --ink:#26221c; --ink-soft:#8a8378;
+    --line:#ece6dc; --accent:#2f7d4f; --accent-soft:#e7f3ec; --wa:#25d366;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#171411; --panel:#221e19; --ink:#f0ebe2; --ink-soft:#9a9184;
+      --line:#332e27; --accent:#6fbf8f; --accent-soft:#20301f; }
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;padding-bottom:40px;}
+  header{padding:26px 18px 14px;text-align:center;}
+  header h1{font-size:22px;font-weight:800;overflow-wrap:anywhere;}
+  header .sub{font-size:12.5px;color:var(--ink-soft);margin-top:4px;}
+  .status{text-align:center;padding:60px 24px;color:var(--ink-soft);font-size:14px;}
+  .cat-header{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);padding:18px 18px 8px;}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:0 14px;}
+  @media(min-width:640px){ .grid{grid-template-columns:repeat(3,1fr);max-width:760px;margin:0 auto;} }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    display:flex;flex-direction:column;}
+  .card .ph{aspect-ratio:1/1;background:var(--accent-soft);display:flex;align-items:center;
+    justify-content:center;font-size:34px;overflow:hidden;}
+  .card .ph img{width:100%;height:100%;object-fit:cover;display:block;}
+  .card .info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .card .name{font-size:13.5px;font-weight:700;line-height:1.25;overflow-wrap:anywhere;flex:1;}
+  .card .price{font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+  .card .price small{font-size:11px;font-weight:600;color:var(--ink-soft);}
+  .card .ask{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .wa-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--wa);
+    color:#fff;border:none;border-radius:10px;padding:9px 8px;font-size:12.5px;font-weight:800;
+    cursor:pointer;text-decoration:none;}
+  footer{text-align:center;padding:34px 16px 10px;font-size:11.5px;color:var(--ink-soft);}
+  footer a{color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<header id="hdr" hidden>
+  <h1 id="biz"></h1>
+  <div class="sub" id="sub"></div>
+</header>
+<div class="status" id="status">…</div>
+<div id="content"></div>
+<footer id="foot" hidden></footer>
+<script>
+(function(){
+  // El id llega como ?c=... (link directo a catalogo.html) o en el path /c/<id>
+  // (el rewrite de Netlify sirve esta página pero el navegador conserva la URL
+  // bonita, así que el query interno del rewrite nunca se ve desde acá).
+  var qs = new URLSearchParams(location.search);
+  var id = (qs.get('c')||'').trim();
+  if(!id){
+    var m = location.pathname.match(/^\/c\/([A-Za-z0-9_-]+)/);
+    if(m) id = m[1];
+  }
+  var statusEl = document.getElementById('status');
+
+  function run(cat){
+    var es = cat.lang !== 'en';
+    var T = es
+      ? {sub:'Catálogo de productos', order:'Pedir', consult:'Consultar precio',
+         msg:'Hola! Vi tu catálogo y quiero pedir: ', foot:'Catálogo hecho con Dusty',
+         empty:'Este catálogo no tiene productos todavía.'}
+      : {sub:'Product catalog', order:'Order', consult:'Ask for price',
+         msg:'Hi! I saw your catalog and I want to order: ', foot:'Catalog made with Dusty',
+         empty:'This catalog has no products yet.'};
+
+    document.title = cat.businessName ? cat.businessName + ' — ' + T.sub : T.sub;
+    document.getElementById('biz').textContent = cat.businessName || T.sub;
+    document.getElementById('sub').textContent = cat.businessName ? T.sub : '';
+    document.getElementById('hdr').hidden = false;
+    var foot = document.getElementById('foot');
+    foot.textContent = T.foot; foot.hidden = false;
+
+    var items = cat.items || [];
+    if(items.length===0){ statusEl.textContent = T.empty; return; }
+    statusEl.remove();
+
+    // Agrupado por categoría (las sin categoría al final, sin encabezado si es la única).
+    var groups = {}, order = [];
+    items.forEach(function(it){
+      var g = it.category || '';
+      if(!(g in groups)){ groups[g] = []; order.push(g); }
+      groups[g].push(it);
+    });
+    order.sort(function(a,b){ return (a==='')-(b==='') || a.localeCompare(b); });
+
+    var content = document.getElementById('content');
+    var waDigits = (cat.whatsapp||'').replace(/\D/g,'');
+    order.forEach(function(g){
+      if(g && order.length>1){
+        var h = document.createElement('div'); h.className='cat-header'; h.textContent=g;
+        content.appendChild(h);
+      }
+      var grid = document.createElement('div'); grid.className='grid';
+      groups[g].forEach(function(it){
+        var card = document.createElement('div'); card.className='card';
+        var ph = document.createElement('div'); ph.className='ph';
+        if(it.photoUrl && /^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//.test(it.photoUrl)){
+          var img = document.createElement('img'); img.loading='lazy'; img.alt=it.name||'';
+          img.src = it.photoUrl;
+          img.onerror = function(){ ph.textContent='🛍️'; img.remove(); };
+          ph.appendChild(img);
+        } else { ph.textContent = '🛍️'; }
+        card.appendChild(ph);
+        var info = document.createElement('div'); info.className='info';
+        var name = document.createElement('div'); name.className='name'; name.textContent = it.name||'';
+        info.appendChild(name);
+        if(typeof it.price==='number' && it.price>0){
+          var price = document.createElement('div'); price.className='price';
+          price.textContent = '$' + it.price.toFixed(2);
+          if(it.unit && it.unit!=='unidad'){
+            var u = document.createElement('small'); u.textContent = ' / ' + it.unit;
+            price.appendChild(u);
+          }
+          info.appendChild(price);
+        } else {
+          var ask = document.createElement('div'); ask.className='ask'; ask.textContent = T.consult;
+          info.appendChild(ask);
+        }
+        if(waDigits){
+          var a = document.createElement('a'); a.className='wa-btn'; a.target='_blank'; a.rel='noopener';
+          a.textContent = '💬 ' + T.order;
+          a.href = 'https://wa.me/' + waDigits + '?text=' + encodeURIComponent(T.msg + (it.name||''));
+          info.appendChild(a);
+        }
+        card.appendChild(info);
+        grid.appendChild(card);
+      });
+      content.appendChild(grid);
+    });
+  }
+
+  if(!id){ statusEl.textContent = 'Catálogo no encontrado / Catalog not found'; return; }
+  statusEl.textContent = 'Cargando… / Loading…';
+  fetch('/.netlify/functions/get-catalog?c=' + encodeURIComponent(id))
+    .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+    .then(run)
+    .catch(function(){ statusEl.textContent = 'Catálogo no encontrado / Catalog not found'; });
+})();
+</script>
+</body>
+</html>

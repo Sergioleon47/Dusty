@@ -460,6 +460,57 @@ function attachEvents(){
     });
   }
 
+  /* Catálogo para clientes (ver catalogModal en app-05) */
+  const btnOpenCatalog=document.getElementById('btn-open-catalog');
+  if(btnOpenCatalog) btnOpenCatalog.onclick=openCatalogModal;
+  const catalogOverlay=document.getElementById('catalog-overlay');
+  if(catalogOverlay){
+    catalogOverlay.onmousedown=(e)=>{ if(e.target===catalogOverlay) closeCatalogModal(); };
+    const btnCloseCatalog=document.getElementById('btn-close-catalog');
+    if(btnCloseCatalog) btnCloseCatalog.onclick=closeCatalogModal;
+    // El número se guarda al confirmar el campo (y también al publicar) — así
+    // sobrevive cerrar el modal sin publicar.
+    const waInp=document.getElementById('catalog-wa-input');
+    if(waInp) waInp.onchange=()=>{ catalogWhatsApp=waInp.value.trim(); saveState(); };
+    // La selección vive EN cada ítem/receta (inCatalog) y sincroniza con ellos.
+    document.querySelectorAll('[data-cat-item]').forEach(cb=>{
+      cb.onchange=()=>{
+        const it=inventory.find(i=>i.id===cb.dataset.catItem);
+        if(!it) return;
+        it.inCatalog=cb.checked;
+        if(currentUser){ it.lastEditedBy=currentUserLabel(); it.lastEditedAt=new Date().toISOString(); }
+        saveState();
+      };
+    });
+    document.querySelectorAll('[data-cat-recipe]').forEach(cb=>{
+      cb.onchange=()=>{
+        const r=recipes.find(x=>x && x.id===cb.dataset.catRecipe);
+        if(!r) return;
+        r.inCatalog=cb.checked;
+        // Sello de edición: el merge de recetas por lastEditedAt (app-02) necesita
+        // saber que esta copia es la más nueva, o un snapshot viejo desmarcaría.
+        if(currentUser){ r.lastEditedBy=currentUserLabel(); r.lastEditedAt=new Date().toISOString(); }
+        saveState();
+      };
+    });
+    const btnPublishCatalog=document.getElementById('btn-publish-catalog');
+    if(btnPublishCatalog) btnPublishCatalog.onclick=publishCatalogNow;
+    const btnUnpublishCatalog=document.getElementById('btn-unpublish-catalog');
+    if(btnUnpublishCatalog) btnUnpublishCatalog.onclick=unpublishCatalogNow;
+    const btnCopyCatalogLink=document.getElementById('btn-copy-catalog-link');
+    if(btnCopyCatalogLink) btnCopyCatalogLink.onclick=async()=>{
+      const url=catalogUrl(); if(!url) return;
+      try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }
+      catch(e){ prompt('', url); }
+    };
+    const btnShareCatalogLink=document.getElementById('btn-share-catalog-link');
+    if(btnShareCatalogLink) btnShareCatalogLink.onclick=async()=>{
+      const url=catalogUrl(); if(!url) return;
+      if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
+      else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
+    };
+  }
+
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
   if(alertSettingsOverlay){
     alertSettingsOverlay.onmousedown=(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } };

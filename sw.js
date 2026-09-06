@@ -46,7 +46,11 @@
 // v19: precio de venta editable al registrar la venta (escáner de salidas por
 // línea y producción por pieza) para que el Cierre de mes calcule ingresos
 // reales, + aclaración del "Gastado" en Budget sin bills — app-03/05/08.
-const CACHE_NAME = 'patron-shell-v19';
+// v20: Catálogo público para clientes (modal en Dashboard, inCatalog en
+// ítems/recetas, catalogWhatsApp/catalogId en meta) — app-02/03/04/05/07.
+// catalogo.html NO se precachea a propósito: es la página de los CLIENTES del
+// negocio, no parte del shell de la app.
+const CACHE_NAME = 'patron-shell-v20';
 
 const PRECACHE_URLS = [
   '/',

@@ -437,6 +437,7 @@ function dashboardView(){
           <span style="font-size:16px;font-weight:800;color:var(--navy);">${money(0)}</span>
         </button>`}
       <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
+      <button class="link-btn" id="btn-open-catalog" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('catalog_dash_btn')}</button>
     </div>
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
       <!-- Órbita decorativa: todo lo que Dusty puede escanear girando despacio
@@ -1661,5 +1662,137 @@ function budgetModal(){
       </div>
     </div>
   </div>`;
+}
+
+/* ================= CATÁLOGO PARA CLIENTES =================
+   El dueño marca qué productos/piezas mostrar, pone su WhatsApp y publica: una
+   función de Netlify (publish-catalog) escribe el doc público y sube las fotos —
+   el cliente final abre patronsc.netlify.app/c/<id> (catalogo.html) sin cuenta ni
+   app, y pide por WhatsApp. La selección viaja como inCatalog en cada ítem/receta
+   (sincroniza gratis con ellos); el número y el id del catálogo viajan por meta. */
+let showCatalogModal = false, catalogPublishing = false;
+function openCatalogModal(){ showCatalogModal = true; catalogPublishing = false; render(); }
+function closeCatalogModal(){ showCatalogModal = false; render(); }
+function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
+function catalogPhotoThumbSrc(photo){
+  if(!photo) return null;
+  if(photo.base64) return cachedPhotoUrl(photo.base64, photo.mediaType);
+  return photo.url || null;
+}
+function catalogModal(){
+  const sellables = inventory.filter(i=>i && !isExpenseItem(i));
+  const sellableRecipes = recipes.filter(r=>r && r.id);
+  const row = (kind, id, name, photo, price, checked)=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
+      <input type="checkbox" data-cat-${kind}="${id}" ${checked?'checked':''} style="width:18px;height:18px;flex-shrink:0;accent-color:var(--navy);">
+      <span class="stock-icon-ring" style="width:30px;height:30px;flex-shrink:0;overflow:hidden;">${photo?`<img src="${escapeHtml(photo)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:lineIcon('tag',13)}</span>
+      <span style="flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere;">${escapeHtml(name)}</span>
+      ${price>0
+        ? `<strong style="font-size:13px;font-variant-numeric:tabular-nums;flex-shrink:0;">${money(price)}</strong>`
+        : `<span style="font-size:10px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);border-radius:6px;padding:2px 6px;flex-shrink:0;">${t('catalog_no_price_tag')}</span>`}
+    </label>`;
+  const url = catalogUrl();
+  return `
+  <div class="overlay" id="catalog-overlay">
+    <div class="modal">
+      <h3 class="basil">${t('catalog_title')}</h3>
+      <div class="sub">${t('catalog_sub')}</div>
+      <div class="field" style="margin-top:10px;">
+        <label>${t('catalog_wa_label')}</label>
+        <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
+      </div>
+      <div class="helper-note">${t('catalog_wa_helper')}</div>
+      <div class="helper-note" style="margin-top:10px;">${t('catalog_pick_hint')}</div>
+      ${sellables.length===0 && sellableRecipes.length===0
+        ? `<div class="helper-note" style="margin-top:8px;">${t('catalog_no_sellables')}</div>`
+        : `
+        ${sellables.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_products_header')} <span>${sellables.length}</span></div>` : ''}
+        ${sellables.map(i=>row('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), i.salePrice, !!i.inCatalog)).join('')}
+        ${sellableRecipes.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>` : ''}
+        ${sellableRecipes.map(r=>row('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), r.salePrice, !!r.inCatalog)).join('')}`}
+      ${url ? `
+      <div class="settings-card" style="margin-top:14px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_link_label')}</label>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);background:var(--inset);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere;">${escapeHtml(url)}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
+          <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
+        </div>
+        <button type="button" class="link-btn" id="btn-unpublish-catalog" style="margin-top:6px;color:var(--tomato);">${t('catalog_unpublish_btn')}</button>
+      </div>` : ''}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-catalog">${t('btn_close')}</button>
+        <button class="btn btn-primary" id="btn-publish-catalog" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function publishCatalogNow(){
+  // Publicar necesita cuenta REAL: el link es permanente y las fotos quedan
+  // públicas — una sesión anónima de prueba no debería dejar rastros públicos.
+  if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
+  const waEl = document.getElementById('catalog-wa-input');
+  if(waEl) catalogWhatsApp = waEl.value.trim();
+  const items = [];
+  const pushEntry = (id, name, price, unit, category, photo)=>{
+    const entry = {id, name, price: price>0 ? price : null, unit, category};
+    if(photo){
+      if(photo.url) entry.photoUrl = photo.url;
+      else if(photo.base64){ entry.photoB64 = photo.base64; entry.photoMediaType = photo.mediaType||'image/jpeg'; }
+    }
+    items.push(entry);
+  };
+  inventory.filter(i=>i && i.inCatalog && !isExpenseItem(i)).forEach(i=>{
+    const cat = categories.find(c=>c.id===i.categoryId);
+    pushEntry(i.id, i.name, Number(i.salePrice)||0, i.unit||null, cat?cat.name:null, i.photo);
+  });
+  recipes.filter(r=>r && r.inCatalog).forEach(r=>{
+    pushEntry(r.id, r.name, Number(r.salePrice)||0, null, null, r.photo);
+  });
+  if(items.length===0){ showToast(t('catalog_none_selected'), 'error'); return; }
+  catalogPublishing = true; render();
+  try{
+    const token = await currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/publish-catalog', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+      body: JSON.stringify({
+        catalogId: catalogId || undefined, ownerUid: syncUid(), businessName,
+        whatsapp: catalogWhatsApp.replace(/\D/g,''), lang: uiLang, items
+      })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.catalogId) throw new Error(data.error || ('HTTP '+res.status));
+    catalogId = data.catalogId;
+    saveState();
+    logActivity('catalog_published', '', String(data.itemCount||items.length));
+    showToast(t('catalog_published_toast'));
+  }catch(e){
+    console.error('[Dusty] no se pudo publicar el catálogo:', e);
+    showToast(t('catalog_error'), 'error');
+  }
+  catalogPublishing = false; render();
+}
+async function unpublishCatalogNow(){
+  if(!currentUser || !catalogId) return;
+  if(!confirm(t('catalog_unpublish_confirm'))) return;
+  catalogPublishing = true; render();
+  try{
+    const token = await currentUser.getIdToken();
+    const res = await fetch('/.netlify/functions/publish-catalog', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+      body: JSON.stringify({catalogId, ownerUid: syncUid(), unpublish:true})
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    // El id se CONSERVA a propósito: republicar revive el MISMO link (los QR
+    // impresos y los links ya compartidos vuelven a servir).
+    showToast(t('catalog_unpublished_toast'));
+  }catch(e){
+    console.error('[Dusty] no se pudo despublicar el catálogo:', e);
+    showToast(t('catalog_error'), 'error');
+  }
+  catalogPublishing = false; render();
 }
 
