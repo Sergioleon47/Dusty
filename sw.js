@@ -43,7 +43,10 @@
 // v18: el escáner de recibos reconoce/propone categorías fuera de la lista del
 // usuario (sentinel __newcat__ como el lote de productos) y las boletas de
 // servicio categorizan contra las categorías de GASTO — app-06/07 + función.
-const CACHE_NAME = 'patron-shell-v18';
+// v19: precio de venta editable al registrar la venta (escáner de salidas por
+// línea y producción por pieza) para que el Cierre de mes calcule ingresos
+// reales, + aclaración del "Gastado" en Budget sin bills — app-03/05/08.
+const CACHE_NAME = 'patron-shell-v19';
 
 const PRECACHE_URLS = [
   '/',

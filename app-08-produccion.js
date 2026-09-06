@@ -33,6 +33,10 @@ let outflowArchive = {};
 let showRecipeModal = false, draftRecipe = null, editingRecipeId = null;
 let recipeScanState = 'idle', recipeScanError = '', recipeScanNote = '', recipeScanRequestId = 0;
 let showProduceModal = false, produceRecipeId = null, produceCount = 1;
+// Precio de venta POR PIEZA de esta corrida, editable al registrarla (pedido del
+// usuario 2026-09-06): arranca en el salePrice de la receta y vale solo para esta
+// producción — no toca la receta. Vacío + receta sin precio = fuera del P&L.
+let produceSalePrice = '';
 let showOutflowsModal = false;
 /* Escáner de estante: mismos estados/patrones que el escáner de productos (pb*),
    con su propia cámara — ver el guard de render() en app-04, que también protege
@@ -362,6 +366,8 @@ function deleteRecipeFromModal(){
 /* ---------- MODAL: REGISTRAR PRODUCCIÓN ---------- */
 function openProduceModal(recipeId){
   produceRecipeId = recipeId; produceCount = 1;
+  const rec = recipeById(recipeId);
+  produceSalePrice = (rec && Number(rec.salePrice)>0) ? rec.salePrice : '';
   showProduceModal = true; render();
 }
 function closeProduceModal(){ showProduceModal=false; produceRecipeId=null; render(); }
@@ -414,6 +420,23 @@ function produceModal(){
         <span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--basil);">${money(batchCost)}</span>
       </div>
 
+      ${(()=>{
+        // Precio de venta por pieza de ESTA corrida (editable): con precio, el
+        // ingreso estimado se ve en vivo (count × precio) — es lo que va a sumar
+        // el Cierre de mes; sin precio, aviso de que la corrida queda fuera.
+        const pd = parseFloat(produceSalePrice);
+        const unitSale = (Number.isFinite(pd) && pd>0) ? pd : 0;
+        const count = Math.max(1, Math.round(Number(produceCount)||1));
+        return `
+      <div class="field" style="margin-top:12px;">
+        <label>${t('produce_price_label')}</label>
+        <input id="produce-price-input" type="number" min="0" step="0.01" value="${escapeHtml(produceSalePrice)}" placeholder="0.00">
+        ${unitSale>0
+          ? `<div class="helper-note" style="margin:6px 0 0;">${t('produce_income_line').replace('{amount}', money(roundQty(count*unitSale)))}</div>`
+          : `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('produce_no_price_note')}</div>`}
+      </div>`;
+      })()}
+
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-produce">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-confirm-produce" ${plan.length===0?'disabled':''}>${t('produce_confirm_btn')}</button>
@@ -442,9 +465,13 @@ function applyProduction(){
       costAt: Number(ing.costPerUnit)||0});
   });
   // saleTotal/costTotal: el P&L de una producción se estima por el precio de la
-  // PIEZA (si la receta lo tiene), no por el salePrice de los insumos consumidos.
+  // PIEZA — el escrito en el modal para ESTA corrida (puede diferir del de la
+  // receta: descuentos, precio del día), o el de la receta si el campo quedó
+  // vacío/inválido. Sin ninguno de los dos, la corrida queda fuera del P&L.
   const costTotal = roundQty(items.reduce((s,it)=>s + Math.abs(it.qty)*it.costAt, 0));
-  const saleTotal = (rec.salePrice||0)>0 ? roundQty(count * rec.salePrice) : null;
+  const priceDraft = parseFloat(produceSalePrice);
+  const unitSale = (Number.isFinite(priceDraft) && priceDraft>0) ? priceDraft : (Number(rec.salePrice)||0);
+  const saleTotal = unitSale>0 ? roundQty(count * unitSale) : null;
   recordOutflow({
     id: uid('o'), type:'production', recipeId: rec.id, recipeName: rec.name, count,
     items, saleTotal, costTotal, date: localDateStr(), createdAt: new Date().toISOString(),
@@ -583,6 +610,11 @@ async function processShelfSource(source){
         sticker_color: p.sticker_color, confidence: p.confidence, visible_note: blockedNote || p.visible_note,
         detected, finalQty: detected!==null ? detected : '',
         needsCapacity, capacityDraft: '',
+        // Precio de venta de ESTA salida, editable en la revisión (pedido del
+        // usuario 2026-09-06: "a veces no vendemos al precio que registramos").
+        // Arranca en el salePrice del producto; vacío = el producto no tiene
+        // precio y sin escribir uno acá la venta no suma Ingresos al Cierre.
+        salePriceDraft: Number(ing.salePrice)>0 ? ing.salePrice : '',
         include: detected!==null
       });
     });
@@ -682,6 +714,17 @@ function shelfScanModal(){
               <span style="font-size:12px;color:var(--ink-soft);">${escapeHtml(unitLabel(ing.unit))}</span>
               <span data-shelf-delta="${idx}">${shelfDeltaPill(ing.qtyOnHand||0, it.finalQty, ing.unit)}</span>
             </div>
+            ${/* Precio de venta de esta salida (solo con motivo "venta" — la
+                 merma no genera ingresos): editable por línea, prellenado con el
+                 salePrice del producto. Es de ESTA venta, no cambia el precio
+                 del catálogo. */''}
+            ${shelfReason==='sale' ? `
+            <div class="mi-fields" style="align-items:center;margin-top:6px;">
+              <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>
+              <input data-shelf-price="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
+              <span style="font-size:12px;color:var(--ink-soft);">$/${escapeHtml(unitLabel(ing.unit))}</span>
+            </div>
+            ${it.salePriceDraft==='' && it.include ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}
           </div>`;
         }).join('')}
         ${shelfUnmatched.length>0 ? `
@@ -728,8 +771,12 @@ function applyShelfAdjust(){
     // qty siempre positiva: cuánto salió. costAt/priceAt: snapshot de costo y
     // precio de venta de HOY — el P&L histórico deja de moverse cuando cambian
     // los precios o se borra el producto (revisión de contador 2026-09-04).
+    // priceAt sale del campo editable de la revisión (el precio REAL de esta
+    // venta); si quedó vacío o inválido, cae al salePrice del producto.
+    const priceDraft = parseFloat(it.salePriceDraft);
     items.push({ingId: ing.id, ingName: ing.name, qty: roundQty(current - newQty), unit: ing.unit,
-      costAt: Number(ing.costPerUnit)||0, priceAt: Number(ing.salePrice)||0});
+      costAt: Number(ing.costPerUnit)||0,
+      priceAt: (Number.isFinite(priceDraft) && priceDraft>=0) ? roundQty(priceDraft) : (Number(ing.salePrice)||0)});
   });
   if(items.length>0){
     recordOutflow({
@@ -848,6 +895,10 @@ function attachProductionEvents(){
     // render() en cada cambio para refrescar el plan de descuento en vivo —
     // morphdom no pisa el input con foco, así que el tipeo no se pierde.
     if(countInp) countInp.oninput=()=>{ const v=parseInt(countInp.value,10); produceCount = (Number.isFinite(v) && v>0) ? v : 1; render(); };
+    const priceInp=document.getElementById('produce-price-input');
+    // render() por tecla como el contador: refresca el "Ingreso estimado" en vivo
+    // (morphdom no pisa el input con foco, el tipeo no se pierde).
+    if(priceInp) priceInp.oninput=()=>{ produceSalePrice = priceInp.value; render(); };
   }
 
   /* Modal salidas */
@@ -906,6 +957,12 @@ function attachProductionEvents(){
         const pill=document.querySelector(`[data-shelf-delta="${idx}"]`);
         if(ing && pill) pill.innerHTML = shelfDeltaPill(ing.qtyOnHand||0, inp.value, ing.unit);
       };
+      inp.onchange=()=>render();
+    });
+    document.querySelectorAll('[data-shelf-price]').forEach(inp=>{
+      // Sin render() por tecla (mismo criterio que data-shelf-final); al confirmar
+      // el campo se re-renderiza para que el aviso de "sin precio" aparezca o se vaya.
+      inp.oninput=()=>{ const it=shelfItems[+inp.dataset.shelfPrice]; if(it) it.salePriceDraft=inp.value; };
       inp.onchange=()=>render();
     });
     document.querySelectorAll('[data-shelf-capacity]').forEach(inp=>{
