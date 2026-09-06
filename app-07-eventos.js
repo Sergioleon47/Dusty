@@ -840,9 +840,14 @@ function attachEvents(){
       document.querySelectorAll('[data-edit-slider]').forEach(sl=>{
         sl.oninput=()=>{
           const k=sl.dataset.editSlider, v=parseInt(sl.value,10)||0;
-          // El numerito junto al deslizador acompaña en vivo, sin re-render.
+          // El numerito junto al deslizador acompaña en vivo, sin re-render — y
+          // se enciende en celeste apenas el ajuste sale del punto neutro.
           const valEl=document.querySelector('[data-edit-val="'+k+'"]');
-          if(valEl) valEl.textContent=sl.value;
+          if(valEl){
+            valEl.textContent=sl.value;
+            const neutral=parseInt(valEl.dataset.editNeutral,10)||0;
+            valEl.style.color = (parseInt(sl.value,10)||0)!==neutral ? 'var(--sky-ink)' : 'var(--ink-soft)';
+          }
           if(k==='zoom'){
             catalogEdit.zoom = Math.max(1, v/100);
             liveTransform();

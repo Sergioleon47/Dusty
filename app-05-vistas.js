@@ -2171,20 +2171,29 @@ function catalogEditorModal(){
   const e = catalogEdit;
   // Fila de deslizador con su VALOR a la derecha (se actualiza en vivo desde
   // app-07 sin re-render) — el detalle que separa un panel casero de uno pro.
-  const slider = (key, label, min, max, val)=>`
-    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-      <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);width:86px;flex-shrink:0;">${label}</span>
-      <input type="range" data-edit-slider="${key}" min="${min}" max="${max}" step="1" value="${val}" style="flex:1;accent-color:var(--sky);">
-      <span data-edit-val="${key}" style="width:34px;text-align:right;font-size:11.5px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;flex-shrink:0;">${val}</span>
+  // Tipografías a tamaño de dedo (pedido del usuario 2026-09-06: "las letras
+  // están pequeñas") y feedback dinámico: el valor se enciende en celeste cuando
+  // el ajuste está activo (≠ del punto neutro) — app-07 lo acompaña en vivo.
+  const slider = (key, label, min, max, val)=>{
+    const active = key==='zoom' ? val!==100 : val!==0;
+    return `
+    <div style="display:flex;align-items:center;gap:12px;margin-top:14px;">
+      <span style="font-size:14px;font-weight:700;color:var(--ink);width:104px;flex-shrink:0;">${label}</span>
+      <input type="range" data-edit-slider="${key}" min="${min}" max="${max}" step="1" value="${val}" style="flex:1;accent-color:var(--sky);height:30px;">
+      <span data-edit-val="${key}" data-edit-neutral="${key==='zoom'?100:0}" style="width:40px;text-align:right;font-size:14px;font-weight:800;color:${active?'var(--sky-ink)':'var(--ink-soft)'};font-variant-numeric:tabular-nums;flex-shrink:0;transition:color .15s;">${val}</span>
     </div>`;
+  };
   const tab = (key, label)=>`
-    <button type="button" data-edit-tab="${key}" style="flex:1;border:none;cursor:pointer;padding:8px 4px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.02em;transition:background .15s;background:${catalogEditTab===key?'var(--raised)':'transparent'};color:${catalogEditTab===key?'var(--ink)':'var(--ink-soft)'};">${label}</button>`;
+    <button type="button" data-edit-tab="${key}" style="flex:1;border:none;cursor:pointer;padding:11px 4px;border-radius:9px;font-size:14px;font-weight:800;letter-spacing:.02em;transition:background .18s, transform .18s, box-shadow .18s;background:${catalogEditTab===key?'var(--raised)':'transparent'};color:${catalogEditTab===key?'var(--ink)':'var(--ink-soft)'};${catalogEditTab===key?'transform:scale(1.04);box-shadow:var(--shadow);':''}">${label}</button>`;
   return `
   <div class="overlay" id="catalog-editor-overlay">
     <div class="modal">
       <h3 class="sky">${t('catalog_edit_title')}</h3>
       <div id="catalog-edit-wrap" style="position:relative;width:100%;aspect-ratio:1/1;background:#151515;border-radius:12px;overflow:hidden;touch-action:none;cursor:grab;">
-        ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;filter:${cssFilterForEdit()};will-change:transform,filter;">` : ''}
+        ${/* transition SOLO en filter (dinámica suave al mover brillo/etc); la
+             transform queda sin transición — el arrastre del encuadre debe
+             seguir al dedo sin lag. */''}
+        ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;filter:${cssFilterForEdit()};will-change:transform,filter;transition:filter .15s ease;">` : ''}
         ${catalogEditBaking ? `<div style="position:absolute;bottom:8px;right:8px;"><div class="spinner"></div></div>` : ''}
       </div>
       ${/* Pestañas segmentadas Luz/Color/Encuadre/PRO — cada grupo respira. */''}
@@ -2195,8 +2204,8 @@ function catalogEditorModal(){
         ${tab('pro', '✦ PRO')}
       </div>
       ${catalogEditTab==='light' ? `
-      <div style="margin-top:10px;">
-        <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto">✨ ${t('catalog_edit_auto')}</button>
+      <div style="margin-top:12px;">
+        <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto" style="font-size:14px;padding:9px 16px;">✨ ${t('catalog_edit_auto')}</button>
       </div>
       ${slider('bright', t('catalog_edit_bright'), -50, 50, e.bright)}
       ${slider('contrast', t('catalog_edit_contrast'), -50, 50, e.contrast)}
@@ -2207,34 +2216,34 @@ function catalogEditorModal(){
       ${slider('sat', t('catalog_edit_sat'), -50, 50, e.sat)}
       ${slider('sharp', t('catalog_edit_sharp'), 0, 100, e.sharp)}` : ''}
       ${catalogEditTab==='frame' ? `
-      <div class="helper-note" style="margin:10px 0 0;">${t('catalog_edit_drag_hint')}</div>
+      <div class="helper-note" style="margin:10px 0 0;font-size:13px;">${t('catalog_edit_drag_hint')}</div>
       ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
-      <div style="margin-top:10px;">
-        <button type="button" class="exit-reason-chip" id="btn-edit-rotate">↻ ${t('catalog_edit_rotate')}</button>
+      <div style="margin-top:12px;">
+        <button type="button" class="exit-reason-chip" id="btn-edit-rotate" style="font-size:14px;padding:9px 16px;">↻ ${t('catalog_edit_rotate')}</button>
       </div>` : ''}
       ${catalogEditTab==='pro' ? `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-        <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')}</button>
-        <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')}</button>
-        <button type="button" class="exit-reason-chip ${catalogStageOpen?'on':''}" id="btn-stage-photo" ${catalogStaging?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogStaging ? t('catalog_stage_working') : '🏞️ '+t('catalog_stage_btn')}</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')}</button>
+        <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')}</button>
+        <button type="button" class="exit-reason-chip ${catalogStageOpen?'on':''}" id="btn-stage-photo" ${catalogStaging?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogStaging ? t('catalog_stage_working') : '🏞️ '+t('catalog_stage_btn')}</button>
       </div>
       ${catalogEditCutout ? `
       ${/* Fondos: colores planos + ESCENARIOS incorporados (con sombra automática
            en la composición) — el "estudio de fondos" gratis. */''}
-      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-        <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);">${t('catalog_rembg_bg')}</span>
-        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
-        ${CATALOG_BACKDROPS.map(id=>`<button type="button" data-edit-bg="bd:${id}" aria-label="${id}" title="${id}" style="width:28px;height:28px;border-radius:8px;background-image:url('/backdrops/${id}.jpg');background-size:cover;background-position:center;border:2px solid ${catalogEditBg==='bd:'+id?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
+      <div style="display:flex;gap:9px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+        <span style="font-size:13.5px;font-weight:700;color:var(--ink);">${t('catalog_rembg_bg')}</span>
+        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:34px;height:34px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;transition:transform .15s;${catalogEditBg===c?'transform:scale(1.12);':''}"></button>`).join('')}
+        ${CATALOG_BACKDROPS.map(id=>`<button type="button" data-edit-bg="bd:${id}" aria-label="${id}" title="${id}" style="width:34px;height:34px;border-radius:9px;background-image:url('/backdrops/${id}.jpg');background-size:cover;background-position:center;border:2px solid ${catalogEditBg==='bd:'+id?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;transition:transform .15s;${catalogEditBg==='bd:'+id?'transform:scale(1.12);':''}"></button>`).join('')}
       </div>` : ''}
       ${catalogStageOpen && !catalogStaging ? `
       ${/* Escenario IA: un toque en un preset genera; o describilo a mano. */''}
-      <div style="margin-top:10px;background:var(--inset);border-radius:10px;padding:10px;">
-        <div style="font-size:11px;font-weight:800;color:var(--sky-ink);margin-bottom:8px;">🏞️ ${t('catalog_stage_hint')}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button type="button" class="exit-reason-chip" data-stage-preset="wood">🪵 ${t('catalog_stage_wood')}</button>
-          <button type="button" class="exit-reason-chip" data-stage-preset="kitchen">🍽️ ${t('catalog_stage_kitchen')}</button>
-          <button type="button" class="exit-reason-chip" data-stage-preset="studio">💡 ${t('catalog_stage_studio')}</button>
-          <button type="button" class="exit-reason-chip" data-stage-preset="shelf">🏪 ${t('catalog_stage_shelf')}</button>
+      <div style="margin-top:12px;background:var(--inset);border-radius:10px;padding:12px;">
+        <div style="font-size:13px;font-weight:800;color:var(--sky-ink);margin-bottom:10px;">🏞️ ${t('catalog_stage_hint')}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="exit-reason-chip" data-stage-preset="wood" style="font-size:14px;padding:9px 14px;">🪵 ${t('catalog_stage_wood')}</button>
+          <button type="button" class="exit-reason-chip" data-stage-preset="kitchen" style="font-size:14px;padding:9px 14px;">🍽️ ${t('catalog_stage_kitchen')}</button>
+          <button type="button" class="exit-reason-chip" data-stage-preset="studio" style="font-size:14px;padding:9px 14px;">💡 ${t('catalog_stage_studio')}</button>
+          <button type="button" class="exit-reason-chip" data-stage-preset="shelf" style="font-size:14px;padding:9px 14px;">🏪 ${t('catalog_stage_shelf')}</button>
         </div>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <input id="stage-custom-input" type="text" placeholder="${t('catalog_stage_custom_ph')}" style="flex:1;">

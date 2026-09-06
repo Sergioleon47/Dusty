@@ -109,7 +109,10 @@
 // solo se usan en el editor) con SOMBRA automática bajo el producto, y
 // "Escenario IA" (FLUX Kontext vía stage-photo, 1 escaneo del cupo) con presets
 // y descripción libre — app-03/05/07 + función nueva + texturas.
-const CACHE_NAME = 'patron-shell-v41';
+// v42: editor a tamaño de dedo y más dinámico — tipografías 14px, pestaña
+// activa con relieve, valores que se encienden fuera del neutro, transición
+// suave del filtro en el preview, swatches más grandes con pop — app-05/07.
+const CACHE_NAME = 'patron-shell-v42';
 
 const PRECACHE_URLS = [
   '/',
