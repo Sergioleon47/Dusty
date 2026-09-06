@@ -1706,6 +1706,26 @@ let catalogEditBackup = null;   // para que Cancelar deshaga lo tocado en esta p
 let catalogEditPreviewUrl = null;
 let catalogEditBaking = false;
 let catalogEditPrevReq = 0;
+/* QUITAR FONDO (la función PRO — pedido del usuario 2026-09-06): la IA de
+   segmentación (Replicate, vía remove-background.js) devuelve el producto en
+   PNG con transparencia; el recorte se guarda acá y se COMPONE en el cliente
+   sobre el color de fondo elegido — cambiar de blanco a crema no vuelve a
+   llamar (ni cobrar) a la IA. */
+let catalogEditCutout = null;      // PNG transparente del producto
+let catalogEditFullBackup = null;  // la foto original, para "volver atrás"
+let catalogEditBg = '#ffffff';
+let catalogRemovingBg = false;
+async function composeCatalogCutout(){
+  if(!catalogEditCutout) return;
+  const img = await loadB64Image(catalogEditCutout);
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = catalogEditBg;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(img, 0, 0);
+  catalogEditFull = {base64: cv.toDataURL('image/jpeg', 0.9).split(',')[1], mediaType:'image/jpeg'};
+}
 function loadB64Image(obj){
   return new Promise((res, rej)=>{
     const im = new Image();
@@ -2028,7 +2048,14 @@ function catalogEditorModal(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
         <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto">✨ ${t('catalog_edit_auto')}</button>
         <button type="button" class="exit-reason-chip" id="btn-edit-rotate">↻ ${t('catalog_edit_rotate')}</button>
+        <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')+' · PRO'}</button>
       </div>
+      ${catalogEditCutout ? `
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+        <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);">${t('catalog_rembg_bg')}</span>
+        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
+        <button type="button" class="link-btn" id="btn-rembg-revert" style="margin-left:auto;padding:4px 0;">${t('catalog_rembg_revert')}</button>
+      </div>` : ''}
       ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
       ${slider('bright', t('catalog_edit_bright'), -50, 50, e.bright)}
       ${slider('contrast', t('catalog_edit_contrast'), -50, 50, e.contrast)}

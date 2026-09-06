@@ -84,7 +84,10 @@
 // v33: editor fluido — brillo/contraste/saturación por CSS filter en GPU al
 // ritmo del dedo (se hornean recién en "Listo", misma matemática), zoom y
 // arrastre con transform en vivo — app-05/07.
-const CACHE_NAME = 'patron-shell-v33';
+// v34: QUITAR FONDO (cámara Pro) — segmentación vía Replicate (función
+// remove-background, cobra 1 escaneo del cupo), composición local sobre el
+// color de fondo elegido — app-03/05/07 + función nueva.
+const CACHE_NAME = 'patron-shell-v34';
 
 const PRECACHE_URLS = [
   '/',

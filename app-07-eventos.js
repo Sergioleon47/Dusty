@@ -509,6 +509,7 @@ function attachEvents(){
           catalogEditFull = resizeToBase64(img, 1400, 0.9);
           catalogEdit = Object.assign({}, CATALOG_EDIT_DEFAULTS);
           catalogEditorOpen = false; catalogEditPreviewUrl = null;
+          catalogEditCutout = null; catalogEditFullBackup = null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
           // Cámara inteligente: la IA identifica el producto EN PARALELO mientras
           // el modal ya está abierto — la foto para la IA va a 1400px (a 300px el
           // thumbnail no alcanza para leer etiquetas). Solo cuentas reales (gasta
@@ -575,6 +576,7 @@ function attachEvents(){
         catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
         catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
         catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
+        catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
         render();
       };
       assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
@@ -616,6 +618,7 @@ function attachEvents(){
           catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
           catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
           catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
+          catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
           saveState();
           // La foto de una receta viaja por Storage (meta solo lleva la referencia).
           if(kind==='recipe') uploadRecipePhoto(target);
@@ -649,6 +652,54 @@ function attachEvents(){
           catalogEditorOpen=false; catalogEditPreviewUrl=null;
           render();
         }catch(err){ btnApplyEdit.disabled=false; showToast(err.message || t('err_img_process'), 'error'); }
+      };
+      // QUITAR FONDO (Pro): start → poll → PNG transparente → compuesto sobre
+      // blanco (después se cambia el color sin volver a llamar a la IA).
+      const btnRemoveBg=document.getElementById('btn-remove-bg');
+      if(btnRemoveBg) btnRemoveBg.onclick=async ()=>{
+        if(catalogRemovingBg || !catalogEditFull) return;
+        if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
+        catalogRemovingBg=true; render();
+        try{
+          const opts={notFoundKey:'err_function_not_found', genericKey:'catalog_rembg_error'};
+          const start=await callDustyAI('/.netlify/functions/remove-background', {action:'start', imageBase64:catalogEditFull.base64, mediaType:catalogEditFull.mediaType||'image/jpeg'}, opts);
+          let result=null;
+          for(let i=0;i<55 && !result;i++){
+            await new Promise(r=>setTimeout(r,1600));
+            if(!catalogEditorOpen || !catalogEditFull){ catalogRemovingBg=false; return; } // canceló mientras tanto
+            const st=await callDustyAI('/.netlify/functions/remove-background', {action:'status', id:start.id}, opts);
+            if(st.status==='succeeded') result=st;
+            else if(st.status==='failed') throw new Error(st.error || t('catalog_rembg_error'));
+          }
+          if(!result) throw new Error(t('catalog_rembg_error'));
+          if(!catalogEditFullBackup) catalogEditFullBackup=catalogEditFull;
+          catalogEditCutout={base64:result.imageBase64, mediaType:result.mediaType||'image/png'};
+          catalogEditBg='#ffffff';
+          await composeCatalogCutout();
+          catalogRemovingBg=false;
+          render();
+          refreshCatalogEditPreview();
+          showToast(t('catalog_rembg_done'));
+        }catch(err){
+          catalogRemovingBg=false;
+          render();
+          showToast(err.message || t('catalog_rembg_error'), 'error');
+        }
+      };
+      document.querySelectorAll('[data-edit-bg]').forEach(sw=>{
+        sw.onclick=async ()=>{
+          catalogEditBg=sw.dataset.editBg;
+          await composeCatalogCutout();
+          render();
+          refreshCatalogEditPreview();
+        };
+      });
+      const btnRembgRevert=document.getElementById('btn-rembg-revert');
+      if(btnRembgRevert) btnRembgRevert.onclick=()=>{
+        if(catalogEditFullBackup) catalogEditFull=catalogEditFullBackup;
+        catalogEditCutout=null; catalogEditFullBackup=null;
+        render();
+        refreshCatalogEditPreview();
       };
       const btnEditAuto=document.getElementById('btn-edit-auto');
       if(btnEditAuto) btnEditAuto.onclick=()=>{ catalogEdit.auto=!catalogEdit.auto; btnEditAuto.classList.toggle('on', catalogEdit.auto); refreshCatalogEditPreview(); };
