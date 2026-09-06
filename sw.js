@@ -81,7 +81,10 @@
 // v32: editor de fotos del Catálogo — recorte/encuadre con zoom y giro,
 // Auto-mejora (auto-niveles por canal) y deslizadores de brillo/contraste/
 // saturación/nitidez, todo a canvas sin servicios pagos — app-03/04/05/07.
-const CACHE_NAME = 'patron-shell-v32';
+// v33: editor fluido — brillo/contraste/saturación por CSS filter en GPU al
+// ritmo del dedo (se hornean recién en "Listo", misma matemática), zoom y
+// arrastre con transform en vivo — app-05/07.
+const CACHE_NAME = 'patron-shell-v33';
 
 const PRECACHE_URLS = [
   '/',

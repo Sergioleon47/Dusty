@@ -1714,11 +1714,24 @@ function loadB64Image(obj){
     im.src = 'data:'+(obj.mediaType||'image/jpeg')+';base64,'+obj.base64;
   });
 }
-/* Hornea la foto con TODOS los ajustes, a outSize px: giro → recorte cuadrado
-   (zoom + offset del encuadre) → auto-niveles → brillo/contraste/saturación →
-   nitidez (máscara de desenfoque). El preview usa 480px (instantáneo); el
-   guardado final, 300px como todas las fotos de producto. */
-async function bakeCatalogEdit(outSize){
+/* FLUIDEZ (reporte del usuario 2026-09-06: "no se siente al ritmo del dedo"):
+   brillo/contraste/saturación NO se hornean mientras se arrastra — viven como
+   CSS filter sobre el preview (GPU, 60fps, instantáneo) y recién se convierten
+   en píxeles al tocar "Listo". La matemática del horneado final COPIA la
+   semántica de CSS (brightness multiplicativo, contrast alrededor de 127.5,
+   saturate con pesos Rec.709) para que lo que ves sea lo que queda. */
+function cssFilterForEdit(){
+  const e = catalogEdit;
+  return `brightness(${1+e.bright/100}) contrast(${1+e.contrast/100}) saturate(${1+e.sat/100})`;
+}
+// El zoom del ÚLTIMO horneado del preview: mientras se arrastra el zoom o el
+// encuadre, el <img> se transforma por CSS relativo a esta base (fluido) y el
+// horneado real llega al soltar.
+let catalogEditBakedZoom = 1;
+/* Hornea la foto a outSize px: giro → recorte cuadrado (zoom + encuadre) →
+   auto-niveles → nitidez; brillo/contraste/saturación solo cuando
+   withAdjust=true (el guardado final) — el preview los muestra por CSS. */
+async function bakeCatalogEdit(outSize, withAdjust){
   const img = await loadB64Image(catalogEditFull);
   const e = catalogEdit;
   const rot = ((e.rot%360)+360)%360;
@@ -1749,13 +1762,15 @@ async function bakeCatalogEdit(outSize){
       for(let i=ch; i<p.length; i+=4) p[i] = clamp((p[i]-lo)*255/range);
     }
   }
-  const br = e.bright*1.2, co = 1+e.contrast/100, sa = 1+e.sat/100;
-  if(br || e.contrast || e.sat){
+  // Misma matemática que el CSS filter del preview (brightness → contrast →
+  // saturate, en ese orden) — solo en el horneado FINAL.
+  const bF = 1+e.bright/100, cF = 1+e.contrast/100, sF = 1+e.sat/100;
+  if(withAdjust && (e.bright || e.contrast || e.sat)){
     for(let i=0; i<p.length; i+=4){
-      let r=p[i], g=p[i+1], b=p[i+2];
-      r=(r-128)*co+128+br; g=(g-128)*co+128+br; b=(b-128)*co+128+br;
-      const lum = 0.299*r+0.587*g+0.114*b;
-      r=lum+(r-lum)*sa; g=lum+(g-lum)*sa; b=lum+(b-lum)*sa;
+      let r=p[i]*bF, g=p[i+1]*bF, b=p[i+2]*bF;
+      r=(r-127.5)*cF+127.5; g=(g-127.5)*cF+127.5; b=(b-127.5)*cF+127.5;
+      const lum = 0.2126*r+0.7152*g+0.0722*b;
+      r=lum+(r-lum)*sF; g=lum+(g-lum)*sF; b=lum+(b-lum)*sF;
       p[i]=clamp(r); p[i+1]=clamp(g); p[i+2]=clamp(b);
     }
   }
@@ -1778,18 +1793,23 @@ async function refreshCatalogEditPreview(){
   const req = ++catalogEditPrevReq;
   catalogEditBaking = true;
   try{
-    const out = await bakeCatalogEdit(480);
+    const out = await bakeCatalogEdit(480, false); // sin b/c/s: esos van por CSS
     if(req!==catalogEditPrevReq || !catalogEditorOpen) return;
     catalogEditPreviewUrl = 'data:image/jpeg;base64,'+out.base64;
   }catch(err){}
   if(req!==catalogEditPrevReq) return;
   catalogEditBaking = false;
+  catalogEditBakedZoom = catalogEdit.zoom;
   // El preview se actualiza EN el <img> directo (sin render completo): un render
   // por movimiento de deslizador reconstruiría el propio deslizador a mitad del
-  // arrastre. Solo si el nodo no existe todavía (primera pasada) se renderiza.
+  // arrastre. La transform temporal (zoom/arrastre en vivo) se resetea porque el
+  // horneado nuevo ya la incorpora; el CSS filter se re-aplica por si acaso.
   const img = document.getElementById('catalog-edit-preview');
-  if(img && catalogEditPreviewUrl) img.src = catalogEditPreviewUrl;
-  else render();
+  if(img && catalogEditPreviewUrl){
+    img.src = catalogEditPreviewUrl;
+    img.style.transform = '';
+    img.style.filter = cssFilterForEdit();
+  } else render();
 }
 function resolveCatalogSuggestion(res){
   if(!res) return null;
@@ -2001,7 +2021,7 @@ function catalogEditorModal(){
     <div class="modal">
       <h3 class="sky">${t('catalog_edit_title')}</h3>
       <div id="catalog-edit-wrap" style="position:relative;width:100%;aspect-ratio:1/1;background:#151515;border-radius:12px;overflow:hidden;touch-action:none;cursor:grab;">
-        ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;">` : ''}
+        ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;filter:${cssFilterForEdit()};will-change:transform,filter;">` : ''}
         ${catalogEditBaking ? `<div style="position:absolute;bottom:8px;right:8px;"><div class="spinner"></div></div>` : ''}
       </div>
       <div class="helper-note" style="margin:6px 0 0;">${t('catalog_edit_drag_hint')}</div>

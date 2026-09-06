@@ -640,8 +640,9 @@ function attachEvents(){
         try{
           btnApplyEdit.disabled=true;
           // El resultado editado pasa a ser el NUEVO original del borrador: los
-          // filtros (Vívido, etc.) del modal se recalculan sobre él.
-          const out = await bakeCatalogEdit(300);
+          // filtros (Vívido, etc.) del modal se recalculan sobre él. Acá SÍ se
+          // hornean brillo/contraste/saturación (misma matemática que el CSS).
+          const out = await bakeCatalogEdit(300, true);
           catalogPendingOriginal = out;
           catalogPendingPhoto = out;
           catalogPendingFilter = 'original';
@@ -653,21 +654,42 @@ function attachEvents(){
       if(btnEditAuto) btnEditAuto.onclick=()=>{ catalogEdit.auto=!catalogEdit.auto; btnEditAuto.classList.toggle('on', catalogEdit.auto); refreshCatalogEditPreview(); };
       const btnEditRotate=document.getElementById('btn-edit-rotate');
       if(btnEditRotate) btnEditRotate.onclick=()=>{ catalogEdit.rot=(catalogEdit.rot+90)%360; refreshCatalogEditPreview(); };
-      // Deslizadores: horneado en vivo con debounce corto (el preview de 480px
-      // tarda milisegundos) — el <img> se actualiza en el lugar, sin re-render.
+      // FLUIDEZ (reporte del usuario: "no se siente al ritmo de la foto"):
+      // - brillo/contraste/saturación se aplican como CSS filter sobre el <img>
+      //   en CADA tick del deslizador — GPU, instantáneo, sin hornear nada.
+      //   Se hornean recién al tocar "Listo".
+      // - zoom y arrastre se muestran con transform CSS en vivo y el horneado
+      //   real (recorte de verdad) corre al soltar.
+      // - nitidez es el único que hornea con debounce (no existe en CSS).
+      const previewImg=()=>document.getElementById('catalog-edit-preview');
       let bakeTimer=null;
-      const scheduleBake=()=>{ clearTimeout(bakeTimer); bakeTimer=setTimeout(refreshCatalogEditPreview, 120); };
+      const scheduleBake=()=>{ clearTimeout(bakeTimer); bakeTimer=setTimeout(refreshCatalogEditPreview, 150); };
+      const liveTransform=()=>{
+        const img=previewImg();
+        if(img) img.style.transform='scale('+(catalogEdit.zoom/catalogEditBakedZoom)+')';
+      };
       document.querySelectorAll('[data-edit-slider]').forEach(sl=>{
         sl.oninput=()=>{
           const k=sl.dataset.editSlider, v=parseInt(sl.value,10)||0;
-          if(k==='zoom') catalogEdit.zoom = Math.max(1, v/100);
-          else catalogEdit[k] = v;
-          scheduleBake();
+          if(k==='zoom'){
+            catalogEdit.zoom = Math.max(1, v/100);
+            liveTransform();
+            return;
+          }
+          if(k==='sharp'){ catalogEdit.sharp=v; scheduleBake(); return; }
+          catalogEdit[k] = v;
+          const img=previewImg();
+          if(img) img.style.filter = cssFilterForEdit();
         };
-        sl.onchange=()=>refreshCatalogEditPreview();
+        sl.onchange=()=>{
+          const k=sl.dataset.editSlider;
+          if(k==='zoom' || k==='sharp') refreshCatalogEditPreview();
+          // b/c/s: nada que hornear — viven en el CSS hasta "Listo".
+        };
       });
-      // Arrastre del encuadre: mover el dedo corre la ventana de recorte (la
-      // aproximación 1/zoom alcanza — el horneado igual la fija a los bordes).
+      // Arrastre del encuadre: el <img> se corre por transform mientras el dedo
+      // se mueve (fluido) y al soltar se hornea el recorte real (que además fija
+      // el encuadre a los bordes de la foto).
       const wrap=document.getElementById('catalog-edit-wrap');
       if(wrap){
         wrap.onpointerdown=(ev)=>{
@@ -678,9 +700,11 @@ function attachEvents(){
           const startOffX=catalogEdit.offX, startOffY=catalogEdit.offY;
           const disp=wrap.getBoundingClientRect().width || 1;
           wrap.onpointermove=(mv)=>{
-            catalogEdit.offX = Math.min(1, Math.max(0, startOffX - ((mv.clientX-startX)/disp)/catalogEdit.zoom));
-            catalogEdit.offY = Math.min(1, Math.max(0, startOffY - ((mv.clientY-startY)/disp)/catalogEdit.zoom));
-            scheduleBake();
+            const dx=mv.clientX-startX, dy=mv.clientY-startY;
+            catalogEdit.offX = Math.min(1, Math.max(0, startOffX - (dx/disp)/catalogEdit.zoom));
+            catalogEdit.offY = Math.min(1, Math.max(0, startOffY - (dy/disp)/catalogEdit.zoom));
+            const img=previewImg();
+            if(img) img.style.transform='translate('+dx+'px,'+dy+'px) scale('+(catalogEdit.zoom/catalogEditBakedZoom)+')';
           };
           wrap.onpointerup=wrap.onpointercancel=()=>{
             wrap.onpointermove=null; wrap.onpointerup=null; wrap.onpointercancel=null;
