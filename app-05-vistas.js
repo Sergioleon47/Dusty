@@ -1587,9 +1587,14 @@ function budgetModal(){
            para que se vea cómo queda, más el botón de agregar el primero. */
         const exp = inventory.filter(isExpenseItem);
         const spent = spendSplitForMonth(localMonthStr()).expense;
-        // paidThisMonth: ¿ya hay un pago manual de este bill en el mes? — pinta
-        // el botón de pago como hecho y evita duplicar sin querer.
-        const paidThisMonth = (name)=> receipts.some(r=>r.manual && r.manualKind==='expense' && r.supplier===name && monthKey(r.date)===localMonthStr());
+        // paidThisMonth: ¿ya se registró el pago de este bill en el mes? Cuenta el
+        // pago manual (recibo manual con el nombre del bill) Y la boleta escaneada
+        // (recibo con una línea aplicada a este ítem — el supplier ahí es la
+        // empresa, ej. "CFE", no el nombre del bill) — sin la segunda pata, un
+        // bill recién escaneado mostraba el ＋ y tocarlo duplicaba el gasto.
+        const paidThisMonth = (id,name)=> receipts.some(r=> monthKey(r.date)===localMonthStr()
+          && ((r.manual && r.manualKind==='expense' && r.supplier===name)
+            || (r.appliedItems||[]).some(it=>it.ingId===id)));
         const row = (id,name,amount,muted)=>`
           <div ${id?`data-open-item="${id}" role="button" tabindex="0"`:''} style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);${id?'cursor:pointer;':'opacity:.55;'}">
             <span style="font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;">${escapeHtml(name)}${muted?` <span style="font-size:10px;font-weight:700;color:var(--ink-soft);background:var(--inset);border-radius:6px;padding:1px 6px;">${t('budget_exp_example_tag')}</span>`:''}</span>
@@ -1600,7 +1605,7 @@ function budgetModal(){
                    tenían cómo registrar el pago del mes — este ＋ lo crea al
                    toque (recibo manual) y la barra reacciona ya. Verde ✓ si
                    este mes ya se pagó. */''}
-              ${id?(paidThisMonth(name)
+              ${id?(paidThisMonth(id,name)
                 ? `<span title="${t('expense_paid_tag')}" style="width:26px;height:26px;border-radius:50%;background:var(--basil-soft);color:var(--basil-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;">✓</span>`
                 : `<button type="button" class="dash-pencil-btn" data-pay-bill="${id}" title="${t('expense_pay_btn')}" aria-label="${t('expense_pay_btn')}" style="color:var(--basil);border-color:color-mix(in srgb, var(--basil) 35%, var(--panel));font-weight:800;">＋</button>`):''}
               ${id?`<span style="color:var(--ink-soft);font-size:12px;">›</span>`:''}

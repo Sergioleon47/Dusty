@@ -1969,15 +1969,29 @@ function scanModal(){
               <select data-scan-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${item.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
               <input data-scan-price="${idx}" type="number" step="0.01" value="${escapeHtml(item.totalPrice)}" style="flex:1;" placeholder="${t('ph_price_short')}">
             </div>
-            ${isUnrecognized && categories.length>0 ? `
+            ${(()=>{
+              // Selector de categoría solo para productos NUEVOS. La lista depende
+              // del tipo de línea: servicios → categorías de GASTO (agrupan el
+              // modal de Presupuesto); mercadería → categorías de inventario. Una
+              // categoría propuesta por la IA que no existe todavía (sentinel
+              // "__newcat__:<nombre>") se muestra como "＋ Nombre (nueva)" —
+              // mismo lenguaje que el escáner de productos en lote — y por eso el
+              // bloque también aparece cuando el usuario aún no creó ninguna.
+              if(!isUnrecognized) return '';
+              const catList = (item.unit==='servicio') ? expenseCategories : categories;
+              const pendingNew = (typeof item.suggestedCategoryId==='string' && item.suggestedCategoryId.startsWith('__newcat__:')) ? item.suggestedCategoryId : null;
+              if(catList.length===0 && !pendingNew) return '';
+              return `
             <div class="field" style="margin-top:8px;">
               <label style="font-size:10.5px;">${t('lbl_category')}</label>
               <select data-scan-category="${idx}">
                 <option value="">${t('category_none_option')}</option>
-                ${categories.map(c=>`<option value="${c.id}" ${item.suggestedCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+                ${pendingNew ? `<option value="${escapeHtml(pendingNew)}" selected>＋ ${escapeHtml(pendingNew.slice('__newcat__:'.length))} (${t('category_new_tag')})</option>` : ''}
+                ${catList.map(c=>`<option value="${c.id}" ${item.suggestedCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
               </select>
               ${!item.suggestedCategoryId && !item.categoryTouched ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
-            </div>` : ''}
+            </div>`;
+            })()}
             ${priceAlert}
             ${qtyAlert}
             ${mergedNote}
@@ -2595,7 +2609,10 @@ async function callReceiptReader(images, multi){
     inventoryNames: inventory.map(i=>i.name),
     caseTrackedNames: inventory.filter(i=>i.unit==='caja').map(i=>i.name),
     // Para sugerir a qué categoría del usuario pertenece cada producto nuevo.
-    categoryNames: categories.map(c=>c.name)
+    categoryNames: categories.map(c=>c.name),
+    // Las boletas de servicio se categorizan contra el universo de GASTO, no
+    // contra el inventario (es lo que agrupa las filas del modal de Presupuesto).
+    expenseCategoryNames: expenseCategories.map(c=>c.name)
   }, {
     notFoundKey: 'err_function_not_found',
     genericKey: 'err_generic_receipt',
@@ -2810,14 +2827,21 @@ function applyParsedReceiptToScanState(parsed){
         const existing = inventory.find(ing=> nameLower.includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(nameLower));
         matchedId = existing ? existing.id : '__new__';
       }
-      // Categoría sugerida por Claude a partir de las categorías del usuario (ver
-      // categoryNames en callReceiptReader) — solo se usa para productos NUEVOS
-      // (ver applyScanResults), nunca para pisar la categoría que el usuario ya le
-      // haya puesto a mano a un producto existente.
+      // Categoría sugerida por Claude — solo se usa para productos NUEVOS (ver
+      // applyScanResults), nunca para pisar la categoría que el usuario ya le
+      // haya puesto a mano a un producto existente. Los servicios matchean contra
+      // las categorías de GASTO (universo aparte, es lo que agrupa el modal de
+      // Presupuesto); el resto contra las del inventario. Si la IA propuso una
+      // que NO existe todavía (reporte del usuario 2026-09-05: "debería reconocer
+      // aun las que no estén en la lista"), viaja como sentinel
+      // "__newcat__:<nombre>" y se crea DE VERDAD recién al confirmar — mismo
+      // mecanismo que ya usa el escáner de productos en lote.
       let suggestedCategoryId = null;
       if(it.category){
-        const catMatch = categories.find(c=>c.name.toLowerCase().trim()===String(it.category).toLowerCase().trim());
-        if(catMatch) suggestedCategoryId = catMatch.id;
+        const catList = (it.unit==='servicio') ? expenseCategories : categories;
+        const catName = String(it.category).trim();
+        const catMatch = catList.find(c=>c.name.toLowerCase().trim()===catName.toLowerCase());
+        suggestedCategoryId = catMatch ? catMatch.id : (catName ? '__newcat__:'+catName : null);
       }
       const itemUnit = it.unit || 'unidad';
       // Un producto puede empezar a comprarse en una unidad distinta con el tiempo
@@ -2969,7 +2993,29 @@ function applyScanResults(){
       // original, no el texto crudo de esta línea del recibo, para que ambas filas
       // se lean como "el mismo producto, unidad distinta" (ej. "Cebolla roja" en lb
       // y en caja) y no como dos productos sin relación aparente.
-      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty, stockFullRef:item.qty, categoryId:item.suggestedCategoryId||null};
+      // Categoría del producto nuevo: si vino como sentinel "__newcat__:<nombre>"
+      // (propuesta de la IA que no existía, o elegida así en el select), la
+      // categoría se crea DE VERDAD recién acá, al confirmar — en las de GASTO si
+      // la línea es un servicio, en las del inventario si es mercadería — y una
+      // sola vez aunque varias líneas del recibo la compartan (el find la
+      // encuentra en las siguientes vueltas). Mismo criterio que el lote de
+      // productos (applyProductBatch).
+      const isSvcLine = (item.unit==='servicio');
+      let scanCatId = item.suggestedCategoryId||null;
+      if(typeof scanCatId==='string' && scanCatId.startsWith('__newcat__:')){
+        const catName = scanCatId.slice('__newcat__:'.length).trim();
+        const catList = isSvcLine ? expenseCategories : categories;
+        let cat = catList.find(c=>c.name.trim().toLowerCase()===catName.toLowerCase());
+        if(!cat && catName){ cat = {id:uid(isSvcLine?'xcat':'cat'), name:catName}; catList.push(cat); }
+        scanCatId = cat ? cat.id : null;
+      }
+      // Si el usuario cambió la unidad DESPUÉS de elegir categoría (servicio ↔
+      // mercadería), el id elegido puede ser del universo equivocado — se
+      // descarta en vez de guardar una referencia que ningún listado encuentra.
+      if(scanCatId && !(isSvcLine ? expenseCategories : categories).some(c=>c.id===scanCatId)) scanCatId = null;
+      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty, stockFullRef:item.qty, categoryId:isSvcLine?null:scanCatId};
+      // Un servicio agrupa en el modal de Presupuesto por su categoría de GASTO.
+      if(isSvcLine && scanCatId) newIng.expenseCategoryId = scanCatId;
       if(currentUser){ newIng.lastEditedBy = currentUserLabel(); newIng.lastEditedAt = new Date().toISOString(); }
       inventory.push(newIng);
       ingId = newIng.id;

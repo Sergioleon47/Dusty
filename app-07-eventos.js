@@ -1388,11 +1388,10 @@ function attachEvents(){
       };
     });
     // Solo aparece para productos nuevos (ver isUnrecognized en scanModal) — Claude
-    // sugiere una categoría con su propio criterio, pero cuando no encuentra ninguna
-    // que le calce bien (o directamente no hay categorías creadas todavía) esto
-    // queda en blanco con un aviso, en vez de guardar el producto sin categoría en
-    // silencio. El value queda vacío ("") a propósito para "sin categoría", nunca
-    // "__new__" ni ningún otro sentinel — coincide con category_none_option de abajo.
+    // sugiere una categoría con su propio criterio; si propuso una que no existe
+    // todavía, el value es el sentinel "__newcat__:<nombre>" (se crea recién al
+    // confirmar, en applyScanResults). El value vacío ("") sigue siendo "sin
+    // categoría" — coincide con category_none_option.
     document.querySelectorAll('[data-scan-category]').forEach(sel=>{
       // categoryTouched: una vez que la persona eligió (aunque sea "Sin categoría"),
       // el aviso de "no estamos seguros" deja de mostrarse — ya no es verdad.

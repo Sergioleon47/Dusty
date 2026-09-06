@@ -28,10 +28,11 @@ const {
   checkIpRateLimit
 } = require('./lib/patron-admin');
 
-function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, multi) {
+function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, expenseCategoryNames, multi) {
   const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
   const hasCaseTracked = Array.isArray(caseTrackedNames) && caseTrackedNames.length > 0;
   const hasCategories = Array.isArray(categoryNames) && categoryNames.length > 0;
+  const hasExpCategories = Array.isArray(expenseCategoryNames) && expenseCategoryNames.length > 0;
 
   return `Eres un sistema experto en extraer datos de compras y gastos de un negocio: facturas impresas de mayorista (Sysco, US Foods, Cintas, proveedores locales de produce, etc), capturas de pantalla de una compra online (Amazon, Walmart, cualquier sitio), o recibos/facturas de servicios (luz, agua, gas, internet, renta, etc) — la imagen puede ser cualquiera de estas tres cosas.
 
@@ -83,11 +84,14 @@ ${inventoryNames.map(n => `- ${n}`).join('\n')}
 
 Para cada producto de la factura, fijate si corresponde a alguno de esos ingredientes ya existentes (aunque la descripción de la factura esté abreviada o en otro idioma — usá tu criterio, no comparación literal de texto). Si corresponde, poné en "matched_inventory_name" el nombre EXACTO tal cual aparece en esa lista (copiado letra por letra). Si es un producto distinto que no está en la lista, poné "matched_inventory_name": null.` : `No hay inventario cargado todavía, así que "matched_inventory_name" va a ser null para todos los productos.`}
 
-${hasCategories ? `SOBRE "category" (a qué categoría de inventario pertenece el producto):
-Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
+SOBRE "category" (a qué categoría pertenece cada item):
+- Para PRODUCTOS (mercadería, insumos, empaques — todo lo que NO sea servicio ni eat_out): ${hasCategories ? `esta es la lista de categorías de inventario que el usuario ya tiene creadas:
 ${categoryNames.map(n => `- ${n}`).join('\n')}
-
-Para cada producto de la factura, elegí la categoría de esa lista que mejor le quede (usá tu criterio, no comparación literal — ej. "leche" va en una categoría de comida aunque se llame "Food" o "Alimentos"). Si corresponde, poné en "category" el nombre EXACTO tal cual aparece en esa lista (copiado letra por letra). Si ninguna categoría le queda bien, poné "category": null — mejor sin categoría que una que no corresponde.` : `El usuario no tiene categorías de inventario creadas todavía, así que "category" va a ser null para todos los productos.`}
+Si alguna le queda bien al producto (usá tu criterio, no comparación literal — ej. "leche" va en una categoría de comida aunque se llame "Food" o "Alimentos"), poné en "category" el nombre EXACTO tal cual aparece en esa lista (copiado letra por letra).` : `el usuario todavía no tiene categorías de inventario creadas.`} Si ninguna categoría de la lista le queda bien (o no hay lista), NO pongas null: PROPONÉ vos una categoría nueva — un nombre corto y genérico de 1-2 palabras (ej. "Carnes", "Lácteos", "Verduras", "Limpieza", "Empaques", "Bebidas"), pensando en el cajón donde iría el producto, nunca una categoría hiper-específica de un solo producto. Escribila en el mismo idioma que las categorías existentes del usuario, o en el idioma del recibo si no tiene ninguna. Usá "category": null solo si de verdad no se puede clasificar. Si varios productos de la factura comparten la misma categoría nueva propuesta, escribí el nombre idéntico en todos (así se crea una sola).
+- Para SERVICIOS (el item único con unit "servicio"): la categoría NO sale de la lista de inventario, sale de esta OTRA lista, la de categorías de GASTO del usuario: ${hasExpCategories ? `
+${expenseCategoryNames.map(n => `- ${n}`).join('\n')}
+Mismo criterio: si alguna calza, copiá el nombre EXACTO de esa lista;` : `(todavía no tiene ninguna creada), así que`} si ninguna calza, proponé una nueva corta y genérica (ej. "Servicios", "Renta", "Seguros").
+- Para consumos eat_out el valor de "category" se ignora — podés dejarlo en null.
 
 SOBRE "duplicate_of" (líneas repetidas del mismo producto NUEVO dentro de esta misma factura):
 A veces una factura describe el mismo producto en más de una línea (ej. una línea por caja y otra por el reempaque en unidades sueltas, o una columna que se leyó dos veces). Si detectás que dos o más líneas de ESTA factura son en realidad el mismo producto — y ese producto NO tiene "matched_inventory_name" (es nuevo, no está en el inventario existente) — dejá "duplicate_of": null en la PRIMERA aparición, y en las siguientes apariciones poné "duplicate_of" con el índice (empezando en 0) de esa primera línea dentro de este mismo array "items". Si un producto ya tiene "matched_inventory_name" (ya existe en el inventario), nunca uses "duplicate_of" para él — dejalo en null, aunque aparezca más de una vez. Si no estás seguro de que sean el mismo producto, dejá "duplicate_of": null (mejor dos líneas separadas que combinar mal dos productos distintos).
@@ -117,7 +121,7 @@ Formato de cada item:
   "raw_name": "string",
   "clean_name": "string (en inglés)",
   "matched_inventory_name": "string exacto de la lista, o null",
-  "category": "string exacto de la lista de categorías, o null",
+  "category": "string (de la lista que corresponda, o una categoría nueva propuesta), o null",
   "quantity": number,
   "unit": "string (lb, oz, gal, unidad, caja, etc)",
   "total_price": number,
@@ -133,7 +137,7 @@ Formato de cada item:
       "raw_name": "string",
       "clean_name": "string (en inglés)",
       "matched_inventory_name": "string exacto de la lista, o null",
-      "category": "string exacto de la lista de categorías, o null",
+      "category": "string (de la lista que corresponda, o una categoría nueva propuesta), o null",
       "quantity": number,
       "unit": "string (lb, oz, gal, unidad, caja, etc)",
       "total_price": number,
@@ -181,7 +185,7 @@ exports.handler = async (event) => {
   // "ownerUid": la cuenta dueña del inventario contra la que se cuenta el cupo —
   // la propia si el que escanea es el dueño, o la del equipo si se unió a uno
   // (ver syncUid() en index.html).
-  let images, inventoryNames, caseTrackedNames, categoryNames, multi = false, ownerUid;
+  let images, inventoryNames, caseTrackedNames, categoryNames, expenseCategoryNames, multi = false, ownerUid;
   try {
     const parsed = JSON.parse(event.body || '{}');
     if (Array.isArray(parsed.images) && parsed.images.length > 0) {
@@ -199,6 +203,12 @@ exports.handler = async (event) => {
     }
     if (Array.isArray(parsed.categoryNames)) {
       categoryNames = parsed.categoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50).map(n => n.slice(0, 120));
+    }
+    // Categorías de GASTO (universo aparte del inventario): para que la IA les
+    // asigne categoría a las boletas de servicio — clientes viejos que no las
+    // mandan siguen funcionando igual (la IA propone nombres nuevos).
+    if (Array.isArray(parsed.expenseCategoryNames)) {
+      expenseCategoryNames = parsed.expenseCategoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50).map(n => n.slice(0, 120));
     }
     multi = parsed.multi === true;
     ownerUid = typeof parsed.ownerUid === 'string' && parsed.ownerUid ? parsed.ownerUid : callerUid;
@@ -270,7 +280,7 @@ exports.handler = async (event) => {
             role: 'user',
             content: [
               ...imageContentBlocks,
-              { type: 'text', text: buildPrompt(inventoryNames, caseTrackedNames, categoryNames, multi) }
+              { type: 'text', text: buildPrompt(inventoryNames, caseTrackedNames, categoryNames, expenseCategoryNames, multi) }
             ]
           }
         ]

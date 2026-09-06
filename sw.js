@@ -40,7 +40,10 @@
 // gasto propias y barra debajo de su monto; cambios cruzados en app-03/05/06/07
 // + dusty.css. Sin el bump, un cliente con mezcla de caché vieja y nueva puede
 // tener la barra sin reaccionar a los pagos manuales o escaneados.
-const CACHE_NAME = 'patron-shell-v17';
+// v18: el escáner de recibos reconoce/propone categorías fuera de la lista del
+// usuario (sentinel __newcat__ como el lote de productos) y las boletas de
+// servicio categorizan contra las categorías de GASTO — app-06/07 + función.
+const CACHE_NAME = 'patron-shell-v18';
 
 const PRECACHE_URLS = [
   '/',
