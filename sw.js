@@ -35,7 +35,12 @@
 // tarjetas-botón en 2/3 columnas con selector de vista y buscador, visor de foto,
 // Eat out (gastos sin stock), categorías creadas por IA e inline, sin zoom,
 // transiciones nativas, arreglo del swipe sobre la calculadora.
-const CACHE_NAME = 'patron-shell-v16';
+// v17: Presupuesto como casa de los gastos (2026-09-05) — bills con pago del mes
+// (checkbox y botón ＋ por fila), escanear boleta desde Budget, categorías de
+// gasto propias y barra debajo de su monto; cambios cruzados en app-03/05/06/07
+// + dusty.css. Sin el bump, un cliente con mezcla de caché vieja y nueva puede
+// tener la barra sin reaccionar a los pagos manuales o escaneados.
+const CACHE_NAME = 'patron-shell-v17';
 
 const PRECACHE_URLS = [
   '/',
