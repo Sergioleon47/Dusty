@@ -1639,6 +1639,11 @@ function budgetModal(){
       <div class="settings-card" style="margin-top:14px;">
         ${settingsCardHeader('chart','var(--saffron-soft)','var(--saffron-ink)',t('budget_exp_title'))}
         ${spent>0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('budget_spent_line').replace('{amount}', money(spent))}</div>` : ''}
+        ${/* Sin bills creados pero CON gasto real en el mes, el "Gastado" quedaba
+             pegado a las filas de EJEMPLO y parecía que los ejemplos sumaban
+             (confusión real del usuario 2026-09-05: "no tengo nada ahí y como
+             quiera marca 150%") — se aclara de dónde sale el monto. */''}
+        ${spent>0 && exp.length===0 ? `<div class="helper-note" style="margin:0 0 8px;color:var(--saffron-ink);">${t('budget_spent_no_bills_note')}</div>` : ''}
         ${body}
         ${/* La foto de la boleta se toma con el ESCÁNER DE RECIBOS de siempre
              (pregunta del usuario 2026-09-05): la IA detecta el servicio y lo
