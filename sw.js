@@ -64,7 +64,9 @@
 // el escáner de estante del Inventario — FAB de 76px con badge ✎ — app-05.
 // v26: las tarjetas de la pestaña Catálogo son SOLO la foto semi-cuadrada (sin
 // nombre ni precio, como la página pública) — app-03/05.
-const CACHE_NAME = 'patron-shell-v26';
+// v27: el modo fotos del Catálogo dispara LA CÁMARA directo (capture) al tocar
+// un producto, en vez del selector de archivos — app-03/07.
+const CACHE_NAME = 'patron-shell-v27';
 
 const PRECACHE_URLS = [
   '/',

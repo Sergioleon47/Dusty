@@ -81,10 +81,15 @@ let modalTabTrapAttached = false;
 // afterSet (opcional): corre tras guardar la foto nueva — lo usa el modo fotos
 // del Catálogo para subir la foto de una RECETA a Storage (uploadRecipePhoto);
 // las fotos de productos no lo necesitan (viajan dentro de su doc de inventario).
-function promptItemPhotoUpload(item, afterSet){
+// useCamera: abre la CÁMARA del teléfono directo (capture) en vez del selector
+// de galería/archivos — reporte del usuario 2026-09-06 sobre el botón del
+// Catálogo: "es una cámara, no un scanner", tocar un producto debe disparar la
+// cámara al instante. En computadora el atributo se ignora solo (selector normal).
+function promptItemPhotoUpload(item, afterSet, useCamera){
   const input = document.createElement('input');
   input.type='file';
   input.accept='image/*';
+  if(useCamera) input.setAttribute('capture','environment');
   input.style.display='none';
   document.body.appendChild(input);
   // Si el usuario cierra el selector sin elegir, "change" nunca dispara — sin esto
@@ -487,9 +492,10 @@ function attachEvents(){
         const kind=s.slice(0,sep), id=s.slice(sep+1);
         const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
         if(!target) return;
-        // Modo fotos: la tarjeta abre el selector de foto en vez de seleccionar.
+        // Modo fotos: la tarjeta abre LA CÁMARA directo (useCamera) para sacarle
+        // la foto nueva al producto — no el selector de archivos.
         if(catalogPhotoMode){
-          promptItemPhotoUpload(target, kind==='recipe' ? ()=>uploadRecipePhoto(target) : undefined);
+          promptItemPhotoUpload(target, kind==='recipe' ? ()=>uploadRecipePhoto(target) : undefined, true);
           return;
         }
         target.inCatalog=!target.inCatalog;
