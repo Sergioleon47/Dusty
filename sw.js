@@ -75,7 +75,10 @@
 // v30: las fotos del Catálogo van TODAS a pleno brillo (adiós al atenuado de
 // las no seleccionadas — la pantalla se veía apagada); la selección la marca
 // solo el ✓ verde con su borde — app-05.
-const CACHE_NAME = 'patron-shell-v30';
+// v31: cámara inteligente del Catálogo — la IA del identificador reconoce el
+// producto de la foto y lo sugiere resaltado arriba de la lista de asignar
+// (solo cuentas reales; gasta 1 escaneo del cupo) — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v31';
 
 const PRECACHE_URLS = [
   '/',

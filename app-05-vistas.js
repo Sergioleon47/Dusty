@@ -1683,6 +1683,34 @@ let catalogPendingPhoto = null;
 // la foto), y catalogPendingPhoto guarda la versión ya filtrada que se asigna.
 let catalogPendingOriginal = null;
 let catalogPendingFilter = 'original';
+// Cámara INTELIGENTE (pedido del usuario 2026-09-06): mientras el modal de
+// asignar ya está abierto, la misma IA del identificador de productos mira la
+// foto y sugiere de qué producto se trata — la sugerencia aparece resaltada
+// arriba de la lista, un toque y listo. Solo cuentas reales (gasta 1 escaneo
+// del cupo; el trial de 5 no debe quemarse en silencio) y si falla o no
+// reconoce, la lista manual sigue ahí como siempre.
+let catalogAssignDetecting = false;
+let catalogAssignSuggestion = null; // {kind:'item'|'recipe', id}
+let catalogAssignReqId = 0;
+function resolveCatalogSuggestion(res){
+  if(!res) return null;
+  const norm = s=>String(s||'').toLowerCase().trim();
+  // 1) La IA ya emparejó contra el inventario (matched_inventory_name exacto).
+  const mName = norm(res.matched_inventory_name);
+  if(mName){
+    const it = inventory.find(i=>i && !isExpenseItem(i) && norm(i.name)===mName);
+    if(it) return {kind:'item', id:it.id};
+  }
+  // 2) Red de seguridad por nombre contenido, productos primero y piezas después.
+  const rName = norm(res.name);
+  if(rName){
+    const it2 = inventory.find(i=>i && !isExpenseItem(i) && (norm(i.name).includes(rName) || rName.includes(norm(i.name))));
+    if(it2) return {kind:'item', id:it2.id};
+    const rec = recipes.find(r=>r && r.id && (norm(r.name).includes(rName) || rName.includes(norm(r.name))));
+    if(rec) return {kind:'recipe', id:rec.id};
+  }
+  return null;
+}
 function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
 /* Los 4 filtros de edición más usados (pedido del usuario 2026-09-06), a puro
    píxel (getImageData) a propósito: ctx.filter no existe en Safari viejo y los
@@ -1835,6 +1863,18 @@ function catalogAssignModal(){
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
         ${['original','vivid','warm','retro','bw'].map(k=>`<button type="button" class="exit-reason-chip ${catalogPendingFilter===k?'on':''}" data-photo-filter="${k}">${t('catalog_filter_'+k)}</button>`).join('')}
       </div>
+      ${catalogAssignDetecting ? `<div class="scan-status" style="margin-top:10px;"><div class="spinner"></div> ${t('catalog_detecting')}</div>` : ''}
+      ${(()=>{
+        if(!catalogAssignSuggestion) return '';
+        const s = catalogAssignSuggestion;
+        const obj = s.kind==='item' ? inventory.find(i=>i.id===s.id) : recipes.find(r=>r && r.id===s.id);
+        if(!obj) return '';
+        return `
+      <div style="margin-top:10px;background:var(--sky-soft);border-radius:10px;padding:4px 10px 2px;">
+        <div style="font-size:11px;font-weight:800;color:var(--sky-ink);padding-top:4px;">✨ ${t('catalog_suggested')}</div>
+        ${row(s.kind, obj)}
+      </div>`;
+      })()}
       <div style="max-height:40vh;overflow-y:auto;margin-top:10px;">
         ${inventory.filter(i=>i && !isExpenseItem(i)).map(i=>row('item', i)).join('')}
         ${recipes.filter(r=>r && r.id).map(r=>row('recipe', r)).join('')}

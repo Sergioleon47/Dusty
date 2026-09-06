@@ -503,6 +503,28 @@ function attachEvents(){
           catalogPendingOriginal = resizeToBase64(img, 300, 0.75);
           catalogPendingPhoto = catalogPendingOriginal;
           catalogPendingFilter = 'original';
+          catalogAssignSuggestion = null;
+          // Cámara inteligente: la IA identifica el producto EN PARALELO mientras
+          // el modal ya está abierto — la foto para la IA va a 1400px (a 300px el
+          // thumbnail no alcanza para leer etiquetas). Solo cuentas reales (gasta
+          // 1 escaneo del cupo); si falla o no reconoce, silencio y lista manual.
+          const canDetect = currentUser && !currentUser.isAnonymous
+            && (inventory.some(i=>i && !isExpenseItem(i)) || recipes.some(r=>r && r.id));
+          if(canDetect){
+            const detectImg = resizeToBase64(img, 1400, 0.9);
+            const reqId = ++catalogAssignReqId;
+            catalogAssignDetecting = true;
+            identifyProductFromPhoto(detectImg).then(res=>{
+              if(reqId!==catalogAssignReqId || !catalogPendingOriginal) return;
+              catalogAssignDetecting = false;
+              catalogAssignSuggestion = resolveCatalogSuggestion(res);
+              render();
+            }).catch(()=>{
+              if(reqId!==catalogAssignReqId) return;
+              catalogAssignDetecting = false;
+              render();
+            });
+          }
           render();
         }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
       };
@@ -543,7 +565,7 @@ function attachEvents(){
     // Modal "¿de qué producto es esta foto?" (tras sacarla o subirla)
     const assignOverlay=document.getElementById('catalog-assign-overlay');
     if(assignOverlay){
-      const dropPending=()=>{ catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original'; render(); };
+      const dropPending=()=>{ catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original'; catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++; render(); };
       assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
       const btnCancelAssign=document.getElementById('btn-cancel-assign-photo');
       if(btnCancelAssign) btnCancelAssign.onclick=dropPending;
@@ -572,6 +594,7 @@ function attachEvents(){
           target.photo = catalogPendingPhoto;
           if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
           catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original';
+          catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
           saveState();
           // La foto de una receta viaja por Storage (meta solo lleva la referencia).
           if(kind==='recipe') uploadRecipePhoto(target);
