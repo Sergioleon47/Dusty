@@ -621,6 +621,7 @@ function attachEvents(){
       if(btnOpenEditor) btnOpenEditor.onclick=()=>{
         catalogEditBackup = Object.assign({}, catalogEdit);
         catalogEditorOpen = true;
+        catalogEditTab = 'light';
         render();
         refreshCatalogEditPreview();
       };
@@ -779,22 +780,31 @@ function attachEvents(){
         const img=previewImg();
         if(img) img.style.transform='scale('+(catalogEdit.zoom/catalogEditBakedZoom)+')';
       };
+      // Pestañas del editor (Luz/Color/Encuadre/PRO)
+      document.querySelectorAll('[data-edit-tab]').forEach(tb=>{
+        tb.onclick=()=>{ catalogEditTab=tb.dataset.editTab; render(); };
+      });
       document.querySelectorAll('[data-edit-slider]').forEach(sl=>{
         sl.oninput=()=>{
           const k=sl.dataset.editSlider, v=parseInt(sl.value,10)||0;
+          // El numerito junto al deslizador acompaña en vivo, sin re-render.
+          const valEl=document.querySelector('[data-edit-val="'+k+'"]');
+          if(valEl) valEl.textContent=sl.value;
           if(k==='zoom'){
             catalogEdit.zoom = Math.max(1, v/100);
             liveTransform();
             return;
           }
-          if(k==='sharp'){ catalogEdit.sharp=v; scheduleBake(); return; }
+          // Sombras/luces/temperatura no existen en CSS filter: hornean con el
+          // mismo debounce corto que la nitidez (el preview de 480px es rápido).
+          if(k==='sharp' || k==='temp' || k==='shadows' || k==='highlights'){ catalogEdit[k]=v; scheduleBake(); return; }
           catalogEdit[k] = v;
           const img=previewImg();
           if(img) img.style.filter = cssFilterForEdit();
         };
         sl.onchange=()=>{
           const k=sl.dataset.editSlider;
-          if(k==='zoom' || k==='sharp') refreshCatalogEditPreview();
+          if(k==='zoom' || k==='sharp' || k==='temp' || k==='shadows' || k==='highlights') refreshCatalogEditPreview();
           // b/c/s: nada que hornear — viven en el CSS hasta "Listo".
         };
       });

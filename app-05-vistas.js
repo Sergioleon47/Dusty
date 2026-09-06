@@ -1700,7 +1700,12 @@ let catalogAssignReqId = 0;
    "Listo". Todo a puro canvas/píxel, sin servicios pagos. */
 let catalogEditorOpen = false;
 let catalogEditFull = null; // base 1400px de la foto recién sacada/subida
-const CATALOG_EDIT_DEFAULTS = {rot:0, zoom:1, offX:0.5, offY:0.5, bright:0, contrast:0, sat:0, sharp:0, auto:false};
+// temp/shadows/highlights (2026-09-06, foco del usuario: "brillos e iluminación"):
+// los tres controles de LUZ que los editores serios usan más que el brillo —
+// temperatura (corrige el color del foco del local), sombras (levanta lo oscuro
+// sin lavar el resto) y luces (recupera lo quemado). Van horneados en el preview
+// (no existen en CSS filter) con el debounce corto de la nitidez.
+const CATALOG_EDIT_DEFAULTS = {rot:0, zoom:1, offX:0.5, offY:0.5, bright:0, contrast:0, sat:0, sharp:0, auto:false, temp:0, shadows:0, highlights:0};
 let catalogEdit = Object.assign({}, CATALOG_EDIT_DEFAULTS);
 let catalogEditBackup = null;   // para que Cancelar deshaga lo tocado en esta pasada
 let catalogEditPreviewUrl = null;
@@ -1771,6 +1776,10 @@ function cssFilterForEdit(){
 // encuadre, el <img> se transforma por CSS relativo a esta base (fluido) y el
 // horneado real llega al soltar.
 let catalogEditBakedZoom = 1;
+// Pestañas del editor (pedido del usuario 2026-09-06: "menú profesional") —
+// Luz / Color / Encuadre / PRO, como organizan los editores serios; arranca
+// en Luz, el foco que el usuario definió.
+let catalogEditTab = 'light';
 /* Hornea la foto a outSize px: giro → recorte cuadrado (zoom + encuadre) →
    auto-niveles → nitidez; brillo/contraste/saturación solo cuando
    withAdjust=true (el guardado final) — el preview los muestra por CSS. */
@@ -1795,6 +1804,21 @@ async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
   ctx.drawImage(rc, cx-side/2, cy-side/2, side, side, 0, 0, outSize, outSize);
   const d = ctx.getImageData(0, 0, outSize, outSize), p = d.data;
   const clamp = v=>v<0?0:v>255?255:v;
+  // LUZ (temperatura / sombras / luces) — antes del auto y de los ajustes: son
+  // correcciones de la escena, no de estilo. Pesos cuadráticos por luminancia:
+  // sombras solo empuja lo oscuro, luces solo lo brillante.
+  if(e.temp || e.shadows || e.highlights){
+    const tR = 1 + (e.temp||0)/180, tB = 1 - (e.temp||0)/180;
+    const sh = (e.shadows||0)*0.9, hl = (e.highlights||0)*0.9;
+    for(let i=0; i<p.length; i+=4){
+      let r=p[i]*tR, g=p[i+1], b=p[i+2]*tB;
+      const lum = (0.2126*r+0.7152*g+0.0722*b)/255;
+      const wS = (1-lum)*(1-lum), wH = lum*lum;
+      const lift = sh*wS + hl*wH;
+      r+=lift; g+=lift; b+=lift;
+      p[i]=clamp(r); p[i+1]=clamp(g); p[i+2]=clamp(b);
+    }
+  }
   if(e.auto){
     // Auto-niveles POR CANAL con recorte del 1%: estira exposición y contraste
     // y de paso corrige el tinte (la luz amarilla del local) — el clásico "Auto".
@@ -2069,6 +2093,7 @@ async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
     // entera). El cuadrado queda solo cuando el encuadre fue una decisión.
     const e = editSrc || {};
     const untouched = !e.auto && !e.bright && !e.contrast && !e.sat && !e.sharp
+      && !e.temp && !e.shadows && !e.highlights
       && (e.zoom||1)===1 && ((e.rot||0)%360)===0
       && Math.abs((e.offX!==undefined?e.offX:0.5)-0.5)<0.001
       && Math.abs((e.offY!==undefined?e.offY:0.5)-0.5)<0.001;
@@ -2100,11 +2125,16 @@ async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
    soltar); zoom y nitidez se hornean al soltar. */
 function catalogEditorModal(){
   const e = catalogEdit;
+  // Fila de deslizador con su VALOR a la derecha (se actualiza en vivo desde
+  // app-07 sin re-render) — el detalle que separa un panel casero de uno pro.
   const slider = (key, label, min, max, val)=>`
-    <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
-      <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);width:78px;flex-shrink:0;">${label}</span>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+      <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);width:86px;flex-shrink:0;">${label}</span>
       <input type="range" data-edit-slider="${key}" min="${min}" max="${max}" step="1" value="${val}" style="flex:1;accent-color:var(--sky);">
+      <span data-edit-val="${key}" style="width:34px;text-align:right;font-size:11.5px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;flex-shrink:0;">${val}</span>
     </div>`;
+  const tab = (key, label)=>`
+    <button type="button" data-edit-tab="${key}" style="flex:1;border:none;cursor:pointer;padding:8px 4px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:.02em;transition:background .15s;background:${catalogEditTab===key?'var(--raised)':'transparent'};color:${catalogEditTab===key?'var(--ink)':'var(--ink-soft)'};">${label}</button>`;
   return `
   <div class="overlay" id="catalog-editor-overlay">
     <div class="modal">
@@ -2113,24 +2143,42 @@ function catalogEditorModal(){
         ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;filter:${cssFilterForEdit()};will-change:transform,filter;">` : ''}
         ${catalogEditBaking ? `<div style="position:absolute;bottom:8px;right:8px;"><div class="spinner"></div></div>` : ''}
       </div>
-      <div class="helper-note" style="margin:6px 0 0;">${t('catalog_edit_drag_hint')}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-        <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto">✨ ${t('catalog_edit_auto')}</button>
-        <button type="button" class="exit-reason-chip" id="btn-edit-rotate">↻ ${t('catalog_edit_rotate')}</button>
-        <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')+' · PRO'}</button>
-        <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')+' · PRO'}</button>
+      ${/* Pestañas segmentadas Luz/Color/Encuadre/PRO — cada grupo respira. */''}
+      <div style="display:flex;gap:4px;background:var(--inset);border-radius:10px;padding:4px;margin-top:12px;">
+        ${tab('light', '☀️ '+t('catalog_tab_light'))}
+        ${tab('color', '🎨 '+t('catalog_tab_color'))}
+        ${tab('frame', '⤢ '+t('catalog_tab_frame'))}
+        ${tab('pro', '✦ PRO')}
       </div>
-      ${catalogEditCutout ? `
-      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-        <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);">${t('catalog_rembg_bg')}</span>
-        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
-      </div>` : ''}
-      ${catalogEditFullBackup ? `<button type="button" class="link-btn" id="btn-rembg-revert" style="margin-top:6px;padding:4px 0;">${t('catalog_rembg_revert')}</button>` : ''}
-      ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
+      ${catalogEditTab==='light' ? `
+      <div style="margin-top:10px;">
+        <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto">✨ ${t('catalog_edit_auto')}</button>
+      </div>
       ${slider('bright', t('catalog_edit_bright'), -50, 50, e.bright)}
       ${slider('contrast', t('catalog_edit_contrast'), -50, 50, e.contrast)}
+      ${slider('shadows', t('catalog_edit_shadows'), -50, 50, e.shadows||0)}
+      ${slider('highlights', t('catalog_edit_highlights'), -50, 50, e.highlights||0)}` : ''}
+      ${catalogEditTab==='color' ? `
+      ${slider('temp', t('catalog_edit_temp'), -50, 50, e.temp||0)}
       ${slider('sat', t('catalog_edit_sat'), -50, 50, e.sat)}
-      ${slider('sharp', t('catalog_edit_sharp'), 0, 100, e.sharp)}
+      ${slider('sharp', t('catalog_edit_sharp'), 0, 100, e.sharp)}` : ''}
+      ${catalogEditTab==='frame' ? `
+      <div class="helper-note" style="margin:10px 0 0;">${t('catalog_edit_drag_hint')}</div>
+      ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
+      <div style="margin-top:10px;">
+        <button type="button" class="exit-reason-chip" id="btn-edit-rotate">↻ ${t('catalog_edit_rotate')}</button>
+      </div>` : ''}
+      ${catalogEditTab==='pro' ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')}</button>
+        <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')}</button>
+      </div>
+      ${catalogEditCutout ? `
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+        <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);">${t('catalog_rembg_bg')}</span>
+        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
+      </div>` : ''}` : ''}
+      ${catalogEditFullBackup ? `<button type="button" class="link-btn" id="btn-rembg-revert" style="margin-top:8px;padding:4px 0;">${t('catalog_rembg_revert')}</button>` : ''}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-edit">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-apply-edit">${t('catalog_edit_done')}</button>

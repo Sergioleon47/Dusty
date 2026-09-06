@@ -102,7 +102,10 @@
 // v39: pestaña Catálogo estilo iOS Fotos — tocar ABRE la foto completa (visor
 // con la alta si existe); "Seleccionar"/"Listo" es el modo aparte para marcar
 // qué va al catálogo — app-03/04/05/07.
-const CACHE_NAME = 'patron-shell-v39';
+// v40: editor con controles de LUZ de verdad (Sombras/Luces/Temperatura, pesos
+// por luminancia) y panel profesional con pestañas Luz/Color/Encuadre/PRO y
+// valores en vivo — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v40';
 
 const PRECACHE_URLS = [
   '/',
