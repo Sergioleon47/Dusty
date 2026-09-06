@@ -103,6 +103,10 @@ function promptItemPhotoUpload(item, afterSet, useCamera){
     try{
       const img = await loadImageFromFile(file);
       item.photo = resizeToBase64(img, 300, 0.75);
+      // La foto cambió por FUERA del flujo del catálogo: la versión en alta que
+      // hubiera quedado ya no corresponde a esta imagen — mejor sin alta que
+      // con una vieja de otra foto.
+      delete item.photoHiUrl;
       saveState();
       if(afterSet) afterSet();
       render();
@@ -614,12 +618,16 @@ function attachEvents(){
           if(!target || !catalogPendingPhoto) return;
           target.photo = catalogPendingPhoto;
           if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
+          // Captura para la subida en ALTA (corre en segundo plano después de
+          // limpiar el estado — por eso las copias, no los globales).
+          const hiFull=catalogEditFull, hiEdit=Object.assign({}, catalogEdit), hiFilter=catalogPendingFilter;
           catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original';
           catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
           catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
           catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
           catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
           saveState();
+          uploadCatalogHiRes(target, kind, hiFull, hiEdit, hiFilter);
           // La foto de una receta viaja por Storage (meta solo lleva la referencia).
           if(kind==='recipe') uploadRecipePhoto(target);
           showToast(t('catalog_photo_saved').replace('{name}', target.name));

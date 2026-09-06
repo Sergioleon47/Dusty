@@ -20,9 +20,10 @@ const MAX_ITEMS = 100;
 const MAX_PHOTO_B64 = 300000; // ~225KB reales por foto — los thumbnails de la app pesan mucho menos
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
 // Solo URLs de fotos que ya viven en el Storage de ESTE proyecto (recetas ya
-// subidas) — nunca una URL arbitraria escrita por el cliente, que convertiría el
-// catálogo en un rebotador de links ajenos.
-const OWN_STORAGE_URL = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/patron-inventory\.firebasestorage\.app\//;
+// subidas, o las ALTAS del catálogo que sube upload-catalog-photo) — nunca una
+// URL arbitraria escrita por el cliente, que convertiría el catálogo en un
+// rebotador de links ajenos.
+const OWN_STORAGE_URL = /^https:\/\/(firebasestorage\.googleapis\.com\/v0\/b\/patron-inventory\.firebasestorage\.app\/|storage\.googleapis\.com\/patron-inventory\.firebasestorage\.app\/)/;
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {

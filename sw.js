@@ -89,7 +89,10 @@
 // color de fondo elegido — app-03/05/07 + función nueva.
 // v35: la función de quitar fondo se renombra a remove-bg — Netlify trataba a
 // "remove-background" como función de segundo plano (202 vacío) — app-07.
-const CACHE_NAME = 'patron-shell-v35';
+// v36: SÚPER CALIDAD — al asignar una foto se sube en segundo plano la versión
+// de 1200px con edición y filtro (upload-catalog-photo → photoHiUrl) y el
+// catálogo público la prefiere sobre el thumbnail de 300px — app-05/07 + funciones.
+const CACHE_NAME = 'patron-shell-v36';
 
 const PRECACHE_URLS = [
   '/',

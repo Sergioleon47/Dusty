@@ -1751,9 +1751,11 @@ let catalogEditBakedZoom = 1;
 /* Hornea la foto a outSize px: giro → recorte cuadrado (zoom + encuadre) →
    auto-niveles → nitidez; brillo/contraste/saturación solo cuando
    withAdjust=true (el guardado final) — el preview los muestra por CSS. */
-async function bakeCatalogEdit(outSize, withAdjust){
-  const img = await loadB64Image(catalogEditFull);
-  const e = catalogEdit;
+async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
+  // fullSrc/editSrc opcionales: la subida en ALTA (uploadCatalogHiRes) hornea
+  // después de que el estado global ya se limpió, con sus copias capturadas.
+  const img = await loadB64Image(fullSrc || catalogEditFull);
+  const e = editSrc || catalogEdit;
   const rot = ((e.rot%360)+360)%360;
   const rw = (rot===90||rot===270) ? img.naturalHeight : img.naturalWidth;
   const rh = (rot===90||rot===270) ? img.naturalWidth : img.naturalHeight;
@@ -2025,6 +2027,29 @@ function catalogAssignModal(){
     </div>
   </div>`;
 }
+/* SÚPER CALIDAD (caso del usuario 2026-09-06: un restaurante necesita imágenes
+   de calidad en su catálogo): tras asignar, se hornea la MISMA edición+filtro a
+   1200px y se sube en segundo plano (upload-catalog-photo) — el ítem guarda solo
+   la URL (photoHiUrl) y publish-catalog la prefiere sobre el thumbnail de 300px.
+   Si falla, silencio: el catálogo usa la normal como siempre. */
+async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
+  try{
+    if(!fullSrc || !currentUser || currentUser.isAnonymous) return;
+    let hi = await bakeCatalogEdit(1200, true, fullSrc, editSrc);
+    if(filterKey && filterKey!=='original') hi = await applyCatalogFilter(hi, filterKey);
+    const res = await callDustyAI('/.netlify/functions/upload-catalog-photo', {
+      imageBase64: hi.base64, mediaType: 'image/jpeg',
+      itemId: (kind==='recipe' ? 'r-' : 'i-') + target.id
+    }, {notFoundKey:'err_function_not_found', genericKey:'err_img_process'});
+    if(res && res.url){
+      target.photoHiUrl = res.url;
+      saveState();
+    }
+  }catch(err){
+    console.warn('[Dusty] la foto en alta no se pudo subir (el catálogo usará la normal):', err.message || err);
+  }
+}
+
 /* El editor en sí: preview cuadrado arrastrable (encuadre), Auto y Girar como
    chips, y los deslizadores. Brillo/contraste/saturación tienen vista previa
    INSTANTÁNEA vía CSS filter mientras arrastrás (el horneado real corre al
@@ -2075,9 +2100,12 @@ async function publishCatalogNow(){
   const waEl = document.getElementById('catalog-wa-input');
   if(waEl) catalogWhatsApp = waEl.value.trim();
   const items = [];
-  const pushEntry = (id, name, price, unit, category, photo)=>{
+  // La versión en ALTA (photoHiUrl, 1200px ya editada) manda sobre el thumbnail
+  // de 300px — es la diferencia entre una ficha de catálogo nítida y una borrosa.
+  const pushEntry = (id, name, price, unit, category, photo, hiUrl)=>{
     const entry = {id, name, price: price>0 ? price : null, unit, category};
-    if(photo){
+    if(hiUrl) entry.photoUrl = hiUrl;
+    else if(photo){
       if(photo.url) entry.photoUrl = photo.url;
       else if(photo.base64){ entry.photoB64 = photo.base64; entry.photoMediaType = photo.mediaType||'image/jpeg'; }
     }
@@ -2085,10 +2113,10 @@ async function publishCatalogNow(){
   };
   inventory.filter(i=>i && i.inCatalog && !isExpenseItem(i)).forEach(i=>{
     const cat = categories.find(c=>c.id===i.categoryId);
-    pushEntry(i.id, i.name, Number(i.salePrice)||0, i.unit||null, cat?cat.name:null, i.photo);
+    pushEntry(i.id, i.name, Number(i.salePrice)||0, i.unit||null, cat?cat.name:null, i.photo, i.photoHiUrl);
   });
   recipes.filter(r=>r && r.inCatalog).forEach(r=>{
-    pushEntry(r.id, r.name, Number(r.salePrice)||0, null, null, r.photo);
+    pushEntry(r.id, r.name, Number(r.salePrice)||0, null, null, r.photo, r.photoHiUrl);
   });
   if(items.length===0){ showToast(t('catalog_none_selected'), 'error'); return; }
   catalogPublishing = true; render();
