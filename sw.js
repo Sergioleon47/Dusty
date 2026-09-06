@@ -105,7 +105,11 @@
 // v40: editor con controles de LUZ de verdad (Sombras/Luces/Temperatura, pesos
 // por luminancia) y panel profesional con pestañas Luz/Color/Encuadre/PRO y
 // valores en vivo — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v40';
+// v41: escenarios de foto — 6 fondos incorporados (/backdrops, no precacheados:
+// solo se usan en el editor) con SOMBRA automática bajo el producto, y
+// "Escenario IA" (FLUX Kontext vía stage-photo, 1 escaneo del cupo) con presets
+// y descripción libre — app-03/05/07 + función nueva + texturas.
+const CACHE_NAME = 'patron-shell-v41';
 
 const PRECACHE_URLS = [
   '/',

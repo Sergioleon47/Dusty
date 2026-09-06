@@ -7,6 +7,23 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 
 http.createServer((req, res) => {
   let p = req.url.split('?')[0];
+  // SOLO DEV: guarda una textura de escenario generada en el navegador
+  // (POST /__save-backdrop?name=wood con el base64 del jpg como body).
+  if (req.method === 'POST' && p === '/__save-backdrop') {
+    const name = String(new URLSearchParams(req.url.split('?')[1] || '').get('name') || '').replace(/[^a-z0-9_-]/gi, '');
+    if (!name) { res.writeHead(400); res.end('bad name'); return; }
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', () => {
+      try {
+        const dir = path.join(root, 'backdrops');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+        fs.writeFileSync(path.join(dir, name + '.jpg'), Buffer.from(body, 'base64'));
+        res.writeHead(200); res.end('ok');
+      } catch (e) { res.writeHead(500); res.end(String(e)); }
+    });
+    return;
+  }
   if (p === '/') p = '/index.html';
   // Emulación local de producción para el catálogo público:
   // - /c/<id> sirve catalogo.html (como el redirect de netlify.toml)

@@ -1723,6 +1723,9 @@ let catalogRemovingBg = false;
 // "Mejorar con IA" (súper-resolución Real-ESRGAN, la otra pata Pro): true
 // mientras la IA reconstruye la foto.
 let catalogEnhancing = false;
+// "Escenario IA" (FLUX Kontext): genera el ambiente alrededor del producto.
+let catalogStaging = false;
+let catalogStageOpen = false;
 /* Patrón iOS Fotos (pedido del usuario 2026-09-06, con captura de su Library):
    tocar una tarjeta ABRE la foto completa (visor a pantalla completa); marcar
    para el catálogo es un MODO aparte con el botón "Seleccionar" (→ "Listo"),
@@ -1743,14 +1746,55 @@ function catalogPhotoViewer(){
     <div style="position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 8px rgba(0,0,0,.85);pointer-events:none;">${escapeHtml(obj.name)}${obj.salePrice>0 ? ` · ${money(obj.salePrice)}` : ''}</div>
   </div>`;
 }
+// Escenarios incorporados (2026-09-06, idea "maniquíes y fondos"): texturas
+// generadas una vez y servidas como archivos del sitio (/backdrops/*.jpg).
+const CATALOG_BACKDROPS = ['studio','wood','marble','linen','concrete','dark'];
 async function composeCatalogCutout(){
   if(!catalogEditCutout) return;
   const img = await loadB64Image(catalogEditCutout);
+  const W = img.naturalWidth, H = img.naturalHeight;
   const cv = document.createElement('canvas');
-  cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+  cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = catalogEditBg;
-  ctx.fillRect(0, 0, cv.width, cv.height);
+  // Fondo: color plano o escenario ("bd:<id>") con ajuste cover.
+  if(String(catalogEditBg).indexOf('bd:')===0){
+    const bg = await new Promise((res, rej)=>{
+      const im = new Image();
+      im.onload = ()=>res(im);
+      im.onerror = ()=>rej(new Error(t('err_img_process')));
+      im.src = '/backdrops/' + catalogEditBg.slice(3) + '.jpg';
+    });
+    const s = Math.max(W/bg.width, H/bg.height);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bg, (W-bg.width*s)/2, (H-bg.height*s)/2, bg.width*s, bg.height*s);
+  } else {
+    ctx.fillStyle = catalogEditBg;
+    ctx.fillRect(0, 0, W, H);
+  }
+  // SOMBRA SUAVE automática bajo el producto — el truco que evita que "flote".
+  // El contorno sale del alfa del recorte escaneado a 80px (barato); la sombra
+  // es una elipse con degradado radial apoyada en la base del producto.
+  const sc = document.createElement('canvas'); sc.width = sc.height = 80;
+  const sx = sc.getContext('2d'); sx.drawImage(img, 0, 0, 80, 80);
+  const sd = sx.getImageData(0, 0, 80, 80).data;
+  let minX = 80, maxX = 0, maxY = 0;
+  for(let y=0; y<80; y++) for(let x2=0; x2<80; x2++){
+    if(sd[(y*80+x2)*4+3] > 40){ if(x2<minX) minX=x2; if(x2>maxX) maxX=x2; if(y>maxY) maxY=y; }
+  }
+  if(maxX > minX){
+    const cxP = ((minX+maxX)/2)/80*W, wP = (maxX-minX)/80*W;
+    const yP = Math.min(maxY/80*H + H*0.015, H*0.985);
+    const rx = wP*0.52, ry = Math.max(H*0.02, wP*0.09);
+    const g = ctx.createRadialGradient(cxP, yP, 0, cxP, yP, rx);
+    g.addColorStop(0, 'rgba(0,0,0,0.30)');
+    g.addColorStop(0.7, 'rgba(0,0,0,0.12)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save();
+    ctx.translate(cxP, yP); ctx.scale(1, ry/rx); ctx.translate(-cxP, -yP);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cxP, yP, rx, 0, 7); ctx.fill();
+    ctx.restore();
+  }
   ctx.drawImage(img, 0, 0);
   catalogEditFull = {base64: cv.toDataURL('image/jpeg', 0.9).split(',')[1], mediaType:'image/jpeg'};
 }
@@ -2172,11 +2216,30 @@ function catalogEditorModal(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
         <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')}</button>
         <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')}</button>
+        <button type="button" class="exit-reason-chip ${catalogStageOpen?'on':''}" id="btn-stage-photo" ${catalogStaging?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;">${catalogStaging ? t('catalog_stage_working') : '🏞️ '+t('catalog_stage_btn')}</button>
       </div>
       ${catalogEditCutout ? `
-      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+      ${/* Fondos: colores planos + ESCENARIOS incorporados (con sombra automática
+           en la composición) — el "estudio de fondos" gratis. */''}
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
         <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);">${t('catalog_rembg_bg')}</span>
-        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
+        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
+        ${CATALOG_BACKDROPS.map(id=>`<button type="button" data-edit-bg="bd:${id}" aria-label="${id}" title="${id}" style="width:28px;height:28px;border-radius:8px;background-image:url('/backdrops/${id}.jpg');background-size:cover;background-position:center;border:2px solid ${catalogEditBg==='bd:'+id?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;"></button>`).join('')}
+      </div>` : ''}
+      ${catalogStageOpen && !catalogStaging ? `
+      ${/* Escenario IA: un toque en un preset genera; o describilo a mano. */''}
+      <div style="margin-top:10px;background:var(--inset);border-radius:10px;padding:10px;">
+        <div style="font-size:11px;font-weight:800;color:var(--sky-ink);margin-bottom:8px;">🏞️ ${t('catalog_stage_hint')}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="exit-reason-chip" data-stage-preset="wood">🪵 ${t('catalog_stage_wood')}</button>
+          <button type="button" class="exit-reason-chip" data-stage-preset="kitchen">🍽️ ${t('catalog_stage_kitchen')}</button>
+          <button type="button" class="exit-reason-chip" data-stage-preset="studio">💡 ${t('catalog_stage_studio')}</button>
+          <button type="button" class="exit-reason-chip" data-stage-preset="shelf">🏪 ${t('catalog_stage_shelf')}</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input id="stage-custom-input" type="text" placeholder="${t('catalog_stage_custom_ph')}" style="flex:1;">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-stage-go">${t('catalog_stage_go')}</button>
+        </div>
       </div>` : ''}` : ''}
       ${catalogEditFullBackup ? `<button type="button" class="link-btn" id="btn-rembg-revert" style="margin-top:8px;padding:4px 0;">${t('catalog_rembg_revert')}</button>` : ''}
       <div class="modal-actions">

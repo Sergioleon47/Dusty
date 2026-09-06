@@ -594,7 +594,7 @@ function attachEvents(){
         catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
         catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
         catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
-        catalogEnhancing=false;
+        catalogEnhancing=false; catalogStaging=false; catalogStageOpen=false;
         render();
       };
       assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
@@ -746,6 +746,59 @@ function attachEvents(){
           render();
           showToast(err.message || t('catalog_enhance_error'), 'error');
         }
+      };
+      // ESCENARIO IA (FLUX Kontext): el botón abre los presets; tocar uno (o
+      // "Generar" con texto propio) manda la foto actual y la instrucción, y el
+      // resultado —producto ambientado con luz y sombras coherentes— pasa a ser
+      // la nueva base de edición.
+      const STAGE_PROMPTS={
+        wood:'Place this product on a rustic wooden table with soft natural morning light. Professional product photography, realistic shadows, shallow depth of field. Keep the product exactly as it is.',
+        kitchen:'Place this product on a bright modern kitchen counter with a marble surface and soft daylight. Professional product photography, realistic shadows. Keep the product exactly as it is.',
+        studio:'Place this product in a clean professional photo studio with a soft gradient background and a gentle reflection under it. Commercial product photography lighting. Keep the product exactly as it is.',
+        shelf:'Place this product on a neat, well-lit retail store shelf. Commercial product photography, realistic shadows. Keep the product exactly as it is.'
+      };
+      const runStage=async (prompt)=>{
+        if(catalogStaging || !catalogEditFull) return;
+        if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
+        catalogStaging=true; catalogStageOpen=false; render();
+        try{
+          const srcImg = await loadB64Image(catalogEditFull);
+          const small = resizeToBase64(srcImg, 1024, 0.9);
+          const opts={notFoundKey:'err_function_not_found', genericKey:'catalog_stage_error'};
+          const start=await callDustyAI('/.netlify/functions/stage-photo', {action:'start', imageBase64:small.base64, mediaType:'image/jpeg', prompt}, opts);
+          let result=null;
+          for(let i=0;i<55 && !result;i++){
+            await new Promise(r=>setTimeout(r,1600));
+            if(!catalogEditorOpen || !catalogEditFull){ catalogStaging=false; return; }
+            const st=await callDustyAI('/.netlify/functions/stage-photo', {action:'status', id:start.id}, opts);
+            if(st.status==='succeeded') result=st;
+            else if(st.status==='failed') throw new Error(st.error || t('catalog_stage_error'));
+          }
+          if(!result) throw new Error(t('catalog_stage_error'));
+          const staged = await loadB64Image({base64:result.imageBase64, mediaType:result.mediaType||'image/jpeg'});
+          if(!catalogEditFullBackup) catalogEditFullBackup=catalogEditFull;
+          catalogEditFull = resizeToBase64(staged, 1600, 0.9);
+          catalogEditCutout=null;
+          catalogStaging=false;
+          render();
+          refreshCatalogEditPreview();
+          showToast(t('catalog_stage_done'));
+        }catch(err){
+          catalogStaging=false;
+          render();
+          showToast(err.message || t('catalog_stage_error'), 'error');
+        }
+      };
+      const btnStage=document.getElementById('btn-stage-photo');
+      if(btnStage) btnStage.onclick=()=>{ catalogStageOpen=!catalogStageOpen; render(); };
+      document.querySelectorAll('[data-stage-preset]').forEach(pc=>{
+        pc.onclick=()=>runStage(STAGE_PROMPTS[pc.dataset.stagePreset]);
+      });
+      const btnStageGo=document.getElementById('btn-stage-go');
+      if(btnStageGo) btnStageGo.onclick=()=>{
+        const txt=(document.getElementById('stage-custom-input')?.value||'').trim();
+        if(!txt) return;
+        runStage('Place this product in this scene: '+txt+'. Professional product photography, realistic lighting and shadows. Keep the product exactly as it is.');
       };
       document.querySelectorAll('[data-edit-bg]').forEach(sw=>{
         sw.onclick=async ()=>{
