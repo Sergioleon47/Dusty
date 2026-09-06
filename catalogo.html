@@ -28,21 +28,39 @@
   .status{text-align:center;padding:60px 24px;color:var(--ink-soft);font-size:14px;}
   .cat-header{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
     color:var(--ink-soft);padding:18px 18px 8px;}
-  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:0 14px;}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 14px;}
   @media(min-width:640px){ .grid{grid-template-columns:repeat(3,1fr);max-width:760px;margin:0 auto;} }
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
-    display:flex;flex-direction:column;}
-  .card .ph{aspect-ratio:1/1;background:var(--accent-soft);display:flex;align-items:center;
-    justify-content:center;font-size:34px;overflow:hidden;}
-  .card .ph img{width:100%;height:100%;object-fit:cover;display:block;}
-  .card .info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;flex:1;}
-  .card .name{font-size:13.5px;font-weight:700;line-height:1.25;overflow-wrap:anywhere;flex:1;}
-  .card .price{font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
-  .card .price small{font-size:11px;font-weight:600;color:var(--ink-soft);}
-  .card .ask{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  /* Solo la FOTO, semi-cuadrada (esquinas redondeadas) — la descripción vive en
+     la ficha que se abre al tocar. Sin foto, el nombre centrado hace de imagen
+     (si no, el producto sería un cuadrado mudo imposible de identificar). */
+  .card{aspect-ratio:1/1;background:var(--accent-soft);border:1px solid var(--line);
+    border-radius:18px;overflow:hidden;cursor:pointer;position:relative;padding:0;}
+  .card img{width:100%;height:100%;object-fit:cover;display:block;}
+  .card .noph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    padding:12px;font-size:14px;font-weight:800;text-align:center;color:var(--ink);
+    overflow-wrap:anywhere;}
+  .card:active{transform:scale(.97);}
+  /* Ficha del producto: hoja desde abajo con foto grande, nombre, precio y Pedir. */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;
+    justify-content:center;z-index:10;}
+  .sheet{background:var(--panel);width:100%;max-width:480px;border-radius:20px 20px 0 0;
+    overflow:hidden;animation:up .22s ease-out;}
+  @keyframes up{from{transform:translateY(40px);opacity:.4;}to{transform:none;opacity:1;}}
+  .sheet .big{width:100%;aspect-ratio:1/1;max-height:55vh;object-fit:cover;display:block;
+    background:var(--accent-soft);}
+  .sheet .bignoph{width:100%;height:160px;display:flex;align-items:center;justify-content:center;
+    background:var(--accent-soft);font-size:44px;}
+  .sheet .body{padding:16px 18px calc(18px + env(safe-area-inset-bottom));}
+  .sheet .name{font-size:17px;font-weight:800;overflow-wrap:anywhere;}
+  .sheet .price{font-size:19px;font-weight:800;color:var(--accent);margin-top:4px;
+    font-variant-numeric:tabular-nums;}
+  .sheet .price small{font-size:12px;font-weight:600;color:var(--ink-soft);}
+  .sheet .ask{font-size:13.5px;font-weight:700;color:var(--ink-soft);margin-top:4px;}
+  .sheet .close{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;
+    border:none;background:rgba(0,0,0,.45);color:#fff;font-size:16px;cursor:pointer;z-index:11;}
   .wa-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--wa);
-    color:#fff;border:none;border-radius:10px;padding:9px 8px;font-size:12.5px;font-weight:800;
-    cursor:pointer;text-decoration:none;}
+    color:#fff;border:none;border-radius:12px;padding:12px 10px;font-size:14px;font-weight:800;
+    cursor:pointer;text-decoration:none;margin-top:14px;}
   footer{text-align:center;padding:34px 16px 10px;font-size:11.5px;color:var(--ink-soft);}
   footer a{color:var(--ink-soft);}
 </style>
@@ -100,6 +118,54 @@
 
     var content = document.getElementById('content');
     var waDigits = (cat.whatsapp||'').replace(/\D/g,'');
+    var okPhoto = function(u){ return u && /^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//.test(u); };
+
+    // Ficha del producto (nombre, precio, Pedir) — se abre al tocar la foto y se
+    // cierra tocando afuera o la ✕. Todo con textContent: los nombres los
+    // escriben los negocios, nunca van como HTML.
+    function openDetail(it){
+      var ov = document.createElement('div'); ov.className='ov';
+      var sheet = document.createElement('div'); sheet.className='sheet'; sheet.style.position='relative';
+      var close = document.createElement('button'); close.className='close'; close.textContent='✕';
+      close.setAttribute('aria-label','✕');
+      sheet.appendChild(close);
+      if(okPhoto(it.photoUrl)){
+        var big = document.createElement('img'); big.className='big'; big.alt=it.name||''; big.src=it.photoUrl;
+        big.onerror=function(){ var f=document.createElement('div'); f.className='bignoph'; f.textContent='🛍️'; big.replaceWith(f); };
+        sheet.appendChild(big);
+      } else {
+        var f0=document.createElement('div'); f0.className='bignoph'; f0.textContent='🛍️';
+        sheet.appendChild(f0);
+      }
+      var body = document.createElement('div'); body.className='body';
+      var name = document.createElement('div'); name.className='name'; name.textContent = it.name||'';
+      body.appendChild(name);
+      if(typeof it.price==='number' && it.price>0){
+        var price = document.createElement('div'); price.className='price';
+        price.textContent = '$' + it.price.toFixed(2);
+        if(it.unit && it.unit!=='unidad'){
+          var u = document.createElement('small'); u.textContent = ' / ' + it.unit;
+          price.appendChild(u);
+        }
+        body.appendChild(price);
+      } else {
+        var ask = document.createElement('div'); ask.className='ask'; ask.textContent = T.consult;
+        body.appendChild(ask);
+      }
+      if(waDigits){
+        var a = document.createElement('a'); a.className='wa-btn'; a.target='_blank'; a.rel='noopener';
+        a.textContent = '💬 ' + T.order;
+        a.href = 'https://wa.me/' + waDigits + '?text=' + encodeURIComponent(T.msg + (it.name||''));
+        body.appendChild(a);
+      }
+      sheet.appendChild(body);
+      ov.appendChild(sheet);
+      var closeIt = function(){ ov.remove(); };
+      close.onclick = closeIt;
+      ov.onclick = function(e){ if(e.target===ov) closeIt(); };
+      document.body.appendChild(ov);
+    }
+
     order.forEach(function(g){
       if(g && order.length>1){
         var h = document.createElement('div'); h.className='cat-header'; h.textContent=g;
@@ -107,37 +173,19 @@
       }
       var grid = document.createElement('div'); grid.className='grid';
       groups[g].forEach(function(it){
-        var card = document.createElement('div'); card.className='card';
-        var ph = document.createElement('div'); ph.className='ph';
-        if(it.photoUrl && /^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//.test(it.photoUrl)){
+        // Solo la foto, semi-cuadrada; sin foto, el nombre centrado hace de imagen.
+        var card = document.createElement('button'); card.className='card'; card.type='button';
+        card.setAttribute('aria-label', it.name||'');
+        if(okPhoto(it.photoUrl)){
           var img = document.createElement('img'); img.loading='lazy'; img.alt=it.name||'';
           img.src = it.photoUrl;
-          img.onerror = function(){ ph.textContent='🛍️'; img.remove(); };
-          ph.appendChild(img);
-        } else { ph.textContent = '🛍️'; }
-        card.appendChild(ph);
-        var info = document.createElement('div'); info.className='info';
-        var name = document.createElement('div'); name.className='name'; name.textContent = it.name||'';
-        info.appendChild(name);
-        if(typeof it.price==='number' && it.price>0){
-          var price = document.createElement('div'); price.className='price';
-          price.textContent = '$' + it.price.toFixed(2);
-          if(it.unit && it.unit!=='unidad'){
-            var u = document.createElement('small'); u.textContent = ' / ' + it.unit;
-            price.appendChild(u);
-          }
-          info.appendChild(price);
+          img.onerror = function(){ var n=document.createElement('div'); n.className='noph'; n.textContent=it.name||'🛍️'; img.replaceWith(n); };
+          card.appendChild(img);
         } else {
-          var ask = document.createElement('div'); ask.className='ask'; ask.textContent = T.consult;
-          info.appendChild(ask);
+          var n = document.createElement('div'); n.className='noph'; n.textContent = it.name||'🛍️';
+          card.appendChild(n);
         }
-        if(waDigits){
-          var a = document.createElement('a'); a.className='wa-btn'; a.target='_blank'; a.rel='noopener';
-          a.textContent = '💬 ' + T.order;
-          a.href = 'https://wa.me/' + waDigits + '?text=' + encodeURIComponent(T.msg + (it.name||''));
-          info.appendChild(a);
-        }
-        card.appendChild(info);
+        card.onclick = function(){ openDetail(it); };
         grid.appendChild(card);
       });
       content.appendChild(grid);
