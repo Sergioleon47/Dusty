@@ -1678,7 +1678,54 @@ let catalogPublishing = false;
 // modalcito pregunta "¿de qué producto es?" — tocás el producto y queda. Nada
 // de modos ni de tocar primero el producto.
 let catalogPendingPhoto = null;
+// El ORIGINAL de la foto recién sacada/subida + el filtro elegido: los filtros
+// se recalculan siempre desde el original (aplicar Vívido sobre B/N arruinaría
+// la foto), y catalogPendingPhoto guarda la versión ya filtrada que se asigna.
+let catalogPendingOriginal = null;
+let catalogPendingFilter = 'original';
 function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
+/* Los 4 filtros de edición más usados (pedido del usuario 2026-09-06), a puro
+   píxel (getImageData) a propósito: ctx.filter no existe en Safari viejo y los
+   thumbnails de 300px hacen esto instantáneo en cualquier teléfono.
+   - vivid: saturación + contraste (el "pop" de producto de Instagram)
+   - warm:  temperatura cálida (dorado de comida/atardecer)
+   - retro: sepia parcial + negros lavados (look de película)
+   - bw:    blanco y negro con un toque de contraste */
+async function applyCatalogFilter(orig, key){
+  if(!orig) return null;
+  if(key==='original') return {base64: orig.base64, mediaType: orig.mediaType};
+  const img = await new Promise((res, rej)=>{
+    const im = new Image();
+    im.onload = ()=>res(im);
+    im.onerror = ()=>rej(new Error(t('err_img_process')));
+    im.src = 'data:'+(orig.mediaType||'image/jpeg')+';base64,'+orig.base64;
+  });
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, cv.width, cv.height), p = d.data;
+  const clamp = v => v<0 ? 0 : v>255 ? 255 : v;
+  for(let i=0;i<p.length;i+=4){
+    let r=p[i], g=p[i+1], b=p[i+2];
+    const lum = 0.299*r + 0.587*g + 0.114*b;
+    if(key==='vivid'){
+      r = lum+(r-lum)*1.4; g = lum+(g-lum)*1.4; b = lum+(b-lum)*1.4;
+      r = (r-128)*1.12+128; g = (g-128)*1.12+128; b = (b-128)*1.12+128;
+    } else if(key==='warm'){
+      r = r*1.08+10; g = g*1.03+4; b = b*0.92;
+    } else if(key==='retro'){
+      const sr = r*0.393+g*0.769+b*0.189, sg = r*0.349+g*0.686+b*0.168, sb = r*0.272+g*0.534+b*0.131;
+      r = r*0.45+sr*0.55; g = g*0.45+sg*0.55; b = b*0.45+sb*0.55;
+      r = r*0.9+22; g = g*0.9+22; b = b*0.9+22;
+    } else if(key==='bw'){
+      const v = (lum-128)*1.08+128; r = v; g = v; b = v;
+    }
+    p[i]=clamp(r); p[i+1]=clamp(g); p[i+2]=clamp(b);
+  }
+  ctx.putImageData(d, 0, 0);
+  return {base64: cv.toDataURL('image/jpeg', 0.8).split(',')[1], mediaType: 'image/jpeg'};
+}
 function catalogPhotoThumbSrc(photo){
   if(!photo) return null;
   if(photo.base64) return cachedPhotoUrl(photo.base64, photo.mediaType);
@@ -1728,6 +1775,11 @@ function catalogoView(){
          el propio .shelf-fab-row): deja ESTA cámara en el mismo punto exacto de
          pantalla que la del Inventario al deslizar entre pestañas. */''}
     <div class="shelf-fab-row" style="width:100%;margin-top:93px;">
+      ${/* Subir de la galería (pedido del usuario): botón secundario junto a la
+           cámara — mismo destino (el modal de asignar), sin capture. */''}
+      <button type="button" id="btn-catalog-gallery" aria-label="${t('catalog_gallery_aria')}" title="${t('catalog_gallery_aria')}" style="width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--raised);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-right:14px;align-self:center;flex-shrink:0;">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/></svg>
+      </button>
       <div class="shelf-fab-wrap">
         <button type="button" class="shelf-scan-fab" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" title="${t('catalog_photo_fab_aria')}">
           ${lineIcon('camera',32)}
@@ -1776,6 +1828,11 @@ function catalogAssignModal(){
     <div class="modal">
       <h3 class="sky">${t('catalog_assign_title')}</h3>
       ${src ? `<img src="${escapeHtml(src)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:block;">` : ''}
+      ${/* Filtros (los 4 más usados + original): recalculan desde el original y
+           la vista previa de arriba muestra el resultado al instante. */''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+        ${['original','vivid','warm','retro','bw'].map(k=>`<button type="button" class="exit-reason-chip ${catalogPendingFilter===k?'on':''}" data-photo-filter="${k}">${t('catalog_filter_'+k)}</button>`).join('')}
+      </div>
       <div style="max-height:40vh;overflow-y:auto;margin-top:10px;">
         ${inventory.filter(i=>i && !isExpenseItem(i)).map(i=>row('item', i)).join('')}
         ${recipes.filter(r=>r && r.id).map(r=>row('recipe', r)).join('')}

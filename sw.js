@@ -69,7 +69,10 @@
 // v28: cámara-primero en el Catálogo — el FAB dispara la cámara AL TOQUE, y con
 // la foto sacada un modal pregunta de qué producto es (adiós modo fotos) —
 // app-03/04/05/07.
-const CACHE_NAME = 'patron-shell-v28';
+// v29: fotos del Catálogo con subida desde galería (botón junto a la cámara) y
+// 4 filtros (Vívido/Cálido/Retro/B&N, a puro píxel) en el modal de asignar —
+// app-03/05/07.
+const CACHE_NAME = 'patron-shell-v29';
 
 const PRECACHE_URLS = [
   '/',

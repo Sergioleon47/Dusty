@@ -483,15 +483,14 @@ function attachEvents(){
     // repinta el ✓ y el atenuado). Sello de edición en recetas: el merge por
     // lastEditedAt (app-02) necesita saber que esta copia es la más nueva, o un
     // snapshot viejo desmarcaría.
-    // FAB de cámara: dispara LA CÁMARA al toque (capture) — la foto sacada queda
-    // como borrador (catalogPendingPhoto) y el modal de asignar pregunta de qué
-    // producto es. input.click() corre DENTRO del gesto del usuario, obligatorio
-    // para que iOS lo acepte.
-    const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
-    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>{
+    // FAB de cámara (capture: dispara la cámara del teléfono al toque) y botón
+    // de galería (sin capture: abre la fototeca) — los dos desembocan en el
+    // mismo modal de asignar. input.click() corre DENTRO del gesto del usuario,
+    // obligatorio para que iOS lo acepte.
+    const openCatalogPhotoPicker=(useCamera)=>{
       const input=document.createElement('input');
       input.type='file'; input.accept='image/*';
-      input.setAttribute('capture','environment');
+      if(useCamera) input.setAttribute('capture','environment');
       input.style.display='none';
       document.body.appendChild(input);
       input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
@@ -501,12 +500,18 @@ function attachEvents(){
         if(!file || !/^image\//.test(file.type)) return;
         try{
           const img=await loadImageFromFile(file);
-          catalogPendingPhoto = resizeToBase64(img, 300, 0.75);
+          catalogPendingOriginal = resizeToBase64(img, 300, 0.75);
+          catalogPendingPhoto = catalogPendingOriginal;
+          catalogPendingFilter = 'original';
           render();
         }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
       };
       input.click();
     };
+    const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
+    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>openCatalogPhotoPicker(true);
+    const btnCatalogGallery=document.getElementById('btn-catalog-gallery');
+    if(btnCatalogGallery) btnCatalogGallery.onclick=()=>openCatalogPhotoPicker(false);
     document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
       el.onclick=()=>{
         const s=el.dataset.catToggle, sep=s.indexOf(':');
@@ -535,13 +540,29 @@ function attachEvents(){
       if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
       else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
     };
-    // Modal "¿de qué producto es esta foto?" (tras sacarla con la cámara del FAB)
+    // Modal "¿de qué producto es esta foto?" (tras sacarla o subirla)
     const assignOverlay=document.getElementById('catalog-assign-overlay');
     if(assignOverlay){
-      const dropPending=()=>{ catalogPendingPhoto=null; render(); };
+      const dropPending=()=>{ catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original'; render(); };
       assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
       const btnCancelAssign=document.getElementById('btn-cancel-assign-photo');
       if(btnCancelAssign) btnCancelAssign.onclick=dropPending;
+      // Chips de filtro: cada uno recalcula desde el ORIGINAL (nunca filtro
+      // sobre filtro) y la vista previa se actualiza con el render.
+      document.querySelectorAll('[data-photo-filter]').forEach(chip=>{
+        chip.onclick=async ()=>{
+          const key=chip.dataset.photoFilter;
+          if(key===catalogPendingFilter || !catalogPendingOriginal) return;
+          try{
+            const filtered = await applyCatalogFilter(catalogPendingOriginal, key);
+            // Si mientras filtraba se cerró el modal (cancelar), no revivirlo.
+            if(!catalogPendingOriginal) return;
+            catalogPendingFilter = key;
+            catalogPendingPhoto = filtered;
+            render();
+          }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
+        };
+      });
       document.querySelectorAll('[data-assign-photo]').forEach(el=>{
         el.onclick=()=>{
           const s=el.dataset.assignPhoto, sep=s.indexOf(':');
@@ -550,7 +571,7 @@ function attachEvents(){
           if(!target || !catalogPendingPhoto) return;
           target.photo = catalogPendingPhoto;
           if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
-          catalogPendingPhoto=null;
+          catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original';
           saveState();
           // La foto de una receta viaja por Storage (meta solo lleva la referencia).
           if(kind==='recipe') uploadRecipePhoto(target);
