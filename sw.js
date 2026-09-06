@@ -53,7 +53,9 @@
 // v21: el Catálogo pasa de modal a 4.ª PESTAÑA del carrusel (TAB_ORDER, track al
 // 400%, nav de abajo con ícono de vitrina) — app-01/03/04/05/07 + dusty.css:
 // mezclar CSS viejo (300%) con las 4 páginas nuevas rompería el swipe entero.
-const CACHE_NAME = 'patron-shell-v21';
+// v22: la pestaña Catálogo agrupa los productos por categoría como el
+// Inventario (groupRowsByCategory) — app-03/05.
+const CACHE_NAME = 'patron-shell-v22';
 
 const PRECACHE_URLS = [
   '/',

@@ -1715,8 +1715,14 @@ function catalogoView(){
   ${sellables.length===0 && sellableRecipes.length===0
     ? `<div class="helper-note" style="margin-top:8px;">${t('catalog_no_sellables')}</div>`
     : `
-    ${sellables.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_products_header')} <span>${sellables.length}</span></div>` : ''}
-    ${sellables.map(i=>row('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), i.salePrice, !!i.inCatalog)).join('')}
+    ${/* Misma organización que el Inventario (pedido del usuario 2026-09-06):
+         los productos agrupados por SU categoría con groupRowsByCategory — mismo
+         orden de categorías, "Sin categoría" al final, encabezado con conteo. La
+         página pública ya agrupaba así; ahora la selección se ve igual. */''}
+    ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
+      <div class="category-group-header" style="margin-top:8px;">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
+      ${g.rows.map(r=>row('item', r.ing.id, r.ing.name, catalogPhotoThumbSrc(r.ing.photo), r.ing.salePrice, !!r.ing.inCatalog)).join('')}
+    `).join('')}
     ${sellableRecipes.length>0 ? `<div class="category-group-header" style="margin-top:8px;">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>` : ''}
     ${sellableRecipes.map(r=>row('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), r.salePrice, !!r.inCatalog)).join('')}`}
   <div style="margin:18px 0 30px;">
