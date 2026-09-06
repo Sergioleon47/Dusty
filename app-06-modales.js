@@ -1360,6 +1360,18 @@ function itemModal(){
         ${isExp ? `
         <div class="field"><label for="fi-cost">${t('lbl_bill_amount')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
+        ${/* Solo al CREAR: registrar de una el pago de este mes como recibo
+             manual — sin esto, el ítem era puro catálogo y la barra del
+             presupuesto no se movía ("no lo veo", usuario 2026-09-05). Marcado
+             por defecto; desmarcalo si vas a escanear la boleta después (para
+             no contar el mes dos veces). */''}
+        ${!editingItem ? `
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:4px;">
+          <input type="checkbox" id="fi-register-payment" checked style="width:18px;height:18px;accent-color:var(--basil);flex-shrink:0;">
+          <span style="font-size:13px;font-weight:600;color:var(--ink);">${t('expense_register_payment')}</span>
+        </label>
+        <div class="helper-note" style="margin:0 0 8px;">${t('expense_register_payment_hint')}</div>
+        ` : ''}
         ` : ''}
         ${isExp ? `
         ${/* Categorías de GASTO: lista TOTALMENTE separada de la del inventario

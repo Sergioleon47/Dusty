@@ -1239,6 +1239,20 @@ function attachEvents(){
       const wasEditing = editingItem && idx!==-1;
       if(idx!==-1) inventory[idx]=item;
       else inventory.push(item);
+      // Bill nuevo con "registrar el pago de este mes" marcado: se crea el
+      // recibo manual de gasto AHORA — es lo que mueve la barra del presupuesto
+      // y el gasto del mes (el ítem solo es el catálogo). Mismo shape que el
+      // gasto manual de siempre: aparece en Recibos y se borra como cualquiera.
+      const regPay = document.getElementById('fi-register-payment');
+      if(regPay && regPay.checked && isExpenseItem(item) && item.costPerUnit>0){
+        receipts.push({
+          id: uid('r'), images: [], supplier: item.name, date: localDateStr(),
+          total: Math.round(item.costPerUnit*100)/100, itemCount: 0, appliedItems: [],
+          createdAt: new Date().toISOString(), purchaseIds: [], manual: true,
+          manualKind: 'expense'
+        });
+        showToast(t('expense_payment_logged').replace('{name}', item.name));
+      }
       saveState();
       logActivity(wasEditing ? 'item_edited' : 'item_created', name);
       closeItemModal();
