@@ -2039,8 +2039,24 @@ function catalogAssignModal(){
 async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
   try{
     if(!fullSrc || !currentUser || currentUser.isAnonymous) return;
-    let hi = await bakeCatalogEdit(1440, true, fullSrc, editSrc);
+    // Si el usuario NO tocó el encuadre ni los ajustes, la alta conserva la
+    // FORMA ORIGINAL de la foto (el horneado siempre recorta al cuadrado — eso
+    // perdía la imagen completa; pedido del usuario 2026-09-06 de poder verla
+    // entera). El cuadrado queda solo cuando el encuadre fue una decisión.
+    const e = editSrc || {};
+    const untouched = !e.auto && !e.bright && !e.contrast && !e.sat && !e.sharp
+      && (e.zoom||1)===1 && ((e.rot||0)%360)===0
+      && Math.abs((e.offX!==undefined?e.offX:0.5)-0.5)<0.001
+      && Math.abs((e.offY!==undefined?e.offY:0.5)-0.5)<0.001;
+    let hi;
+    if(untouched){
+      const im = await loadB64Image(fullSrc);
+      hi = resizeToBase64(im, 1440, 0.85);
+    } else {
+      hi = await bakeCatalogEdit(1440, true, fullSrc, editSrc);
+    }
     if(filterKey && filterKey!=='original') hi = await applyCatalogFilter(hi, filterKey);
+
     const res = await callDustyAI('/.netlify/functions/upload-catalog-photo', {
       imageBase64: hi.base64, mediaType: 'image/jpeg',
       itemId: (kind==='recipe' ? 'r-' : 'i-') + target.id

@@ -96,7 +96,10 @@
 // 'high' (mata el aliasing en TODAS las fotos), base del catálogo a 1600px/alta
 // a 1440px, y "Mejorar IA" (súper-resolución Real-ESRGAN, 2.º botón Pro) —
 // app-03/05/06/07 + función enhance-photo.
-const CACHE_NAME = 'patron-shell-v37';
+// v38: ver la imagen COMPLETA — la ficha del catálogo muestra la foto entera
+// (contain) y tocarla abre pantalla completa; la alta conserva la forma
+// original cuando no se encuadró a propósito — app-05 + catalogo.html.
+const CACHE_NAME = 'patron-shell-v38';
 
 const PRECACHE_URLS = [
   '/',

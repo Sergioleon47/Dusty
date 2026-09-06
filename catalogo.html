@@ -46,8 +46,13 @@
   .sheet{background:var(--panel);width:100%;max-width:480px;border-radius:20px 20px 0 0;
     overflow:hidden;animation:up .22s ease-out;}
   @keyframes up{from{transform:translateY(40px);opacity:.4;}to{transform:none;opacity:1;}}
-  .sheet .big{width:100%;aspect-ratio:1/1;max-height:55vh;object-fit:cover;display:block;
-    background:var(--accent-soft);}
+  /* La ficha muestra la imagen COMPLETA (contain, sin recortar) — pedido del
+     usuario 2026-09-06; tocarla la abre a pantalla completa. */
+  .sheet .big{width:100%;max-height:58vh;object-fit:contain;display:block;
+    background:var(--accent-soft);cursor:zoom-in;}
+  .fsview{position:fixed;inset:0;background:rgba(0,0,0,.93);display:flex;align-items:center;
+    justify-content:center;z-index:30;cursor:zoom-out;}
+  .fsview img{max-width:100vw;max-height:100vh;object-fit:contain;}
   .sheet .bignoph{width:100%;height:160px;display:flex;align-items:center;justify-content:center;
     background:var(--accent-soft);font-size:44px;}
   .sheet .body{padding:16px 18px calc(18px + env(safe-area-inset-bottom));}
@@ -160,6 +165,14 @@
       if(okPhoto(it.photoUrl)){
         var big = document.createElement('img'); big.className='big'; big.alt=it.name||''; big.src=it.photoUrl;
         big.onerror=function(){ var f=document.createElement('div'); f.className='bignoph'; f.textContent='🛍️'; big.replaceWith(f); };
+        // Pantalla completa al tocar la foto — se cierra tocando en cualquier lado.
+        big.onclick=function(){
+          var fs=document.createElement('div'); fs.className='fsview';
+          var fi=document.createElement('img'); fi.src=it.photoUrl; fi.alt=it.name||'';
+          fs.appendChild(fi);
+          fs.onclick=function(){ fs.remove(); };
+          document.body.appendChild(fs);
+        };
         sheet.appendChild(big);
       } else {
         var f0=document.createElement('div'); f0.className='bignoph'; f0.textContent='🛍️';
