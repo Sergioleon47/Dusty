@@ -1578,32 +1578,48 @@ function budgetModal(){
            luz, Eat out y demás salieron del inventario (no son mercadería) y
            viven acá, junto al presupuesto que consumen — agrupados por su
            categoría, con su último monto, y tocables (abren la ficha de
-           siempre para renombrar/corregir/borrar). */
+           siempre para renombrar/corregir/borrar).
+           SIEMPRE visible: sin gastos todavía, muestra filas de EJEMPLO
+           (visuales, no datos — nada que sincronizar ni que borrar después)
+           para que se vea cómo queda, más el botón de agregar el primero. */
         const exp = inventory.filter(isExpenseItem);
-        if(exp.length===0) return '';
-        const groups = {};
-        exp.forEach(i=>{
-          const cat = categories.find(c=>c.id===i.categoryId);
-          const name = cat ? cat.name : t('budget_exp_uncat');
-          (groups[name] = groups[name] || []).push(i);
-        });
         const spent = spendSplitForMonth(localMonthStr()).expense;
+        const row = (id,name,amount,muted)=>`
+          <div ${id?`data-open-item="${id}" role="button" tabindex="0"`:''} style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);${id?'cursor:pointer;':'opacity:.55;'}">
+            <span style="font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;">${escapeHtml(name)}${muted?` <span style="font-size:10px;font-weight:700;color:var(--ink-soft);background:var(--inset);border-radius:6px;padding:1px 6px;">${t('budget_exp_example_tag')}</span>`:''}</span>
+            <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+              <strong style="font-size:13px;font-variant-numeric:tabular-nums;">${amount}</strong>
+              ${id?`<span style="color:var(--ink-soft);font-size:12px;">›</span>`:''}
+            </span>
+          </div>`;
+        let body='';
+        if(exp.length>0){
+          const groups = {};
+          exp.forEach(i=>{
+            const cat = categories.find(c=>c.id===i.categoryId);
+            const name = cat ? cat.name : t('budget_exp_uncat');
+            (groups[name] = groups[name] || []).push(i);
+          });
+          body = Object.keys(groups).sort().map(g=>`
+            <div class="category-group-header" style="margin-top:8px;">${escapeHtml(g)} <span>${groups[g].length}</span></div>
+            ${groups[g].map(i=>row(i.id, i.name, money(i.costPerUnit||0))).join('')}
+          `).join('') + `<div class="helper-note" style="margin:10px 0 0;">${t('budget_exp_note')}</div>`;
+        } else {
+          body = `
+            <div class="category-group-header" style="margin-top:8px;">${escapeHtml(t('budget_exp_uncat'))}</div>
+            ${row(null, uiLang==='en'?'Electricity':'Luz', money(85), true)}
+            ${row(null, uiLang==='en'?'Water':'Agua', money(30), true)}
+            ${row(null, 'Internet', money(45), true)}
+            <div class="category-group-header" style="margin-top:8px;">Eat out</div>
+            ${row(null, uiLang==='en'?'Coffee':'Café', money(6), true)}
+            <div class="helper-note" style="margin:10px 0 0;">${t('budget_exp_empty_note')}</div>`;
+        }
         return `
       <div class="settings-card" style="margin-top:14px;">
         ${settingsCardHeader('chart','var(--saffron-soft)','var(--saffron-ink)',t('budget_exp_title'))}
         ${spent>0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('budget_spent_line').replace('{amount}', money(spent))}</div>` : ''}
-        ${Object.keys(groups).sort().map(g=>`
-          <div class="category-group-header" style="margin-top:8px;">${escapeHtml(g)} <span>${groups[g].length}</span></div>
-          ${groups[g].map(i=>`
-          <div data-open-item="${i.id}" role="button" tabindex="0" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
-            <span style="font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;">${escapeHtml(i.name)}</span>
-            <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-              <strong style="font-size:13px;font-variant-numeric:tabular-nums;">${money(i.costPerUnit||0)}</strong>
-              <span style="color:var(--ink-soft);font-size:12px;">›</span>
-            </span>
-          </div>`).join('')}
-        `).join('')}
-        <div class="helper-note" style="margin:10px 0 0;">${t('budget_exp_note')}</div>
+        ${body}
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-expense-item" style="width:100%;margin-top:10px;">${t('budget_exp_add_btn')}</button>
       </div>`;
       })()}
       <div class="modal-actions">

@@ -426,6 +426,14 @@ function attachEvents(){
       saveState();
       closeBudgetModal();
     };
+    // Agregar gasto/servicio a mano: la ficha de siempre, prellenada con unidad
+    // "servicio" — con esa unidad el ítem queda clasificado como gasto solo
+    // (isExpenseItem) y vive acá, nunca en el inventario.
+    const btnAddExpense=document.getElementById('btn-add-expense-item');
+    if(btnAddExpense) btnAddExpense.onclick=()=>{
+      openItemModal(null);
+      if(draftItem){ draftItem.unit='servicio'; render(); }
+    };
   }
 
   const alertSettingsOverlay=document.getElementById('alert-settings-overlay');
