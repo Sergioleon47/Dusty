@@ -62,7 +62,9 @@
 // productos/recetas al toque — app-03/05/07.
 // v25: la cámara del Catálogo (modo fotos) pasa al MISMO punto de pantalla que
 // el escáner de estante del Inventario — FAB de 76px con badge ✎ — app-05.
-const CACHE_NAME = 'patron-shell-v25';
+// v26: las tarjetas de la pestaña Catálogo son SOLO la foto semi-cuadrada (sin
+// nombre ni precio, como la página pública) — app-03/05.
+const CACHE_NAME = 'patron-shell-v26';
 
 const PRECACHE_URLS = [
   '/',

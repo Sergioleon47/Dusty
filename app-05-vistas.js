@@ -1689,27 +1689,23 @@ function catalogoView(){
   // .inv-grid con el mismo selector fila/2col/3col — pedido del usuario
   // 2026-09-06): tocarla marca/desmarca el producto para el catálogo. La
   // seleccionada va a pleno color con su ✓ verde; la no seleccionada, apagada.
-  // En modo fotos todas las tarjetas van a pleno color con el badge de cámara —
-  // la selección no cambia hasta salir del modo.
-  const tile = (kind, id, name, photoHtml, price, checked)=>`
-    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;${catalogPhotoMode?'':(checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.62;')}">
+  // Tarjeta = SOLO la foto, semi-cuadrada (pedido del usuario 2026-09-06: sin
+  // círculos y sin descripción — igual que la página pública). El nombre y el
+  // precio no se muestran; el title/aria los conserva. Sin foto, el nombre
+  // centrado hace de imagen (si no, el cuadrado sería mudo). La selección se
+  // sigue leyendo por el ✓ verde y el atenuado; en modo fotos, badge de cámara
+  // y todas a pleno color.
+  const tile = (kind, id, name, photoSrc, checked)=>`
+    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${catalogPhotoMode?'':(checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':'opacity:.55;')}">
       ${catalogPhotoMode
-        ? `<span style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none;">${lineIcon('camera',12)}</span>`
-        : (checked?`<span style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:'')}
-      <div class="inv-tile-top">
-        <div class="stock-icon-ring" style="width:48px;height:48px;flex-shrink:0;">${photoHtml}</div>
-        <div class="inv-tile-name">${escapeHtml(invShortName(name))}</div>
-      </div>
-      <div class="inv-row-meta">${price>0?money(price):`<span style="color:var(--saffron-ink);font-weight:700;">${t('catalog_no_price_tag')}</span>`}</div>
+        ? `<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none;">${lineIcon('camera',12)}</span>`
+        : (checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:'')}
+      ${photoSrc
+        ? `<img src="${escapeHtml(photoSrc)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-weight:800;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;background:var(--inset);">${escapeHtml(invShortName(name))}</div>`}
     </div>`;
-  // Los productos usan el MISMO ícono/foto que sus tarjetas del inventario;
-  // las recetas arman el suyo con su foto (o la etiqueta genérica).
-  const itemTile = (i)=> tile('item', i.id, i.name, stockIconSvg(i), i.salePrice, !!i.inCatalog);
-  const recipeTile = (r)=>{
-    const src = catalogPhotoThumbSrc(r.photo);
-    const ph = src ? `<img src="${escapeHtml(src)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">` : lineIcon('tag',16);
-    return tile('recipe', r.id, r.name, ph, r.salePrice, !!r.inCatalog);
-  };
+  const itemTile = (i)=> tile('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), !!i.inCatalog);
+  const recipeTile = (r)=> tile('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), !!r.inCatalog);
   const url = catalogUrl();
   return `
   ${/* SIN encabezado ni tarjeta de link arriba (el usuario lo tachó de raíz,
