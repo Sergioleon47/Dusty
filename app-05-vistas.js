@@ -1456,6 +1456,9 @@ const DUSTY_THEMES = [
   {id:'electrico',  es:'Eléctrico',  en:'Electric', bg:'#f7f2ff', accent:'#752FFF'},
   {id:'coral',      es:'Coral',      en:'Coral',    bg:'#fdf7e8', accent:'#FF5844'},
   {id:'miel',       es:'Miel',       en:'Honey',    bg:'#FCF1DA', accent:'#E38C4C'},
+  // Pedidos por captura 2026-09-07 (Robinhood / App Store):
+  {id:'robin',      es:'Robin',      en:'Robin',    bg:'#ffffff', accent:'#00c805'},
+  {id:'cupertino',  es:'Cupertino',  en:'Cupertino', bg:'#f2f2f7', accent:'#007aff'},
 ];
 let dustyTheme = 'night';
 try{ const v = localStorage.getItem('patron_theme'); if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v; }catch(e){}

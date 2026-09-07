@@ -136,7 +136,8 @@
   }
   /* Base compartida de los temas CLAROS. */
   html[data-dusty-theme="claro"], html[data-dusty-theme="crema"], html[data-dusty-theme="menta"],
-  html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"], html[data-dusty-theme="coral"], html[data-dusty-theme="miel"]{
+  html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"], html[data-dusty-theme="coral"], html[data-dusty-theme="miel"],
+  html[data-dusty-theme="robin"], html[data-dusty-theme="cupertino"]{
     color-scheme:light;
     --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
     --tomato:#e04545; --saffron:#c8860d; --basil:#0e9f6e; --sky-bright:#0a8f63;
@@ -200,6 +201,22 @@
     --bg:color-mix(in srgb, #F7D78C 20%, white); --panel:#ffffff; --inset:color-mix(in srgb, #A8D3F2 24%, white);
     --raised:color-mix(in srgb, #A8D3F2 16%, white); --raised-2:color-mix(in srgb, #A8D3F2 28%, white);
     --line:color-mix(in srgb, #A8D3F2 48%, white);
+  }
+  /* Dos claros más pedidos por captura (2026-09-07): "Robin" — blanco puro con
+     el verde neón estilo Robinhood — y "Cupertino" — el look del App Store de
+     iOS: gris sistema, tarjetas blancas y azul Apple. En ambos, saffron = acento
+     (regla de siempre en claros); el dinero va por --money-*, aparte. */
+  html[data-dusty-theme="robin"]{
+    --navy:#00ad0f; --navy-soft:#00c805;
+    --saffron:var(--navy);
+    --bg:#ffffff; --panel:#ffffff; --inset:#f4f5f4; --raised:#f2f3f2; --raised-2:#eaece9; --line:#e6e8e6;
+    --ink:#0e0f0e; --ink-soft:#6f7570; --ink-mid:#3f453f;
+  }
+  html[data-dusty-theme="cupertino"]{
+    --navy:#007aff; --navy-soft:#3f97ff;
+    --saffron:var(--navy);
+    --bg:#f2f2f7; --panel:#ffffff; --inset:#e9e9ee; --raised:#f2f2f7; --raised-2:#e5e5ea; --line:#e0e0e5;
+    --ink:#1c1c1e; --ink-soft:#8e8e93; --ink-mid:#48484a;
   }
   html[data-dusty-theme="miel"]{ /* 50K: E38C4C/F6C561/FCF1DA/977B60 */
     /* saffron = acento, mismo pedido: fuera el mostaza de Guardar y compañía. */

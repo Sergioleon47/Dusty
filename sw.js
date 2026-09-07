@@ -178,7 +178,10 @@
 // — sin el override de 64px que la dejaba más chica — app-05.
 // v66: fuera el título "Herramientas del catálogo" (borrado de raíz, pedido
 // del usuario) — los círculos con etiqueta se explican solos — app-03/05.
-const CACHE_NAME = 'patron-shell-v66';
+// v67: dos temas claros más por captura del usuario — Robin (blanco + verde
+// neón estilo Robinhood) y Cupertino (gris iOS + azul Apple, look App Store).
+// Ya son 20 — dusty.css + app-05.
+const CACHE_NAME = 'patron-shell-v67';
 
 const PRECACHE_URLS = [
   '/',
