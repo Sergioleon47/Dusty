@@ -2585,16 +2585,32 @@ function templateItems(){
 }
 // Cuántos productos entran por página en cada diseño y formato.
 function tplCapacity(kind, fmt){
-  const c = { grid:{post:9, story:15, sheet:20}, list:{post:12, story:24, sheet:32}, menu:{post:11, story:22, sheet:30}, offer:{post:1, story:1, sheet:1} };
+  const c = { grid:{post:9, story:15, sheet:20}, list:{post:12, story:24, sheet:32}, menu:{post:11, story:22, sheet:30}, offer:{post:1, story:1, sheet:1}, cats:{post:5, story:9, sheet:11} };
   return c[kind][fmt];
 }
-function tplPages(){
+function tplPages(kind = tplKind){
   const items = templateItems();
-  if(tplKind==='offer'){
+  if(kind==='offer'){
     const one = items.find(i=>i.id===tplOfferId) || items[0];
     return one ? [[one]] : [];
   }
-  if(tplKind==='menu'){
+  if(kind==='cats'){
+    // POR CATEGORÍAS (referencia del usuario 2026-09-07: banda de color a la
+    // izquierda y tarjetas blancas con foto redonda, "Pizza · 25 items"):
+    // la primera página es la portada con una tarjeta por categoría; después,
+    // una tarjeta por producto agrupada por categoría, en el mismo estilo.
+    // Sirve igual para un menú de restaurante o un catálogo de ferretería.
+    const cap = tplCapacity('cats', tplFormat);
+    const groups = {}; const order = [];
+    items.forEach(it=>{ const k=it.category||''; if(!(k in groups)){ groups[k]=[]; order.push(k); } groups[k].push(it); });
+    const cats = order.map(k=>({name: k || t('categories_uncategorized'), count: groups[k].length, photo: (groups[k].find(i=>i.photo)||{}).photo || null}));
+    const pages = [];
+    for(let i=0;i<cats.length;i+=cap) pages.push({cover:true, cats:cats.slice(i,i+cap)});
+    const lines = []; order.forEach(k=>{ if(k) lines.push({h:k}); groups[k].forEach(it=>lines.push({it})); });
+    for(let i=0;i<lines.length;i+=cap) pages.push(lines.slice(i,i+cap));
+    return pages;
+  }
+  if(kind==='menu'){
     // Agrupado por categoría (en el orden del usuario); los encabezados
     // también cuentan como renglón. Un grupo puede seguir en la página siguiente.
     const cap = tplCapacity('menu', tplFormat);
@@ -2604,7 +2620,7 @@ function tplPages(){
     const pages = []; for(let i=0;i<lines.length;i+=cap) pages.push(lines.slice(i,i+cap));
     return pages;
   }
-  const cap = tplCapacity(tplKind, tplFormat);
+  const cap = tplCapacity(kind, tplFormat);
   const pages = []; for(let i=0;i<items.length;i+=cap) pages.push(items.slice(i,i+cap));
   return pages;
 }
@@ -2631,7 +2647,7 @@ async function tplImages(items){
   await Promise.all(items.filter(it=>it && it.photo).map(async it=>{ try{ map.set(it.id, await loadB64Image(it.photo)); }catch(e){} }));
   return map;
 }
-async function composeTemplatePage(page, pageIdx, total){
+async function composeTemplatePage(page, pageIdx, total, kind = tplKind){
   const [W,H] = TPL_FORMATS[tplFormat]; const st = TPL_STYLES[tplStyle];
   const cv = document.createElement('canvas'); cv.width=W; cv.height=H;
   const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
@@ -2642,7 +2658,7 @@ async function composeTemplatePage(page, pageIdx, total){
   ctx.fillStyle = st.ink; ctx.textBaseline='top'; ctx.textAlign='left';
   ctx.font = tplFont(st, 800, Math.round(W*0.052)); ctx.fillText(tplFit(ctx, title, W-pad*2), pad, pad);
   ctx.fillStyle = st.soft; ctx.font = tplFont(st, 600, Math.round(W*0.026));
-  const sub = tplKind==='menu' ? '' : t('tpl_kind_'+tplKind) + (total>1 ? ' · '+t('tpl_page').replace('{i}', pageIdx+1).replace('{n}', total) : '');
+  const sub = kind==='menu' ? '' : t('tpl_kind_'+kind) + (total>1 ? ' · '+t('tpl_page').replace('{i}', pageIdx+1).replace('{n}', total) : '');
   if(sub) ctx.fillText(sub, pad, pad + Math.round(W*0.062));
   const top = pad + Math.round(W*(sub ? 0.11 : 0.085));
   // Pie: WhatsApp / link.
@@ -2650,9 +2666,10 @@ async function composeTemplatePage(page, pageIdx, total){
   const foot = catalogWhatsApp ? `${t('tpl_menu_footer')} · +${String(catalogWhatsApp).replace(/\D/g,'')}` : (catalogUrl() ? catalogUrl().replace(/^https?:\/\//,'') : '');
   if(foot){ ctx.fillStyle = st.soft; ctx.font = tplFont(st, 600, Math.round(W*0.024)); ctx.textAlign='center'; ctx.fillText(tplFit(ctx, foot, W-pad*2), W/2, H-pad-Math.round(W*0.03)); ctx.textAlign='left'; }
   const bodyH = H - top - pad - footH;
-  const items = tplKind==='menu' ? page.filter(l=>l.it).map(l=>l.it) : page;
-  const imgs = (tplKind==='grid' || tplKind==='offer') ? await tplImages(items) : new Map();
-  if(tplKind==='grid'){
+  const isLines = Array.isArray(page) && (kind==='menu' || kind==='cats');
+  const items = isLines ? page.filter(l=>l.it).map(l=>l.it) : (Array.isArray(page) ? page : []);
+  const imgs = (kind==='grid' || kind==='offer' || kind==='cats') ? await tplImages(items) : new Map();
+  if(kind==='grid'){
     const cols = tplFormat==='sheet' ? 4 : 3;
     const rows = Math.ceil(tplCapacity('grid', tplFormat)/cols);
     const gap = Math.round(W*0.022);
@@ -2673,7 +2690,7 @@ async function composeTemplatePage(page, pageIdx, total){
       ctx.fillStyle = it.price>0 ? st.accent : st.soft; ctx.font = tplFont(st, 800, Math.round(cw*0.1));
       ctx.fillText(tplPriceText(it), x+Math.round(W*0.015), y+ch-Math.round(cw*0.15));
     });
-  } else if(tplKind==='list'){
+  } else if(kind==='list'){
     const rowH = bodyH / tplCapacity('list', tplFormat);
     const fs = Math.min(Math.round(rowH*0.42), Math.round(W*0.034));
     page.forEach((it, i)=>{
@@ -2684,7 +2701,7 @@ async function composeTemplatePage(page, pageIdx, total){
       ctx.font = tplFont(st, 600, fs); ctx.fillText(tplFit(ctx, it.name, W-pad*2-pw-Math.round(W*0.03)), pad, y+(rowH-fs)/2);
       ctx.fillStyle = it.price>0 ? st.accent : st.soft; ctx.font = tplFont(st, 800, fs); ctx.textAlign='right'; ctx.fillText(price, W-pad, y+(rowH-fs)/2); ctx.textAlign='left';
     });
-  } else if(tplKind==='menu'){
+  } else if(kind==='menu'){
     const rowH = bodyH / tplCapacity('menu', tplFormat);
     const fs = Math.min(Math.round(rowH*0.44), Math.round(W*0.034));
     let y = top;
@@ -2705,7 +2722,49 @@ async function composeTemplatePage(page, pageIdx, total){
       }
       y += rowH;
     });
-  } else if(tplKind==='offer'){
+  } else if(kind==='cats'){
+    // Banda de color a la izquierda bajo el encabezado, tarjetas claras con la
+    // foto redonda asomando por el borde izquierdo y la flecha a la derecha.
+    const band = Math.round(W*0.2);
+    // La banda arranca DEBAJO del encabezado (verificación 2026-09-07: pisaba el
+    // subtítulo "Página 1 de 5").
+    ctx.fillStyle = st.accent; ctx.fillRect(0, top - Math.round(pad*0.15), band, H - top + Math.round(pad*0.15));
+    const cardX = Math.round(band*0.55), cardW = W - cardX - pad, r = Math.round(W*0.03);
+    const rows = page.cover ? page.cats : page; const n = tplCapacity('cats', tplFormat);
+    const gap = Math.round(W*0.028); const ch = Math.min((bodyH - gap*(n-1))/n, W*0.19);
+    const cardBg = tplStyle==='dark' ? st.panel : '#ffffff';
+    // Fotos de las categorías de la portada (las de los productos ya están en imgs).
+    const coverImgs = new Map();
+    if(page.cover) await Promise.all(page.cats.map(async (c,i)=>{ if(c.photo){ try{ coverImgs.set(i, await loadB64Image(c.photo)); }catch(e){} } }));
+    rows.forEach((row, i)=>{
+      const y = top + i*(ch+gap);
+      if(!page.cover && row.h){
+        ctx.fillStyle = st.accent; ctx.font = tplFont(st, 800, Math.round(ch*0.26)); ctx.textAlign='left';
+        // El rótulo de la categoría va a la DERECHA de la banda (no encima).
+        ctx.fillText(String(row.h).toUpperCase(), band + Math.round(W*0.03), y + ch*0.5 - Math.round(ch*0.13));
+        return;
+      }
+      const name = page.cover ? row.name : row.it.name;
+      const sub = page.cover ? t('tpl_items_n').replace('{n}', row.count) : tplPriceText(row.it);
+      const im = page.cover ? coverImgs.get(i) : imgs.get(row.it.id);
+      ctx.save(); ctx.shadowColor='rgba(0,0,0,0.16)'; ctx.shadowBlur=Math.round(W*0.02); ctx.shadowOffsetY=Math.round(W*0.005);
+      ctx.fillStyle = cardBg; tplRoundRect(ctx, cardX, y, cardW, ch, r); ctx.fill(); ctx.restore();
+      const d = Math.round(ch*0.82), px = cardX - Math.round(d*0.38), py = y + Math.round((ch-d)/2);
+      if(im){ ctx.save(); ctx.shadowColor='rgba(0,0,0,0.22)'; ctx.shadowBlur=Math.round(W*0.015); ctx.beginPath(); ctx.arc(px+d/2, py+d/2, d/2, 0, Math.PI*2); ctx.closePath(); ctx.fillStyle=cardBg; ctx.fill(); ctx.restore();
+        ctx.save(); ctx.beginPath(); ctx.arc(px+d/2, py+d/2, d/2 - Math.round(W*0.004), 0, Math.PI*2); ctx.closePath(); ctx.clip();
+        const s = Math.max(d/im.naturalWidth, d/im.naturalHeight); ctx.drawImage(im, px+d/2-im.naturalWidth*s/2, py+d/2-im.naturalHeight*s/2, im.naturalWidth*s, im.naturalHeight*s); ctx.restore(); }
+      else { ctx.fillStyle = st.line; ctx.beginPath(); ctx.arc(px+d/2, py+d/2, d/2, 0, Math.PI*2); ctx.fill(); }
+      const tx = px + d + Math.round(W*0.03), maxW = cardW - (tx - cardX) - Math.round(ch*0.9);
+      ctx.fillStyle = tplStyle==='dark' ? st.ink : '#1f2a44'; ctx.font = tplFont(st, 800, Math.round(ch*0.27)); ctx.textAlign='left';
+      ctx.fillText(tplFit(ctx, name, maxW), tx, y + Math.round(ch*0.2));
+      ctx.fillStyle = (!page.cover && !(row.it.price>0)) ? st.soft : (page.cover ? st.soft : st.accent); ctx.font = tplFont(st, page.cover ? 500 : 800, Math.round(ch*0.19));
+      ctx.fillText(sub, tx, y + Math.round(ch*0.56));
+      // Flecha en círculo, pegada al borde derecho de la tarjeta.
+      const cr = Math.round(ch*0.24), cx = cardX + cardW - Math.round(cr*0.6), cy = y + ch/2;
+      ctx.save(); ctx.shadowColor='rgba(0,0,0,0.16)'; ctx.shadowBlur=Math.round(W*0.012); ctx.fillStyle=cardBg; ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = st.accent; ctx.lineWidth = Math.max(2, Math.round(W*0.004)); ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx-cr*0.18, cy-cr*0.32); ctx.lineTo(cx+cr*0.16, cy); ctx.lineTo(cx-cr*0.18, cy+cr*0.32); ctx.stroke();
+    });
+  } else if(kind==='offer'){
     const it = page[0]; const im = imgs.get(it.id);
     const ph = Math.round(bodyH*0.6);
     if(im) tplCover(ctx, im, pad, top, W-pad*2, ph, Math.round(W*0.03)); else { ctx.fillStyle=st.panel; tplRoundRect(ctx,pad,top,W-pad*2,ph,Math.round(W*0.03)); ctx.fill(); }
@@ -2745,6 +2804,35 @@ async function templatePageFiles(){
   }
   return files;
 }
+/* GALERÍA de miniaturas (pedido del usuario 2026-09-07: "que se vean las maquetas
+   para que el cliente vea cómo va a quedar"): cada diseño se dibuja de verdad
+   con los productos del usuario, en chico, y se elige tocando la miniatura.
+   Se re-dibujan al cambiar formato, estilo o alcance (la clave lo resume). */
+const TPL_KINDS = ['cats','grid','menu','list','offer'];
+let tplThumbs = {};       // {kind: dataURL} para la clave actual
+let tplThumbsKey = '';
+let tplThumbsReq = 0;
+async function refreshTemplateThumbs(){
+  const key = tplFormat+'|'+tplStyle+'|'+tplScope+'|'+(tplOfferId||'')+'|'+templateItems().length;
+  if(tplThumbsKey===key && Object.keys(tplThumbs).length===TPL_KINDS.length) return;
+  const req = ++tplThumbsReq;
+  tplThumbsKey = key; tplThumbs = {};
+  for(const k of TPL_KINDS){
+    try{
+      const pages = tplPages(k);
+      if(pages.length===0) continue;
+      const cv = await composeTemplatePage(pages[0], 0, pages.length, k);
+      if(req!==tplThumbsReq) return;
+      const tw = 240, th = Math.round(tw*cv.height/cv.width);
+      const sm = document.createElement('canvas'); sm.width=tw; sm.height=th;
+      const c2 = sm.getContext('2d'); c2.imageSmoothingEnabled=true; c2.imageSmoothingQuality='high'; c2.drawImage(cv,0,0,tw,th);
+      tplThumbs[k] = sm.toDataURL('image/jpeg', 0.8);
+      // La miniatura entra en su tarjeta sin re-render (no pisar los chips).
+      const img = document.querySelector('[data-tpl-card="'+k+'"] img');
+      if(img){ img.src = tplThumbs[k]; img.style.opacity='1'; const sp=img.parentElement.querySelector('.spinner'); if(sp) sp.remove(); }
+    }catch(e){}
+  }
+}
 function templateModal(){
   const items = templateItems();
   const pages = tplPages();
@@ -2756,9 +2844,17 @@ function templateModal(){
       <h3 class="sky" style="flex-shrink:0;">${t('tpl_title')}</h3>
       <div class="sub" style="flex-shrink:0;margin-bottom:10px;">${t('tpl_sub')}</div>
       <div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${['grid','list','menu','offer'].map(k=>chip('tpl-kind', k, tplKind, t('tpl_kind_'+k))).join('')}
+        ${/* Galería: cada diseño dibujado en chico con los productos reales. */''}
+        <div class="tpl-gallery">
+          ${TPL_KINDS.map(k=>`
+          <button type="button" class="tpl-card ${tplKind===k?'on':''}" data-tpl-kind="${k}" data-tpl-card="${k}" aria-pressed="${tplKind===k}">
+            <span class="tpl-thumb" style="aspect-ratio:${W}/${H};">
+              ${tplThumbs[k] ? `<img src="${tplThumbs[k]}" alt="" style="opacity:1;">` : `<img src="" alt="" style="opacity:0;"><div class="spinner"></div>`}
+            </span>
+            <span class="tpl-card-label">${t('tpl_kind_'+k)}</span>
+          </button>`).join('')}
         </div>
+        <div class="helper-note" style="margin:6px 0 4px;">${t('tpl_gallery_hint')}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
           ${['post','story','sheet'].map(f=>chip('tpl-format', f, tplFormat, t('tpl_format_'+f))).join('')}
           <span style="width:8px;"></span>

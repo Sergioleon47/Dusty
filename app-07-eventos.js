@@ -691,13 +691,15 @@ function attachEvents(){
     // PLANTILLAS (pedido del usuario 2026-09-07): abre el modal y arma la vista
     // previa; cada chip re-arma la página (sin esperar Guardar).
     const btnCatalogTemplates=document.getElementById('btn-catalog-templates');
-    if(btnCatalogTemplates) btnCatalogTemplates.onclick=()=>{ showTemplateModal=true; tplPage=0; tplPreviewUrl=null; render(); refreshTemplatePreview(); };
+    // La galería de miniaturas se dibuja DESPUÉS de la vista previa grande (la
+    // grande es lo primero que se ve); cambiar formato/estilo/alcance las re-dibuja.
+    if(btnCatalogTemplates) btnCatalogTemplates.onclick=()=>{ showTemplateModal=true; tplPage=0; tplPreviewUrl=null; render(); refreshTemplatePreview().then(refreshTemplateThumbs); };
     const tplOverlay=document.getElementById('template-overlay');
     if(tplOverlay){
-      const closeTpl=()=>{ showTemplateModal=false; tplPreviewUrl=null; tplReq++; render(); };
+      const closeTpl=()=>{ showTemplateModal=false; tplPreviewUrl=null; tplReq++; tplThumbsReq++; render(); };
       tplOverlay.onmousedown=(e)=>{ if(e.target===tplOverlay) closeTpl(); };
       document.getElementById('btn-close-template').onclick=closeTpl;
-      const rerender=()=>{ tplPreviewUrl=null; render(); refreshTemplatePreview(); };
+      const rerender=()=>{ tplPreviewUrl=null; render(); refreshTemplatePreview().then(refreshTemplateThumbs); };
       document.querySelectorAll('[data-tpl-kind]').forEach(b=>{ b.onclick=()=>{ tplKind=b.dataset.tplKind; tplPage=0; rerender(); }; });
       document.querySelectorAll('[data-tpl-format]').forEach(b=>{ b.onclick=()=>{ tplFormat=b.dataset.tplFormat; tplPage=0; rerender(); }; });
       document.querySelectorAll('[data-tpl-style]').forEach(b=>{ b.onclick=()=>{ tplStyle=b.dataset.tplStyle; rerender(); }; });

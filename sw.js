@@ -248,7 +248,11 @@
 // grilla, lista de precios, menú de restaurante u oferta; post / historia /
 // hoja; oscuro / claro / cálido; varias páginas; Guardar y Compartir como
 // archivos — app-03/04/05/07.
-const CACHE_NAME = 'patron-shell-v83';
+// v84: Plantillas con GALERÍA de miniaturas reales (pedido del usuario: que se
+// vean las maquetas con sus productos antes de elegir) y diseño nuevo "Por
+// categorías" con banda de color y tarjetas con foto redonda (su referencia),
+// que sirve para menús y catálogos — app-03/05/07 + css.
+const CACHE_NAME = 'patron-shell-v84';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
