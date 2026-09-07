@@ -137,17 +137,24 @@
     --shadow:0 1px 2px rgba(20,30,55,.08), 0 8px 24px rgba(20,30,55,.10);
     --shadow-lg:0 12px 20px rgba(20,30,55,.16), 0 24px 64px rgba(20,30,55,.18);
   }
+  /* En Claro/Crema/Menta el mostaza oscuro de la base (--saffron #c8860d) se
+     veía "raro" (captura del usuario 2026-09-06, botón Guardar tachado): en
+     ESTOS TRES el saffron pasa a ser el ACENTO del tema — el botón primario,
+     la campanita, el hoy del calendario y todo lo demás toman el color del
+     tema y el mostaza desaparece. Solo en Menta las barras de stock en alerta
+     conservan un durazno propio: si no, "en alerta" y "todo bien" serían los
+     dos verdes y no se distinguirían. */
   html[data-dusty-theme="claro"]{
-    --navy:#e85d24; --navy-soft:#f07b47;
+    --navy:#e85d24; --navy-soft:#f07b47; --saffron:var(--navy);
     --bg:#f3f4f8; --panel:#ffffff; --inset:#eaecf2; --raised:#f2f3f7; --raised-2:#e9ebf1; --line:#dfe3ea;
   }
   html[data-dusty-theme="crema"]{
-    --navy:#c65b2e; --navy-soft:#d97a4b;
+    --navy:#c65b2e; --navy-soft:#d97a4b; --saffron:var(--navy);
     --bg:#f6f1e7; --panel:#fffcf5; --inset:#eee7d8; --raised:#f4eee1; --raised-2:#ece4d3; --line:#e2d8c4;
     --ink:#2b2318; --ink-soft:#8a7c66; --ink-mid:#54483a;
   }
   html[data-dusty-theme="menta"]{
-    --navy:#0fa37f; --navy-soft:#3cbf9a;
+    --navy:#0fa37f; --navy-soft:#3cbf9a; --saffron:var(--navy); --stock-warn:#e28f4a;
     --bg:#eef6f1; --panel:#ffffff; --inset:#e3efe8; --raised:#f0f7f3; --raised-2:#e6f0ea; --line:#d6e5dc;
   }
   /* --- Claros de las paletas del usuario (mismas reglas: solo colores de la

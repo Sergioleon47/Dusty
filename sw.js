@@ -162,7 +162,10 @@
 // v60: 8 temas más con las paletas de referencia del usuario (Esmeralda,
 // Índigo, Rubí, Zafiro oscuros + Pastel, Eléctrico, Coral, Miel claros) —
 // solo colores de cada paleta, mezclados entre sí — dusty.css + app-05.
-const CACHE_NAME = 'patron-shell-v60';
+// v61: fuera el mostaza raro de Claro/Crema/Menta (captura del usuario) — en
+// esos tres el saffron pasa a ser el acento del tema (Guardar y todo lo demás);
+// en Menta las barras de alerta conservan un durazno propio para distinguirse.
+const CACHE_NAME = 'patron-shell-v61';
 
 const PRECACHE_URLS = [
   '/',
