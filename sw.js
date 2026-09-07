@@ -193,7 +193,10 @@
 // Productos, Estante y Catálogo abren igual al primer toque — hoja nativa en
 // iOS (input sin capture), hoja de Dusty con Fototeca/Tomar foto en Android y
 // escritorio; el visor en vivo de Productos/Estante se retiró — app-03/04/06/07/08 + css.
-const CACHE_NAME = 'patron-shell-v70';
+// v71: la intro única es el MODAL con la caja punteada (captura del usuario en
+// iPhone: salían la caja y la hoja nativa a la vez); la hoja recién al tocar la
+// caja, y el Catálogo gana su propio modal con la misma caja — app-03/04/05/06/07/08.
+const CACHE_NAME = 'patron-shell-v71';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

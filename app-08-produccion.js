@@ -528,9 +528,9 @@ function openShelfModal(){
   shelfRequestId++;
   shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason='sale';
   showShelfModal = true; render();
-  // Intro única (2026-09-07): la misma hoja de fotos que Recibos/Productos/
-  // Catálogo, en el mismo toque. El visor en vivo se retiró.
-  openPhotoSource(shelfPhotoSource());
+  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos,
+  // Productos y Catálogo; la hoja de fotos recién al tocar la caja. El visor
+  // en vivo se retiró.
 }
 function shelfPhotoSource(){
   return {
@@ -543,7 +543,6 @@ function restartShelfCamera(){
   shelfRequestId++;
   shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError='';
   render();
-  openPhotoSource(shelfPhotoSource());
 }
 function stopShelfCamera(){
   if(!shelfCamStream) return;

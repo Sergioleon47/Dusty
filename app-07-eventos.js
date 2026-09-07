@@ -521,6 +521,7 @@ function attachEvents(){
         if(!file || !/^image\//.test(file.type)) return;
         try{
           const img=await loadImageFromFile(file);
+          showCatalogCameraModal=false; // con foto elegida, el modal de cámara cede al de asignar
           catalogPendingOriginal = resizeToBase64(img, 400, 0.78);
           catalogPendingPhoto = catalogPendingOriginal;
           catalogPendingFilter = 'original';
@@ -562,11 +563,20 @@ function attachEvents(){
     // nativa del teléfono ofrece "Tomar foto" y "Fototeca" en el mismo toque.
     // Intro única (2026-09-07): la misma hoja de fotos que los tres escáneres —
     // nativa en iOS (input sin capture), de Dusty en Android (elige el input).
+    // Intro única (captura del usuario 2026-09-07): el botón abre el MISMO modal
+    // con caja punteada que los tres escáneres; la hoja de fotos, al tocar la caja.
     const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
-    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>openPhotoSource({
-      camera: ()=>openCatalogPhotoPicker(true),
-      gallery: ()=>openCatalogPhotoPicker(false)
-    });
+    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>{ showCatalogCameraModal=true; render(); };
+    const catCamOverlay=document.getElementById('catalog-camera-overlay');
+    if(catCamOverlay){
+      const closeCatCam=()=>{ showCatalogCameraModal=false; render(); };
+      catCamOverlay.onmousedown=(e)=>{ if(e.target===catCamOverlay) closeCatCam(); };
+      document.getElementById('btn-cancel-catalog-camera').onclick=closeCatCam;
+      document.getElementById('catalog-drop-zone').onclick=()=>openPhotoSource({
+        camera: ()=>openCatalogPhotoPicker(true),
+        gallery: ()=>openCatalogPhotoPicker(false)
+      });
+    }
     // COLLAGE — DISEÑO PRIMERO (pedido del usuario 2026-09-06): tocar Collage
     // abre el menú de layouts; elegir uno dispara el selector de fotos con la
     // cantidad exacta que ese diseño necesita.
@@ -2449,6 +2459,7 @@ document.addEventListener('keydown', (e)=>{
   if(catalogViewPhoto){ const btn=document.getElementById('cv-close'); if(btn) btn.click(); else { catalogViewPhoto=null; render(); } return; }
   if(catalogEditorOpen){ const btn=document.getElementById('btn-cancel-edit'); if(btn) btn.click(); return; }
   if(catalogPendingPhoto){ const btn=document.getElementById('btn-cancel-assign-photo'); if(btn) btn.click(); return; }
+  if(showCatalogCameraModal){ showCatalogCameraModal=false; render(); return; }
   if(showCollageLayoutModal){ const btn=document.getElementById('btn-cancel-collage'); if(btn) btn.click(); return; }
   if(showCatalogPublishModal){ showCatalogPublishModal=false; render(); return; }
   if(showItemModal){ closeItemModal(); return; }

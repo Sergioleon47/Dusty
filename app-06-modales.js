@@ -1790,9 +1790,8 @@ function openScanModal(){
   scanDuplicateOf=null; scanDuplicateConfirmed=false;
   resetScanBatchState();
   showScanModal=true; render();
-  // Intro única: la hoja de fotos se abre en el MISMO toque (antes había que
-  // tocar otra vez la caja punteada). La caja queda detrás por si se cancela.
-  openPhotoSource(receiptPhotoSource());
+  // Intro única (captura del usuario 2026-09-07): el modal con la caja punteada;
+  // la hoja de fotos recién al tocar la caja — nunca las dos a la vez.
 }
 function resetScanBatchState(){
   scanBatchMode=false; scanQueue=[]; scanQueueTotal=0; scanQueueIndex=0;
@@ -2179,10 +2178,10 @@ function openProductBatchModal(){
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   showProductBatchModal=true; render();
-  // Intro única (2026-09-07): la misma hoja de fotos que Recibos/Estante/Catálogo,
-  // en el mismo toque. El visor en vivo se retiró: cada escáner trabaja con UNA
-  // foto quieta, y la cámara del teléfono la saca mejor.
-  openPhotoSource(pbPhotoSource());
+  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos,
+  // Estante y Catálogo; la hoja de fotos recién al tocar la caja. El visor en
+  // vivo se retiró: cada escáner trabaja con UNA foto quieta, y la cámara del
+  // teléfono la saca mejor.
 }
 function pbPhotoSource(){
   return {
@@ -2197,7 +2196,6 @@ function restartScannerCamera(){
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   render();
-  openPhotoSource(pbPhotoSource());
 }
 
 // source: un canvas (cuadro capturado del <video>) o un Image (foto del input nativo/galería)
