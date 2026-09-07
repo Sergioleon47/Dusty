@@ -114,9 +114,26 @@ function flushPendingRenderIfAny(){
    handlers — las acciones directas del usuario (tocar un botón, etc.) siguen
    llamando a render() de una, sin esperar nada, para que se sientan instantáneas. */
 let cloudRenderDebounceTimer = null;
+/* Y además NUNCA mientras el usuario está scrolleando (auditoría de scroll
+   2026-09-07): un snapshot que caía a mitad de un deslice vertical corría el
+   template entero + morphdom + syncViewportHeight en el hilo principal justo
+   entre dos cuadros — el cuadro perdido se ve como un tirón, y si el alto del
+   documento cambiaba, el scroll se recortaba de golpe (el "salto"). El scroll
+   deja huella (lastScrollAt, listener pasivo abajo) y el redibujado de nube
+   espera a que el dedo/inercia hayan parado ~150ms. Los toques del usuario
+   siguen llamando a render() directo: no pasan por acá. */
+let lastScrollAt = 0;
+const SCROLL_IDLE_MS = 150;
+try{ window.addEventListener('scroll', ()=>{ lastScrollAt = performance.now(); }, {passive:true}); }catch(e){}
 function scheduleCloudTriggeredRender(){
   if(cloudRenderDebounceTimer) clearTimeout(cloudRenderDebounceTimer);
-  cloudRenderDebounceTimer = setTimeout(()=>{ cloudRenderDebounceTimer = null; render(); }, 80);
+  const fire = ()=>{
+    const since = performance.now() - lastScrollAt;
+    if(since < SCROLL_IDLE_MS){ cloudRenderDebounceTimer = setTimeout(fire, SCROLL_IDLE_MS - since + 10); return; }
+    cloudRenderDebounceTimer = null;
+    render();
+  };
+  cloudRenderDebounceTimer = setTimeout(fire, 80);
 }
 
 /* Mismo problema que scheduleCloudTriggeredRender de arriba, pero disparado por el
@@ -156,10 +173,14 @@ function renderApp(){
            (content-visibility, ver dusty.css) — la vecina inmediata queda
            entera para que el swipe la muestre sin pop. */''}
       <div class="view-track" style="transform:translateX(-${tabIdx*(100/TAB_ORDER.length)}%);">
-        <div class="view-page${Math.abs(0-tabIdx)>1?' far':''}">${topbar()}${dashboardView()}</div>
-        <div class="view-page${Math.abs(1-tabIdx)>1?' far':''}">${inventarioView()}</div>
-        <div class="view-page${Math.abs(2-tabIdx)>1?' far':''}">${recibosView()}</div>
-        <div class="view-page${Math.abs(3-tabIdx)>1?' far':''}">${catalogoView()}</div>
+      ${/* .active en la página visible: las animaciones infinitas (órbita y
+           pulso del escáner del Dashboard, etc.) SOLO corren ahí — en la
+           vecina quedan pausadas (dusty.css), no gastan compositor mientras
+           se scrollea otra pestaña. */''}
+        <div class="view-page${tabIdx===0?' active':''}${Math.abs(0-tabIdx)>1?' far':''}">${topbar()}${dashboardView()}</div>
+        <div class="view-page${tabIdx===1?' active':''}${Math.abs(1-tabIdx)>1?' far':''}">${inventarioView()}</div>
+        <div class="view-page${tabIdx===2?' active':''}${Math.abs(2-tabIdx)>1?' far':''}">${recibosView()}</div>
+        <div class="view-page${tabIdx===3?' active':''}${Math.abs(3-tabIdx)>1?' far':''}">${catalogoView()}</div>
       </div>
     </div>
     ${/* Presupuesto ANTES de itemModal a propósito: sus filas de gastos abren
@@ -241,6 +262,7 @@ function renderApp(){
 // CSS de .view-viewport) — se llama después de cada render() y también al terminar
 // la animación de switchToTab(), porque ahí el DOM no se vuelve a dibujar de cero
 // pero la página visible sí puede haber cambiado de alto.
+let viewportSyncedContentH = -1, viewportSyncedInnerH = -1; // lo último medido (ver scheduleViewportSync)
 function syncViewportHeight(){
   const viewport = document.querySelector('.view-viewport');
   const pages = document.querySelectorAll('.view-page');
@@ -254,8 +276,17 @@ function syncViewportHeight(){
   // topbar/dashboard) en medio de la pantalla, encima de la barra de navegación.
   const bottomNavEl = document.querySelector('.bottom-nav');
   const navHeight = bottomNavEl ? bottomNavEl.getBoundingClientRect().height : 0;
-  const fillHeight = Math.max(0, window.innerHeight - viewport.getBoundingClientRect().top - navHeight);
+  // Coordenada de DOCUMENTO (rect.top + scrollY), no de ventana (auditoría de
+  // scroll 2026-09-07): rect.top solo es viewport-relativo, así que medido con
+  // la página scrolleada 469px daba un relleno 469px más grande — cada render
+  // hecho a media página (marcar una ficha, un snapshot) estiraba el documento,
+  // y el siguiente render hecho arriba lo encogía y el scroll se recortaba de
+  // golpe. El relleno tiene que ser el mismo sin importar dónde esté el scroll.
+  const viewportDocTop = viewport.getBoundingClientRect().top + window.scrollY;
+  const fillHeight = Math.max(0, window.innerHeight - viewportDocTop - navHeight);
   const totalHeight = Math.max(contentHeight, fillHeight);
+  viewportSyncedContentH = Math.round(contentHeight);
+  viewportSyncedInnerH = window.innerHeight;
   viewport.style.height = totalHeight + 'px';
   // El fondo gris solo arranca EXACTO donde termina el contenido real (contentHeight)
   // — arriba de esa línea queda transparente, tal como estaba siempre, para no tapar
@@ -268,6 +299,44 @@ function syncViewportHeight(){
     ? `linear-gradient(to bottom, transparent ${contentHeight}px, var(--bg) ${contentHeight}px)`
     : 'none';
 }
+/* El alto fijo de arriba se medía UNA vez por render y nada lo volvía a
+   medir (auditoría de scroll 2026-09-07). Todo lo que cambia el alto de la
+   página DESPUÉS del render dejaba el documento con un alto viejo: las fuentes
+   web entrando (display=swap: métricas distintas → otro alto), una foto de
+   recibo que termina de cargar, el teclado o la barra del navegador cambiando
+   innerHeight, girar el teléfono. Resultado: contenido recortado abajo
+   (overflow:hidden) o un hueco de más al final, y el scroll "rebotaba" contra
+   un final que no era. Acá se vuelve a sincronizar en cada uno de esos eventos,
+   agrupado en un solo frame y sin tocar nada si la medida no cambió — y nunca
+   a mitad de un swipe/resorte (ahí el alto lo maneja el gesto). */
+let viewportSyncFrame = null;
+function scheduleViewportSync(){
+  if(viewportSyncFrame) return;
+  viewportSyncFrame = requestAnimationFrame(()=>{
+    viewportSyncFrame = null;
+    if(swipeGestureActive || trackAnimating) return;
+    const viewport = document.querySelector('.view-viewport');
+    const pages = document.querySelectorAll('.view-page');
+    const idx = TAB_ORDER.indexOf(activeTab);
+    if(!viewport || !pages[idx]) return;
+    const h = Math.round(pages[idx].getBoundingClientRect().height);
+    // Si el contenido creció o se achicó respecto de lo medido en el último
+    // sync, o la ventana cambió de alto (el relleno hasta la barra depende de
+    // innerHeight). Si nada cambió, no se escribe nada — cero layout extra.
+    if(h!==viewportSyncedContentH || window.innerHeight!==viewportSyncedInnerH) syncViewportHeight();
+  });
+}
+try{
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleViewportSync);
+  window.addEventListener('resize', scheduleViewportSync);
+  window.addEventListener('orientationchange', scheduleViewportSync);
+  // Las <img> no burbujean load: se escucha en captura. Solo importan las que
+  // están dentro del carrusel (las de un modal no mueven el documento).
+  document.addEventListener('load', (e)=>{
+    const el = e.target;
+    if(el && el.tagName==='IMG' && el.closest && el.closest('.view-page')) scheduleViewportSync();
+  }, true);
+}catch(e){}
 
 function renderCrashScreen(err){
   const app = document.getElementById('app');

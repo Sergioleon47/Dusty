@@ -181,7 +181,7 @@
 // v67: dos temas claros más por captura del usuario — Robin (blanco + verde
 // neón estilo Robinhood) y Cupertino (gris iOS + azul Apple, look App Store).
 // Ya son 20 — dusty.css + app-05.
-const CACHE_NAME = 'patron-shell-v67';
+const CACHE_NAME = 'patron-shell-v68';
 
 const PRECACHE_URLS = [
   '/',

@@ -571,7 +571,13 @@ function attachEvents(){
     // Patrón iOS Fotos: "Seleccionar" alterna el modo; sin modo, tocar ABRE la
     // foto completa; con modo, tocar marca/desmarca para el catálogo.
     const btnCatalogSelect=document.getElementById('btn-catalog-select');
-    if(btnCatalogSelect) btnCatalogSelect.onclick=()=>{ catalogSelectMode=!catalogSelectMode; render(); };
+    // La ayuda del modo sale como toast al ENTRAR (no en línea: empujaba la
+    // grilla ~35px al aparecer y desaparecer — verificación 2026-09-07).
+    if(btnCatalogSelect) btnCatalogSelect.onclick=()=>{
+      catalogSelectMode=!catalogSelectMode;
+      render();
+      if(catalogSelectMode) showToast(t('catalog_select_hint'), 'info');
+    };
     // Compartir = el menú NATIVO del teléfono directo (comparación del usuario
     // 2026-09-06 con la hoja de compartir de iOS: cero formularios en el medio).
     // Solo si todavía no hay catálogo publicado se abre Publicación — no hay
@@ -728,6 +734,11 @@ function attachEvents(){
           const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
           if(!target || !catalogPendingPhoto) return;
           target.photo = catalogPendingPhoto;
+          // Foto sacada DESDE el Catálogo = el producto va al catálogo
+          // (verificación 2026-09-07): antes quedaba con foto nueva pero sin
+          // el ✓, y no aparecía en la página pública hasta entrar a
+          // Seleccionar y marcarlo a mano — el paso que nadie espera dar.
+          target.inCatalog = true;
           if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
           // Captura para la subida en ALTA (corre en segundo plano después de
           // limpiar el estado — por eso las copias, no los globales).

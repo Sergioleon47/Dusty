@@ -33,6 +33,12 @@
        clara los oscurece un punto por contraste) — así un tema con acento verde
        o rojo no "se come" el significado de ganancia/pérdida/alerta. ===== */
     --money-pos:#3ddc97; --money-neg:#ff5c5c; --money-warn:#f5a623;
+    /* MARCA fija (pedido del usuario 2026-09-07): el ícono "D" de Dusty es
+       siempre el mismo naranja con la tinta oscura, sin importar el tema —
+       antes salía de --navy y en Océano era azul, en Uva violeta, etc. Ningún
+       tema (ni la base clara) pisa estos tres tokens: son la identidad, no el
+       acento. Mismos valores que el ícono de la app y el favicon (#ff6b35). */
+    --brand:#ff6b35; --brand-soft:#ff8a5c; --brand-ink:#101318;
     --money-pos-ink:color-mix(in oklch, var(--money-pos), white 25%);
     --money-neg-ink:color-mix(in oklch, var(--money-neg), white 30%);
     --money-pos-soft:color-mix(in srgb, var(--money-pos) 15%, var(--panel));
@@ -291,6 +297,13 @@
      lista para el swipe. Navegadores viejos ignoran content-visibility sin
      romper nada. */
   .view-page.far{content-visibility:hidden;}
+  /* Animaciones infinitas (órbita y pulso del escáner del Dashboard, parpadeos
+     del conteo/calendario) SOLO en la página activa (auditoría de scroll
+     2026-09-07): en la vecina seguían corriendo aunque no se viera — el
+     compositor las actualizaba cuadro a cuadro mientras el usuario scrolleaba
+     OTRA pestaña. Pausadas, no apagadas: al asentarse el cambio de pestaña,
+     render() pone .active y siguen desde donde iban. */
+  .view-page:not(.active) *{animation-play-state:paused;}
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
   .topbar .brand{order:1;}
@@ -300,8 +313,8 @@
     width:42px;height:42px;border-radius:11px;flex-shrink:0;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,color-mix(in oklch, var(--navy), black 18%));
-    display:flex;align-items:center;justify-content:center;color:var(--on-accent);font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
+      linear-gradient(145deg,var(--brand-soft),var(--brand) 60%,color-mix(in oklch, var(--brand), black 18%));
+    display:flex;align-items:center;justify-content:center;color:var(--brand-ink);font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
   }
   .brand-name{font-size:20px;font-weight:700;}
   /* Cuando este dispositivo está viendo el inventario compartido de otra cuenta (no

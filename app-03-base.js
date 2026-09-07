@@ -1133,6 +1133,16 @@ function receiptImgSrc(img){
   if(img.base64) return cachedPhotoUrl(img.base64, img.mediaType);
   return img.url || null;
 }
+/* Atributo loading para las <img> de los templates (auditoría de scroll
+   2026-09-07). loading="lazy" en TODAS las fotos hacía que las miniaturas que
+   ya viven en memoria (blob:/data: — 300px, cero red) recién se pidieran y
+   decodificaran al entrar en pantalla: cada tarjeta aparecía vacía un cuadro y
+   la foto "saltaba" adentro mientras se scrolleaba — eso es el parpadeo. Las
+   de memoria van eager (decoding="async" ya las decodifica fuera del hilo de
+   pintado); lazy queda SOLO para las URLs de Storage, que sí cuestan red. */
+function imgLoadAttr(src){
+  return (src && /^https?:/.test(src)) ? 'loading="lazy"' : '';
+}
 function itemPhotoSrc(item){
   if(!item || !item.photo) return null;
   if(item.photo.base64) return cachedPhotoUrl(item.photo.base64, item.photo.mediaType);

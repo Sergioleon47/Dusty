@@ -3335,6 +3335,56 @@ function viewportWidthPx(){
   return vp ? vp.getBoundingClientRect().width : window.innerWidth;
 }
 function trackRestPx(tab, vw){ return -(TAB_ORDER.indexOf(tab) * vw); }
+/* ===== Scroll por pestaña + alineación de páginas durante el swipe =====
+   (auditoría de scroll 2026-09-07). Las 4 páginas comparten el MISMO scroll del
+   documento y arrancan todas en el mismo tope (.view-track, align-items:
+   flex-start). Con el Inventario scrolleado 2000px, deslizar hacia el Dashboard
+   mostraba la vecina desde SU tope — o sea, 2000px abajo de su contenido: un
+   hueco gris — y al asentarse el documento se achicaba de golpe y el scroll se
+   recortaba: el "salto" al cambiar de pestaña. Y al volver, el Inventario
+   aparecía arriba de todo, perdido el lugar.
+   Ahora: cada pestaña recuerda su scroll (tabScrollMemory). Al comprometerse un
+   gesto (o tocar la barra), cada página que NO es la actual se corre con un
+   translateY (compositor, sin layout) de modo que lo que se ve por la ventana
+   sea exactamente su scroll recordado; al asentarse, render() vuelve a dibujar
+   sin esos offsets y en el mismo cuadro el documento se lleva al scroll
+   recordado — el desplazamiento del documento y el offset que desaparece se
+   cancelan: cero movimiento visible. */
+const tabScrollMemory = {};
+function viewportDocTop(){
+  const vp = document.querySelector('.view-viewport');
+  return vp ? vp.getBoundingClientRect().top + window.scrollY : 0;
+}
+function alignPagesForSwipe(fromTab){
+  const pages = document.querySelectorAll('.view-page');
+  const vp = document.querySelector('.view-viewport');
+  if(!pages.length || !vp) return;
+  const S = window.scrollY;
+  tabScrollMemory[fromTab] = S;
+  let needH = 0;
+  TAB_ORDER.forEach((tab, i)=>{
+    const page = pages[i];
+    if(!page) return;
+    if(tab===fromTab){ page.style.transform = ''; return; }
+    const remembered = tabScrollMemory[tab] || 0;
+    const dy = S - remembered;
+    page.style.transform = dy ? `translateY(${dy}px)` : '';
+    // La vecina corrida hacia abajo tiene que caber dentro del viewport
+    // (overflow:hidden): si no, se recortaría justo donde termina la actual.
+    needH = Math.max(needH, dy + page.getBoundingClientRect().height);
+  });
+  const cur = parseFloat(vp.style.height) || 0;
+  if(needH > cur) vp.style.height = needH + 'px';
+}
+function clearPageOffsets(){
+  document.querySelectorAll('.view-page').forEach(p=>{ p.style.transform = ''; });
+}
+function restoreScrollForTab(tab){
+  const remembered = tabScrollMemory[tab];
+  if(remembered===undefined) { window.scrollTo(0, 0); return; }
+  const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  window.scrollTo(0, Math.max(0, Math.min(remembered, maxY)));
+}
 // getComputedStyle siempre devuelve la matriz resuelta en píxeles, sin importar si
 // el transform actual se escribió en % (el primer dibujado) o en px (una animación
 // en curso) — así no hace falta acordarse en qué unidad quedó la última vez.
@@ -3440,9 +3490,19 @@ function switchToTab(tab, initialVelocityPxPerSec){
     // Igual puede haber quedado un redibujado pospuesto de mientras el dedo estaba
     // apoyado (ver swipeGestureActive en render()) — se aplica recién acá, nunca
     // antes, para no pisar la posición que el resorte todavía está animando a mano.
-    animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{ flushPendingRenderIfAny(); });
+    animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
+      // Gesto cancelado: las vecinas vuelven a su lugar y el alto del viewport
+      // (que alignPagesForSwipe pudo haber estirado) a la medida real.
+      clearPageOffsets();
+      syncViewportHeight();
+      flushPendingRenderIfAny();
+    });
     return;
   }
+  // Toque en la barra de abajo (sin gesto previo): las páginas se alinean ACÁ.
+  // Viniendo de un swipe ya están alineadas y volver a hacerlo es idempotente
+  // (el scroll no se movió mientras el dedo arrastraba en horizontal).
+  alignPagesForSwipe(activeTab);
   hapticTabTick();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
@@ -3450,6 +3510,10 @@ function switchToTab(tab, initialVelocityPxPerSec){
     try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){}
     renderPendingAfterGesture = false; // este render ya va a mostrar todo al día
     render();
+    // Mismo cuadro que el render (síncrono): el documento se lleva al scroll
+    // recordado de la pestaña nueva; el offset con el que se la mostró durante
+    // el gesto ya no existe, y las dos cosas se cancelan — no se ve moverse.
+    restoreScrollForTab(tab);
   });
 }
 /* Deslizar hacia los lados entre pestañas, siguiendo el dedo en tiempo real (como
@@ -3568,6 +3632,10 @@ function attachViewSwipeHandlers(){
         // está animando a mano — así un dato que llega de Firestore a mitad de un
         // deslice ya no lo corta en seco.
         swipeGestureActive = true;
+        // Las vecinas se corren para mostrar su scroll recordado a la altura
+        // de la ventana actual (ver alignPagesForSwipe) — antes de que el
+        // dedo las traiga a la vista.
+        alignPagesForSwipe(activeTab);
       }
     }
     if(s.axis!=='x') return;

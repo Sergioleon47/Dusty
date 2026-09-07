@@ -232,7 +232,7 @@ function stockIconSvg(item){
     // escapeHtml en el src: la foto (url/mediaType) puede venir de un compañero de equipo
     // vía Firestore; sin escapar, un " en esos campos rompe el atributo e inyecta onerror.
     // key siempre sale de la whitelist de stockIconKey (constante), así que ahí no hay riesgo.
-    return `<img src="${escapeHtml(ownPhoto)}" alt="" loading="lazy" onerror="this.outerHTML=stockIconFallbackSvg('${key}')">`;
+    return `<img src="${escapeHtml(ownPhoto)}" alt="" ${imgLoadAttr(ownPhoto)} decoding="async" onerror="this.outerHTML=stockIconFallbackSvg('${key}')">`;
   }
   // (El experimento de fotos genéricas hotlinkeadas de Wikimedia se quitó: era
   // una dependencia externa en una app por lo demás autocontenida — IPs de los
@@ -1024,7 +1024,7 @@ function receiptCalendarWidget(){
     // compositor) — antes cada celda decidía entre 3 comportamientos distintos.
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
-        ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">`
+        ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">`
           : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
           : `<span class="cal-day-num">${day}</span>`}
         ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
@@ -1079,7 +1079,7 @@ function dayModal(){
           return `
           <div class="day-receipt-row" data-view-receipt="${r.id}">
             <div class="day-receipt-thumb">
-              ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
+              ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:13.5px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -1171,7 +1171,7 @@ function recibosView(){
           const cover = imgs[0];
           return `
           <div class="dish-card" style="cursor:pointer;position:relative;${showReceiptDetail===r.id?'':`view-transition-name:${receiptVtName(r.id)};`}" data-view-receipt="${r.id}">
-            ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" decoding="async" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
+            ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
               <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -1538,12 +1538,15 @@ function alertSettingsModal(){
 
       ${/* Idioma DE ÚLTIMO (pedido del usuario 2026-09-04): vivía en el topbar,
            pero se cambia una sola vez — no merecía lugar permanente en la barra.
-           El rótulo va en el idioma DESTINO a propósito: quien no entiende el
-           idioma actual tiene que poder reconocer el suyo. Mismo id de siempre,
-           el handler de attachEvents lo encuentra acá igual; setLang re-renderiza
-           y el modal queda abierto con el rótulo ya cambiado. */''}
+           El rótulo va en el idioma ACTUAL de la interfaz (pedido del usuario
+           2026-09-07: con la app en inglés decía "Cambiar a español", un botón
+           en español en medio de una pantalla en inglés). Antes iba en el idioma
+           destino; el que no entiende el idioma actual ya eligió el suyo en la
+           primera pantalla (langChoiceModal), no necesita esta pista. Mismo id
+           de siempre, el handler de attachEvents lo encuentra acá igual; setLang
+           re-renderiza y el modal queda abierto con el rótulo ya cambiado. */''}
       <div class="settings-card">
-        <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Switch to English':'🌐 Cambiar a español'}</button>
+        <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Cambiar a inglés':'🌐 Switch to Spanish'}</button>
       </div>
 
       <div class="modal-actions">
@@ -2078,13 +2081,35 @@ function catalogoView(){
   // a pleno brillo (el atenuado de las no seleccionadas hacía ver la pantalla
   // apagada — pedido del usuario 2026-09-06); la selección se lee SOLO por el
   // ✓ verde y su borde.
-  const tile = (kind, id, name, photoSrc, checked)=>`
-    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':''}">
-      ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:''}
+  // Vista de FILAS (verificación 2026-09-07): el cuadrado a todo el ancho daba
+  // fichas de 347px de alto con el thumbnail de 300px estirado — una foto por
+  // pantalla. En filas la ficha es una línea: foto chica a la izquierda, el
+  // nombre completo (acá sí cabe) y el ✓ a la derecha, como la lista de Fotos.
+  const tile = (kind, id, name, photoSrc, checked)=>{
+    const check = checked
+      ? `<span style="width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;flex-shrink:0;">✓</span>`
+      : '';
+    const border = checked ? 'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));' : '';
+    if(invLayout==='rows'){
+      return `
+    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="display:flex;flex-direction:row;align-items:center;gap:12px;padding:8px 12px 8px 8px;${border}">
+      <span style="width:58px;height:58px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--inset);display:flex;align-items:center;justify-content:center;">
+        ${photoSrc
+          ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">`
+          : lineIcon('tag',20)}
+      </span>
+      <span style="flex:1;min-width:0;font-weight:700;font-size:15px;color:var(--ink);overflow-wrap:anywhere;">${escapeHtml(name)}</span>
+      ${check}
+    </div>`;
+    }
+    return `
+    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${border}">
+      ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;">${check}</span>`:''}
       ${photoSrc
-        ? `<img src="${escapeHtml(photoSrc)}" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">`
+        ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">`
         : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-weight:800;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;background:var(--inset);">${escapeHtml(invShortName(name))}</div>`}
     </div>`;
+  };
   const itemTile = (i)=> tile('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), !!i.inCatalog);
   const recipeTile = (r)=> tile('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), !!r.inCatalog);
   const url = catalogUrl();
@@ -2123,7 +2148,12 @@ function catalogoView(){
            publicación (Compartir) y después en Ajustes generales. */''}
       ${/* Sin el título "Herramientas del catálogo" (el usuario lo borró de raíz,
            2026-09-07): los tres círculos con su etiqueta ya se explican solos. */''}
-      <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;padding:2px 0;">
+      ${/* align-items:flex-end (verificación 2026-09-07): con flex-start las
+           etiquetas Collage/Compartir quedaban 25px más arriba que "Cámara"
+           (el círculo grande empuja la suya). Alineadas por abajo, las tres
+           palabras comparten renglón y la cámara sobresale por arriba — el
+           patrón de la fila de herramientas de InShot. */''}
+      <div style="display:flex;justify-content:space-evenly;align-items:flex-end;gap:4px;padding:2px 0;">
         ${/* Orden (pedido del usuario 2026-09-06): la CÁMARA primera desde la
              DERECHA — donde cae el pulgar. Galería se FUSIONÓ en la Cámara
              (pedido del usuario: "eso ahí está demasiado"): sin capture, el
@@ -2178,7 +2208,10 @@ function catalogoView(){
       <button type="button" id="btn-catalog-select" style="background:none;border:none;cursor:pointer;padding:8px 4px;font-weight:800;font-size:15px;color:${catalogSelectMode?'var(--basil)':'var(--ink)'};">${catalogSelectMode ? '✓ '+t('catalog_select_done') : t('catalog_select_btn')}</button>
       ${invLayoutToggleHtml()}
     </div>
-    ${catalogSelectMode ? `<div class="helper-note" style="margin:2px 0 6px;">${t('catalog_select_hint')}</div>` : ''}
+    ${/* La ayuda del modo selección ya NO va en línea (verificación 2026-09-07):
+         al entrar/salir del modo la nota aparecía y desaparecía empujando toda
+         la grilla ~35px — un salto de layout. Ahora sale como toast al entrar
+         (app-07), y la grilla no se mueve. */''}
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
       <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>
@@ -2347,33 +2380,39 @@ function catalogAssignModal(){
     </div>`;
   };
   return `
+  ${/* UN solo scroll (verificación 2026-09-07): antes la lista tenía su propio
+       scroll de 40vh ADENTRO de un modal que también scrolleaba (770px de
+       contenido en 713 de alto) — el dedo caía en dos regiones distintas y el
+       Cancelar quedaba escondido abajo. Ahora el modal es una columna flex a
+       88vh: foto, chips y sugerencia fijos arriba, la lista toma lo que queda
+       y es lo ÚNICO que scrollea, y Cancelar siempre a la vista. */''}
   <div class="overlay" id="catalog-assign-overlay">
-    <div class="modal">
-      <h3 class="sky">${t('catalog_assign_title')}</h3>
-      ${src ? `<img src="${escapeHtml(src)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:block;">` : ''}
+    <div class="modal" style="display:flex;flex-direction:column;overflow:hidden;">
+      <h3 class="sky" style="flex-shrink:0;">${t('catalog_assign_title')}</h3>
+      ${src ? `<img src="${escapeHtml(src)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:block;flex-shrink:0;">` : ''}
       ${/* Filtros (los 4 más usados + original): recalculan desde el original y
            la vista previa de arriba muestra el resultado al instante. */''}
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;flex-shrink:0;">
         ${catalogEditFull ? `<button type="button" class="exit-reason-chip" id="btn-open-photo-editor" style="font-weight:800;">✂️ ${t('catalog_edit_btn')}</button>` : ''}
         ${['original','vivid','warm','retro','bw'].map(k=>`<button type="button" class="exit-reason-chip ${catalogPendingFilter===k?'on':''}" data-photo-filter="${k}">${t('catalog_filter_'+k)}</button>`).join('')}
       </div>
-      ${catalogAssignDetecting ? `<div class="scan-status" style="margin-top:10px;"><div class="spinner"></div> ${t('catalog_detecting')}</div>` : ''}
+      ${catalogAssignDetecting ? `<div class="scan-status" style="margin-top:10px;flex-shrink:0;"><div class="spinner"></div> ${t('catalog_detecting')}</div>` : ''}
       ${(()=>{
         if(!catalogAssignSuggestion) return '';
         const s = catalogAssignSuggestion;
         const obj = s.kind==='item' ? inventory.find(i=>i.id===s.id) : recipes.find(r=>r && r.id===s.id);
         if(!obj) return '';
         return `
-      <div style="margin-top:10px;background:var(--sky-soft);border-radius:10px;padding:4px 10px 2px;">
+      <div style="margin-top:10px;background:var(--sky-soft);border-radius:10px;padding:4px 10px 2px;flex-shrink:0;">
         <div style="font-size:11px;font-weight:800;color:var(--sky-ink);padding-top:4px;">✨ ${t('catalog_suggested')}</div>
         ${row(s.kind, obj)}
       </div>`;
       })()}
-      <div style="max-height:40vh;overflow-y:auto;margin-top:10px;">
+      <div style="flex:1;min-height:96px;overflow-y:auto;margin-top:10px;-webkit-overflow-scrolling:touch;">
         ${inventory.filter(i=>i && !isExpenseItem(i)).map(i=>row('item', i)).join('')}
         ${recipes.filter(r=>r && r.id).map(r=>row('recipe', r)).join('')}
       </div>
-      <div class="modal-actions">
+      <div class="modal-actions" style="flex-shrink:0;">
         <button class="btn btn-ghost" id="btn-cancel-assign-photo" style="width:100%;">${t('btn_cancel')}</button>
       </div>
     </div>
@@ -2442,8 +2481,13 @@ function catalogEditorModal(){
       <span data-edit-val="${key}" data-edit-neutral="${key==='zoom'?100:0}" style="width:40px;text-align:right;font-size:14px;font-weight:800;color:${active?'var(--sky-ink)':'var(--ink-soft)'};font-variant-numeric:tabular-nums;flex-shrink:0;transition:color .15s;">${val}</span>
     </div>`;
   };
-  const tab = (key, label)=>`
-    <button type="button" data-edit-tab="${key}" style="flex:1;border:none;cursor:pointer;padding:11px 4px;border-radius:9px;font-size:14px;font-weight:800;letter-spacing:.02em;transition:background .18s, transform .18s, box-shadow .18s;background:${catalogEditTab===key?'var(--raised)':'transparent'};color:${catalogEditTab===key?'var(--ink)':'var(--ink-soft)'};${catalogEditTab===key?'transform:scale(1.04);box-shadow:var(--shadow);':''}">${label}</button>`;
+  // Ícono ARRIBA y palabra abajo, siempre (verificación 2026-09-07): con
+  // "☀️ Luz" en una línea, "Color" y "Encuadre" no entraban en su cuarto de
+  // ancho y se partían en dos renglones mientras Luz y PRO quedaban en uno —
+  // cuatro pestañas de cuatro formas distintas. En columna las cuatro miden
+  // lo mismo y ninguna palabra se corta.
+  const tab = (key, icon, label)=>`
+    <button type="button" data-edit-tab="${key}" style="flex:1;min-width:0;border:none;cursor:pointer;padding:8px 2px 7px;border-radius:9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:800;letter-spacing:.01em;white-space:nowrap;transition:background .18s, transform .18s, box-shadow .18s;background:${catalogEditTab===key?'var(--raised)':'transparent'};color:${catalogEditTab===key?'var(--ink)':'var(--ink-soft)'};${catalogEditTab===key?'transform:scale(1.04);box-shadow:var(--shadow);':''}"><span style="font-size:17px;line-height:1;">${icon}</span><span>${label}</span></button>`;
   return `
   <div class="overlay" id="catalog-editor-overlay">
     <div class="modal">
@@ -2457,10 +2501,10 @@ function catalogEditorModal(){
       </div>
       ${/* Pestañas segmentadas Luz/Color/Encuadre/PRO — cada grupo respira. */''}
       <div style="display:flex;gap:4px;background:var(--inset);border-radius:10px;padding:4px;margin-top:12px;">
-        ${tab('light', '☀️ '+t('catalog_tab_light'))}
-        ${tab('color', '🎨 '+t('catalog_tab_color'))}
-        ${tab('frame', '⤢ '+t('catalog_tab_frame'))}
-        ${tab('pro', '✦ PRO')}
+        ${tab('light', '☀️', t('catalog_tab_light'))}
+        ${tab('color', '🎨', t('catalog_tab_color'))}
+        ${tab('frame', '⤢', t('catalog_tab_frame'))}
+        ${tab('pro', '✦', 'PRO')}
       </div>
       ${catalogEditTab==='light' ? `
       <div style="margin-top:12px;">
