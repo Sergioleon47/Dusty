@@ -237,7 +237,13 @@
 // Conteo, Escanear estante sin badge), buscador fijo con vista y orden, filtros
 // rápidos Crítico/Toca contar/Sin foto, chips con "Todos", grupos plegables y
 // "ver los restantes" — app-03/05/07/08 + css.
-const CACHE_NAME = 'patron-shell-v81';
+// v82: DASHBOARD reorganizado (maqueta aprobada 2026-09-07): dos botones
+// arriba (Ayuda pasa a Ajustes), un solo bloque de presupuesto (inversión +
+// gastos con barra, sin franja repetida), fila de herramientas con nombre
+// (Productos · Escanear recibo · A mano, sin órbita), "Hoy" con Críticos /
+// Toca contar / Salud que abren el Inventario filtrado, y filas de Pedido
+// sugerido, Último recibo, Producción y Cambios — app-03/04/05/07 + css.
+const CACHE_NAME = 'patron-shell-v82';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

@@ -383,11 +383,8 @@ function topbar(){
       </div>
     </div>
     <div class="topbar-actions" style="display:flex;gap:8px;">
-      ${/* El "?" abre AYUDA (auditoría de primer minuto 2026-09-07); "Reportar un
-           problema" vive al pie de esa hoja. El id se conserva por el color CSS. */''}
-      <button class="lang-toggle" id="btn-feedback" title="${t('btn_help')}" aria-label="${t('btn_help')}">
-        <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      </button>
+      ${/* El "?" de Ayuda se mudó ADENTRO de Ajustes (Dashboard reorganizado
+           2026-09-07: dos botones arriba, no tres). Mismo id btn-feedback allá. */''}
       ${currentUser && !currentUser.isAnonymous ? `
       ${/* Nube rediseñada (pedido del usuario 2026-09-04): la silueta clásica
            cerrada (Feather "cloud") en vez del trazo abierto de antes, con el

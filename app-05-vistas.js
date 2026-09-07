@@ -390,108 +390,131 @@ function stockAnalyticsCard(){
 }
 
 function dashboardView(){
+  /* DASHBOARD reorganizado (maqueta aprobada por el usuario 2026-09-07, "ármalo
+     así mismo"): menos repetido, más "qué hago hoy".
+     1. dos botones arriba (Ayuda vive en Ajustes) — ver topbar en app-04;
+     2. UN solo bloque de presupuesto: inversión del mes + gastos con barra y
+        "quedan" en la misma tarjeta (adiós a la franja repetida de abajo);
+     3. fila de herramientas con nombre, como Inventario y Catálogo: Productos ·
+        Escanear recibo (grande) · A mano — sin la órbita de emojis; Compartir
+        cuenta vive en Ajustes › Cuenta;
+     4. "Hoy": Críticos / Toca contar / Salud del stock — cada número abre el
+        Inventario ya filtrado (reemplaza "Estado del inventario", que era el
+        Inventario otra vez con su selector de vista);
+     5. Pedido sugerido como fila con su línea;
+     6. Último recibo como fila. Producción y Cambios siguen como filas: sin
+        ellas el hub y la actividad quedaban inalcanzables. */
   const months = allMonths();
-  // SIEMPRE el mes calendario (auditoría de presupuesto 2026-09-07): antes era el
-  // último mes con recibos — sin recibos en septiembre mostraba agosto, y un
-  // recibo con fecha futura por error secuestraba el tablero a ese mes.
+  // SIEMPRE el mes calendario (auditoría de presupuesto 2026-09-07).
   const currentMonthKey = localMonthStr();
   const currentSpend = spendForMonth(currentMonthKey);
-
+  const empty = inventory.length===0 && receipts.length===0 && !cloudSyncPending;
+  const allRows = inventory.length>0 ? stockRowsData() : [];
+  const critRows = allRows.filter(r=>r.status==='crit');
+  const ccDueIds = inventory.length>0 ? cycleCountDueIds() : new Set();
+  const graded = allRows.filter(r=>r.status!=='none');
+  const healthPct = graded.length ? Math.round(graded.filter(r=>r.status==='ok').length/graded.length*100) : null;
+  const lastReceipt = receipts.filter(r=>r && !r.manual).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0] || receipts.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0] || null;
+  const unread = (currentUser || hadCloudSessionBefore()) ? unreadActivityCount() : 0;
+  const scanSvg = '<svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
   return `
-
-  <div class="grid-summary">
-    ${/* Primer día (auditoría de primer minuto 2026-09-07): sin nada cargado, la
-         tarjeta de Inversión mostraba tres ceros y una palabra sin significado
-         todavía. En su lugar va la tarjeta de PRIMEROS PASOS (ver firstStepsCard);
-         la de Inversión vuelve sola con el primer recibo o producto. */''}
-    ${(inventory.length===0 && receipts.length===0 && !cloudSyncPending) ? firstStepsCard() : `<div class="stat-card">
-      ${/* Rediseño 2026-09-03 (pedido del usuario): el número grande es la
-           INVERSIÓN del mes (recibos de mercadería — verde, se convierte en
-           Valor); abajo los GASTOS OPERATIVOS (comida, gasolina, luz, agua,
-           bills, gastos manuales — ámbar), que son lo ÚNICO que consume el
-           budget: el presupuesto es para operar el negocio, no para invertir.
-           Tocar la fila de gastos agrega un gasto manual sin recibo. */''}
-      ${/* Sin la fila de gastos (la tachó el usuario — era redundante): el número
-           grande + lápiz para cargar entradas manuales (gasto O inversión, el
-           modal pregunta el tipo), y el % del budget ya cuenta la historia de los
-           gastos operativos. */''}
-      ${(()=>{
-        const sp = spendSplitForMonth(currentMonthKey);
-        return `
-      <div class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div class="stat-value" style="color:var(--money-pos);margin:0;">${money(sp.invested)}</div>
-        ${/* ＋ y no lápiz (auditoría de presupuesto 2026-09-07): un lápiz junto a un
-             número dice "editar ese número", y este botón AGREGA un gasto. */''}
-        <button type="button" class="dash-pencil-btn dash-plus-btn" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
+  ${/* 2. Bloque único de presupuesto (o Primeros pasos el primer día). */''}
+  ${empty ? firstStepsCard() : `
+  <div class="stat-card dash-month">
+    ${(()=>{
+      const sp = spendSplitForMonth(currentMonthKey);
+      return `
+    <div class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="stat-value" style="color:var(--money-pos);margin:0;">${money(sp.invested)}</div>
+      <button type="button" class="dash-pencil-btn dash-plus-btn" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>`;
+    })()}
+    ${(()=>{
+      const p = budgetPace(currentMonthKey);
+      const canEdit = canSeeFinancials();
+      const pencil = canEdit ? `
+        <button type="button" class="dash-pencil-btn" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>` : '';
+      // Presupuesto, barra y las líneas de resumen (gastos / quedan / ritmo)
+      // TODAS en esta tarjeta — antes la franja de abajo repetía el número.
+      if(p) return `
+      <div class="budget-block budget-strip ${p.status}" style="margin:10px -4px 0;padding:8px 4px 0;border:none;background:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(p.budget)}</strong> (${Math.round(p.pct)}%)</span>
+          ${pencil}
+        </div>
+        ${budgetBarHtml(p)}
+        ${budgetSummaryHtml(p)}${cogsRatioHtml(currentMonthKey)}
       </div>`;
-      })()}
-      ${/* Presupuesto con ritmo (auditoría 2026-09-07): la barra va DEBAJO del
-           monto del budget, y debajo de la barra la línea que faltaba —
-           "Gastos $X de $Y · Quedan $Z" — más la nota de ritmo/proyección y lo
-           comprometido (bills sin pagar). Marca en la barra = dónde deberías ir
-           hoy. Solo el dueño (o quien ve finanzas) edita el monto. */''}
-      ${(()=>{
-        const p = budgetPace(currentMonthKey);
-        const canEdit = canSeeFinancials();
-        const pencil = canEdit ? `
-          <button type="button" class="dash-pencil-btn" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
-            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>` : '';
-        // La tarjeta solo lleva monto, % y barra; el resumen va en la franja a
-        // todo el ancho de abajo (budgetStripHtml) — en 160px de columna las
-        // seis líneas la hacían eterna.
-        if(p) return `
-        <div class="budget-block">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;">
-            <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(p.budget)}</strong> (${Math.round(p.pct)}%)</span>
-            ${pencil}
-          </div>
-          ${budgetBarHtml(p)}
-        </div>`;
-        if(!canEdit) return '';
-        return `
-        <button id="btn-edit-budget" class="budget-set-cta" type="button">
-          <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
-          <span class="budget-set-link">${t('budget_set_cta')}</span>
-        </button>`;
-      })()}
-      <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
-    </div>`}
-    <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
-      <!-- Órbita decorativa: todo lo que Dusty puede escanear girando despacio
-           alrededor del botón (recibos, productos, códigos de barras, servicios,
-           precios). Tres capas de span por burbuja: la de afuera la posiciona en
-           su ángulo, la del medio deshace ese ángulo (estático), y la de adentro
-           contra-rota animada — así los íconos quedan siempre derechos mientras
-           la órbita entera gira. aria-hidden: es puro adorno, el botón ya se
-           anuncia solo. -->
-      <div class="scan-orbit" aria-hidden="true">
-        ${[['🧾',0],['📦',72],['🛒',144],['💡',216],['🏷️',288]].map(([emoji,deg])=>`
-        <span class="so-arm" style="transform:rotate(${deg}deg) translate(var(--so-r));">
-          <span class="so-unrot" style="transform:rotate(${-deg}deg);">
-            <span class="so-bubble">${emoji}</span>
-          </span>
-        </span>`).join('')}
-      </div>
-      <div class="scan-fab-mini scan-fab-mini-lg">
+      if(!canEdit) return '';
+      return `
+      <button id="btn-edit-budget" class="budget-set-cta" type="button">
+        <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
+        <span class="budget-set-link">${t('budget_set_cta')}</span>
+      </button>`;
+    })()}
+    <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')} ›</button>
+  </div>`}
+  ${budgetAlertCard()}
+
+  ${/* 3. Herramientas con nombre (mismos ids de siempre: btn-scan-products,
+       btn-scan-fab, btn-new-item — attachEvents los encuentra igual). */''}
+  <div class="inv-tools" style="margin:4px 0 16px;">
+    <button type="button" class="inv-tool" id="btn-scan-products" title="${t('pb_open_btn')}">
+      <span class="inv-tool-ring" style="background:var(--saffron-soft);color:var(--saffron-ink);">${lineIcon('box',24)}</span>
+      <span class="inv-tool-label">${t('dash_tool_products')}</span>
+    </button>
+    <div class="inv-tool" style="min-width:76px;">
+      <button type="button" class="shelf-scan-fab" id="btn-scan-fab" title="${t('dash_scan_receipt')}" aria-label="${t('dash_scan_receipt')}">
         <div class="scan-fab-ring"></div>
         <div class="scan-fab-ring delay"></div>
-        ${scanIconSvg()}
-      </div>
+        ${scanSvg}
+      </button>
+      <span class="inv-tool-label" style="font-weight:800;">${t('dash_scan_receipt')}</span>
     </div>
+    <button type="button" class="inv-tool" id="btn-new-item" title="${t('btn_add_manually')}">
+      <span class="inv-tool-ring" style="background:var(--navy-wash);color:var(--navy-ink);font-size:26px;font-weight:700;">＋</span>
+      <span class="inv-tool-label">${t('dash_tool_manual')}</span>
+    </button>
   </div>
 
-  ${budgetStripHtml(currentMonthKey)}
-  ${budgetAlertCard()}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
-  ${inventory.length>0 ? inventoryMenuRow() : ''}
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : `
+  ${/* 4. HOY: tres números que se tocan (abren el Inventario filtrado). */''}
+  <div class="dash-section-label">${t('dash_today')}</div>
+  <div class="dash-stats">
+    <button type="button" class="dash-stat" data-dash-stat="crit"><b style="color:${critRows.length>0?'var(--stock-crit)':'var(--ink)'};">${critRows.length}</b><small>${t('dash_stat_crit')}</small></button>
+    <button type="button" class="dash-stat" data-dash-stat="count"><b style="color:${ccDueIds.size>0?'var(--saffron-ink)':'var(--ink)'};">${ccDueIds.size}</b><small>${t('dash_stat_count')}</small></button>
+    <button type="button" class="dash-stat" data-dash-stat="health"><b style="color:${healthPct===null?'var(--ink-soft)':(healthPct>=60?'var(--stock-ok)':healthPct>=20?'var(--stock-warn)':'var(--stock-crit)')};">${healthPct===null?'—':healthPct+'%'}</b><small>${t('dash_stat_health')}</small></button>
+  </div>
+  ${/* 5. Pedido sugerido como fila (mismo id btn-suggested-order). */''}
+  <button type="button" class="dash-row" id="btn-suggested-order">
+    <span><span class="dash-row-title">${t('stock_suggested_order').replace(/:$/,'')}</span><span class="dash-row-sub" style="display:block;">${critRows.length>0 ? t('dash_suggested_n').replace('{n}', critRows.length) : t('dash_suggested_none')}</span></span>
+    <span class="dash-row-chev">›</span>
+  </button>`}
+  ${/* 6. Último recibo (abre su ficha), Producción y Cambios. */''}
+  ${inventory.length>0 || receipts.length>0 ? `
+  <${lastReceipt?'div':'div'} class="dash-row" ${lastReceipt ? `data-view-receipt="${lastReceipt.id}" role="button" tabindex="0"` : 'style="cursor:default;"'}>
+    <span><span class="dash-row-title">${t('dash_last_receipt')}</span><span class="dash-row-sub" style="display:block;">${lastReceipt ? `${escapeHtml(lastReceipt.supplier)||t('no_supplier_name')} · ${money(lastReceipt.total)} · ${escapeHtml(lastReceipt.date||'')}` : t('dash_last_receipt_none')}</span></span>
+    ${lastReceipt ? '<span class="dash-row-chev">›</span>' : ''}
+  </div>` : ''}
+  ${inventory.length>0 ? `
+  <button type="button" class="dash-row" id="btn-production-hub">
+    <span><span class="dash-row-title">${t('prod_section_title')}</span><span class="dash-row-sub" style="display:block;">${t('dash_production_sub')}</span></span>
+    <span class="dash-row-chev">›</span>
+  </button>
+  ${(currentUser || hadCloudSessionBefore()) ? `
+  <button type="button" class="dash-row" id="btn-inventory-activity">
+    <span><span class="dash-row-title">${t('activity_modal_title')}</span><span class="dash-row-sub" style="display:block;">${unread>0 ? t('dash_activity_n').replace('{n}', unread) : t('dash_activity_none')}</span></span>
+    ${unread>0 ? `<span class="dash-row-badge">${unread>99?'99+':unread}</span>` : '<span class="dash-row-chev">›</span>'}
+  </button>` : ''}` : ''}
   ${priceAlertsCard()}
-  ${stockAnalyticsCard()}
   `;
 }
+
 /* INTERCAMBIO 2026-09-04 (pedido del usuario): el menú de acciones del
    inventario (escanear productos, alta manual, producción, conteo, actividad,
    categorías) vive en el DASHBOARD — donde estaban los chips de categoría — y
@@ -1663,6 +1686,9 @@ function alertSettingsModal(){
       <div class="settings-card">
         ${settingsCardHeader('cloud','var(--sky-soft)','var(--sky-ink)',t('settings_account_title'))}
         <button class="btn btn-ghost btn-sm" id="btn-open-account" style="width:100%;">${t('account_btn')}</button>
+        ${/* Ayuda vive acá desde el Dashboard reorganizado (2026-09-07): el "?"
+             salió de la cabecera. Mismo id de siempre — abre la hoja de ayuda. */''}
+        <button class="btn btn-ghost btn-sm" id="btn-feedback" style="width:100%;margin-top:8px;">${t('settings_help_btn')}</button>
       </div>
 
       <div class="modal-actions">

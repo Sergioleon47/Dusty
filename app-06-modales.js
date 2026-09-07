@@ -428,7 +428,7 @@ function teamIntroModal(){
    cualquier app, y antes abría el formulario de quejas. Ahora abre las preguntas
    del primer día (plegadas, se abren de a una) con "Reportar un problema" al pie. */
 function openHelpModal(){ showHelpModal = true; render(); }
-function closeHelpModal(){ showHelpModal = false; render(); }
+function closeHelpModal(){ showHelpModal = false; reopenSettingsIfPending(); render(); }
 function helpModal(){
   const qa = [
     {q:'help_q1', a:'help_a1', icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)'},

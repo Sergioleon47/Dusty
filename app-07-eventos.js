@@ -168,8 +168,20 @@ function attachEvents(){
     };
   });
   // El "?" abre la hoja de AYUDA; el reporte de problemas está al pie de esa hoja.
+  // Ayuda vive en Ajustes (Dashboard reorganizado 2026-09-07): se cierra Ajustes,
+  // se abre la hoja, y al cerrarla se vuelve a Ajustes (settingsReturnPending).
   const btnFeedback=document.getElementById('btn-feedback');
-  if(btnFeedback) btnFeedback.onclick=()=>openHelpModal();
+  if(btnFeedback) btnFeedback.onclick=()=>{ if(showAlertSettingsModal){ settingsReturnPending=true; showAlertSettingsModal=false; } openHelpModal(); };
+  // "Hoy" del Dashboard: cada número abre el Inventario ya filtrado (filtros
+  // rápidos); Salud del stock lo abre entero.
+  document.querySelectorAll('[data-dash-stat]').forEach(b=>{
+    b.onclick=()=>{
+      const k=b.dataset.dashStat;
+      invQuickFilter = (k==='crit'||k==='count') ? k : null;
+      inventoryCategoryFilter=null; invSearch='';
+      if(activeTab==='inventario') render(); else switchToTab('inventario');
+    };
+  });
   const helpOverlay=document.getElementById('help-overlay');
   if(helpOverlay){
     helpOverlay.onmousedown=(e)=>{ if(e.target===helpOverlay) closeHelpModal(); };

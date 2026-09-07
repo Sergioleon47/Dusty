@@ -631,6 +631,12 @@ const I18N = {
     inv_sort_label:'Orden', inv_sort_name:'Nombre', inv_sort_stock:'Menos stock', inv_sort_value:'Mayor valor',
     inv_search_ph:'Buscar entre {n} productos', inv_more:'ver los {n} restantes', inv_less:'ver menos',
     inv_group_toggle_aria:'Plegar o desplegar la categoría',
+    dash_today:'Hoy', dash_tool_products:'Productos', dash_tool_manual:'A mano',
+    dash_stat_crit:'Críticos', dash_stat_count:'Toca contar', dash_stat_health:'Salud del stock',
+    dash_suggested_none:'Nada por reponer esta semana', dash_suggested_n:'{n} producto(s) por reponer',
+    dash_last_receipt:'Último recibo', dash_last_receipt_none:'Todavía no escaneaste ninguno',
+    dash_activity_none:'Sin cambios nuevos', dash_activity_n:'{n} cambio(s) sin ver', dash_production_sub:'Recetas, producir y salidas',
+    settings_help_btn:'❓ Ayuda y reportar un problema',
     theme_title:'Tema de colores',
     pulse_label:'Latidos de aviso', pulse_helper:'Las palpitaciones de Inventario (conteo pendiente, stock crítico) y de Presupuesto (barra, alerta, punto del Dashboard). Apagalas si te distraen o para ahorrar batería.',
     pulse_on:'Prendidos', pulse_off:'Apagados',
@@ -1237,6 +1243,12 @@ const I18N = {
     inv_sort_label:'Sort', inv_sort_name:'Name', inv_sort_stock:'Lowest stock', inv_sort_value:'Highest value',
     inv_search_ph:'Search {n} products', inv_more:'show the other {n}', inv_less:'show fewer',
     inv_group_toggle_aria:'Collapse or expand the category',
+    dash_today:'Today', dash_tool_products:'Products', dash_tool_manual:'By hand',
+    dash_stat_crit:'Critical', dash_stat_count:'To count', dash_stat_health:'Stock health',
+    dash_suggested_none:'Nothing to restock this week', dash_suggested_n:'{n} product(s) to restock',
+    dash_last_receipt:'Last receipt', dash_last_receipt_none:'None scanned yet',
+    dash_activity_none:'No new changes', dash_activity_n:'{n} unseen change(s)', dash_production_sub:'Recipes, produce and outflows',
+    settings_help_btn:'❓ Help and report a problem',
     theme_title:'Color theme',
     pulse_label:'Alert pulses', pulse_helper:'The pulsing in Inventory (count due, critical stock) and Budget (bar, alert card, Dashboard dot). Turn them off if they distract you or to save battery.',
     pulse_on:'On', pulse_off:'Off',
@@ -1752,7 +1764,9 @@ function budgetSummaryHtml(p){
   let pace='';
   if(p.pct>=100) pace = t('budget_pace_over');
   else if(p.fast) pace = t('budget_pace_fast').replace('{proj}', money(p.projected));
-  else if(p.projected!==null && p.day>=5) pace = t('budget_pace_ok').replace('{proj}', money(p.projected));
+  // Solo con gasto real (Dashboard reorganizado 2026-09-07): "a este ritmo
+  // cerrás en $0.00" con cero gastado no dice nada.
+  else if(p.projected!==null && p.day>=5 && p.expense>0) pace = t('budget_pace_ok').replace('{proj}', money(p.projected));
   let committed='';
   if(p.committed>0 && p.left>0){
     const names = (p.committedNames||[]).slice(0,2).join(', ') + ((p.committedNames||[]).length>2 ? '…' : '');
