@@ -2090,7 +2090,7 @@ function catalogoView(){
          tarjetas en la grilla fila/2col/3col con el selector compartido. */''}
     ${/* Seleccionar vive a la IZQUIERDA de esta fila (donde lo señaló el
          usuario, captura 2026-09-06), frente al selector de vista. */''}
-    <div class="inv-toolbar" style="justify-content:space-between;align-items:center;gap:8px;">
+    <div class="inv-toolbar" style="justify-content:space-between;align-items:center;gap:8px;margin-top:26px;">
       <button type="button" class="exit-reason-chip ${catalogSelectMode?'on':''}" id="btn-catalog-select" style="font-weight:800;font-size:13.5px;padding:8px 16px;">${catalogSelectMode ? '✓ '+t('catalog_select_done') : t('catalog_select_btn')}</button>
       ${invLayoutToggleHtml()}
     </div>

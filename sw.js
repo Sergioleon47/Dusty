@@ -144,7 +144,9 @@
 // v53: Collage con DISEÑO PRIMERO (tocar Collage abre el menú de 9 layouts y
 // recién el elegido pide sus fotos) y Seleccionar se muda a la izquierda de la
 // fila del selector de vista (donde lo señaló el usuario) — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v53';
+// v54: la fila Seleccionar + vista baja (margin-top) para agruparse con los
+// ítems, despegada de las herramientas — app-05.
+const CACHE_NAME = 'patron-shell-v54';
 
 const PRECACHE_URLS = [
   '/',
