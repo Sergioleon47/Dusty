@@ -2045,9 +2045,11 @@ function catalogoView(){
     ${/* Tarjeta elevada estilo "Create New" de InShot (segunda captura del
          usuario): los círculos con gradiente y etiqueta viven juntos en una
          tarjeta redondeada — la casa de las herramientas del catálogo. */''}
+    ${/* Sin tarjeta contenedora (el usuario la tachó, captura 2026-09-06): los
+         círculos flotan directo sobre la página, cada uno ya trae su sombra. */''}
     <div style="margin:16px 0 6px;">
-      <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 8px;">${t('catalog_tools_header')}</div>
-      <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:20px;padding:16px 8px 14px;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 10px;">${t('catalog_tools_header')}</div>
+      <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;padding:2px 0;">
         ${/* Orden (pedido del usuario 2026-09-06): la CÁMARA primera desde la
              DERECHA — donde cae el pulgar. */''}
         ${tool('btn-catalog-gallery', ring(galSvg, 'linear-gradient(145deg, var(--navy-wash), var(--panel))', 'var(--navy-ink)'), t('catalog_tool_gallery'))}
