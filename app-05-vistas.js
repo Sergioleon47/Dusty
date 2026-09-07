@@ -1442,9 +1442,19 @@ const DUSTY_THEMES = [
   {id:'rosa',       es:'Rosa',       en:'Rose',     bg:'#160f14', accent:'#ff6b9d'},
   {id:'dorado',     es:'Dorado',     en:'Gold',     bg:'#14110a', accent:'#f0b429'},
   {id:'medianoche', es:'Medianoche', en:'Midnight', bg:'#000000', accent:'#22d3ee'},
+  // Paletas de referencia del usuario (2026-09-06) — oscuras:
+  {id:'esmeralda',  es:'Esmeralda',  en:'Emerald',  bg:'#0C3B2E', accent:'#FFBA00'},
+  {id:'indigo',     es:'Índigo',     en:'Indigo',   bg:'#2a2645', accent:'#F0C38E'},
+  {id:'rubi',       es:'Rubí',       en:'Ruby',     bg:'#181B24', accent:'#CC324C'},
+  {id:'zafiro',     es:'Zafiro',     en:'Sapphire', bg:'#232e4a', accent:'#73B7F1'},
   {id:'claro',      es:'Claro',      en:'Light',    bg:'#f3f4f8', accent:'#e85d24'},
   {id:'crema',      es:'Crema',      en:'Cream',    bg:'#f6f1e7', accent:'#c65b2e'},
   {id:'menta',      es:'Menta',      en:'Mint',     bg:'#eef6f1', accent:'#0fa37f'},
+  // — y claras:
+  {id:'pastel',     es:'Pastel',     en:'Pastel',   bg:'#e7f8ff', accent:'#87AEEE'},
+  {id:'electrico',  es:'Eléctrico',  en:'Electric', bg:'#f7f2ff', accent:'#752FFF'},
+  {id:'coral',      es:'Coral',      en:'Coral',    bg:'#fdf7e8', accent:'#FF5844'},
+  {id:'miel',       es:'Miel',       en:'Honey',    bg:'#FCF1DA', accent:'#E38C4C'},
 ];
 let dustyTheme = 'night';
 try{ const v = localStorage.getItem('patron_theme'); if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v; }catch(e){}

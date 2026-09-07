@@ -88,8 +88,43 @@
     --navy:#22d3ee; --navy-soft:#5ce1f2;
     --bg:#000000; --panel:#0b0c0e; --inset:#050607; --raised:#141518; --raised-2:#1b1d21; --line:#1d1f24;
   }
-  /* Base compartida de los 3 temas CLAROS. */
-  html[data-dusty-theme="claro"], html[data-dusty-theme="crema"], html[data-dusty-theme="menta"]{
+  /* --- Paletas de referencia que mandó el usuario (2026-09-06, capturas de
+     ui.colour): cada tema usa SOLO los colores de su paleta — las superficies
+     intermedias y los grises salen de MEZCLAR esos mismos colores entre sí
+     (o aclararlos/oscurecerlos), nunca de tonos ajenos. Los semánticos
+     (verde ok / ámbar aviso / rojo crítico) solo se remapean cuando la paleta
+     trae un color que cumple ese rol; si no, quedan los de siempre. --- */
+  html[data-dusty-theme="esmeralda"]{ /* hotel verde: 0C3B2E/6D9773/FFBA00/BB8A52 */
+    --navy:#FFBA00; --navy-soft:color-mix(in oklch, #FFBA00, white 15%);
+    --bg:#0C3B2E; --panel:color-mix(in srgb, #0C3B2E 78%, #6D9773); --inset:color-mix(in srgb, #0C3B2E 82%, black);
+    --raised:color-mix(in srgb, #0C3B2E 66%, #6D9773); --raised-2:color-mix(in srgb, #0C3B2E 56%, #6D9773);
+    --line:color-mix(in srgb, #0C3B2E 62%, #6D9773);
+    --basil:#6D9773; --saffron:#FFBA00;
+    --ink-soft:color-mix(in oklch, #6D9773, white 25%); --ink-mid:color-mix(in oklch, #6D9773, white 55%);
+  }
+  html[data-dusty-theme="indigo"]{ /* Orix: 312C51/48426D/F0C38E/F1AA9B */
+    --navy:#F0C38E; --navy-soft:color-mix(in oklch, #F0C38E, white 10%);
+    --bg:color-mix(in srgb, #312C51 86%, black); --panel:#312C51; --inset:color-mix(in srgb, #312C51 70%, black);
+    --raised:color-mix(in srgb, #312C51 60%, #48426D); --raised-2:#48426D; --line:color-mix(in srgb, #312C51 45%, #48426D);
+    --tomato:#F1AA9B;
+    --ink-soft:color-mix(in oklch, #48426D, white 42%); --ink-mid:color-mix(in oklch, #48426D, white 62%);
+  }
+  html[data-dusty-theme="rubi"]{ /* fintech roja: CC324C/181B24/242635/F69E1C */
+    --navy:#CC324C; --navy-soft:color-mix(in oklch, #CC324C, white 15%);
+    --saffron:#F69E1C;
+    --bg:#181B24; --panel:#242635; --inset:color-mix(in srgb, #181B24 78%, black);
+    --raised:color-mix(in oklch, #242635, white 5%); --raised-2:color-mix(in oklch, #242635, white 10%);
+    --line:color-mix(in oklch, #242635, white 8%);
+  }
+  html[data-dusty-theme="zafiro"]{ /* cripto azul: 2B385A/73B7F1/3D4B78/FFFFFF */
+    --navy:#73B7F1; --navy-soft:color-mix(in oklch, #73B7F1, white 14%);
+    --ink:#FFFFFF; --ink-soft:color-mix(in srgb, #FFFFFF 52%, #3D4B78); --ink-mid:color-mix(in srgb, #FFFFFF 75%, #3D4B78);
+    --bg:color-mix(in srgb, #2B385A 82%, black); --panel:#2B385A; --inset:color-mix(in srgb, #2B385A 68%, black);
+    --raised:color-mix(in srgb, #2B385A 55%, #3D4B78); --raised-2:#3D4B78; --line:color-mix(in srgb, #2B385A 40%, #3D4B78);
+  }
+  /* Base compartida de los temas CLAROS. */
+  html[data-dusty-theme="claro"], html[data-dusty-theme="crema"], html[data-dusty-theme="menta"],
+  html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"], html[data-dusty-theme="coral"], html[data-dusty-theme="miel"]{
     color-scheme:light;
     --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
     --tomato:#e04545; --saffron:#c8860d; --basil:#0e9f6e; --sky-bright:#0a8f63;
@@ -114,6 +149,37 @@
   html[data-dusty-theme="menta"]{
     --navy:#0fa37f; --navy-soft:#3cbf9a;
     --bg:#eef6f1; --panel:#ffffff; --inset:#e3efe8; --raised:#f0f7f3; --raised-2:#e6f0ea; --line:#d6e5dc;
+  }
+  /* --- Claros de las paletas del usuario (mismas reglas: solo colores de la
+     paleta, mezclados entre sí o con blanco/negro para las superficies). --- */
+  html[data-dusty-theme="pastel"]{ /* gatito: 87AEEE/F8D3FF/FFD8CC/C4EEFF */
+    --navy:color-mix(in oklch, #87AEEE, black 25%); --navy-soft:#87AEEE;
+    --bg:color-mix(in srgb, #C4EEFF 40%, white); --panel:#ffffff; --inset:color-mix(in srgb, #C4EEFF 55%, white);
+    --raised:color-mix(in srgb, #F8D3FF 40%, white); --raised-2:color-mix(in srgb, #FFD8CC 55%, white);
+    --line:color-mix(in srgb, #87AEEE 32%, white);
+  }
+  html[data-dusty-theme="electrico"]{ /* mascotas: 752FFF/FE3A3A/FFB831/000000 */
+    --navy:#752FFF; --navy-soft:color-mix(in oklch, #752FFF, white 16%);
+    --tomato:#FE3A3A; --saffron:#FFB831;
+    --ink:#000000; --ink-soft:color-mix(in srgb, #000000 45%, white); --ink-mid:color-mix(in srgb, #000000 72%, white);
+    --bg:color-mix(in srgb, #752FFF 6%, white); --panel:#ffffff; --inset:color-mix(in srgb, #752FFF 10%, white);
+    --raised:color-mix(in srgb, #752FFF 8%, white); --raised-2:color-mix(in srgb, #752FFF 14%, white);
+    --line:color-mix(in srgb, #752FFF 20%, white);
+  }
+  html[data-dusty-theme="coral"]{ /* Fujifilm: FF5844/A8D3F2/F7D78C/AFC3A8 */
+    --navy:#FF5844; --navy-soft:color-mix(in oklch, #FF5844, white 14%);
+    --basil:color-mix(in oklch, #AFC3A8, black 30%); --saffron:color-mix(in oklch, #F7D78C, black 30%);
+    --bg:color-mix(in srgb, #F7D78C 20%, white); --panel:#ffffff; --inset:color-mix(in srgb, #A8D3F2 24%, white);
+    --raised:color-mix(in srgb, #A8D3F2 16%, white); --raised-2:color-mix(in srgb, #A8D3F2 28%, white);
+    --line:color-mix(in srgb, #A8D3F2 48%, white);
+  }
+  html[data-dusty-theme="miel"]{ /* 50K: E38C4C/F6C561/FCF1DA/977B60 */
+    --navy:#E38C4C; --navy-soft:color-mix(in oklch, #E38C4C, white 12%);
+    --saffron:color-mix(in oklch, #F6C561, black 20%);
+    --ink:color-mix(in srgb, #977B60 40%, black); --ink-soft:#977B60; --ink-mid:color-mix(in srgb, #977B60 60%, black);
+    --bg:#FCF1DA; --panel:color-mix(in srgb, #FCF1DA 35%, white); --inset:color-mix(in srgb, #FCF1DA 80%, #977B60);
+    --raised:color-mix(in srgb, #FCF1DA 88%, #977B60); --raised-2:color-mix(in srgb, #FCF1DA 78%, #977B60);
+    --line:color-mix(in srgb, #977B60 30%, #FCF1DA);
   }
   *{box-sizing:border-box;}
   /* -webkit-text-size-adjust: iOS agranda texto por su cuenta al rotar/en algunos

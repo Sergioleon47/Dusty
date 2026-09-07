@@ -159,7 +159,10 @@
 // v59: apple-touch-icon y og-image regenerados con la marca naranja vigente
 // (la tarjeta de compartir en iOS mostraba los colores viejos) + catalogo.html
 // con favicon/theme-color/og propios.
-const CACHE_NAME = 'patron-shell-v59';
+// v60: 8 temas más con las paletas de referencia del usuario (Esmeralda,
+// Índigo, Rubí, Zafiro oscuros + Pastel, Eléctrico, Coral, Miel claros) —
+// solo colores de cada paleta, mezclados entre sí — dusty.css + app-05.
+const CACHE_NAME = 'patron-shell-v60';
 
 const PRECACHE_URLS = [
   '/',
