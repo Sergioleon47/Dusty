@@ -1672,6 +1672,7 @@ function budgetModal(){
    inCatalog en cada ítem/receta (sincroniza gratis con ellos); el número y el id
    del catálogo viajan por meta. */
 let catalogPublishing = false;
+let showCatalogPublishModal = false;
 // CÁMARA-PRIMERO (iteración con el usuario 2026-09-06: "cuando le doy a la
 // cámara no me permite abrir la cámara"): tocar el botón dispara LA CÁMARA al
 // instante; con la foto ya sacada, este borrador guarda la imagen mientras un
@@ -2022,18 +2023,13 @@ function catalogoView(){
        criterio que Inventario ("la pestaña de abajo ya dice dónde estás").
        Todo lo operativo (WhatsApp, publicar, compartir, despublicar) vive
        compacto al FINAL, después de la lista. */''}
-  ${sellables.length===0 && sellableRecipes.length===0
-    ? `<div class="helper-note" style="margin-top:14px;">${t('catalog_no_sellables')}</div>`
-    : `
-    ${/* Misma organización que el Inventario: grupos por categoría
-         (groupRowsByCategory) y las mismas tarjetas en la misma grilla
-         fila/2col/3col con el selector compartido (invLayout). */''}
-    ${/* FILA DE HERRAMIENTAS con etiqueta (referencia del usuario 2026-09-06:
-         una app de edición "bien organizada" — botones grandes redondos con su
-         nombre debajo, parejos): Galería · CÁMARA (la protagonista, más grande,
-         con su badge ✎) · Seleccionar · Compartir. Reemplaza al FAB suelto +
-         galería chiquita + chip de Seleccionar regados por la pantalla. */''}
-    ${(()=>{
+  ${/* FILA DE HERRAMIENTAS con etiqueta (referencia del usuario 2026-09-06:
+       una app de edición "bien organizada" — botones grandes redondos con su
+       nombre debajo, parejos): Galería · CÁMARA (la protagonista, más grande,
+       con su badge ✎) · Seleccionar · Compartir. SIEMPRE visible — también sin
+       productos todavía (sin la cámara a mano, un usuario nuevo no puede ni
+       empezar; bug cazado en la verificación 2026-09-06). */''}
+  ${(()=>{
       const tool = (id, inner, label, extra)=>`
         <button type="button" id="${id}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
           ${inner}
@@ -2064,6 +2060,11 @@ function catalogoView(){
       </div>
     </div>`;
     })()}
+  ${sellables.length===0 && sellableRecipes.length===0
+    ? `<div class="helper-note" style="margin-top:12px;">${t('catalog_no_sellables')}</div>`
+    : `
+    ${/* Misma organización que el Inventario: grupos por categoría y las mismas
+         tarjetas en la grilla fila/2col/3col con el selector compartido. */''}
     <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
     ${catalogSelectMode ? `<div class="helper-note" style="margin:2px 0 6px;">${t('catalog_select_hint')}</div>` : ''}
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
@@ -2073,13 +2074,21 @@ function catalogoView(){
     ${sellableRecipes.length>0 ? `
       <div class="category-group-header">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>
       <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${sellableRecipes.map(recipeTile).join('')}</div>` : ''}`}
-  ${/* Tarjeta de PUBLICACIÓN — mismo lenguaje que la de Herramientas de arriba
-       (captura del usuario 2026-09-06: la zona de abajo quedaba despareja):
-       encabezado, tarjeta elevada, y adentro WhatsApp + publicar + el link. */''}
-  <div style="margin:20px 0 30px;">
-    <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 8px;">${t('catalog_publish_header')}</div>
-    <div style="background:var(--raised);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow);">
-      <div class="field" style="margin:0;">
+  ${/* Sin bloque de publicación en la página (el usuario lo tachó de raíz,
+       captura 2026-09-06): la pestaña queda limpia — herramientas y fotos.
+       Todo lo de publicar vive en el MODAL que abre la herramienta Compartir. */''}
+  <div style="height:26px;"></div>`;
+}
+
+/* Modal de PUBLICACIÓN (abre la herramienta Compartir de la tarjeta): WhatsApp,
+   publicar/actualizar, y con link ya publicado las acciones de compartirlo. */
+function catalogPublishModal(){
+  const url = catalogUrl();
+  return `
+  <div class="overlay" id="catalog-publish-overlay">
+    <div class="modal">
+      <h3 class="sky">${t('catalog_publish_header')}</h3>
+      <div class="field" style="margin-top:10px;">
         <label>${t('catalog_wa_label')}</label>
         <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
       </div>
@@ -2093,6 +2102,9 @@ function catalogoView(){
       <div style="text-align:center;margin-top:10px;">
         <button type="button" class="link-btn" id="btn-unpublish-catalog" style="color:var(--tomato);padding:4px 8px;">${t('catalog_unpublish_btn')}</button>
       </div>` : ''}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-catalog-publish" style="width:100%;">${t('btn_close')}</button>
+      </div>
     </div>
   </div>`;
 }

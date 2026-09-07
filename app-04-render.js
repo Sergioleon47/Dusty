@@ -164,6 +164,7 @@ function renderApp(){
     ${showBudgetModal ? budgetModal() : ''}
     ${catalogPendingPhoto ? catalogAssignModal() : ''}
     ${catalogPendingPhoto && catalogEditorOpen ? catalogEditorModal() : ''}
+    ${showCatalogPublishModal ? catalogPublishModal() : ''}
     ${catalogViewPhoto ? catalogPhotoViewer() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}

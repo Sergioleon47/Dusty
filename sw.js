@@ -117,7 +117,10 @@
 // tarjeta elevada (reemplaza al FAB suelto + chips regados) — app-03/05/07.
 // v44: la zona de publicar del Catálogo se vuelve tarjeta "Publicación" con el
 // mismo lenguaje que la de Herramientas — app-03/05.
-const CACHE_NAME = 'patron-shell-v44';
+// v45: el cuadro de Publicación sale de la página de raíz — vive en un modal
+// que abre la herramienta Compartir; la tarjeta de herramientas pasa a estar
+// SIEMPRE (sin productos tampoco había cámara, bug cazado) — app-03/04/05/07.
+const CACHE_NAME = 'patron-shell-v45';
 
 const PRECACHE_URLS = [
   '/',
