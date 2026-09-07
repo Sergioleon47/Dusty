@@ -431,11 +431,17 @@ function bottomNav(){
     // Vitrina/tienda: la pestaña del catálogo que el negocio comparte con sus clientes.
     {tab:'catalogo', label:t('tab_catalog'), icon:`<path d="M4 9l1.5-5h13L20 9"/><path d="M5 9v11h14V9"/><path d="M9.5 20v-5.5h5V20"/><path d="M4 9h16"/>`},
   ];
+  // Presupuesto en amarillo/rojo (pedido del usuario 2026-09-07: "ponerla a
+  // palpitar como aviso"): un punto que late sobre el ícono del Dashboard para
+  // que el aviso se vea desde cualquier pestaña, sin notificaciones externas.
+  let budgetDot = '';
+  try{ const p = budgetPace(localMonthStr()); if(p && p.status!=='ok') budgetDot = p.status; }catch(e){}
   return `
   <div class="bottom-nav">
     ${items.map(i=>`
       <button class="bottom-nav-item ${activeTab===i.tab?'active':''}" data-tab="${i.tab}">
         <svg viewBox="0 0 24 24">${i.icon}</svg>
+        ${i.tab==='dashboard' && budgetDot ? `<i class="nav-alert-dot ${budgetDot}" aria-hidden="true"></i>` : ''}
         <span>${i.label}</span>
       </button>
     `).join('')}

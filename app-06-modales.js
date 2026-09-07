@@ -1199,7 +1199,7 @@ function monthRecapModal(){
       return colHtml({ fin:finOf(k), base:withData.has(baseKey)?finOf(baseKey):null,
         headLabel:recapKeyLabel(k), vsLabel:recapKeyLabel(baseKey),
         isCur:k===nowKey, isFocus:k===focusKey, idx:idx+(ytdCol?1:0),
-        showBudget:!demo && recapMode==='month' && !!budgetForMonth(k), budgetAmt: budgetForMonth(k), pickKey:k });
+        showBudget:!demo && recapMode==='month' && !!effectiveBudgetForMonth(k), budgetAmt: (effectiveBudgetForMonth(k)||{}).budget, pickKey:k });
     }).join('');
     // Tabla comparativa A | B | Δ cuando hay dos períodos elegidos: el estado
     // comparativo clásico — Δ en monto (lo que le habla al dueño) con el % debajo,

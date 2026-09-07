@@ -299,3 +299,69 @@ test('stableStringify trata undefined igual que JSON.stringify (clave del sync p
   // Pero un valor REAL distinto sí distingue
   assert.notEqual(valueHash({a:1}), valueHash({a:2}));
 });
+
+/* ===== PRESUPUESTO (auditoría 2026-09-07): lógica pura ===== */
+const { formatMoney, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace } = require('./patron-core.js');
+
+test('formatMoney: los tres formatos regionales y negativos', () => {
+  assert.equal(formatMoney(1234567.5, 'plain'), '$1234567.50');
+  assert.equal(formatMoney(1234567.5, 'us'), '$1,234,567.50');
+  assert.equal(formatMoney(1234567.5, 'latam'), '$1.234.567,50');
+  assert.equal(formatMoney(-1500, 'latam'), '-$1.500,00');
+  assert.equal(formatMoney(999, 'us'), '$999.00');
+  assert.equal(formatMoney('abc', 'us'), '$0.00');
+});
+
+test('normalizeBudgetMeta: basura afuera, valores por defecto adentro', () => {
+  const m = normalizeBudgetMeta({ byMonth:{'2026-08':1000, 'x':5, '2026-07':-3}, alertPct:'70', cogsTargetPct:150, byCategory:{a:50, b:0}, rollover:'yes' });
+  assert.deepEqual(m.byMonth, {'2026-08':1000});
+  assert.equal(m.alertPct, 70);
+  assert.equal(m.cogsTargetPct, null);
+  assert.deepEqual(m.byCategory, {a:50});
+  assert.equal(m.rollover, false);
+  const d = normalizeBudgetMeta(null);
+  assert.deepEqual(d, { byMonth:{}, alerted:{}, byCategory:{}, rollover:false, alertPct:80, cogsTargetPct:null });
+});
+
+test('freezeBudgetHistory: los meses cerrados conservan el viejo, el actual toma el nuevo', () => {
+  const out = freezeBudgetHistory({}, ['2026-09','2026-08','2026-07'], 1000, 1500, '2026-09');
+  assert.deepEqual(out, {'2026-08':1000, '2026-07':1000, '2026-09':1500});
+  // Un mes que ya tenía valor propio no se pisa; los futuros se limpian.
+  const out2 = freezeBudgetHistory({'2026-08':900, '2026-10':2000}, ['2026-08'], 1000, 1500, '2026-09');
+  assert.deepEqual(out2, {'2026-08':900, '2026-09':1500});
+  // Sin cambio de monto no se congela nada; vaciar el presupuesto borra el actual.
+  assert.deepEqual(freezeBudgetHistory({}, ['2026-08'], 1000, 1000, '2026-09'), {'2026-09':1000});
+  assert.deepEqual(freezeBudgetHistory({'2026-09':1000}, ['2026-08'], 1000, null, '2026-09'), {'2026-08':1000});
+});
+
+test('carryFromPrevious: solo lo que sobró, nunca negativo, con tope', () => {
+  assert.equal(carryFromPrevious(1000, 850, 1000), 150);
+  assert.equal(carryFromPrevious(1000, 1200, 1000), 0);
+  assert.equal(carryFromPrevious(null, 0, 1000), 0);
+  assert.equal(carryFromPrevious(3000, 0, 1000), 1000);
+});
+
+test('computeBudgetPace: porcentaje, restante, ritmo y estado', () => {
+  const p = computeBudgetPace({ budget:1000, expense:850, daysInMonth:30, dayOfMonth:7, isCurrent:true, threshold:80 });
+  assert.equal(Math.round(p.pct), 85);
+  assert.equal(p.left, 150);
+  assert.equal(Math.round(p.expectedPct), 23);
+  assert.equal(p.projected, 3643);
+  assert.equal(p.fast, true);
+  assert.equal(p.status, 'warn');
+  // Va bien: 20% gastado el día 15 → ok, proyección bajo el presupuesto.
+  const ok = computeBudgetPace({ budget:1000, expense:200, daysInMonth:30, dayOfMonth:15, isCurrent:true });
+  assert.equal(ok.status, 'ok');
+  assert.equal(ok.projected, 400);
+  // Ritmo rápido antes del umbral: warn aunque el % sea bajo.
+  const fast = computeBudgetPace({ budget:1000, expense:500, daysInMonth:30, dayOfMonth:5, isCurrent:true });
+  assert.equal(fast.status, 'warn');
+  assert.equal(fast.fast, true);
+  // Pasado el 100% → crit; mes cerrado no proyecta.
+  const over = computeBudgetPace({ budget:1000, expense:1200, daysInMonth:31, dayOfMonth:31, isCurrent:false });
+  assert.equal(over.status, 'crit');
+  assert.equal(over.projected, null);
+  // Sin presupuesto → null; día 2 → sin proyección todavía.
+  assert.equal(computeBudgetPace({ budget:0, expense:10 }), null);
+  assert.equal(computeBudgetPace({ budget:1000, expense:10, daysInMonth:30, dayOfMonth:2, isCurrent:true }).projected, null);
+});

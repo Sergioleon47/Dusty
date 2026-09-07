@@ -328,7 +328,12 @@ function attachEvents(){
     monthlySpendOverlay.onmousedown=(e)=>{ if(e.target===monthlySpendOverlay) closeMonthlySpendModal(); };
     const closeMonthlySpendBtn = document.getElementById('btn-close-monthly-spend');
     if(closeMonthlySpendBtn) closeMonthlySpendBtn.onclick = closeMonthlySpendModal;
+    const btnMonthlyRecap = document.getElementById('btn-monthly-open-recap');
+    if(btnMonthlyRecap) btnMonthlyRecap.onclick = ()=>{ closeMonthlySpendModal(); monthRecapKey=localMonthStr(); recapMode='month'; showMonthRecap=true; render(); };
   }
+  // Formato de montos: se aplica al toque (sin esperar Guardar).
+  const moneyFmtSel=document.getElementById('money-format-select');
+  if(moneyFmtSel) moneyFmtSel.onchange=()=>{ setMoneyFormatPref(moneyFmtSel.value); render(); };
 
   const langChoiceOverlay = document.getElementById('lang-choice-overlay');
   if(langChoiceOverlay){
@@ -501,6 +506,12 @@ function attachEvents(){
         setMonthlyBudget((Number.isFinite(v) && v>0) ? v : null);
         const cogsInp=document.getElementById('cogs-target-input');
         if(cogsInp){ const c=parseFloat(cogsInp.value); budgetMeta.cogsTargetPct = (Number.isFinite(c) && c>0 && c<100) ? c : null; }
+        const roll=document.getElementById('budget-rollover-input');
+        if(roll) budgetMeta.rollover = !!roll.checked;
+        // Topes por categoría: vacío o 0 = sin tope.
+        const caps={};
+        document.querySelectorAll('[data-cat-cap]').forEach(inp=>{ const v=parseFloat(inp.value); if(Number.isFinite(v) && v>0) caps[inp.dataset.catCap]=Math.round(v*100)/100; });
+        budgetMeta.byCategory = caps;
         resetFinancialCache();
       }
       saveState();
@@ -518,6 +529,9 @@ function attachEvents(){
     // primero — el escáner es pantalla completa y maneja solo trial/login).
     const btnScanBill=document.getElementById('btn-scan-bill');
     if(btnScanBill) btnScanBill.onclick=()=>{ closeBudgetModal(); openScanModal(); };
+    // Cruce con el Cierre de mes del mes actual.
+    const btnBudgetRecap=document.getElementById('btn-budget-open-recap');
+    if(btnBudgetRecap) btnBudgetRecap.onclick=()=>{ closeBudgetModal(); monthRecapKey=localMonthStr(); recapMode='month'; showMonthRecap=true; render(); };
     // ＋ por fila: registra el pago de ESTE mes del bill (recibo manual de
     // gasto) sin abrir nada — la barra del presupuesto reacciona al instante.
     // stopPropagation: la fila entera abre la ficha, el ＋ no debe hacerlo.
@@ -1407,6 +1421,8 @@ function attachEvents(){
       if(val>0) priceAlertThreshold=val;
       const bInp=document.getElementById('budget-alert-input');
       if(bInp){ const b=parseFloat(bInp.value); if(Number.isFinite(b) && b>=10 && b<100) budgetMeta.alertPct=b; }
+      const fmtSel=document.getElementById('money-format-select');
+      if(fmtSel) setMoneyFormatPref(fmtSel.value);
       saveState();
       showAlertSettingsModal=false; render();
     };

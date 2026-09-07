@@ -440,6 +440,9 @@ function dashboardView(){
           <button type="button" class="dash-pencil-btn" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>` : '';
+        // La tarjeta solo lleva monto, % y barra; el resumen va en la franja a
+        // todo el ancho de abajo (budgetStripHtml) — en 160px de columna las
+        // seis líneas la hacían eterna.
         if(p) return `
         <div class="budget-block">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;">
@@ -447,7 +450,6 @@ function dashboardView(){
             ${pencil}
           </div>
           ${budgetBarHtml(p)}
-          ${budgetSummaryHtml(p)}
         </div>`;
         if(!canEdit) return '';
         return `
@@ -482,6 +484,7 @@ function dashboardView(){
     </div>
   </div>
 
+  ${budgetStripHtml(currentMonthKey)}
   ${budgetAlertCard()}
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
   ${inventory.length>0 ? inventoryMenuRow() : ''}
@@ -1405,7 +1408,12 @@ function closeMonthlySpendModal(){ showMonthlySpendModal = false; render(); }
    sobre su barra — antes se graficaba el total sin presupuesto, y el presupuesto
    mide solo gastos. Las barras crecen al abrir (animación CSS, .ms-bar). */
 function monthlySpendChartStacked(monthsAsc, currentMonthKey){
-  const W = 560, H = 210, padL = 52, padR = 16, padT = 18, padB = 28;
+  // Ancho según la cantidad de meses (auditoría 2026-09-07): con 2 meses en un
+  // viewBox de 560 el texto quedaba diminuto en el celular. Cada mes pide ~78px;
+  // con muchos meses el svg pide más ancho que la pantalla y el contenedor scrollea.
+  const n0 = monthsAsc.length;
+  const padL = 52, padR = 16, padT = 18, padB = 28;
+  const W = Math.max(300, padL + padR + n0*78), H = 210;
   const innerW = W - padL - padR, innerH = H - padT - padB;
   const splits = monthsAsc.map(m=>spendSplitForMonth(m));
   const budgets = monthsAsc.map(m=>budgetForMonth(m)||0);
@@ -1439,7 +1447,8 @@ function monthlySpendChartStacked(monthsAsc, currentMonthKey){
       <text x="${(x+barW/2).toFixed(1)}" y="${(padT+innerH+16).toFixed(1)}" text-anchor="middle" font-size="10" fill="${isCurrent?'var(--ink)':'var(--ink-soft)'}" font-weight="${isCurrent?'700':'400'}" font-family="IBM Plex Mono">${escapeHtml(monthLabel(m, uiLang))}</text>
     `;
   }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+  // Con muchos meses el svg pide más ancho que la pantalla y el contenedor scrollea.
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${n0>5 ? n0*66 : 0}px;height:auto;display:block;">
     ${gridLines}
     ${bars}
   </svg>`;
@@ -1480,6 +1489,9 @@ function monthlySpendModal(){
       `}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-close-monthly-spend" style="flex:1;">${t('btn_close')}</button>
+        ${/* Cruce con el Cierre de mes (auditoría 2026-09-07): antes solo se
+             llegaba desde el calendario de Recibos. */''}
+        <button class="btn btn-primary" id="btn-monthly-open-recap" style="flex:1;">${t('budget_open_recap')}</button>
       </div>
     </div>
   </div>`;
@@ -1614,6 +1626,14 @@ function alertSettingsModal(){
            re-renderiza y el modal queda abierto con el rótulo ya cambiado. */''}
       <div class="settings-card">
         <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Cambiar a inglés':'🌐 Switch to Spanish'}</button>
+        ${/* Formato regional de montos (auditoría 2026-09-07): preferencia del
+             dispositivo, se aplica al toque. */''}
+        <div class="field" style="margin:12px 0 0;">
+          <label for="money-format-select">${t('money_format_label')}</label>
+          <select id="money-format-select">
+            ${[['plain','$1000.00'],['us','$1,000.00'],['latam','$1.000,00']].map(([v,l])=>`<option value="${v}" ${moneyFormatPref===v?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -1715,7 +1735,11 @@ function budgetModal(){
         <label for="cogs-target-input">${t('budget_cogs_label')}</label>
         <input id="cogs-target-input" type="number" min="1" max="99" step="1" inputmode="numeric" placeholder="30" value="${budgetMeta.cogsTargetPct!==null ? escapeHtml(budgetMeta.cogsTargetPct) : ''}">
       </div>
-      <div class="helper-note">${t('budget_cogs_helper')}</div>` : ''}
+      <div class="helper-note">${t('budget_cogs_helper')}</div>
+      <label class="budget-rollover">
+        <input type="checkbox" id="budget-rollover-input" ${budgetMeta.rollover?'checked':''}>
+        <span><b>${t('budget_rollover_label')}</b><small>${t('budget_rollover_helper')}</small></span>
+      </label>` : ''}
       ${(()=>{
         /* LA CASA de los ítems de gasto (pedido del usuario 2026-09-05): agua,
            luz, Eat out y demás salieron del inventario (no son mercadería) y
@@ -1789,9 +1813,26 @@ function budgetModal(){
           const cats = expenseByCategoryForMonth(localMonthStr());
           if(cats.length===0) return '';
           const max = cats[0].amount||1;
-          return `<div class="bycat"><div class="bycat-title">${t('budget_bycat_title')}</div>${cats.map((c,i)=>`
-            <div class="bycat-row" style="animation-delay:${i*50}ms;"><span class="bycat-name">${escapeHtml(c.name)}</span><span class="bycat-bar"><i style="width:${Math.max(4, c.amount/max*100).toFixed(0)}%;"></i></span><span class="bycat-amt">${money(c.amount)}</span></div>`).join('')}</div>`;
+          // Con tope: la barra mide contra el tope y se pinta por estado; sin tope,
+          // contra la categoría más grande (solo proporción).
+          return `<div class="bycat"><div class="bycat-title">${t('budget_bycat_title')}</div>${cats.map((c,i)=>{
+            const pct = c.cap ? c.amount/c.cap*100 : c.amount/max*100;
+            const st = c.cap ? (pct>=100 ? 'crit' : pct>=(budgetMeta.alertPct||80) ? 'warn' : 'ok') : '';
+            return `
+            <div class="bycat-row" style="animation-delay:${i*50}ms;"><span class="bycat-name">${escapeHtml(c.name)}</span><span class="bycat-bar ${st}"><i style="width:${Math.min(100, Math.max(4, pct)).toFixed(0)}%;"></i></span><span class="bycat-amt">${money(c.amount)}${c.cap ? `<small>${t('budget_cap_of').replace('{cap}', money(c.cap))}</small>` : ''}</span></div>`;
+          }).join('')}</div>`;
         })()}
+        ${/* Topes por categoría (opcional, solo quien ve finanzas). */''}
+        ${(canSeeFinancials() && expenseCategories.length>0) ? `
+        <details class="budget-caps">
+          <summary>${t('budget_caps_title')}${Object.keys(budgetMeta.byCategory).length ? ` <span class="count-badge">${Object.keys(budgetMeta.byCategory).length}</span>` : ''}</summary>
+          <div class="helper-note" style="margin:6px 0 8px;">${t('budget_caps_helper')}</div>
+          ${expenseCategories.map(c=>`
+          <div class="budget-cap-row">
+            <label for="cap-${escapeHtml(c.id)}">${escapeHtml(c.name)}</label>
+            <input id="cap-${escapeHtml(c.id)}" data-cat-cap="${escapeHtml(c.id)}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="—" value="${budgetMeta.byCategory[c.id]>0 ? escapeHtml(budgetMeta.byCategory[c.id]) : ''}">
+          </div>`).join('')}
+        </details>` : ''}
         ${/* Sin bills creados pero CON gasto real en el mes, el "Gastado" quedaba
              pegado a las filas de EJEMPLO y parecía que los ejemplos sumaban
              (confusión real del usuario 2026-09-05: "no tengo nada ahí y como
@@ -1808,6 +1849,7 @@ function budgetModal(){
         </div>
       </div>`;
       })()}
+      <button type="button" class="link-btn" id="btn-budget-open-recap" style="width:100%;text-align:center;margin-top:12px;">${t('budget_open_recap')}</button>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-budget">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-budget">${t('btn_save')}</button>

@@ -214,7 +214,10 @@
 // 100% (toast + tarjeta); historial por mes; gráfico apilado con línea de
 // presupuesto; gastado por categoría; solo el dueño edita; pago de bill por id;
 // comprometido de bills; objetivo costo/ventas — app-02/03/05/06/07 + css.
-const CACHE_NAME = 'patron-shell-v75';
+// v76: el aviso de presupuesto PALPITA (pedido del usuario, en vez de
+// notificaciones fuera de la app): barra que respira, tarjeta con halo y
+// ícono latiendo, punto sobre el Dashboard en la barra inferior — app-03/04 + css.
+const CACHE_NAME = 'patron-shell-v76';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

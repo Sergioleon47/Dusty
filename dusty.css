@@ -541,8 +541,12 @@
   /* Marca "hoy deberías ir por acá" (trayectoria lineal del mes). */
   .pace-mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink);border-radius:2px;z-index:2;opacity:.85;}
   .pace-mark::after{content:'';position:absolute;left:50%;top:-4px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--ink);}
-  .budget-bar-fill.crit{animation:budgetPulse 1.4s ease-in-out 3;}
-  @keyframes budgetPulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35);}}
+  /* PALPITAR como aviso (pedido del usuario 2026-09-07, en vez de notificaciones
+     fuera de la app): mientras el mes va en amarillo o rojo, la barra respira
+     sin parar — más rápido y con brillo en rojo. */
+  .budget-bar-fill.warn{animation:budgetBreath 2.4s ease-in-out infinite;}
+  .budget-bar-fill.crit{animation:budgetBreath 1.3s ease-in-out infinite;box-shadow:0 0 0 0 color-mix(in srgb, var(--money-neg) 45%, transparent);}
+  @keyframes budgetBreath{0%,100%{filter:brightness(1);}50%{filter:brightness(1.4);}}
   .budget-line{font-size:12.5px;color:var(--ink-soft);margin-top:8px;font-variant-numeric:tabular-nums;line-height:1.35;}
   .budget-line b{color:var(--ink);font-weight:700;}
   .budget-line .budget-left{color:var(--money-pos-ink);}
@@ -555,9 +559,27 @@
   .dash-plus-btn{color:var(--basil-ink);}
   /* Tarjeta de alerta del tablero: entra deslizando; en rojo tiembla una vez. */
   .budget-alert-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--line);border-left-width:4px;background:var(--panel);box-shadow:var(--shadow);margin-bottom:16px;cursor:pointer;animation:budgetAlertIn .45s var(--ease-spring);}
-  .budget-alert-card.warn{border-left-color:var(--money-warn);}
-  .budget-alert-card.crit{border-left-color:var(--money-neg);animation:budgetAlertIn .45s var(--ease-spring), budgetShake .5s ease-in-out .5s 1;}
-  .budget-alert-card .ba-icon{font-size:20px;flex-shrink:0;}
+  /* La tarjeta late como un corazón (halo del color del estado + el ícono que
+     bombea) y en rojo además tiembla una vez al entrar. */
+  .budget-alert-card.warn{border-left-color:var(--money-warn);--ba-glow:var(--money-warn);animation:budgetAlertIn .45s var(--ease-spring), budgetHeart 2.4s ease-in-out 1s infinite;}
+  .budget-alert-card.crit{border-left-color:var(--money-neg);--ba-glow:var(--money-neg);animation:budgetAlertIn .45s var(--ease-spring), budgetShake .5s ease-in-out .5s 1, budgetHeart 1.3s ease-in-out 1s infinite;}
+  .budget-alert-card .ba-icon{font-size:20px;flex-shrink:0;animation:budgetIconBeat 1.3s ease-in-out infinite;transform-origin:center;}
+  .budget-alert-card.warn .ba-icon{animation-duration:2.4s;}
+  @keyframes budgetHeart{
+    0%,100%{box-shadow:var(--shadow), 0 0 0 0 color-mix(in srgb, var(--ba-glow) 55%, transparent);}
+    50%{box-shadow:var(--shadow), 0 0 0 7px transparent;}
+  }
+  @keyframes budgetIconBeat{0%,100%{transform:scale(1);}14%{transform:scale(1.22);}28%{transform:scale(1);}42%{transform:scale(1.14);}56%{transform:scale(1);}}
+  /* Punto que late sobre el ícono del Dashboard en la barra inferior: el aviso
+     se ve desde cualquier pestaña. */
+  .bottom-nav-item{position:relative;}
+  .nav-alert-dot{position:absolute;top:8px;left:calc(50% + 8px);width:9px;height:9px;border-radius:50%;background:var(--money-warn);border:2px solid color-mix(in srgb, var(--panel) 86%, black);box-sizing:content-box;animation:navDotBeat 2.4s ease-in-out infinite;}
+  .nav-alert-dot.crit{background:var(--money-neg);animation-duration:1.3s;}
+  .nav-alert-dot::after{content:'';position:absolute;inset:-2px;border-radius:50%;border:2px solid currentColor;color:inherit;opacity:0;animation:navDotRing 2.4s ease-out infinite;}
+  .nav-alert-dot.warn::after{color:var(--money-warn);}
+  .nav-alert-dot.crit::after{color:var(--money-neg);animation-duration:1.3s;}
+  @keyframes navDotBeat{0%,100%{transform:scale(1);}50%{transform:scale(1.25);}}
+  @keyframes navDotRing{0%{transform:scale(1);opacity:.8;}100%{transform:scale(2.4);opacity:0;}}
   .budget-alert-card .ba-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
   .budget-alert-card .ba-text b{font-size:13.5px;color:var(--ink);}
   .budget-alert-card .ba-text span{font-size:12px;color:var(--ink-soft);line-height:1.35;}
@@ -565,6 +587,29 @@
   .budget-alert-card:active{transform:scale(.99);}
   @keyframes budgetAlertIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
   @keyframes budgetShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-4px);}40%{transform:translateX(4px);}60%{transform:translateX(-3px);}80%{transform:translateX(3px);}}
+  /* Franja de presupuesto a todo el ancho bajo la grilla del tablero. */
+  .budget-strip{background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-left-color:var(--money-pos);border-radius:var(--radius);padding:10px 14px;margin:-8px 0 16px;box-shadow:var(--shadow);}
+  .budget-strip.warn{border-left-color:var(--money-warn);}
+  .budget-strip.crit{border-left-color:var(--money-neg);}
+  .budget-strip .budget-line{margin-top:0;font-size:13px;}
+  /* Arrastre y topes por categoría dentro del modal de presupuesto. */
+  .budget-rollover{display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:2px 0 14px;}
+  .budget-rollover input{width:18px;height:18px;accent-color:var(--basil);flex-shrink:0;margin-top:2px;}
+  .budget-rollover span{display:flex;flex-direction:column;gap:2px;}
+  .budget-rollover b{font-size:13px;color:var(--ink);}
+  .budget-rollover small{font-size:11.5px;color:var(--ink-soft);line-height:1.4;}
+  .budget-caps{margin:4px 0 12px;border:1px solid var(--line);border-radius:12px;padding:0 12px;}
+  .budget-caps summary{list-style:none;cursor:pointer;padding:10px 0;font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;}
+  .budget-caps summary::-webkit-details-marker{display:none;}
+  .budget-caps summary::after{content:'▾';margin-left:auto;color:var(--ink-soft);transition:transform .2s;}
+  .budget-caps[open] summary::after{transform:rotate(180deg);}
+  .budget-cap-row{display:grid;grid-template-columns:minmax(0,1fr) 120px;align-items:center;gap:10px;padding:4px 0 8px;}
+  .budget-cap-row label{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .budget-cap-row input{width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--inset);color:var(--ink);font-size:13.5px;font-family:'IBM Plex Mono';}
+  .bycat-amt small{display:block;font-size:10px;font-weight:500;color:var(--ink-soft);text-align:right;}
+  .bycat-bar.warn i{background:var(--money-warn);}
+  .bycat-bar.crit i{background:var(--money-neg);}
+  .bycat-bar.ok i{background:var(--money-pos);}
   /* Resumen dentro del modal de presupuesto y gastado por categoría. */
   .budget-modal-summary{margin:0 0 12px;}
   .bycat{margin:4px 0 12px;}
@@ -584,7 +629,7 @@
   .ms-legend .ms-legend-line{width:14px;height:0;border-top:2px dashed var(--ink);border-radius:0;}
   .ms-row-detail{font-size:11px;color:var(--ink-soft);margin-top:2px;}
   @media (prefers-reduced-motion: reduce){
-    .budget-bar-fill.crit, .budget-alert-card, .bycat-row, .bycat-bar i, .ms-bar{animation:none;}
+    .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-bar{animation:none;}
   }
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
   .stock-caption-muted{font-style:italic;}

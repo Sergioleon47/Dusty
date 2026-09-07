@@ -27,6 +27,24 @@ function setLang(l){
   try{ localStorage.setItem('patron_lang', l); }catch(e){}
   render();
 }
+// Formato regional de montos (auditoría de presupuesto 2026-09-07): preferencia del
+// dispositivo, como el idioma. Sin preferencia: '$1.000,00' si el celular está en
+// español (salvo México, que usa coma), '$1,000.00' en inglés, y lo de siempre si no.
+let moneyFormatPref = 'plain';
+try{
+  const savedFmt = localStorage.getItem('patron_money_format');
+  if(savedFmt){ moneyFormatPref = savedFmt; }
+  else{
+    const nl = (navigator.language||'').toLowerCase();
+    moneyFormatPref = nl.startsWith('es') ? (nl==='es-mx' || nl==='es-us' ? 'us' : 'latam') : (nl.startsWith('en') ? 'us' : 'plain');
+  }
+  setMoneyStyle(moneyFormatPref);
+}catch(e){}
+function setMoneyFormatPref(f){
+  moneyFormatPref = (f==='us' || f==='latam') ? f : 'plain';
+  setMoneyStyle(moneyFormatPref);
+  try{ localStorage.setItem('patron_money_format', moneyFormatPref); }catch(e){}
+}
 const I18N = {
   es: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos',
@@ -226,6 +244,14 @@ const I18N = {
     budget_pace_today:'Hoy deberías ir por {amount}',
     budget_committed:'con {amount} por pagar ({names})',
     budget_alert_warn_title:'Vas por el {pct}% del presupuesto', budget_alert_warn_sub:'Quedan {left} para el resto del mes. Tocá para ver los gastos.',
+    budget_alert_fast_title:'⚡ Vas más rápido que el presupuesto',
+    budget_carry_note:'incluye {amount} que sobró de {month}',
+    budget_rollover_label:'Arrastrar lo que sobra al mes siguiente', budget_rollover_helper:'Si un mes gastás menos, la diferencia se suma al presupuesto del mes que viene (como mucho, se duplica).',
+    budget_caps_title:'Topes por categoría', budget_caps_helper:'Opcional: un máximo por rubro. La barra de cada categoría se pinta contra su tope.',
+    budget_cap_of:'de {cap}',
+    budget_open_recap:'💲 Ver cierre de mes',
+    budget_cogs_line:'Costo de mercadería: {p}% de las ventas · objetivo {t}%',
+    money_format_label:'Formato de montos',
     budget_alert_fast_sub:'A este ritmo cerrás en {proj}. Tocá para ver los gastos.',
     budget_alert_over_title:'Te pasaste del presupuesto', budget_alert_over_sub:'Excedido por {amount}. Tocá para revisar los gastos.',
     budget_toast_warn:'🟡 Ojo: vas por el {pct}% del presupuesto. Quedan {left}.', budget_toast_over:'🔴 Te pasaste del presupuesto por {amount}.',
@@ -798,6 +824,14 @@ const I18N = {
     budget_pace_today:'Today you should be around {amount}',
     budget_committed:'with {amount} still to pay ({names})',
     budget_alert_warn_title:'You are at {pct}% of the budget', budget_alert_warn_sub:'{left} left for the rest of the month. Tap to see expenses.',
+    budget_alert_fast_title:'⚡ You are outpacing the budget',
+    budget_carry_note:'includes {amount} left over from {month}',
+    budget_rollover_label:'Carry what is left to the next month', budget_rollover_helper:'If you spend less one month, the difference is added to next month\'s budget (at most, it doubles).',
+    budget_caps_title:'Caps by category', budget_caps_helper:'Optional: a maximum per category. Each category bar is painted against its cap.',
+    budget_cap_of:'of {cap}',
+    budget_open_recap:'💲 See month recap',
+    budget_cogs_line:'Cost of goods: {p}% of sales · target {t}%',
+    money_format_label:'Amount format',
     budget_alert_fast_sub:'At this pace you close at {proj}. Tap to see expenses.',
     budget_alert_over_title:'You went over budget', budget_alert_over_sub:'Over by {amount}. Tap to review expenses.',
     budget_toast_warn:'🟡 Heads up: you are at {pct}% of the budget. {left} left.', budget_toast_over:'🔴 You went over budget by {amount}.',
@@ -1608,29 +1642,41 @@ function billPaidInMonth(item, key){
       || (r.appliedItems||[]).some(it=>it.ingId===item.id)));
 }
 function budgetPace(key){
-  const budget = budgetForMonth(key);
-  if(!budget) return null;
-  const expense = spendSplitForMonth(key).expense;
-  const pct = expense/budget*100;
+  const eff = effectiveBudgetForMonth(key);
+  if(!eff) return null;
   const [y,m] = key.split('-').map(Number);
-  const daysIn = new Date(y, m, 0).getDate();
   const isCurrent = key===localMonthStr();
-  const day = isCurrent ? new Date().getDate() : daysIn;
-  // Dónde "deberías ir hoy" con un gasto parejo (trayectoria lineal del mes).
-  const expectedPct = Math.min(100, day/daysIn*100);
-  // Proyección de cierre: recién desde el día 3 (antes es ruido).
-  // Redondeada a pesos enteros: "$3642.86" de proyección suena a certeza que no hay.
-  const projected = (isCurrent && day>=3) ? Math.round(expense/day*daysIn) : null;
   // Comprometido: bills con monto que todavía no se pagaron este mes.
   let committed=0; const committedNames=[];
   if(isCurrent){
     inventory.forEach(i=>{ if(isExpenseItem(i) && i.costPerUnit>0 && !billPaidInMonth(i, key)){ committed+=i.costPerUnit; committedNames.push(i.name); } });
   }
-  const left = budget-expense;
-  const threshold = budgetMeta.alertPct||80;
-  const fast = projected!==null && day>=5 && projected>budget*1.05;
-  const status = pct>=100 ? 'crit' : (pct>=threshold || fast) ? 'warn' : 'ok';
-  return {key, budget, expense, pct, left, day, daysIn, expectedPct, projected, committed, committedNames, threshold, status, fast, isCurrent};
+  // El cálculo puro vive en patron-core (computeBudgetPace), probado con Node.
+  const p = computeBudgetPace({
+    budget: eff.budget, expense: spendSplitForMonth(key).expense,
+    daysInMonth: new Date(y, m, 0).getDate(), dayOfMonth: new Date().getDate(),
+    isCurrent, threshold: budgetMeta.alertPct, committed, carry: eff.carry
+  });
+  if(!p) return null;
+  p.key = key; p.base = eff.base; p.committedNames = committedNames;
+  return p;
+}
+// "Costo de mercadería: 32% de las ventas · objetivo 30%" — solo con ventas y objetivo.
+function cogsRatioHtml(key){
+  const tgt = budgetMeta.cogsTargetPct;
+  if(!tgt) return '';
+  const fin = periodFinancials(key);
+  if(!fin || !(fin.revenue>0)) return '';
+  const ratio = fin.cogs/fin.revenue*100;
+  const good = ratio<=tgt;
+  return `<div class="budget-pace ${good?'ok':'warn'}" style="color:${good?'var(--money-pos-ink)':'var(--money-neg-ink)'};">${good?'✅':'⚠️'} ${t('budget_cogs_line').replace('{p}', ratio.toFixed(0)).replace('{t}', String(tgt))}</div>`;
+}
+// Franja a todo el ancho bajo la grilla del tablero (la tarjeta angosta ya no
+// aguanta seis líneas): resumen, ritmo, comprometido y costo/ventas.
+function budgetStripHtml(key){
+  const p = budgetPace(key);
+  if(!p) return '';
+  return `<div class="budget-strip ${p.status}">${budgetSummaryHtml(p)}${cogsRatioHtml(key)}</div>`;
 }
 // Las dos líneas bajo la barra: "Gastos $X de $Y · Quedan $Z" y la nota de ritmo.
 function budgetSummaryHtml(p){
@@ -1643,10 +1689,12 @@ function budgetSummaryHtml(p){
   else if(p.projected!==null && p.day>=5) pace = t('budget_pace_ok').replace('{proj}', money(p.projected));
   let committed='';
   if(p.committed>0 && p.left>0){
-    const names = p.committedNames.slice(0,2).join(', ') + (p.committedNames.length>2 ? '…' : '');
+    const names = (p.committedNames||[]).slice(0,2).join(', ') + ((p.committedNames||[]).length>2 ? '…' : '');
     committed = t('budget_committed').replace('{amount}', money(p.committed)).replace('{names}', escapeHtml(names));
   }
-  const notes = [pace, committed].filter(Boolean);
+  // Arrastre: aclarar que el presupuesto de este mes incluye lo que sobró del anterior.
+  const carry = p.carry>0 ? t('budget_carry_note').replace('{amount}', money(p.carry)).replace('{month}', monthLabel(shiftMonthStr(p.key||localMonthStr(), -1), uiLang)) : '';
+  const notes = [pace, committed, carry].filter(Boolean);
   return line1 + (notes.length ? `<div class="budget-pace ${p.status}">${notes.join(' · ')}</div>` : '');
 }
 // Barra con la marca de "hoy deberías ir por acá" y el tramo fantasma de lo comprometido.
@@ -1660,33 +1708,43 @@ function budgetBarHtml(p){
 // (manuales con categoría, pagos de bills, líneas de servicio escaneadas).
 function expenseByCategoryForMonth(key){
   const sums = {}; const cache = finCache();
-  const catName = id => { const c = expenseCategories.find(c=>c.id===id); return c ? c.name : t('budget_exp_uncat'); };
+  // Clave por id de categoría ('' = sin categoría) para poder cruzar con los topes.
+  const add = (cid, amt)=>{ const k = (cid && expenseCategories.some(c=>c.id===cid)) ? cid : ''; sums[k]=(sums[k]||0)+(amt||0); };
   receipts.filter(r=>monthKey(r.date)===key).forEach(r=>{
     if(r.manual){
       if(r.manualKind==='investment') return;
       let cid = r.expenseCategoryId||null;
       if(!cid && r.billItemId){ const it = cache.byId.get(r.billItemId); cid = it ? (it.expenseCategoryId||null) : null; }
-      const n = catName(cid); sums[n]=(sums[n]||0)+(r.total||0);
+      add(cid, r.total);
       return;
     }
     (r.appliedItems||[]).forEach(it=>{
       const isExp = it.unit==='servicio' || it.expenseOnly===true;
       if(!isExp) return;
       const ing = it.ingId ? cache.byId.get(it.ingId) : null;
-      const n = catName(ing ? (ing.expenseCategoryId||null) : null);
-      sums[n]=(sums[n]||0)+(it.totalPrice||0);
+      add(ing ? (ing.expenseCategoryId||null) : null, it.totalPrice);
     });
   });
-  return Object.keys(sums).map(name=>({name, amount:sums[name]})).sort((a,b)=>b.amount-a.amount);
+  return Object.keys(sums).map(id=>{
+    const c = id ? expenseCategories.find(c=>c.id===id) : null;
+    // "Sin categoría" (no "Servicios"): en esta lista conviven con categorías reales
+    // y una de ellas puede llamarse justamente Servicios.
+    return { id, name: c ? c.name : t('categories_uncategorized'), amount: sums[id], cap: (id && budgetMeta.byCategory[id]>0) ? budgetMeta.byCategory[id] : null };
+  }).sort((a,b)=>b.amount-a.amount);
 }
 // Tarjeta de alerta del tablero: solo cuando el mes va en amarillo o rojo.
 function budgetAlertCard(){
   const p = budgetPace(localMonthStr());
   if(!p || p.status==='ok') return '';
   const over = p.pct>=100;
-  const title = over ? t('budget_alert_over_title') : t('budget_alert_warn_title').replace('{pct}', String(Math.round(p.pct)));
+  // Tres casos con su propio título: pasado, sobre el umbral, o todavía debajo
+  // pero yendo a un ritmo que cierra por encima ("vas rápido").
+  const fastOnly = !over && p.fast && p.pct<p.threshold;
+  const title = over ? t('budget_alert_over_title')
+    : fastOnly ? t('budget_alert_fast_title')
+    : t('budget_alert_warn_title').replace('{pct}', String(Math.round(p.pct)));
   const sub = over ? t('budget_alert_over_sub').replace('{amount}', money(-p.left))
-    : (p.fast && p.pct<p.threshold ? t('budget_alert_fast_sub').replace('{proj}', money(p.projected)) : t('budget_alert_warn_sub').replace('{left}', money(p.left)));
+    : (fastOnly ? t('budget_alert_fast_sub').replace('{proj}', money(p.projected)) : t('budget_alert_warn_sub').replace('{left}', money(p.left)));
   return `
   <div class="budget-alert-card ${p.status}" id="btn-budget-alert" role="button" tabindex="0">
     <span class="ba-icon">${over ? '🔴' : '🟡'}</span>
@@ -1697,26 +1755,39 @@ function budgetAlertCard(){
 /* Aviso UNA vez por mes y por nivel (umbral y 100%): toast al cruzarlo. Corre al
    final de saveState (cualquier cambio de datos, propio o del equipo). Se arma
    recién después del arranque (ver el final de app-07). */
-let budgetAlertsArmed = false, budgetAlertCheckRunning = false;
+/* El "ya avisado" es POR DISPOSITIVO (localStorage, por cuenta y mes): así el dueño
+   recibe su toast aunque el gasto que cruzó la línea lo haya cargado un miembro en
+   otro teléfono. Antes viajaba por la nube y solo lo veía quien guardaba. */
+let budgetAlertsArmed = false;
+function budgetAlertedLevel(key){
+  try{
+    const who = (typeof syncUid==='function' && syncUid()) || 'local';
+    const map = JSON.parse(localStorage.getItem('patron_budget_alerted')||'{}');
+    return Number(map[who+':'+key])||0;
+  }catch(e){ return 0; }
+}
+function setBudgetAlertedLevel(key, level){
+  try{
+    const who = (typeof syncUid==='function' && syncUid()) || 'local';
+    const map = JSON.parse(localStorage.getItem('patron_budget_alerted')||'{}');
+    map[who+':'+key] = level;
+    localStorage.setItem('patron_budget_alerted', JSON.stringify(map));
+  }catch(e){}
+}
 function checkBudgetAlerts(){
-  if(!budgetAlertsArmed || budgetAlertCheckRunning) return;
+  if(!budgetAlertsArmed) return;
   try{
     const key = localMonthStr();
     const p = budgetPace(key);
     if(!p) return;
     const level = p.pct>=100 ? 100 : p.pct>=p.threshold ? p.threshold : 0;
-    if(!level) return;
-    const already = budgetMeta.alerted[key]||0;
-    if(level<=already) return;
-    budgetAlertCheckRunning = true;
-    budgetMeta.alerted[key] = level;
-    saveState();
+    if(!level || level<=budgetAlertedLevel(key)) return;
+    setBudgetAlertedLevel(key, level);
     showToast(level>=100
       ? t('budget_toast_over').replace('{amount}', money(-p.left))
       : t('budget_toast_warn').replace('{pct}', String(Math.round(p.pct))).replace('{left}', money(p.left)),
       level>=100 ? 'error' : 'info');
   }catch(e){}
-  budgetAlertCheckRunning = false;
 }
 function allMonths(){
   const set = new Set(receipts.map(r=>monthKey(r.date)));

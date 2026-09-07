@@ -16,9 +16,79 @@
 // recibo con el total como texto (algo que el parser de IA puede devolver, o un import
 // manual) llega igual a todos los del equipo por la nube. Ahora se coacciona a número
 // primero y se acepta solo un número finito de verdad; cualquier otra cosa cae a $0.00.
-function money(n){
+// Formato regional (auditoría de presupuesto 2026-09-07): 'plain' = $1000.00 (lo
+// de siempre, y lo que esperan los tests), 'us' = $1,000.00, 'latam' = $1.000,00.
+// Preferencia del dispositivo (ver setMoneyStyle en app-03), no viaja por la nube.
+let moneyStyle = 'plain';
+function setMoneyStyle(s){ moneyStyle = (s==='us' || s==='latam') ? s : 'plain'; }
+function formatMoney(n, style){
   const v = typeof n==='number' ? n : Number(n);
-  return '$'+(Number.isFinite(v) ? v.toFixed(2) : '0.00');
+  const fixed = Number.isFinite(v) ? v.toFixed(2) : '0.00';
+  const st = style || moneyStyle;
+  if(st==='plain') return '$'+fixed;
+  const neg = fixed.startsWith('-');
+  const [int, dec] = (neg ? fixed.slice(1) : fixed).split('.');
+  const sep = st==='latam' ? '.' : ',';
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  return (neg?'-':'')+'$'+grouped+(st==='latam' ? ',' : '.')+dec;
+}
+function money(n){ return formatMoney(n, moneyStyle); }
+
+/* ===== PRESUPUESTO: lógica pura (auditoría 2026-09-07) =====
+   Sin globales: reciben todo por parámetro para poder probarse con Node. */
+// Limpia lo que venga guardado o de la nube; cualquier basura cae al valor por defecto.
+function normalizeBudgetMeta(m){
+  const src = (m && typeof m==='object') ? m : {};
+  const monthMap = (o)=>{ const out={}; Object.keys(o||{}).forEach(k=>{ const v=Number(o[k]); if(/^\d{4}-\d{2}$/.test(k) && Number.isFinite(v) && v>0) out[k]=v; }); return out; };
+  const byCategory = {};
+  Object.keys(src.byCategory||{}).forEach(k=>{ const v=Number(src.byCategory[k]); if(k && Number.isFinite(v) && v>0) byCategory[k]=v; });
+  const ap = Number(src.alertPct);
+  const ct = Number(src.cogsTargetPct);
+  return {
+    byMonth: monthMap(src.byMonth),
+    alerted: monthMap(src.alerted),
+    byCategory,
+    rollover: src.rollover===true,
+    alertPct: (Number.isFinite(ap) && ap>=10 && ap<100) ? ap : 80,
+    cogsTargetPct: (Number.isFinite(ct) && ct>0 && ct<100) ? ct : null
+  };
+}
+// Al cambiar el monto general: los meses ANTERIORES con actividad que no tenían un
+// valor propio se quedan con el viejo; el actual toma el nuevo; los futuros se limpian.
+function freezeBudgetHistory(byMonth, monthKeys, oldDefault, newValue, currentKey){
+  const out = Object.assign({}, byMonth||{});
+  if(oldDefault>0 && newValue!==oldDefault){
+    (monthKeys||[]).forEach(k=>{ if(k<currentKey && out[k]===undefined) out[k]=oldDefault; });
+  }
+  if(newValue>0) out[currentKey]=newValue; else delete out[currentKey];
+  Object.keys(out).forEach(k=>{ if(k>currentKey) delete out[k]; });
+  return out;
+}
+// Arrastre: lo que sobró el mes pasado (nunca negativo) se suma al de este mes,
+// con tope en el propio presupuesto (a lo sumo se duplica).
+function carryFromPrevious(prevBudget, prevExpense, cap){
+  if(!(prevBudget>0)) return 0;
+  const left = prevBudget - (prevExpense||0);
+  if(!(left>0)) return 0;
+  return Math.min(left, cap>0 ? cap : left);
+}
+/* Ritmo del mes: porcentaje, restante, dónde "deberías ir hoy" (trayectoria lineal),
+   proyección de cierre (desde el día 3), estado (ok / warn / crit). warn = pasó el
+   umbral O va a un ritmo que cierra 5% arriba del presupuesto (desde el día 5). */
+function computeBudgetPace(o){
+  const budget = Number(o.budget), expense = Number(o.expense)||0;
+  if(!(budget>0)) return null;
+  const daysIn = Number(o.daysInMonth)||30;
+  const day = Math.min(daysIn, Math.max(1, Number(o.dayOfMonth)||daysIn));
+  const isCurrent = o.isCurrent!==false;
+  const pct = expense/budget*100;
+  const expectedPct = Math.min(100, (isCurrent ? day : daysIn)/daysIn*100);
+  const projected = (isCurrent && day>=3) ? Math.round(expense/day*daysIn) : null;
+  const threshold = (o.threshold>=10 && o.threshold<100) ? o.threshold : 80;
+  const fast = projected!==null && day>=5 && projected>budget*1.05;
+  const status = pct>=100 ? 'crit' : (pct>=threshold || fast) ? 'warn' : 'ok';
+  return { budget, expense, pct, left: budget-expense, day, daysIn, expectedPct, projected, threshold, fast, status, isCurrent,
+    committed: Number(o.committed)||0, carry: Number(o.carry)||0 };
 }
 
 // Escapa texto para meterlo dentro de HTML sin que rompa la etiqueta ni inyecte código.
@@ -271,6 +341,7 @@ if(typeof module!=='undefined' && module.exports){
     money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
     profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON, hash53, valueHash,
-    roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading
+    roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
+    formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace
   };
 }

@@ -1655,39 +1655,35 @@ let draftMonthlyBudget = monthlyBudget;
    - alertPct: % del primer aviso (80 por defecto); el segundo es al pasarse (100).
    - alerted: {'2026-09': 80|100} — nivel ya avisado ese mes, para avisar UNA vez.
    - cogsTargetPct: objetivo opcional de costo de mercadería sobre ventas (gastronomía). */
+// La forma y la limpieza viven en patron-core.js (normalizeBudgetMeta,
+// freezeBudgetHistory, carryFromPrevious, computeBudgetPace), probadas con Node.
+// byCategory: {catId: tope} topes opcionales por categoría de gasto.
+// rollover: si sobra plata un mes, se suma al presupuesto del siguiente.
 let budgetMeta = normalizeBudgetMeta(null);
-function normalizeBudgetMeta(m){
-  const src = (m && typeof m==='object') ? m : {};
-  const byMonth = {};
-  Object.keys(src.byMonth||{}).forEach(k=>{ const v=Number(src.byMonth[k]); if(/^\d{4}-\d{2}$/.test(k) && Number.isFinite(v) && v>0) byMonth[k]=v; });
-  const alerted = {};
-  Object.keys(src.alerted||{}).forEach(k=>{ const v=Number(src.alerted[k]); if(/^\d{4}-\d{2}$/.test(k) && Number.isFinite(v) && v>0) alerted[k]=v; });
-  const ap = Number(src.alertPct);
-  const ct = Number(src.cogsTargetPct);
-  return {
-    byMonth, alerted,
-    alertPct: (Number.isFinite(ap) && ap>=10 && ap<100) ? ap : 80,
-    cogsTargetPct: (Number.isFinite(ct) && ct>0 && ct<100) ? ct : null
-  };
-}
-// Presupuesto vigente para un mes: el congelado de ese mes si existe, si no el general.
+// Presupuesto BASE de un mes: el congelado de ese mes si existe, si no el general.
 function budgetForMonth(key){
   const v = budgetMeta.byMonth[key];
   if(typeof v==='number' && v>0) return v;
   return (typeof monthlyBudget==='number' && monthlyBudget>0) ? monthlyBudget : null;
 }
+// Presupuesto EFECTIVO: base + arrastre del mes anterior (si está activado).
+function effectiveBudgetForMonth(key){
+  const base = budgetForMonth(key);
+  if(!base) return null;
+  let carry = 0;
+  if(budgetMeta.rollover){
+    const prev = shiftMonthStr(key, -1);
+    carry = carryFromPrevious(budgetForMonth(prev), spendSplitForMonth(prev).expense, base);
+  }
+  return { budget: base+carry, base, carry };
+}
 /* Cambiar el presupuesto aplica desde el mes actual en adelante: los meses
    anteriores con recibos que no tenían un valor propio se quedan con el viejo. */
 function setMonthlyBudget(value){
   const v = (typeof value==='number' && Number.isFinite(value) && value>0) ? Math.round(value*100)/100 : null;
-  const cm = localMonthStr();
   const old = (typeof monthlyBudget==='number' && monthlyBudget>0) ? monthlyBudget : null;
-  if(old!==null && v!==old){
-    allMonths().forEach(k=>{ if(k<cm && budgetMeta.byMonth[k]===undefined) budgetMeta.byMonth[k]=old; });
-  }
+  budgetMeta.byMonth = freezeBudgetHistory(budgetMeta.byMonth, allMonths(), old, v, localMonthStr());
   monthlyBudget = v;
-  if(v!==null) budgetMeta.byMonth[cm]=v; else delete budgetMeta.byMonth[cm];
-  Object.keys(budgetMeta.byMonth).forEach(k=>{ if(k>cm) delete budgetMeta.byMonth[k]; });
 }
 /* Catálogo público para clientes del negocio (2026-09-06): el número de WhatsApp
    al que llegan los pedidos y el id del catálogo publicado (null = nunca publicó).
