@@ -196,6 +196,7 @@ function renderApp(){
     ${catalogPendingPhoto && catalogEditorOpen ? catalogEditorModal() : ''}
     ${showCatalogPublishModal ? catalogPublishModal() : ''}
     ${showCollageLayoutModal ? collageLayoutModal() : ''}
+    ${showTemplateModal ? templateModal() : ''}
     ${catalogViewPhoto ? catalogPhotoViewer() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}

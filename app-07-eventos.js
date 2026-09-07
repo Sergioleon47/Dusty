@@ -688,6 +688,46 @@ function attachEvents(){
     // COLLAGE — DISEÑO PRIMERO (pedido del usuario 2026-09-06): tocar Collage
     // abre el menú de layouts; elegir uno dispara el selector de fotos con la
     // cantidad exacta que ese diseño necesita.
+    // PLANTILLAS (pedido del usuario 2026-09-07): abre el modal y arma la vista
+    // previa; cada chip re-arma la página (sin esperar Guardar).
+    const btnCatalogTemplates=document.getElementById('btn-catalog-templates');
+    if(btnCatalogTemplates) btnCatalogTemplates.onclick=()=>{ showTemplateModal=true; tplPage=0; tplPreviewUrl=null; render(); refreshTemplatePreview(); };
+    const tplOverlay=document.getElementById('template-overlay');
+    if(tplOverlay){
+      const closeTpl=()=>{ showTemplateModal=false; tplPreviewUrl=null; tplReq++; render(); };
+      tplOverlay.onmousedown=(e)=>{ if(e.target===tplOverlay) closeTpl(); };
+      document.getElementById('btn-close-template').onclick=closeTpl;
+      const rerender=()=>{ tplPreviewUrl=null; render(); refreshTemplatePreview(); };
+      document.querySelectorAll('[data-tpl-kind]').forEach(b=>{ b.onclick=()=>{ tplKind=b.dataset.tplKind; tplPage=0; rerender(); }; });
+      document.querySelectorAll('[data-tpl-format]').forEach(b=>{ b.onclick=()=>{ tplFormat=b.dataset.tplFormat; tplPage=0; rerender(); }; });
+      document.querySelectorAll('[data-tpl-style]').forEach(b=>{ b.onclick=()=>{ tplStyle=b.dataset.tplStyle; rerender(); }; });
+      document.querySelectorAll('[data-tpl-scope]').forEach(b=>{ b.onclick=()=>{ tplScope=b.dataset.tplScope; tplPage=0; rerender(); }; });
+      const offerSel=document.getElementById('tpl-offer-select');
+      if(offerSel) offerSel.onchange=()=>{ tplOfferId=offerSel.value; rerender(); };
+      const prev=document.getElementById('tpl-prev'), next=document.getElementById('tpl-next');
+      if(prev) prev.onclick=()=>{ if(tplPage>0){ tplPage--; rerender(); } };
+      if(next) next.onclick=()=>{ tplPage++; rerender(); };
+      // Guardar: descarga la página actual (en iOS abre la imagen; ahí se guarda
+      // con "Guardar imagen" o por Compartir). Compartir: TODAS las páginas como
+      // archivos por la hoja nativa; sin hoja, descarga y avisa.
+      const dl=(file)=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(file); a.download=file.name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500); };
+      const btnSave=document.getElementById('btn-save-template');
+      if(btnSave) btnSave.onclick=async ()=>{
+        try{ btnSave.disabled=true; const files=await templatePageFiles(); const f=files[tplPage]||files[0]; if(f){ dl(f); showToast(t('tpl_saved')); } }
+        catch(e){ showToast(e.message||t('err_img_process'),'error'); }
+        btnSave.disabled=false;
+      };
+      const btnShare=document.getElementById('btn-share-template');
+      if(btnShare) btnShare.onclick=async ()=>{
+        try{
+          btnShare.disabled=true;
+          const files=await templatePageFiles();
+          if(navigator.canShare && navigator.canShare({files})){ try{ await navigator.share({files, title: businessName||'Dusty'}); }catch(e){ if(!(e && e.name==='AbortError')) throw e; } }
+          else { files.forEach(dl); showToast(t('tpl_shared_fallback'),'info'); }
+        }catch(e){ showToast(e.message||t('err_img_process'),'error'); }
+        btnShare.disabled=false;
+      };
+    }
     const btnCatalogCollage=document.getElementById('btn-catalog-collage');
     if(btnCatalogCollage) btnCatalogCollage.onclick=()=>{
       collageImgsCache=[]; collageChosenLayout=null;
@@ -2674,6 +2714,7 @@ document.addEventListener('keydown', (e)=>{
   if(catalogPendingPhoto){ const btn=document.getElementById('btn-cancel-assign-photo'); if(btn) btn.click(); return; }
   if(showCatalogCameraModal){ showCatalogCameraModal=false; render(); return; }
   if(showCollageLayoutModal){ const btn=document.getElementById('btn-cancel-collage'); if(btn) btn.click(); return; }
+  if(showTemplateModal){ const btn=document.getElementById('btn-close-template'); if(btn) btn.click(); else { showTemplateModal=false; render(); } return; }
   if(showCatalogPublishModal){ closeCatalogPublishModal(); return; }
   if(showItemModal){ closeItemModal(); return; }
   if(showScanModal){ closeScanModal(); return; }

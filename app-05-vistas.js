@@ -2430,6 +2430,9 @@ function catalogoView(){
              (pedido del usuario: "eso ahí está demasiado"): sin capture, el
              teléfono ofrece Tomar foto y Fototeca en la misma hoja nativa. */''}
         ${tool('btn-catalog-collage', ring(collageSvg, 'linear-gradient(145deg, var(--tomato-soft, #4a2a28), var(--panel))', 'var(--tomato)'), t('catalog_tool_collage'))}
+        ${/* PLANTILLAS (pedido del usuario 2026-09-07): catálogo en grilla, lista
+             de precios, menú de restaurante u oferta, como imagen para compartir. */''}
+        ${tool('btn-catalog-templates', ring('<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>', 'linear-gradient(145deg, var(--saffron-soft), var(--panel))', 'var(--saffron-ink)'), t('catalog_tool_templates'))}
         ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
         <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:76px;">
           ${/* Mismo porte que los escáneres (76px de .shelf-scan-fab, ícono 32 —
@@ -2547,6 +2550,240 @@ function catalogCameraModal(){
       ${scanQuotaLineHtml()}
       <div class="modal-actions" style="margin-top:0;">
         <button class="btn btn-ghost" id="btn-cancel-catalog-camera" style="width:100%;">${t('btn_cancel')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+/* ================= PLANTILLAS (pedido del usuario 2026-09-07) =================
+   Cuarta herramienta del Catálogo: arma una IMAGEN lista para compartir o
+   imprimir con los productos — catálogo en grilla, lista de precios, menú de
+   restaurante u oferta — en formato post (1080²), historia (1080×1920) u hoja
+   (1240×1754, A4 a 150 dpi). Todo a canvas local con las miniaturas base64
+   (nunca URLs remotas: pintarlas mancharía el canvas y no se podría exportar).
+   Varias páginas cuando no entran; Compartir manda todas como archivos. */
+let showTemplateModal = false;
+let tplKind = 'grid', tplFormat = 'post', tplStyle = 'dark', tplScope = 'catalog';
+let tplPage = 0, tplOfferId = null, tplRendering = false, tplReq = 0;
+let tplPreviewUrl = null;
+const TPL_FORMATS = { post:[1080,1080], story:[1080,1920], sheet:[1240,1754] };
+const TPL_STYLES = {
+  dark:  {bg:'#0f1522', panel:'#171d2c', ink:'#f2f4f8', soft:'#9aa3b5', accent:'#6fd38f', line:'#2a3244', serif:false},
+  light: {bg:'#ffffff', panel:'#f3f4f6', ink:'#151515', soft:'#6b7280', accent:'#2f7d4f', line:'#e5e7eb', serif:false},
+  warm:  {bg:'#f6efe3', panel:'#fff9ef', ink:'#2b1d12', soft:'#8a705a', accent:'#b5532a', line:'#e6d8c3', serif:true}
+};
+function templateItems(){
+  const useAll = tplScope==='all';
+  const out = [];
+  inventory.filter(i=>i && !isExpenseItem(i) && (useAll || i.inCatalog)).forEach(i=>{
+    const cat = categories.find(c=>c.id===i.categoryId);
+    out.push({id:i.id, name:i.name, price:Number(i.salePrice)||0, unit:i.unit||'', photo:(i.photo && i.photo.base64) ? i.photo : null, category: cat ? cat.name : ''});
+  });
+  recipes.filter(r=>r && r.id && (useAll || r.inCatalog)).forEach(r=>{
+    out.push({id:r.id, name:r.name, price:Number(r.salePrice)||0, unit:'', photo:(r.photo && r.photo.base64) ? r.photo : null, category: t('catalog_recipes_header')});
+  });
+  return out;
+}
+// Cuántos productos entran por página en cada diseño y formato.
+function tplCapacity(kind, fmt){
+  const c = { grid:{post:9, story:15, sheet:20}, list:{post:12, story:24, sheet:32}, menu:{post:11, story:22, sheet:30}, offer:{post:1, story:1, sheet:1} };
+  return c[kind][fmt];
+}
+function tplPages(){
+  const items = templateItems();
+  if(tplKind==='offer'){
+    const one = items.find(i=>i.id===tplOfferId) || items[0];
+    return one ? [[one]] : [];
+  }
+  if(tplKind==='menu'){
+    // Agrupado por categoría (en el orden del usuario); los encabezados
+    // también cuentan como renglón. Un grupo puede seguir en la página siguiente.
+    const cap = tplCapacity('menu', tplFormat);
+    const groups = {}; const order = [];
+    items.forEach(it=>{ const k=it.category||''; if(!(k in groups)){ groups[k]=[]; order.push(k); } groups[k].push(it); });
+    const lines = []; order.forEach(k=>{ if(k) lines.push({h:k}); groups[k].forEach(it=>lines.push({it})); });
+    const pages = []; for(let i=0;i<lines.length;i+=cap) pages.push(lines.slice(i,i+cap));
+    return pages;
+  }
+  const cap = tplCapacity(tplKind, tplFormat);
+  const pages = []; for(let i=0;i<items.length;i+=cap) pages.push(items.slice(i,i+cap));
+  return pages;
+}
+// --- helpers de dibujo ---
+function tplRoundRect(ctx, x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function tplCover(ctx, im, x, y, w, h, r){
+  ctx.save(); tplRoundRect(ctx,x,y,w,h,r); ctx.clip();
+  const s = Math.max(w/im.naturalWidth, h/im.naturalHeight);
+  const dw = im.naturalWidth*s, dh = im.naturalHeight*s;
+  ctx.drawImage(im, x+(w-dw)/2, y+(h-dh)/2, dw, dh); ctx.restore();
+}
+function tplFont(st, weight, size){ return `${weight} ${size}px ${st.serif ? 'Georgia, "Times New Roman", serif' : '-apple-system, "Segoe UI", Roboto, sans-serif'}`; }
+function tplFit(ctx, text, maxW){ let s=String(text||''); if(ctx.measureText(s).width<=maxW) return s; while(s.length>1 && ctx.measureText(s+'…').width>maxW) s=s.slice(0,-1); return s+'…'; }
+function tplWrap(ctx, text, maxW, maxLines){
+  const words = String(text||'').split(/\s+/); const lines=[]; let cur='';
+  for(const w of words){ const tst = cur ? cur+' '+w : w; if(ctx.measureText(tst).width<=maxW || !cur) cur=tst; else { lines.push(cur); cur=w; if(lines.length===maxLines) break; } }
+  if(lines.length<maxLines && cur) lines.push(cur);
+  if(lines.length===maxLines && words.join(' ')!==lines.join(' ')) lines[maxLines-1]=tplFit(ctx, lines[maxLines-1]+'…', maxW);
+  return lines;
+}
+function tplPriceText(it){ return it.price>0 ? money(it.price) + (it.unit && it.unit!=='unidad' ? '/'+unitLabel(it.unit) : '') : t('tpl_price_ask'); }
+async function tplImages(items){
+  const map = new Map();
+  await Promise.all(items.filter(it=>it && it.photo).map(async it=>{ try{ map.set(it.id, await loadB64Image(it.photo)); }catch(e){} }));
+  return map;
+}
+async function composeTemplatePage(page, pageIdx, total){
+  const [W,H] = TPL_FORMATS[tplFormat]; const st = TPL_STYLES[tplStyle];
+  const cv = document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.fillStyle = st.bg; ctx.fillRect(0,0,W,H);
+  const pad = Math.round(W*0.06);
+  const title = businessName || 'Dusty';
+  // Encabezado: nombre del negocio + qué es.
+  ctx.fillStyle = st.ink; ctx.textBaseline='top'; ctx.textAlign='left';
+  ctx.font = tplFont(st, 800, Math.round(W*0.052)); ctx.fillText(tplFit(ctx, title, W-pad*2), pad, pad);
+  ctx.fillStyle = st.soft; ctx.font = tplFont(st, 600, Math.round(W*0.026));
+  const sub = tplKind==='menu' ? '' : t('tpl_kind_'+tplKind) + (total>1 ? ' · '+t('tpl_page').replace('{i}', pageIdx+1).replace('{n}', total) : '');
+  if(sub) ctx.fillText(sub, pad, pad + Math.round(W*0.062));
+  const top = pad + Math.round(W*(sub ? 0.11 : 0.085));
+  // Pie: WhatsApp / link.
+  const footH = Math.round(W*0.06);
+  const foot = catalogWhatsApp ? `${t('tpl_menu_footer')} · +${String(catalogWhatsApp).replace(/\D/g,'')}` : (catalogUrl() ? catalogUrl().replace(/^https?:\/\//,'') : '');
+  if(foot){ ctx.fillStyle = st.soft; ctx.font = tplFont(st, 600, Math.round(W*0.024)); ctx.textAlign='center'; ctx.fillText(tplFit(ctx, foot, W-pad*2), W/2, H-pad-Math.round(W*0.03)); ctx.textAlign='left'; }
+  const bodyH = H - top - pad - footH;
+  const items = tplKind==='menu' ? page.filter(l=>l.it).map(l=>l.it) : page;
+  const imgs = (tplKind==='grid' || tplKind==='offer') ? await tplImages(items) : new Map();
+  if(tplKind==='grid'){
+    const cols = tplFormat==='sheet' ? 4 : 3;
+    const rows = Math.ceil(tplCapacity('grid', tplFormat)/cols);
+    const gap = Math.round(W*0.022);
+    const cw = (W - pad*2 - gap*(cols-1)) / cols;
+    const ch = Math.min(cw*1.45, (bodyH - gap*(rows-1)) / rows);
+    page.forEach((it, i)=>{
+      const x = pad + (i%cols)*(cw+gap), y = top + Math.floor(i/cols)*(ch+gap);
+      ctx.fillStyle = st.panel; tplRoundRect(ctx, x, y, cw, ch, Math.round(W*0.02)); ctx.fill();
+      // Foto arriba (56%), abajo dos renglones de nombre y el precio con aire
+      // entre ambos (verificación 2026-09-07: con 62% la segunda línea del
+      // nombre pisaba el precio).
+      const ph = ch*0.56; const im = imgs.get(it.id);
+      if(im) tplCover(ctx, im, x, y, cw, ph, Math.round(W*0.02));
+      else { ctx.fillStyle = st.line; tplRoundRect(ctx, x, y, cw, ph, Math.round(W*0.02)); ctx.fill(); }
+      ctx.fillStyle = st.ink; ctx.font = tplFont(st, 700, Math.round(cw*0.085));
+      const lines = tplWrap(ctx, it.name, cw - Math.round(W*0.03), 2);
+      lines.forEach((ln,k)=>ctx.fillText(ln, x+Math.round(W*0.015), y+ph+Math.round(cw*0.06)+k*Math.round(cw*0.105)));
+      ctx.fillStyle = it.price>0 ? st.accent : st.soft; ctx.font = tplFont(st, 800, Math.round(cw*0.1));
+      ctx.fillText(tplPriceText(it), x+Math.round(W*0.015), y+ch-Math.round(cw*0.15));
+    });
+  } else if(tplKind==='list'){
+    const rowH = bodyH / tplCapacity('list', tplFormat);
+    const fs = Math.min(Math.round(rowH*0.42), Math.round(W*0.034));
+    page.forEach((it, i)=>{
+      const y = top + i*rowH;
+      ctx.fillStyle = st.line; ctx.fillRect(pad, y+rowH-1, W-pad*2, 1);
+      ctx.fillStyle = st.ink; ctx.font = tplFont(st, 600, fs); ctx.textAlign='left';
+      const price = tplPriceText(it); ctx.font = tplFont(st, 800, fs); const pw = ctx.measureText(price).width;
+      ctx.font = tplFont(st, 600, fs); ctx.fillText(tplFit(ctx, it.name, W-pad*2-pw-Math.round(W*0.03)), pad, y+(rowH-fs)/2);
+      ctx.fillStyle = it.price>0 ? st.accent : st.soft; ctx.font = tplFont(st, 800, fs); ctx.textAlign='right'; ctx.fillText(price, W-pad, y+(rowH-fs)/2); ctx.textAlign='left';
+    });
+  } else if(tplKind==='menu'){
+    const rowH = bodyH / tplCapacity('menu', tplFormat);
+    const fs = Math.min(Math.round(rowH*0.44), Math.round(W*0.034));
+    let y = top;
+    page.forEach(l=>{
+      if(l.h){
+        ctx.fillStyle = st.accent; ctx.font = tplFont(st, 800, Math.round(fs*0.8)); ctx.textAlign='left';
+        ctx.fillText(String(l.h).toUpperCase(), pad, y+rowH*0.5-fs*0.4);
+        ctx.fillStyle = st.line; ctx.fillRect(pad, y+rowH-2, W-pad*2, 2);
+      } else {
+        const it = l.it; const price = tplPriceText(it);
+        ctx.fillStyle = it.price>0 ? st.ink : st.soft; ctx.font = tplFont(st, 800, fs); ctx.textAlign='right'; const pw = ctx.measureText(price).width;
+        ctx.fillText(price, W-pad, y+(rowH-fs)/2);
+        ctx.fillStyle = st.ink; ctx.font = tplFont(st, 500, fs); ctx.textAlign='left';
+        const name = tplFit(ctx, it.name, W-pad*2-pw-Math.round(W*0.06)); ctx.fillText(name, pad, y+(rowH-fs)/2);
+        // Puntitos guía entre nombre y precio, el alma de un menú.
+        const nx = pad + ctx.measureText(name).width + Math.round(W*0.012), ex = W-pad-pw-Math.round(W*0.012);
+        ctx.fillStyle = st.soft; for(let dx=nx; dx<ex; dx+=Math.round(fs*0.45)) ctx.fillRect(dx, y+rowH*0.5+fs*0.28, 2, 2);
+      }
+      y += rowH;
+    });
+  } else if(tplKind==='offer'){
+    const it = page[0]; const im = imgs.get(it.id);
+    const ph = Math.round(bodyH*0.6);
+    if(im) tplCover(ctx, im, pad, top, W-pad*2, ph, Math.round(W*0.03)); else { ctx.fillStyle=st.panel; tplRoundRect(ctx,pad,top,W-pad*2,ph,Math.round(W*0.03)); ctx.fill(); }
+    // Etiqueta OFERTA
+    ctx.fillStyle = st.accent; tplRoundRect(ctx, pad+Math.round(W*0.03), top+Math.round(W*0.03), Math.round(W*0.26), Math.round(W*0.075), Math.round(W*0.02)); ctx.fill();
+    ctx.fillStyle = st.bg; ctx.font = tplFont(st, 900, Math.round(W*0.036)); ctx.textAlign='center'; ctx.fillText(t('tpl_offer_label'), pad+Math.round(W*0.03)+Math.round(W*0.13), top+Math.round(W*0.03)+Math.round(W*0.019)); ctx.textAlign='left';
+    ctx.fillStyle = st.ink; ctx.font = tplFont(st, 800, Math.round(W*0.06));
+    const lines = tplWrap(ctx, it.name, W-pad*2, 2); lines.forEach((ln,k)=>ctx.fillText(ln, pad, top+ph+Math.round(W*0.04)+k*Math.round(W*0.072)));
+    ctx.fillStyle = st.accent; ctx.font = tplFont(st, 900, Math.round(W*0.12));
+    ctx.fillText(tplPriceText(it), pad, top+ph+Math.round(W*0.04)+lines.length*Math.round(W*0.072)+Math.round(W*0.02));
+  }
+  return cv;
+}
+async function refreshTemplatePreview(){
+  const req = ++tplReq; tplRendering = true;
+  try{
+    const pages = tplPages();
+    if(pages.length===0){ tplPreviewUrl=null; tplRendering=false; return; }
+    if(tplPage>=pages.length) tplPage = pages.length-1;
+    const cv = await composeTemplatePage(pages[tplPage], tplPage, pages.length);
+    if(req!==tplReq || !showTemplateModal) return;
+    tplPreviewUrl = cv.toDataURL('image/jpeg', 0.86);
+  }catch(e){ tplPreviewUrl=null; }
+  if(req!==tplReq) return;
+  tplRendering = false;
+  const img = document.getElementById('tpl-preview');
+  if(img && tplPreviewUrl){ img.src = tplPreviewUrl; img.style.opacity='1'; const sp=document.getElementById('tpl-spinner'); if(sp) sp.hidden=true; }
+  else render();
+}
+async function templatePageFiles(){
+  const pages = tplPages(); const files = [];
+  for(let i=0;i<pages.length;i++){
+    const cv = await composeTemplatePage(pages[i], i, pages.length);
+    const blob = await new Promise(res=>cv.toBlob(res, 'image/jpeg', 0.92));
+    const base = (businessName || 'dusty').replace(/[^\w\- ]+/g,'').trim().slice(0,30) || 'dusty';
+    files.push(new File([blob], `${base}-${t('tpl_kind_'+tplKind).toLowerCase().replace(/\s+/g,'-')}${pages.length>1?'-'+(i+1):''}.jpg`, {type:'image/jpeg'}));
+  }
+  return files;
+}
+function templateModal(){
+  const items = templateItems();
+  const pages = tplPages();
+  const [W,H] = TPL_FORMATS[tplFormat];
+  const chip = (attr, val, cur, label)=>`<button type="button" class="exit-reason-chip ${cur===val?'on':''}" data-${attr}="${val}" style="font-size:13px;padding:8px 13px;">${label}</button>`;
+  return `
+  <div class="overlay overlay-fast" id="template-overlay">
+    <div class="modal" style="display:flex;flex-direction:column;overflow:hidden;">
+      <h3 class="sky" style="flex-shrink:0;">${t('tpl_title')}</h3>
+      <div class="sub" style="flex-shrink:0;margin-bottom:10px;">${t('tpl_sub')}</div>
+      <div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${['grid','list','menu','offer'].map(k=>chip('tpl-kind', k, tplKind, t('tpl_kind_'+k))).join('')}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+          ${['post','story','sheet'].map(f=>chip('tpl-format', f, tplFormat, t('tpl_format_'+f))).join('')}
+          <span style="width:8px;"></span>
+          ${['dark','light','warm'].map(s=>chip('tpl-style', s, tplStyle, t('tpl_style_'+s))).join('')}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;">
+          ${chip('tpl-scope','catalog',tplScope,t('tpl_scope_catalog'))}${chip('tpl-scope','all',tplScope,t('tpl_scope_all'))}
+          ${tplKind==='offer' && items.length>0 ? `<select id="tpl-offer-select" style="flex:1;min-width:120px;">${items.map(i=>`<option value="${escapeHtml(i.id)}" ${(tplOfferId||items[0].id)===i.id?'selected':''}>${escapeHtml(i.name)}</option>`).join('')}</select>` : ''}
+        </div>
+        ${pages.length===0 ? `<div class="helper-note" style="margin-top:12px;">${t('tpl_empty')}</div>` : `
+        <div style="position:relative;margin:12px auto 0;width:100%;max-width:${tplFormat==='story'?'52%':tplFormat==='sheet'?'70%':'88%'};aspect-ratio:${W}/${H};background:#151515;border-radius:10px;overflow:hidden;box-shadow:var(--shadow);">
+          <img id="tpl-preview" src="${tplPreviewUrl||''}" alt="" style="width:100%;height:100%;display:block;object-fit:contain;opacity:${tplPreviewUrl?1:0};transition:opacity .2s;">
+          <div id="tpl-spinner" ${tplPreviewUrl&&!tplRendering?'hidden':''} style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:13px;font-weight:700;"><div class="spinner"></div> ${t('tpl_rendering')}</div>
+        </div>
+        ${pages.length>1 ? `
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="tpl-prev" ${tplPage===0?'disabled':''}>‹</button>
+          <span style="font-size:13px;font-weight:700;color:var(--ink-soft);">${t('tpl_page').replace('{i}', tplPage+1).replace('{n}', pages.length)}</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="tpl-next" ${tplPage>=pages.length-1?'disabled':''}>›</button>
+        </div>` : ''}`}
+      </div>
+      <div class="modal-actions" style="flex-shrink:0;">
+        <button class="btn btn-ghost" id="btn-close-template">${t('btn_close')}</button>
+        <button class="btn btn-ghost" id="btn-save-template" ${pages.length===0?'disabled':''}>${t('tpl_save')}</button>
+        <button class="btn btn-primary" id="btn-share-template" ${pages.length===0?'disabled':''}>${t('tpl_share')}</button>
       </div>
     </div>
   </div>`;

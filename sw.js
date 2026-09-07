@@ -243,7 +243,12 @@
 // (Productos · Escanear recibo · A mano, sin órbita), "Hoy" con Críticos /
 // Toca contar / Salud que abren el Inventario filtrado, y filas de Pedido
 // sugerido, Último recibo, Producción y Cambios — app-03/04/05/07 + css.
-const CACHE_NAME = 'patron-shell-v82';
+// v83: PLANTILLAS en el Catálogo (pedido del usuario 2026-09-07): cuarta
+// herramienta que arma una imagen para compartir o imprimir — catálogo en
+// grilla, lista de precios, menú de restaurante u oferta; post / historia /
+// hoja; oscuro / claro / cálido; varias páginas; Guardar y Compartir como
+// archivos — app-03/04/05/07.
+const CACHE_NAME = 'patron-shell-v83';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
