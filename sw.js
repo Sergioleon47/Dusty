@@ -176,7 +176,9 @@
 // total del recibo pasa al verde de dinero fijo.
 // v65: la Cámara del Catálogo al mismo porte que los escáneres (76px, ícono 32)
 // — sin el override de 64px que la dejaba más chica — app-05.
-const CACHE_NAME = 'patron-shell-v65';
+// v66: fuera el título "Herramientas del catálogo" (borrado de raíz, pedido
+// del usuario) — los círculos con etiqueta se explican solos — app-03/05.
+const CACHE_NAME = 'patron-shell-v66';
 
 const PRECACHE_URLS = [
   '/',

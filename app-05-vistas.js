@@ -2118,7 +2118,8 @@ function catalogoView(){
            AUTOMÁTICA — cada cambio del catálogo se publica solo (ver
            scheduleCatalogAutoPublish). La config de una vez vive en la primera
            publicación (Compartir) y después en Ajustes generales. */''}
-      <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 10px;">${t('catalog_tools_header')}</div>
+      ${/* Sin el título "Herramientas del catálogo" (el usuario lo borró de raíz,
+           2026-09-07): los tres círculos con su etiqueta ya se explican solos. */''}
       <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;padding:2px 0;">
         ${/* Orden (pedido del usuario 2026-09-06): la CÁMARA primera desde la
              DERECHA — donde cae el pulgar. Galería se FUSIONÓ en la Cámara
