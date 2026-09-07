@@ -513,25 +513,18 @@ function outflowsModal(){
 }
 
 /* ---------- MODAL: ESCÁNER DE ESTANTE ---------- */
-// Botón de cámara del ESTANTE: al toque, solo la hoja de fotos; con la foto
-// elegida se abre el modal directo en "leyendo".
-function startShelfScanFromButton(){
-  showShelfInfoBubble = false;
-  if(!scanAccountGate()) return;
-  const go=async (files)=>{
-    try{ const img=await loadImageFromFile(files[0]); openShelfModalCore(); processShelfSource(img); }
-    catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
-  };
-  openPhotoSource({ camera: ()=>pickPhotoFiles({capture:true}, go), gallery: ()=>pickPhotoFiles({}, go) });
-}
 function openShelfModal(){
   showShelfInfoBubble = false; // abrir el escáner cierra la burbuja de instrucciones
-  // Mismo trato que los otros escáneres: cuenta real desconectada → login;
-  // si no, trial anónimo en segundo plano y el modal abre al instante.
-  if(!scanAccountGate()) return;
-  openShelfModalCore();
-}
-function openShelfModalCore(){
+  if(!currentUser){
+    // Mismo trato que los otros escáneres: cuenta real desconectada → login;
+    // si no, trial anónimo en segundo plano y el modal abre al instante.
+    if(everHadRealAccount()){
+      ensurePatronFirebaseReady().catch(()=>{});
+      openAuthModal(t('scan_requires_account'));
+      return;
+    }
+    ensureTrialAccount().catch(()=>{});
+  }
   shelfRequestId++;
   shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason='sale';
   showShelfModal = true; render();
@@ -648,12 +641,13 @@ function shelfScanModal(){
 
       ${shelfState==='camera' ? `
         <div class="sub">${t('shelf_sub')}</div>
-        ${/* Misma caja que Recibos y Productos (intro única): tocarla vuelve a abrir la hoja. */''}
+        ${/* Misma caja que Recibos y Productos (intro única): la cámara directo; galería por el link. */''}
         <div class="drop-zone" id="shelf-drop-zone">
           <div class="dz-icon">${lineIcon('camera',26)}</div>
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
-        <div class="helper-note" style="margin:-4px 0 0;">💡 ${t('shelf_tip')}</div>
+        <button type="button" id="btn-shelf-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
+        <div class="helper-note" style="margin:0;">💡 ${t('shelf_tip')}</div>
       ` : ''}
       <input type="file" id="shelf-photo-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="shelf-photo-file-gallery" accept="image/*" style="display:none;">
@@ -791,10 +785,7 @@ function applyShelfAdjust(){
 // en vez de apilar), y campos de texto que escriben en el estado sin re-render.
 function attachProductionEvents(){
   const btnShelfScan=document.getElementById('btn-shelf-scan');
-  if(btnShelfScan){
-    btnShelfScan.onclick=()=>{ if(consumeCameraHintLongPress('btn-shelf-scan')) return; startShelfScanFromButton(); };
-    attachCameraHint('btn-shelf-scan', t('shelf_banner_title'), t('shelf_banner_sub'));
-  }
+  if(btnShelfScan) btnShelfScan.onclick=openShelfModal;
   // Badge "−" y su burbuja de instrucciones: el badge la abre/cierra; tocar la
   // burbuja o cualquier parte de afuera (backdrop transparente) la cierra.
   const btnShelfInfo=document.getElementById('btn-shelf-info');
@@ -910,9 +901,11 @@ function attachProductionEvents(){
     if(btnAgain) btnAgain.onclick=restartShelfCamera;
     const shelfFile=document.getElementById('shelf-photo-file');
     const shelfGallery=document.getElementById('shelf-photo-file-gallery');
-    // Intro única (2026-09-07): la caja vuelve a abrir la hoja de fotos.
+    // Intro única: la caja abre la cámara directo; el link, la galería.
     const shelfDz=document.getElementById('shelf-drop-zone');
-    if(shelfDz) shelfDz.onclick=()=>openPhotoSource(shelfPhotoSource());
+    if(shelfDz && shelfFile) shelfDz.onclick=()=>shelfFile.click();
+    const btnShelfGallery=document.getElementById('btn-shelf-gallery');
+    if(btnShelfGallery && shelfGallery) btnShelfGallery.onclick=()=>shelfGallery.click();
     const onShelfFile=async (e)=>{
       const file=e.target.files[0];
       e.target.value='';

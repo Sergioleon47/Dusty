@@ -2338,6 +2338,30 @@ function catalogoView(){
    collage). Tras elegir 2-4 fotos se abre el selector: cuadrículas clásicas y
    los "Pinboard" — fotos inclinadas estilo polaroid con marco blanco y sombra
    sobre fondo de estudio. Curado para fotos de producto. */
+/* MODAL DE CÁMARA del Catálogo (intro única, captura del usuario 2026-09-07):
+   el mismo modal con caja punteada que Recibos, Productos y Estante — título,
+   una línea, la caja "Tocá para sacar o elegir una foto" y Cancelar. Tocar la
+   caja abre la CÁMARA directo y el link de abajo la galería (decisión final
+   del usuario: sin hojas intermedias); con la foto elegida este modal se
+   cierra y aparece el de asignar. */
+let showCatalogCameraModal = false;
+function catalogCameraModal(){
+  return `
+  <div class="overlay overlay-fast" id="catalog-camera-overlay">
+    <div class="modal">
+      <h3 class="sky">${t('catalog_camera_title')}</h3>
+      <div class="sub">${t('catalog_camera_sub')}</div>
+      <div class="drop-zone" id="catalog-drop-zone">
+        <div class="dz-icon">${lineIcon('camera',26)}</div>
+        <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
+      </div>
+      <button type="button" id="btn-catalog-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
+      <div class="modal-actions" style="margin-top:0;">
+        <button class="btn btn-ghost" id="btn-cancel-catalog-camera" style="width:100%;">${t('btn_cancel')}</button>
+      </div>
+    </div>
+  </div>`;
+}
 let showCollageLayoutModal = false;
 let collageImgsCache = []; // elementos Image — viven acá, no en estado serializable
 let collageChosenLayout = null; // el diseño elegido ANTES de elegir las fotos

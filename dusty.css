@@ -742,31 +742,6 @@
      las dos capturas evita el estirón cuadrado → apaisado. */
   ::view-transition-group(catalog-photo){animation-duration:333ms;animation-timing-function:cubic-bezier(.4,0,.22,1);}
   ::view-transition-old(catalog-photo), ::view-transition-new(catalog-photo){object-fit:cover;height:100%;width:100%;animation:none;mix-blend-mode:normal;}
-  /* Hoja de fotos de Dusty (intro única de cámara en Android/escritorio; en
-     iOS la pone el sistema): tarjeta abajo con las mismas filas que la nativa. */
-  .photo-src-overlay{align-items:flex-end;padding:0;z-index:56;}
-  .photo-src-sheet{width:100%;max-width:460px;margin:0 10px calc(10px + env(safe-area-inset-bottom));
-    background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;
-    box-shadow:var(--shadow-lg);animation:photoSrcUp .22s cubic-bezier(.32,.72,.25,1);}
-  .photo-src-row{display:flex;align-items:center;gap:16px;width:100%;padding:17px 22px;background:none;
-    border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:17px;font-weight:600;
-    cursor:pointer;text-align:left;font-family:inherit;}
-  .photo-src-row svg{flex-shrink:0;color:var(--ink);}
-  .photo-src-row:active{background:var(--inset);}
-  .photo-src-cancel{width:100%;padding:15px;background:var(--inset);border:none;color:var(--ink);
-    font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;}
-  @keyframes photoSrcUp{from{transform:translateY(24px);opacity:0;}to{transform:none;opacity:1;}}
-  @media (prefers-reduced-motion: reduce){ .photo-src-sheet{animation:none;} }
-  /* Burbuja que explica cada cámara (primera vez / presión larga, ver showCameraHint). */
-  .cam-hint{position:fixed;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:10px 12px;font-size:12.5px;line-height:1.4;color:var(--ink);box-shadow:var(--shadow-lg);
-    pointer-events:none;animation:camHintIn .2s ease-out;}
-  .cam-hint strong{display:block;color:var(--sky-ink);font-size:13px;margin-bottom:4px;}
-  .cam-hint::before{content:'';position:absolute;top:-6.5px;left:calc(var(--arrow-x, 50%) - 6px);width:12px;height:12px;
-    background:var(--panel);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg);}
-  .cam-hint.above::before{top:auto;bottom:-6.5px;transform:rotate(225deg);}
-  @keyframes camHintIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
-  @media (prefers-reduced-motion: reduce){ .cam-hint{animation:none;} }
   /* Toast con acción (Deshacer) */
   .toast-action{display:flex;align-items:center;gap:12px;}
   .toast-action span{flex:1;}
@@ -956,6 +931,10 @@
   .drop-zone:hover{border-color:var(--sky);}
   .drop-zone:active{transform:scale(0.98);border-color:var(--sky);}
   .drop-zone .dz-icon{display:flex;justify-content:center;color:var(--sky);margin-bottom:6px;}
+  /* Link "o subí una desde la galería" bajo la caja — el MISMO en las cuatro
+     cámaras (Recibos, Productos, Estante, Catálogo): intro única. */
+  .dz-gallery-link{display:block;margin:-8px auto 16px;background:none;border:none;color:var(--sky-ink);
+    font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 8px;font-family:inherit;}
   /* min-height (no solo max-height) reserva el espacio ANTES de que la foto termine
      de cargar — sin esto, una foto que vive solo en Storage (la subió otro
      dispositivo, no este) empieza en alto 0 y "salta" a su tamaño real recién cuando

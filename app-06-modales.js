@@ -1719,154 +1719,29 @@ function activityModal(){
 /* ================= MODAL: COMPRA MANUAL ================= */
 /* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
 /* ================= INTRO ÚNICA DE CÁMARA =================
-   (pedido del usuario 2026-09-07, captura de la hoja de iOS): las cuatro cámaras
-   grandes — Recibos, Productos, Estante y Catálogo — arrancan IGUAL al primer
-   toque, aunque después cada una haga lo suyo:
-   - iPhone/iPad: la hoja nativa "Fototeca / Tomar foto / Elegir archivo", que
-     es lo que da un <input type=file accept=image/*> SIN capture;
-   - Android y escritorio: una hoja de Dusty con las mismas filas (Fototeca y
-     Tomar foto) que dispara el input correcto — porque en algunos WebViews de
-     Android el input sin capture salta al explorador de archivos y esconde la
-     cámara (bug reportado por un usuario real, ver el escáner de recibos).
-   opts = {camera: fn, gallery: fn}: cada fn abre su input (con o sin capture).
-   Se llama SIEMPRE dentro del toque del usuario (los input.click() lo exigen). */
-let photoSourceSheet = null; // {camera, gallery} mientras la hoja de Dusty está abierta
-function isIOSDevice(){
-  try{
-    if(window.Capacitor && typeof window.Capacitor.getPlatform==='function') return window.Capacitor.getPlatform()==='ios';
-  }catch(e){}
-  return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
-}
-function openPhotoSource(opts){
-  if(!opts) return;
-  if(isIOSDevice()){ try{ opts.gallery(); }catch(e){} return; } // la hoja nativa trae Tomar foto
-  photoSourceSheet = opts; render();
-}
-function photoSourceSheetHtml(){
-  const libSvg = '<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg>';
-  return `
-  <div class="overlay overlay-fast photo-src-overlay" id="photo-src-overlay">
-    <div class="photo-src-sheet" role="dialog" aria-modal="true" aria-label="${t('photo_src_camera')}">
-      <button type="button" class="photo-src-row" id="photo-src-library">${libSvg}<span>${t('photo_src_library')}</span></button>
-      <button type="button" class="photo-src-row" id="photo-src-camera">${lineIcon('camera',24)}<span>${t('photo_src_camera')}</span></button>
-      <button type="button" class="photo-src-cancel" id="photo-src-cancel">${t('btn_cancel')}</button>
-    </div>
-  </div>`;
-}
-/* BURBUJA que explica cada cámara (pedido del usuario 2026-09-07, opción 2):
-   como al tocar ya no sale un modal, la línea que explicaba qué hace cada
-   escáner vive en una burbuja al lado del botón — sola la PRIMERA vez que el
-   botón se ve (una vez por dispositivo y por botón) y siempre al mantenerlo
-   presionado medio segundo. Se va sola a los segundos, o al tocar/scrollear. */
-let camHintEl=null, camHintTimer=null, camHintLongPressedId=null, camHintDownHandler=null;
-function hideCameraHint(){
-  if(camHintEl){ camHintEl.remove(); camHintEl=null; }
-  clearTimeout(camHintTimer); camHintTimer=null;
-  if(camHintDownHandler){ document.removeEventListener('pointerdown', camHintDownHandler, true); camHintDownHandler=null; }
-  window.removeEventListener('scroll', hideCameraHint, true);
-}
-function showCameraHint(btnId, title, text, sticky){
-  const btn=document.getElementById(btnId); if(!btn) return;
-  hideCameraHint();
-  const r=btn.getBoundingClientRect();
-  const el=document.createElement('div'); el.className='cam-hint'; el.setAttribute('role','tooltip');
-  el.innerHTML=`<strong>${escapeHtml(title)}</strong>${escapeHtml(text)}`;
-  const w=Math.min(300, window.innerWidth-24);
-  let left=r.left+r.width/2-w/2; left=Math.max(12, Math.min(window.innerWidth-w-12, left));
-  el.style.width=w+'px'; el.style.left=left+'px';
-  // Debajo del botón si hay lugar; si no, arriba — la flecha apunta al botón.
-  if(r.bottom+150 < window.innerHeight){ el.style.top=(r.bottom+12)+'px'; }
-  else { el.style.bottom=(window.innerHeight-r.top+12)+'px'; el.classList.add('above'); }
-  el.style.setProperty('--arrow-x', Math.round(r.left+r.width/2-left)+'px');
-  document.body.appendChild(el);
-  camHintEl=el;
-  camHintTimer=setTimeout(hideCameraHint, sticky ? 9000 : 6500);
-  // Tocar en cualquier lado la cierra — salvo sobre el propio botón (el mismo
-  // pointerdown de la presión larga que la abrió no debe cerrarla al instante).
-  camHintDownHandler=(e)=>{ if(btn.contains(e.target)) return; hideCameraHint(); };
-  document.addEventListener('pointerdown', camHintDownHandler, true);
-  window.addEventListener('scroll', hideCameraHint, true);
-}
-// Presión larga sobre el botón → burbuja (y ese toque NO abre la cámara: el
-// onclick del botón consulta consumeCameraHintLongPress).
-function attachCameraHint(btnId, title, text){
-  const btn=document.getElementById(btnId); if(!btn) return;
-  let timer=null;
-  btn.onpointerdown=(e)=>{
-    if(e.pointerType==='mouse' && e.button!==0) return;
-    clearTimeout(timer);
-    const x0=e.clientX, y0=e.clientY;
-    timer=setTimeout(()=>{ camHintLongPressedId=btnId; showCameraHint(btnId, title, text, true); }, 500);
-    btn.onpointermove=(mv)=>{ if(Math.hypot(mv.clientX-x0, mv.clientY-y0)>10) clearTimeout(timer); };
-  };
-  btn.onpointerup=btn.onpointercancel=btn.onpointerleave=()=>clearTimeout(timer);
-  btn.oncontextmenu=(e)=>e.preventDefault();
-}
-function consumeCameraHintLongPress(btnId){
-  if(camHintLongPressedId!==btnId) return false;
-  camHintLongPressedId=null; return true;
-}
-// Primera vez: apenas el botón está a la vista (una vez por dispositivo y botón).
-const CAMERA_HINTS = ()=>[
-  ['btn-scan-fab', t('scan_title'), t('scan_sub')],
-  ['btn-scan-products', t('pb_title'), t('pb_sub')],
-  ['btn-shelf-scan', t('shelf_banner_title'), t('shelf_banner_sub')],
-  ['btn-catalog-photo', t('catalog_camera_title'), t('catalog_camera_sub')]
-];
-let camHintFirstTimer=null;
-function scheduleFirstCameraHint(){
-  clearTimeout(camHintFirstTimer);
-  camHintFirstTimer=setTimeout(()=>{
-    if(camHintEl || document.querySelector('.overlay')) return; // con algo abierto, no molesta
-    for(const [id,title,text] of CAMERA_HINTS()){
-      const key='patron_camhint_'+id;
-      let seen=true; try{ seen=!!localStorage.getItem(key); }catch(e){}
-      if(seen) continue;
-      const btn=document.getElementById(id); if(!btn) continue;
-      const r=btn.getBoundingClientRect();
-      if(r.width===0 || r.top<0 || r.bottom>window.innerHeight || r.left<0 || r.right>window.innerWidth) continue;
-      try{ localStorage.setItem(key,'1'); }catch(e){}
-      showCameraHint(id, title, text, false);
-      return; // una por vez
-    }
-  }, 600);
-}
+   (decisión final del usuario 2026-09-07, tras probar la hoja nativa de iOS y una
+   hoja propia y descartarlas — "tapan" la pantalla): las cuatro cámaras grandes
+   — Recibos, Productos, Estante y Catálogo — abren el MISMO modal: título, la
+   línea que explica qué hace ese escáner, la caja punteada "Tocá para sacar una
+   foto" (abre la CÁMARA directo, input con capture) y debajo el link "o subí una
+   desde la galería" (input sin capture). Nada de hojas intermedias. Después
+   cada escáner hace lo suyo. Los pares de inputs (con/sin capture) existen
+   porque en algunos WebViews de Android el input sin capture salta al
+   explorador y esconde la cámara (bug reportado por un usuario real). */
 // Los inputs del escáner de recibos (con capture = cámara; sin capture y
-// multiple = galería/hoja nativa).
+// multiple = galería).
 function receiptPhotoSource(){
   return {
     camera: ()=>{ const i=document.getElementById('receipt-file'); if(i) i.click(); },
     gallery: ()=>{ const i=document.getElementById('receipt-file-gallery'); if(i) i.click(); }
   };
 }
-/* Input de archivo EFÍMERO: se crea, se dispara dentro del toque y se va. Es lo
-   que permite que al tocar una cámara salga SOLO la hoja de fotos (nativa en
-   iOS, de Dusty en Android) sin ningún modal detrás — el modal del escáner
-   recién aparece con la foto elegida (pedido del usuario 2026-09-07, tercera
-   vuelta: "que solo salga la caja gris"). Si se cancela, no pasa nada. */
-function pickPhotoFiles(opts, onFiles){
-  const input=document.createElement('input');
-  input.type='file'; input.accept='image/*';
-  if(opts && opts.capture) input.setAttribute('capture','environment');
-  if(opts && opts.multiple) input.multiple=true;
-  input.style.display='none';
-  document.body.appendChild(input);
-  const cleanup=()=>{ if(input.parentNode) input.parentNode.removeChild(input); };
-  input.addEventListener('cancel', cleanup);
-  input.onchange=()=>{
-    const files=Array.from(input.files||[]).filter(f=>/^image\//.test(f.type));
-    cleanup();
-    if(files.length) onFiles(files);
-  };
-  input.click();
-}
-/* El escaneo le pega a la API de Claude y cuesta plata real cada vez que se usa —
-   a diferencia de cargar productos a mano (gratis, no toca ningún servidor), esto
-   necesita quedar atado a una cuenta identificable. Sin este chequeo, cualquiera que
-   encontrara la URL podía escanear recibos sin límite y sin haber iniciado sesión
-   nunca, y la factura de la API le llegaba igual al dueño de la app.
-   Devuelve false cuando en vez del escáner se abrió el login. */
-function scanAccountGate(){
+function openScanModal(){
+  // El escaneo le pega a la API de Claude y cuesta plata real cada vez que se usa —
+  // a diferencia de cargar productos a mano (gratis, no toca ningún servidor), esto
+  // necesita quedar atado a una cuenta identificable. Sin este chequeo, cualquiera que
+  // encontrara la URL podía escanear recibos sin límite y sin haber iniciado sesión
+  // nunca, y la factura de la API le llegaba igual al dueño de la app.
   if(!currentUser){
     // Dispositivo que ya tuvo cuenta real y está desconectado: login de siempre,
     // NUNCA el trial anónimo — forkearlo en silencio a una cuenta vacía hacía
@@ -1874,34 +1749,16 @@ function scanAccountGate(){
     if(everHadRealAccount()){
       ensurePatronFirebaseReady().catch(()=>{});
       openAuthModal(t('scan_requires_account'));
-      return false;
+      return;
     }
     // Trial sin fricción: en vez de frenar con un login, se arranca una cuenta
-    // anónima en segundo plano (ver ensureTrialAccount) y el escáner sigue YA.
-    // La llamada real a la API (callReceiptReader) espera a que la cuenta esté
-    // lista — para cuando el usuario terminó de sacar la foto, casi siempre ya
-    // está. Si la creación falla (sin red), el propio flujo de escaneo muestra
+    // anónima en segundo plano (ver ensureTrialAccount) y el modal de escaneo se
+    // abre YA. La llamada real a la API (callReceiptReader) espera a que la cuenta
+    // esté lista — para cuando el usuario terminó de sacar la foto, casi siempre
+    // ya está. Si la creación falla (sin red), el propio flujo de escaneo muestra
     // su error de conexión de siempre.
     ensureTrialAccount().catch(()=>{});
   }
-  return true;
-}
-// Botón de cámara de RECIBOS (Dashboard, "Escanear" vacío, "Fotografiar boleta"):
-// al toque, solo la hoja de fotos; con la(s) foto(s) elegida(s) se abre el
-// modal ya con las páginas cargadas.
-function startReceiptScanFromButton(){
-  if(!scanAccountGate()) return;
-  const go=async (files)=>{ openScanModalCore(); for(const f of files) await addScanPage(f); };
-  openPhotoSource({
-    camera: ()=>pickPhotoFiles({capture:true}, go),
-    gallery: ()=>pickPhotoFiles({multiple:true}, go)
-  });
-}
-function openScanModal(){
-  if(!scanAccountGate()) return;
-  openScanModalCore();
-}
-function openScanModalCore(){
   scanRequestId++;
   scanState='idle'; scanImages=[]; scanImagesHiRes=[]; scanSourceFiles=[]; scanPageWarnings=[]; scanExtracted=[]; scanErrorMsg='';
   scanSupplier=''; scanDate=localDateStr(); scanInvoiceTotal=null;
@@ -1925,12 +1782,12 @@ function scanModal(){
       <div class="sub">${t('scan_sub')}</div>
 
       ${scanState==='idle' && scanImages.length===0 ? `
-        ${/* La caja abre la MISMA hoja de fotos que el primer toque (intro única):
-             sin link aparte de galería — la hoja ya la trae. */''}
+        ${/* Intro única: la caja abre la cámara directo; la galería, por el link. */''}
         <div class="drop-zone" id="drop-zone">
           <div class="dz-icon">${lineIcon('camera',26)}</div>
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
+        <button type="button" id="btn-scan-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
       ` : ''}
       <input type="file" id="receipt-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="receipt-file-gallery" accept="image/*" multiple style="display:none;">
@@ -1960,7 +1817,7 @@ function scanModal(){
           <button class="btn btn-ghost btn-sm" id="btn-add-scan-page">+ ${t(scanBatchMode?'scan_add_receipt':'scan_add_page')}</button>
           <button class="btn btn-primary btn-sm" id="btn-process-scan">${t('scan_read_btn')}</button>
         </div>
-        <div style="height:14px;"></div>
+        <button type="button" id="btn-add-scan-gallery" class="dz-gallery-link" style="margin:0 0 14px;font-size:11.5px;">${t('scan_add_gallery_btn')}</button>
       ` : ''}
 
       ${scanState==='loading' ? (()=>{
@@ -2282,23 +2139,17 @@ async function identifyProductsFromPhoto(image){
   return Array.isArray(parsed.products) ? parsed.products : [];
 }
 
-// Botón de cámara de PRODUCTOS: al toque, solo la hoja de fotos; con la foto
-// elegida se abre el modal directo en "leyendo".
-function startProductScanFromButton(){
-  if(!scanAccountGate()) return;
-  const go=async (files)=>{
-    try{ const img=await loadImageFromFile(files[0]); openProductBatchModalCore(); processProductBatchSource(img); }
-    catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
-  };
-  openPhotoSource({ camera: ()=>pickPhotoFiles({capture:true}, go), gallery: ()=>pickPhotoFiles({}, go) });
-}
 function openProductBatchModal(){
-  // Mismo trato que el escaneo de recibos: cuenta real desconectada → login;
-  // si no, trial anónimo en segundo plano y el modal abre al instante.
-  if(!scanAccountGate()) return;
-  openProductBatchModalCore();
-}
-function openProductBatchModalCore(){
+  if(!currentUser){
+    // Mismo trato que el escaneo de recibos: cuenta real desconectada → login;
+    // si no, trial anónimo en segundo plano y el modal abre al instante.
+    if(everHadRealAccount()){
+      ensurePatronFirebaseReady().catch(()=>{});
+      openAuthModal(t('scan_requires_account'));
+      return;
+    }
+    ensureTrialAccount().catch(()=>{});
+  }
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   showProductBatchModal=true; render();
@@ -2476,11 +2327,12 @@ function productBatchModal(){
 
       ${pbState==='camera' ? `
         <div class="sub">${t('pb_sub')}</div>
-        ${/* Misma caja que Recibos (intro única): tocarla vuelve a abrir la hoja. */''}
+        ${/* Misma caja que Recibos (intro única): la cámara directo; galería por el link. */''}
         <div class="drop-zone" id="pb-drop-zone">
           <div class="dz-icon">${lineIcon('camera',26)}</div>
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
+        <button type="button" id="btn-pb-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
       ` : ''}
       <input type="file" id="pb-photo-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="pb-photo-file-gallery" accept="image/*" style="display:none;">

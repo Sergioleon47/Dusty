@@ -468,7 +468,7 @@ function attachEvents(){
     // Fotografiar la boleta: el escáner de recibos de siempre (cierra Budget
     // primero — el escáner es pantalla completa y maneja solo trial/login).
     const btnScanBill=document.getElementById('btn-scan-bill');
-    if(btnScanBill) btnScanBill.onclick=()=>{ closeBudgetModal(); startReceiptScanFromButton(); };
+    if(btnScanBill) btnScanBill.onclick=()=>{ closeBudgetModal(); openScanModal(); };
     // ＋ por fila: registra el pago de ESTE mes del bill (recibo manual de
     // gasto) sin abrir nada — la barra del presupuesto reacciona al instante.
     // stopPropagation: la fila entera abre la ficha, el ＋ no debe hacerlo.
@@ -521,6 +521,7 @@ function attachEvents(){
         if(!file || !/^image\//.test(file.type)) return;
         try{
           const img=await loadImageFromFile(file);
+          showCatalogCameraModal=false; // con foto elegida, el modal de cámara cede al de asignar
           catalogPendingOriginal = resizeToBase64(img, 400, 0.78);
           catalogPendingPhoto = catalogPendingOriginal;
           catalogPendingFilter = 'original';
@@ -564,15 +565,17 @@ function attachEvents(){
     // nativa en iOS (input sin capture), de Dusty en Android (elige el input).
     // Intro única (captura del usuario 2026-09-07): el botón abre el MISMO modal
     // con caja punteada que los tres escáneres; la hoja de fotos, al tocar la caja.
-    // Al toque, SOLO la hoja de fotos (nativa en iOS, de Dusty en Android); la
-    // explicación vive en la burbuja (primera vez / presión larga).
     const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
-    if(btnCatalogPhoto){
-      btnCatalogPhoto.onclick=()=>{
-        if(consumeCameraHintLongPress('btn-catalog-photo')) return;
-        openPhotoSource({ camera: ()=>openCatalogPhotoPicker(true), gallery: ()=>openCatalogPhotoPicker(false) });
-      };
-      attachCameraHint('btn-catalog-photo', t('catalog_camera_title'), t('catalog_camera_sub'));
+    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>{ showCatalogCameraModal=true; render(); };
+    const catCamOverlay=document.getElementById('catalog-camera-overlay');
+    if(catCamOverlay){
+      const closeCatCam=()=>{ showCatalogCameraModal=false; render(); };
+      catCamOverlay.onmousedown=(e)=>{ if(e.target===catCamOverlay) closeCatCam(); };
+      document.getElementById('btn-cancel-catalog-camera').onclick=closeCatCam;
+      // La caja abre la cámara directo; el link, la galería (intro única final).
+      document.getElementById('catalog-drop-zone').onclick=()=>openCatalogPhotoPicker(true);
+      const btnCatGallery=document.getElementById('btn-catalog-gallery');
+      if(btnCatGallery) btnCatGallery.onclick=()=>openCatalogPhotoPicker(false);
     }
     // COLLAGE — DISEÑO PRIMERO (pedido del usuario 2026-09-06): tocar Collage
     // abre el menú de layouts; elegir uno dispara el selector de fotos con la
@@ -1586,38 +1589,16 @@ function attachEvents(){
     };
   }
 
-  // Hoja de fotos de Dusty (intro única de cámara en Android/escritorio, ver
-  // openPhotoSource en app-06): Fototeca / Tomar foto / Cancelar. Cada fila
-  // cierra la hoja y dispara el input DENTRO del mismo toque.
-  const photoSrcOv=document.getElementById('photo-src-overlay');
-  if(photoSrcOv){
-    const closeSheet=()=>{ photoSourceSheet=null; render(); };
-    photoSrcOv.onmousedown=(e)=>{ if(e.target===photoSrcOv) closeSheet(); };
-    document.getElementById('photo-src-cancel').onclick=closeSheet;
-    document.getElementById('photo-src-library').onclick=()=>{ const o=photoSourceSheet; photoSourceSheet=null; render(); try{ o.gallery(); }catch(e){} };
-    document.getElementById('photo-src-camera').onclick=()=>{ const o=photoSourceSheet; photoSourceSheet=null; render(); try{ o.camera(); }catch(e){} };
-  }
-
-  // Cámaras grandes (intro única, 2026-09-07): al toque SOLO la hoja de fotos;
-  // el modal del escáner aparece con la foto elegida. La explicación de cada
-  // una vive en la burbuja (primera vez / presión larga, ver showCameraHint).
   const btnScanFab=document.getElementById('btn-scan-fab');
-  if(btnScanFab){
-    btnScanFab.onclick=()=>{ if(consumeCameraHintLongPress('btn-scan-fab')) return; startReceiptScanFromButton(); };
-    attachCameraHint('btn-scan-fab', t('scan_title'), t('scan_sub'));
-  }
+  if(btnScanFab) btnScanFab.onclick=openScanModal;
   const btnDashEmptyScan=document.getElementById('btn-dash-empty-scan');
-  if(btnDashEmptyScan) btnDashEmptyScan.onclick=startReceiptScanFromButton;
+  if(btnDashEmptyScan) btnDashEmptyScan.onclick=openScanModal;
   const btnDashEmptyManual=document.getElementById('btn-dash-empty-manual');
   if(btnDashEmptyManual) btnDashEmptyManual.onclick=()=>openItemModal(null);
   const btnDashEmptyBatch=document.getElementById('btn-dash-empty-batch');
-  if(btnDashEmptyBatch) btnDashEmptyBatch.onclick=startProductScanFromButton;
+  if(btnDashEmptyBatch) btnDashEmptyBatch.onclick=openProductBatchModal;
   const btnScanProducts=document.getElementById('btn-scan-products');
-  if(btnScanProducts){
-    btnScanProducts.onclick=()=>{ if(consumeCameraHintLongPress('btn-scan-products')) return; startProductScanFromButton(); };
-    attachCameraHint('btn-scan-products', t('pb_title'), t('pb_sub'));
-  }
-  scheduleFirstCameraHint();
+  if(btnScanProducts) btnScanProducts.onclick=openProductBatchModal;
 
   /* Modal del escáner de productos (lote + identificador, un solo flujo) */
   const pbOverlay=document.getElementById('product-batch-overlay');
@@ -1626,9 +1607,11 @@ function attachEvents(){
     document.getElementById('btn-cancel-pb').onclick=closeProductBatchModal;
     const pbFile=document.getElementById('pb-photo-file');
     const pbGalleryFile=document.getElementById('pb-photo-file-gallery');
-    // Intro única (2026-09-07): la caja vuelve a abrir la hoja de fotos.
+    // Intro única: la caja abre la cámara directo; el link, la galería.
     const pbDz=document.getElementById('pb-drop-zone');
-    if(pbDz) pbDz.onclick=()=>openPhotoSource(pbPhotoSource());
+    if(pbDz && pbFile) pbDz.onclick=()=>pbFile.click();
+    const btnPbGallery=document.getElementById('btn-pb-gallery');
+    if(btnPbGallery && pbGalleryFile) btnPbGallery.onclick=()=>pbGalleryFile.click();
     const onPbFile=async (e)=>{
       const file=e.target.files[0];
       e.target.value='';
@@ -2226,11 +2209,15 @@ function attachEvents(){
     };
     if(fileInput) fileInput.onchange=onScanFilesChosen(fileInput);
     if(galleryInput) galleryInput.onchange=onScanFilesChosen(galleryInput);
-    // Intro única (2026-09-07): la caja y "Agregar página" abren la MISMA hoja
-    // de fotos que el primer toque (nativa en iOS, de Dusty en Android).
-    if(dz) dz.onclick=()=>openPhotoSource(receiptPhotoSource());
+    // Intro única: la caja y "Agregar página" abren la cámara directo; los
+    // links de galería, el input sin capture.
+    if(dz) dz.onclick=()=>fileInput.click();
+    const galleryBtn=document.getElementById('btn-scan-gallery');
+    if(galleryBtn) galleryBtn.onclick=()=>galleryInput.click();
     const addPageBtn=document.getElementById('btn-add-scan-page');
-    if(addPageBtn) addPageBtn.onclick=()=>openPhotoSource(receiptPhotoSource());
+    if(addPageBtn) addPageBtn.onclick=()=>fileInput.click();
+    const addPageGalleryBtn=document.getElementById('btn-add-scan-gallery');
+    if(addPageGalleryBtn) addPageGalleryBtn.onclick=()=>galleryInput.click();
     const processBtn=document.getElementById('btn-process-scan');
     if(processBtn) processBtn.onclick=()=>processReceiptImage();
     document.querySelectorAll('[data-remove-scan-page]').forEach(b=>{
@@ -2459,14 +2446,12 @@ document.addEventListener('keydown', (e)=>{
     return;
   }
   if(e.key !== 'Escape') return;
-  // Hoja de fotos de Dusty (intro única de cámara) — encima de todo.
-  if(photoSourceSheet){ photoSourceSheet=null; render(); return; }
   // Modales del Catálogo (auditoría 2026-09-07: ninguno cerraba con Escape).
   // De adentro hacia afuera: el editor está encima del modal de asignar.
   if(catalogViewPhoto){ const btn=document.getElementById('cv-close'); if(btn) btn.click(); else { catalogViewPhoto=null; render(); } return; }
   if(catalogEditorOpen){ const btn=document.getElementById('btn-cancel-edit'); if(btn) btn.click(); return; }
   if(catalogPendingPhoto){ const btn=document.getElementById('btn-cancel-assign-photo'); if(btn) btn.click(); return; }
-  if(camHintEl){ hideCameraHint(); return; }
+  if(showCatalogCameraModal){ showCatalogCameraModal=false; render(); return; }
   if(showCollageLayoutModal){ const btn=document.getElementById('btn-cancel-collage'); if(btn) btn.click(); return; }
   if(showCatalogPublishModal){ showCatalogPublishModal=false; render(); return; }
   if(showItemModal){ closeItemModal(); return; }
