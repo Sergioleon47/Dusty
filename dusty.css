@@ -797,7 +797,11 @@
   .inv-grid.cols2{grid-template-columns:1fr 1fr;}
   .inv-grid.cols3{grid-template-columns:1fr 1fr 1fr;gap:6px;}
   .inv-grid.rows{grid-template-columns:1fr;}
-  .inv-tile{background:var(--raised);border:1px solid var(--line);border-radius:14px;
+  /* Ítems FLOTANDO, sin caja (pedido del usuario 2026-09-06: "más limpia la
+     app"): fondo y borde transparentes — ícono y texto directo sobre la página.
+     El borde de 1px se conserva invisible: el Catálogo lo pinta para marcar la
+     selección y el :active sigue dando feedback al toque. */
+  .inv-tile{background:transparent;border:1px solid transparent;border-radius:14px;
     padding:9px;display:flex;flex-direction:column;gap:5px;cursor:pointer;min-width:0;}
   .inv-tile:active{border-color:var(--navy);}
   .inv-tile-top{display:flex;align-items:center;gap:8px;min-width:0;}

@@ -563,40 +563,10 @@ function attachEvents(){
         try{
           const imgs=[];
           for(const f of files) imgs.push(await loadImageFromFile(f));
-          const S=1600, gap=8;
-          const cv=document.createElement('canvas'); cv.width=cv.height=S;
-          const ctx=cv.getContext('2d');
-          ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-          ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,S,S);
-          // celda con ajuste cover
-          const cell=(im,x,y,w,h)=>{
-            const s=Math.max(w/im.naturalWidth, h/im.naturalHeight);
-            const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
-            ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
-            ctx.drawImage(im, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
-            ctx.restore();
-          };
-          const half=(S-gap)/2;
-          if(imgs.length===2){
-            cell(imgs[0],0,0,half,S); cell(imgs[1],half+gap,0,half,S);
-          } else if(imgs.length===3){
-            cell(imgs[0],0,0,half,S);
-            cell(imgs[1],half+gap,0,half,half); cell(imgs[2],half+gap,half+gap,half,half);
-          } else {
-            cell(imgs[0],0,0,half,half); cell(imgs[1],half+gap,0,half,half);
-            cell(imgs[2],0,half+gap,half,half); cell(imgs[3],half+gap,half+gap,half,half);
-          }
-          const composite={base64: cv.toDataURL('image/jpeg',0.9).split(',')[1], mediaType:'image/jpeg'};
-          // Entra al flujo normal: el collage es la nueva foto pendiente.
-          catalogEditFull = composite;
-          const compImg = await loadB64Image(composite);
-          catalogPendingOriginal = resizeToBase64(compImg, 300, 0.75);
-          catalogPendingPhoto = catalogPendingOriginal;
-          catalogPendingFilter='original';
-          catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
-          catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
-          catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
-          catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff';
+          // Con las fotos cargadas, se abre el SELECTOR DE DISEÑOS (referencia
+          // del usuario: la galería de layouts de las apps de collage).
+          collageImgsCache = imgs;
+          showCollageLayoutModal = true;
           render();
         }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
       };
@@ -648,6 +618,32 @@ function attachEvents(){
         render();
       };
     });
+    // Selector de diseño del collage: tocar uno compone y entra al flujo normal.
+    const collageOverlay=document.getElementById('collage-layout-overlay');
+    if(collageOverlay){
+      const dropCollage=()=>{ collageImgsCache=[]; showCollageLayoutModal=false; render(); };
+      collageOverlay.onmousedown=(e)=>{ if(e.target===collageOverlay) dropCollage(); };
+      const btnCancelCollage=document.getElementById('btn-cancel-collage');
+      if(btnCancelCollage) btnCancelCollage.onclick=dropCollage;
+      document.querySelectorAll('[data-collage-layout]').forEach(lb=>{
+        lb.onclick=async ()=>{
+          try{
+            const composite = await composeCollageLayout(lb.dataset.collageLayout);
+            catalogEditFull = composite;
+            const compImg = await loadB64Image(composite);
+            catalogPendingOriginal = resizeToBase64(compImg, 300, 0.75);
+            catalogPendingPhoto = catalogPendingOriginal;
+            catalogPendingFilter='original';
+            catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
+            catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
+            catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
+            catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff';
+            collageImgsCache=[]; showCollageLayoutModal=false;
+            render();
+          }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
+        };
+      });
+    }
     // El visor se cierra tocando en cualquier lado.
     const catalogViewerEl=document.getElementById('catalog-photo-viewer');
     if(catalogViewerEl) catalogViewerEl.onclick=()=>{ catalogViewPhoto=null; render(); };

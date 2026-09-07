@@ -136,7 +136,10 @@
 // catálogo republica solo a los 4s, silencioso, con toast "Catálogo
 // actualizado"); la config de una vez vive en la primera publicación
 // (Compartir) y después en Ajustes → Publicación del catálogo — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v50';
+// v51: collage con SELECTOR DE DISEÑOS (cuadrículas + Pinboard estilo polaroid
+// con sombra) y los ítems del inventario FLOTANDO sin caja — app-03/04/05/07 +
+// dusty.css.
+const CACHE_NAME = 'patron-shell-v51';
 
 const PRECACHE_URLS = [
   '/',

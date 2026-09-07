@@ -2105,6 +2105,93 @@ function catalogoView(){
   <div style="height:26px;"></div>`;
 }
 
+/* ================= COLLAGE CON DISEÑOS =================
+   (referencia del usuario 2026-09-06: la galería de layouts de las apps de
+   collage). Tras elegir 2-4 fotos se abre el selector: cuadrículas clásicas y
+   los "Pinboard" — fotos inclinadas estilo polaroid con marco blanco y sombra
+   sobre fondo de estudio. Curado para fotos de producto. */
+let showCollageLayoutModal = false;
+let collageImgsCache = []; // elementos Image — viven acá, no en estado serializable
+const COLLAGE_LAYOUTS = { 2:['v2','h2','pin2'], 3:['bigL3','cols3','pin3'], 4:['grid4','bigT4','pin4'] };
+function collagePreviewSvg(id){
+  const r=(x,y,w,h,rot)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="none" stroke="currentColor" stroke-width="2.4" ${rot?`transform="rotate(${rot} ${x+w/2} ${y+h/2})"`:''}/>`;
+  const map={
+    v2:r(4,4,27,52)+r(35,4,27,52),
+    h2:r(4,4,58,25)+r(4,31,58,25),
+    pin2:r(8,8,34,34,-8)+r(28,22,26,26,9),
+    bigL3:r(4,4,27,52)+r(35,4,27,25)+r(35,31,27,25),
+    cols3:r(4,4,17,52)+r(24,4,17,52)+r(44,4,17,52),
+    pin3:r(6,6,26,26,-7)+r(34,8,24,24,6)+r(18,30,28,24,-3),
+    grid4:r(4,4,27,25)+r(35,4,27,25)+r(4,31,27,25)+r(35,31,27,25),
+    bigT4:r(4,4,58,30)+r(4,38,16,18)+r(24,38,16,18)+r(44,38,16,18),
+    pin4:r(6,6,24,22,-6)+r(34,6,24,22,7)+r(6,32,24,22,5)+r(34,32,24,22,-7)
+  };
+  return `<svg viewBox="0 0 66 60" width="72" height="66" style="color:var(--ink);">${map[id]||''}</svg>`;
+}
+function collageLayoutModal(){
+  const n = Math.min(4, Math.max(2, collageImgsCache.length));
+  const opts = COLLAGE_LAYOUTS[n] || COLLAGE_LAYOUTS[2];
+  return `
+  <div class="overlay" id="collage-layout-overlay">
+    <div class="modal">
+      <h3 class="sky">${t('catalog_collage_pick')}</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px;">
+        ${opts.map(id=>`
+        <button type="button" data-collage-layout="${id}" style="background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;">${collagePreviewSvg(id)}</button>`).join('')}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-collage" style="width:100%;">${t('btn_cancel')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function composeCollageLayout(layoutId){
+  const imgs = collageImgsCache;
+  const S = 1600, gap = 8;
+  const cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  const cell = (im,x,y,w,h)=>{
+    const s = Math.max(w/im.naturalWidth, h/im.naturalHeight);
+    const dw = im.naturalWidth*s, dh = im.naturalHeight*s;
+    ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+    ctx.drawImage(im, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+    ctx.restore();
+  };
+  // Tarjeta polaroid: marco blanco, rotación y sombra — el alma del Pinboard.
+  const card = (im,cx,cy,w,h,rot)=>{
+    const pad = S*0.018;
+    ctx.save();
+    ctx.translate(cx,cy); ctx.rotate(rot*Math.PI/180);
+    ctx.shadowColor='rgba(0,0,0,0.30)'; ctx.shadowBlur=S*0.02; ctx.shadowOffsetY=S*0.008;
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(-w/2-pad, -h/2-pad, w+pad*2, h+pad*2);
+    ctx.shadowColor='transparent';
+    const s = Math.max(w/im.naturalWidth, h/im.naturalHeight);
+    const dw = im.naturalWidth*s, dh = im.naturalHeight*s;
+    ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.clip();
+    ctx.drawImage(im, -dw/2, -dh/2, dw, dh);
+    ctx.restore();
+  };
+  if(layoutId.indexOf('pin')===0){
+    const g = ctx.createRadialGradient(S/2,S*0.35,S*0.1,S/2,S*0.6,S);
+    g.addColorStop(0,'#f4f4f5'); g.addColorStop(1,'#d8d8db');
+    ctx.fillStyle=g; ctx.fillRect(0,0,S,S);
+  } else { ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,S,S); }
+  const half=(S-gap)/2, third=(S-2*gap)/3;
+  if(layoutId==='v2'){ cell(imgs[0],0,0,half,S); cell(imgs[1],half+gap,0,half,S); }
+  else if(layoutId==='h2'){ cell(imgs[0],0,0,S,half); cell(imgs[1],0,half+gap,S,half); }
+  else if(layoutId==='pin2'){ card(imgs[0],S*0.42,S*0.42,S*0.52,S*0.52,-6); card(imgs[1],S*0.68,S*0.68,S*0.40,S*0.40,8); }
+  else if(layoutId==='bigL3'){ cell(imgs[0],0,0,half,S); cell(imgs[1],half+gap,0,half,half); cell(imgs[2],half+gap,half+gap,half,half); }
+  else if(layoutId==='cols3'){ cell(imgs[0],0,0,third,S); cell(imgs[1],third+gap,0,third,S); cell(imgs[2],2*(third+gap),0,third,S); }
+  else if(layoutId==='pin3'){ card(imgs[0],S*0.32,S*0.32,S*0.40,S*0.40,-7); card(imgs[1],S*0.72,S*0.30,S*0.36,S*0.36,6); card(imgs[2],S*0.52,S*0.72,S*0.44,S*0.38,-3); }
+  else if(layoutId==='grid4'){ cell(imgs[0],0,0,half,half); cell(imgs[1],half+gap,0,half,half); cell(imgs[2],0,half+gap,half,half); cell(imgs[3],half+gap,half+gap,half,half); }
+  else if(layoutId==='bigT4'){ const y2=S*0.58+gap, h2=S-y2; cell(imgs[0],0,0,S,S*0.58); cell(imgs[1],0,y2,third,h2); cell(imgs[2],third+gap,y2,third,h2); cell(imgs[3],2*(third+gap),y2,third,h2); }
+  else if(layoutId==='pin4'){ card(imgs[0],S*0.30,S*0.28,S*0.36,S*0.32,-6); card(imgs[1],S*0.72,S*0.28,S*0.36,S*0.32,7); card(imgs[2],S*0.30,S*0.72,S*0.36,S*0.32,5); card(imgs[3],S*0.72,S*0.72,S*0.36,S*0.32,-7); }
+  else { cell(imgs[0],0,0,half,S); if(imgs[1]) cell(imgs[1],half+gap,0,half,S); }
+  return {base64: cv.toDataURL('image/jpeg',0.9).split(',')[1], mediaType:'image/jpeg'};
+}
+
 /* Modal de PUBLICACIÓN (abre la herramienta Compartir de la tarjeta): WhatsApp,
    publicar/actualizar, y con link ya publicado las acciones de compartirlo. */
 function catalogPublishModal(){
