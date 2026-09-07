@@ -151,7 +151,9 @@
 // v56: ítems de EJEMPLO en el Catálogo vacío (visuales, sin datos) para que
 // el usuario nuevo vea cómo queda todo — desaparecen solos con el primer
 // producto real — app-03/05.
-const CACHE_NAME = 'patron-shell-v56';
+// v57: cuarta opción de vista — cuadrícula de 4 columnas (ícono de 8 puntitos)
+// en Inventario y Catálogo, la más densa — app-03/05 + dusty.css.
+const CACHE_NAME = 'patron-shell-v57';
 
 const PRECACHE_URLS = [
   '/',
