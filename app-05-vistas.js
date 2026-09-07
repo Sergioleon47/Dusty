@@ -2073,19 +2073,27 @@ function catalogoView(){
     ${sellableRecipes.length>0 ? `
       <div class="category-group-header">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>
       <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${sellableRecipes.map(recipeTile).join('')}</div>` : ''}`}
-  <div style="margin:18px 0 30px;">
-    <div class="field" style="max-width:340px;">
-      <label>${t('catalog_wa_label')}</label>
-      <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
+  ${/* Tarjeta de PUBLICACIÓN — mismo lenguaje que la de Herramientas de arriba
+       (captura del usuario 2026-09-06: la zona de abajo quedaba despareja):
+       encabezado, tarjeta elevada, y adentro WhatsApp + publicar + el link. */''}
+  <div style="margin:20px 0 30px;">
+    <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 8px;">${t('catalog_publish_header')}</div>
+    <div style="background:var(--raised);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow);">
+      <div class="field" style="margin:0;">
+        <label>${t('catalog_wa_label')}</label>
+        <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
+      </div>
+      <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;margin-top:12px;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
+      ${url ? `
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
+      </div>
+      <div style="text-align:center;margin-top:10px;">
+        <button type="button" class="link-btn" id="btn-unpublish-catalog" style="color:var(--tomato);padding:4px 8px;">${t('catalog_unpublish_btn')}</button>
+      </div>` : ''}
     </div>
-    <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;margin-top:10px;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
-    ${url ? `
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
-      <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
-      <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
-    </div>
-    <button type="button" class="link-btn" id="btn-unpublish-catalog" style="margin-top:6px;color:var(--tomato);">${t('catalog_unpublish_btn')}</button>` : ''}
   </div>`;
 }
 /* Foto recién sacada con la cámara del Catálogo: modalcito que pregunta a qué

@@ -115,7 +115,9 @@
 // v43: tarjeta de herramientas del Catálogo estilo InShot "Create New" —
 // Galería · Cámara · Seleccionar · Compartir como círculos con etiqueta en una
 // tarjeta elevada (reemplaza al FAB suelto + chips regados) — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v43';
+// v44: la zona de publicar del Catálogo se vuelve tarjeta "Publicación" con el
+// mismo lenguaje que la de Herramientas — app-03/05.
+const CACHE_NAME = 'patron-shell-v44';
 
 const PRECACHE_URLS = [
   '/',
