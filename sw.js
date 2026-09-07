@@ -165,7 +165,9 @@
 // v61: fuera el mostaza raro de Claro/Crema/Menta (captura del usuario) — en
 // esos tres el saffron pasa a ser el acento del tema (Guardar y todo lo demás);
 // en Menta las barras de alerta conservan un durazno propio para distinguirse.
-const CACHE_NAME = 'patron-shell-v61';
+// v62: mismo pedido que v61 pero en Coral, Miel y Pastel — el amarillo apagado
+// del botón Guardar (y todo lo que lo usaba) pasa a ser el acento del tema.
+const CACHE_NAME = 'patron-shell-v62';
 
 const PRECACHE_URLS = [
   '/',

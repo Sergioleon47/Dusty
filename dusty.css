@@ -160,7 +160,10 @@
   /* --- Claros de las paletas del usuario (mismas reglas: solo colores de la
      paleta, mezclados entre sí o con blanco/negro para las superficies). --- */
   html[data-dusty-theme="pastel"]{ /* gatito: 87AEEE/F8D3FF/FFD8CC/C4EEFF */
+    /* saffron = acento (mismo mostaza de la base que el usuario tachó en los
+       otros claros); stock-warn durazno: un aviso azul no se leería como aviso. */
     --navy:color-mix(in oklch, #87AEEE, black 25%); --navy-soft:#87AEEE;
+    --saffron:var(--navy); --stock-warn:#e28f4a;
     --bg:color-mix(in srgb, #C4EEFF 40%, white); --panel:#ffffff; --inset:color-mix(in srgb, #C4EEFF 55%, white);
     --raised:color-mix(in srgb, #F8D3FF 40%, white); --raised-2:color-mix(in srgb, #FFD8CC 55%, white);
     --line:color-mix(in srgb, #87AEEE 32%, white);
@@ -174,15 +177,18 @@
     --line:color-mix(in srgb, #752FFF 20%, white);
   }
   html[data-dusty-theme="coral"]{ /* Fujifilm: FF5844/A8D3F2/F7D78C/AFC3A8 */
+    /* saffron = acento (el amarillo apagado tachado por el usuario, 2026-09-06);
+       stock-warn durazno aparte: acento y crítico son rojos casi iguales. */
     --navy:#FF5844; --navy-soft:color-mix(in oklch, #FF5844, white 14%);
-    --basil:color-mix(in oklch, #AFC3A8, black 30%); --saffron:color-mix(in oklch, #F7D78C, black 30%);
+    --basil:color-mix(in oklch, #AFC3A8, black 30%); --saffron:var(--navy); --stock-warn:#e28f4a;
     --bg:color-mix(in srgb, #F7D78C 20%, white); --panel:#ffffff; --inset:color-mix(in srgb, #A8D3F2 24%, white);
     --raised:color-mix(in srgb, #A8D3F2 16%, white); --raised-2:color-mix(in srgb, #A8D3F2 28%, white);
     --line:color-mix(in srgb, #A8D3F2 48%, white);
   }
   html[data-dusty-theme="miel"]{ /* 50K: E38C4C/F6C561/FCF1DA/977B60 */
+    /* saffron = acento, mismo pedido: fuera el mostaza de Guardar y compañía. */
     --navy:#E38C4C; --navy-soft:color-mix(in oklch, #E38C4C, white 12%);
-    --saffron:color-mix(in oklch, #F6C561, black 20%);
+    --saffron:var(--navy);
     --ink:color-mix(in srgb, #977B60 40%, black); --ink-soft:#977B60; --ink-mid:color-mix(in srgb, #977B60 60%, black);
     --bg:#FCF1DA; --panel:color-mix(in srgb, #FCF1DA 35%, white); --inset:color-mix(in srgb, #FCF1DA 80%, #977B60);
     --raised:color-mix(in srgb, #FCF1DA 88%, #977B60); --raised-2:color-mix(in srgb, #FCF1DA 78%, #977B60);
