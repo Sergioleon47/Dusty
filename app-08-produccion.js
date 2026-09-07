@@ -528,14 +528,22 @@ function openShelfModal(){
   shelfRequestId++;
   shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason='sale';
   showShelfModal = true; render();
-  startShelfCamera();
+  // Intro única (2026-09-07): la misma hoja de fotos que Recibos/Productos/
+  // Catálogo, en el mismo toque. El visor en vivo se retiró.
+  openPhotoSource(shelfPhotoSource());
+}
+function shelfPhotoSource(){
+  return {
+    camera: ()=>{ const i=document.getElementById('shelf-photo-file'); if(i) i.click(); },
+    gallery: ()=>{ const i=document.getElementById('shelf-photo-file-gallery'); if(i) i.click(); }
+  };
 }
 function closeShelfModal(){ shelfRequestId++; stopShelfCamera(); showShelfModal=false; render(); }
 function restartShelfCamera(){
   shelfRequestId++;
   shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError='';
   render();
-  startShelfCamera();
+  openPhotoSource(shelfPhotoSource());
 }
 function stopShelfCamera(){
   if(!shelfCamStream) return;
@@ -543,30 +551,9 @@ function stopShelfCamera(){
   shelfCamStream = null;
   try{ s.getTracks().forEach(tr=>tr.stop()); }catch(e){}
 }
-function startShelfCamera(){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return; // queda el respaldo del input capture
-  const requestId = shelfRequestId;
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
-    const video = document.getElementById('shelf-video');
-    if(requestId !== shelfRequestId || !showShelfModal || !video){
-      try{ stream.getTracks().forEach(tr=>tr.stop()); }catch(e){}
-      return;
-    }
-    shelfCamStream = stream;
-    video.srcObject = stream;
-    video.play().catch(()=>{});
-  }).catch(()=>{
-    render(); // sin permiso/cámara: el input capture nativo sigue disponible
-  });
-}
-function captureShelfFrame(){
-  const video = document.getElementById('shelf-video');
-  if(!video || !shelfCamStream || !video.videoWidth) return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  return canvas;
-}
+// (El visor en vivo por getUserMedia se retiró el 2026-09-07 — intro única de
+// cámara, ver openPhotoSource en app-06. shelfCamStream queda declarado porque
+// el guard de render() lo consulta; ahora es siempre null.)
 
 async function processShelfSource(source){
   const requestId = ++shelfRequestId;
@@ -655,15 +642,12 @@ function shelfScanModal(){
 
       ${shelfState==='camera' ? `
         <div class="sub">${t('shelf_sub')}</div>
-        <div style="position:relative;border-radius:12px;overflow:hidden;background:#111;min-height:220px;display:flex;align-items:center;justify-content:center;">
-          <video id="shelf-video" autoplay playsinline muted style="width:100%;max-height:340px;object-fit:cover;display:block;"></video>
-          <button id="btn-shelf-capture" title="${t('ids_capture')}" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:58px;height:58px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;"></button>
+        ${/* Misma caja que Recibos y Productos (intro única): tocarla vuelve a abrir la hoja. */''}
+        <div class="drop-zone" id="shelf-drop-zone">
+          <div class="dz-icon">${lineIcon('camera',26)}</div>
+          <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
-        <div class="helper-note" style="margin:10px 0 0;">💡 ${t('shelf_tip')}</div>
-        <div style="display:flex;justify-content:center;gap:14px;margin:6px 0 0;">
-          <button type="button" id="btn-shelf-native" style="background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 8px;">${t('ids_use_native_camera')}</button>
-          <button type="button" id="btn-shelf-gallery" style="background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 8px;">${t('scan_upload_gallery_btn')}</button>
-        </div>
+        <div class="helper-note" style="margin:-4px 0 0;">💡 ${t('shelf_tip')}</div>
       ` : ''}
       <input type="file" id="shelf-photo-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="shelf-photo-file-gallery" accept="image/*" style="display:none;">
@@ -917,16 +901,9 @@ function attachProductionEvents(){
     if(btnAgain) btnAgain.onclick=restartShelfCamera;
     const shelfFile=document.getElementById('shelf-photo-file');
     const shelfGallery=document.getElementById('shelf-photo-file-gallery');
-    const btnCapture=document.getElementById('btn-shelf-capture');
-    if(btnCapture) btnCapture.onclick=()=>{
-      const frame=captureShelfFrame();
-      if(frame) processShelfSource(frame);
-      else shelfFile?.click(); // sin cámara en vivo: respaldo de la cámara nativa
-    };
-    const btnNative=document.getElementById('btn-shelf-native');
-    if(btnNative && shelfFile) btnNative.onclick=()=>shelfFile.click();
-    const btnGallery=document.getElementById('btn-shelf-gallery');
-    if(btnGallery && shelfGallery) btnGallery.onclick=()=>shelfGallery.click();
+    // Intro única (2026-09-07): la caja vuelve a abrir la hoja de fotos.
+    const shelfDz=document.getElementById('shelf-drop-zone');
+    if(shelfDz) shelfDz.onclick=()=>openPhotoSource(shelfPhotoSource());
     const onShelfFile=async (e)=>{
       const file=e.target.files[0];
       e.target.value='';

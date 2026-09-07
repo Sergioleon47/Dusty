@@ -224,6 +224,9 @@ function renderApp(){
     ${photoViewItemId ? itemPhotoViewerModal() : ''}
     ${showExitSurvey ? exitSurveyModal() : ''}
     ${showManualSpendModal ? manualSpendModal() : ''}
+    ${/* Hoja de fotos de Dusty (intro única de cámara, Android/escritorio) —
+         al final: va encima del modal del escáner que la pidió. */''}
+    ${photoSourceSheet ? photoSourceSheetHtml() : ''}
     ${/* Las hojas a página completa (.oc-sheet) viven ACÁ y no dentro de las vistas:
          .view-track tiene transform (swipe), y un ancestro con transform convierte
          el position:fixed en relativo a él — la hoja quedaba del tamaño del

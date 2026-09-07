@@ -189,7 +189,11 @@
 // enderezar y guía, progreso/cancelar en PRO, modo selección con contador,
 // presión larga y arrastre, deshacer al pisar una foto — y ESTE cache de fotos
 // de Storage (cache-first, tope de entradas) para la app y la página pública.
-const CACHE_NAME = 'patron-shell-v69';
+// v70: INTRO ÚNICA de cámara (captura del usuario de la hoja de iOS): Recibos,
+// Productos, Estante y Catálogo abren igual al primer toque — hoja nativa en
+// iOS (input sin capture), hoja de Dusty con Fototeca/Tomar foto en Android y
+// escritorio; el visor en vivo de Productos/Estante se retiró — app-03/04/06/07/08 + css.
+const CACHE_NAME = 'patron-shell-v70';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

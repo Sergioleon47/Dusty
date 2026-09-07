@@ -1718,6 +1718,49 @@ function activityModal(){
 
 /* ================= MODAL: COMPRA MANUAL ================= */
 /* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
+/* ================= INTRO ÚNICA DE CÁMARA =================
+   (pedido del usuario 2026-09-07, captura de la hoja de iOS): las cuatro cámaras
+   grandes — Recibos, Productos, Estante y Catálogo — arrancan IGUAL al primer
+   toque, aunque después cada una haga lo suyo:
+   - iPhone/iPad: la hoja nativa "Fototeca / Tomar foto / Elegir archivo", que
+     es lo que da un <input type=file accept=image/*> SIN capture;
+   - Android y escritorio: una hoja de Dusty con las mismas filas (Fototeca y
+     Tomar foto) que dispara el input correcto — porque en algunos WebViews de
+     Android el input sin capture salta al explorador de archivos y esconde la
+     cámara (bug reportado por un usuario real, ver el escáner de recibos).
+   opts = {camera: fn, gallery: fn}: cada fn abre su input (con o sin capture).
+   Se llama SIEMPRE dentro del toque del usuario (los input.click() lo exigen). */
+let photoSourceSheet = null; // {camera, gallery} mientras la hoja de Dusty está abierta
+function isIOSDevice(){
+  try{
+    if(window.Capacitor && typeof window.Capacitor.getPlatform==='function') return window.Capacitor.getPlatform()==='ios';
+  }catch(e){}
+  return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+function openPhotoSource(opts){
+  if(!opts) return;
+  if(isIOSDevice()){ try{ opts.gallery(); }catch(e){} return; } // la hoja nativa trae Tomar foto
+  photoSourceSheet = opts; render();
+}
+function photoSourceSheetHtml(){
+  const libSvg = '<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg>';
+  return `
+  <div class="overlay overlay-fast photo-src-overlay" id="photo-src-overlay">
+    <div class="photo-src-sheet" role="dialog" aria-modal="true" aria-label="${t('photo_src_camera')}">
+      <button type="button" class="photo-src-row" id="photo-src-library">${libSvg}<span>${t('photo_src_library')}</span></button>
+      <button type="button" class="photo-src-row" id="photo-src-camera">${lineIcon('camera',24)}<span>${t('photo_src_camera')}</span></button>
+      <button type="button" class="photo-src-cancel" id="photo-src-cancel">${t('btn_cancel')}</button>
+    </div>
+  </div>`;
+}
+// Los inputs del escáner de recibos (con capture = cámara; sin capture y
+// multiple = galería/hoja nativa).
+function receiptPhotoSource(){
+  return {
+    camera: ()=>{ const i=document.getElementById('receipt-file'); if(i) i.click(); },
+    gallery: ()=>{ const i=document.getElementById('receipt-file-gallery'); if(i) i.click(); }
+  };
+}
 function openScanModal(){
   // El escaneo le pega a la API de Claude y cuesta plata real cada vez que se usa —
   // a diferencia de cargar productos a mano (gratis, no toca ningún servidor), esto
@@ -1747,6 +1790,9 @@ function openScanModal(){
   scanDuplicateOf=null; scanDuplicateConfirmed=false;
   resetScanBatchState();
   showScanModal=true; render();
+  // Intro única: la hoja de fotos se abre en el MISMO toque (antes había que
+  // tocar otra vez la caja punteada). La caja queda detrás por si se cancela.
+  openPhotoSource(receiptPhotoSource());
 }
 function resetScanBatchState(){
   scanBatchMode=false; scanQueue=[]; scanQueueTotal=0; scanQueueIndex=0;
@@ -1762,11 +1808,12 @@ function scanModal(){
       <div class="sub">${t('scan_sub')}</div>
 
       ${scanState==='idle' && scanImages.length===0 ? `
+        ${/* La caja abre la MISMA hoja de fotos que el primer toque (intro única):
+             sin link aparte de galería — la hoja ya la trae. */''}
         <div class="drop-zone" id="drop-zone">
           <div class="dz-icon">${lineIcon('camera',26)}</div>
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
-        <button type="button" id="btn-scan-gallery" style="display:block;margin:-8px auto 16px;background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 8px;">${t('scan_upload_gallery_btn')}</button>
       ` : ''}
       <input type="file" id="receipt-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="receipt-file-gallery" accept="image/*" multiple style="display:none;">
@@ -1796,7 +1843,7 @@ function scanModal(){
           <button class="btn btn-ghost btn-sm" id="btn-add-scan-page">+ ${t(scanBatchMode?'scan_add_receipt':'scan_add_page')}</button>
           <button class="btn btn-primary btn-sm" id="btn-process-scan">${t('scan_read_btn')}</button>
         </div>
-        <button type="button" id="btn-add-scan-gallery" style="display:block;background:none;border:none;color:var(--sky-ink);font-size:11.5px;font-weight:600;cursor:pointer;padding:2px 4px;margin:0 0 14px;">${t('scan_add_gallery_btn')}</button>
+        <div style="height:14px;"></div>
       ` : ''}
 
       ${scanState==='loading' ? (()=>{
@@ -2132,16 +2179,25 @@ function openProductBatchModal(){
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   showProductBatchModal=true; render();
-  startScannerCamera();
+  // Intro única (2026-09-07): la misma hoja de fotos que Recibos/Estante/Catálogo,
+  // en el mismo toque. El visor en vivo se retiró: cada escáner trabaja con UNA
+  // foto quieta, y la cámara del teléfono la saca mejor.
+  openPhotoSource(pbPhotoSource());
+}
+function pbPhotoSource(){
+  return {
+    camera: ()=>{ const i=document.getElementById('pb-photo-file'); if(i) i.click(); },
+    gallery: ()=>{ const i=document.getElementById('pb-photo-file-gallery'); if(i) i.click(); }
+  };
 }
 function closeProductBatchModal(){ pbRequestId++; stopScannerCamera(); showProductBatchModal=false; pbSourceImg=null; render(); }
-// "Escanear otro": vuelve al visor sin cerrar el modal — para recorrer un estante
+// "Escanear otro": vuelve a la caja sin cerrar el modal — para recorrer un estante
 // identificando o cargando de a fotos.
 function restartScannerCamera(){
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   render();
-  startScannerCamera();
+  openPhotoSource(pbPhotoSource());
 }
 
 // source: un canvas (cuadro capturado del <video>) o un Image (foto del input nativo/galería)
@@ -2284,39 +2340,9 @@ function stopScannerCamera(){
   try{ s.getTracks().forEach(tr=>tr.stop()); }catch(e){}
 }
 
-function startScannerCamera(){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    // Sin getUserMedia (navegador viejo, contexto sin permisos): queda el respaldo
-    // de la cámara nativa del sistema vía <input capture> — se dispara con el botón.
-    return;
-  }
-  const requestId = pbRequestId;
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
-    // Si el modal se cerró mientras el navegador pedía permiso, apagar y salir.
-    const video = document.getElementById('pb-video');
-    if(requestId !== pbRequestId || !showProductBatchModal || !video){
-      try{ stream.getTracks().forEach(tr=>tr.stop()); }catch(e){}
-      return;
-    }
-    scannerCamStream = stream;
-    video.srcObject = stream;
-    video.play().catch(()=>{});
-  }).catch(()=>{
-    // Permiso negado o sin cámara: el modal queda con la cámara nativa del sistema
-    // (input capture) como único camino — no es un error.
-    render();
-  });
-}
-
-// Captura el cuadro actual del <video> como imagen — el "tap del obturador".
-function captureScannerFrame(){
-  const video = document.getElementById('pb-video');
-  if(!video || !scannerCamStream || !video.videoWidth) return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  return canvas;
-}
+// (El visor en vivo por getUserMedia se retiró el 2026-09-07 — intro única de
+// cámara, ver openPhotoSource. scannerCamStream queda declarado porque el guard
+// de render() lo consulta; ahora es siempre null.)
 
 function productBatchModal(){
   const selectedCount = pbItems.filter(it=>it.selected && it.name.trim()).length;
@@ -2328,13 +2354,10 @@ function productBatchModal(){
 
       ${pbState==='camera' ? `
         <div class="sub">${t('pb_sub')}</div>
-        <div style="position:relative;border-radius:12px;overflow:hidden;background:#111;min-height:220px;display:flex;align-items:center;justify-content:center;">
-          <video id="pb-video" autoplay playsinline muted style="width:100%;max-height:340px;object-fit:cover;display:block;"></video>
-          <button id="btn-pb-capture" title="${t('ids_capture')}" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:58px;height:58px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;"></button>
-        </div>
-        <div style="display:flex;justify-content:center;gap:14px;margin:10px 0 0;">
-          <button type="button" id="btn-pb-native" style="background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 8px;">${t('ids_use_native_camera')}</button>
-          <button type="button" id="btn-pb-gallery" style="background:none;border:none;color:var(--sky-ink);font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 8px;">${t('scan_upload_gallery_btn')}</button>
+        ${/* Misma caja que Recibos (intro única): tocarla vuelve a abrir la hoja. */''}
+        <div class="drop-zone" id="pb-drop-zone">
+          <div class="dz-icon">${lineIcon('camera',26)}</div>
+          <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
       ` : ''}
       <input type="file" id="pb-photo-file" accept="image/*" capture="environment" style="display:none;">
