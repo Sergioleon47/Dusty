@@ -2084,7 +2084,30 @@ function catalogoView(){
     </div>`;
     })()}
   ${sellables.length===0 && sellableRecipes.length===0
-    ? `<div class="helper-note" style="margin-top:12px;">${t('catalog_no_sellables')}</div>`
+    ? (()=>{
+      /* ÍTEMS DE EJEMPLO para el usuario nuevo (pedido 2026-09-06): tarjetas
+         ficticias — visuales, no datos, nada que sincronizar — que muestran
+         cómo se ve el catálogo (grupos, cuadrados, el ✓ de seleccionado).
+         Desaparecen SOLAS en cuanto existe el primer producto real, porque solo
+         viven en esta rama vacía. pointer-events:none: no se tocan. */
+      const ex = uiLang==='en'
+        ? [['👕','T-shirt',true],['☕','Mug',true],['🧢','Cap',false],['🔌','Cable',true]]
+        : [['👕','Camiseta',true],['☕','Taza',true],['🧢','Gorra',false],['🔌','Cable',true]];
+      return `
+      <div class="category-group-header" style="margin-top:26px;">${uiLang==='en'?'Example':'Ejemplo'} <span>${ex.length}</span></div>
+      <div class="inv-grid cols2" style="pointer-events:none;">
+        ${ex.map(([e,n,chk])=>`
+        <div class="inv-tile" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;opacity:.8;${chk?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':''}">
+          ${chk?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">✓</span>`:''}
+          <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--inset);">
+            <span style="font-size:40px;">${e}</span>
+            <span style="font-weight:800;font-size:13.5px;color:var(--ink);">${n}</span>
+            <span style="font-size:10px;font-weight:700;color:var(--ink-soft);background:var(--raised);border-radius:6px;padding:2px 8px;">${t('budget_exp_example_tag')}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+      <div class="helper-note" style="margin-top:12px;">${t('catalog_examples_note')}</div>`;
+    })()
     : `
     ${/* Misma organización que el Inventario: grupos por categoría y las mismas
          tarjetas en la grilla fila/2col/3col con el selector compartido. */''}

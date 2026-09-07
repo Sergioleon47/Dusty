@@ -148,7 +148,10 @@
 // ítems, despegada de las herramientas — app-05.
 // v55: Seleccionar sin caja — texto pelado estilo iOS Fotos, verde en modo
 // activo — app-05.
-const CACHE_NAME = 'patron-shell-v55';
+// v56: ítems de EJEMPLO en el Catálogo vacío (visuales, sin datos) para que
+// el usuario nuevo vea cómo queda todo — desaparecen solos con el primer
+// producto real — app-03/05.
+const CACHE_NAME = 'patron-shell-v56';
 
 const PRECACHE_URLS = [
   '/',
