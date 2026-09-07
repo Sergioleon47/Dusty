@@ -1549,30 +1549,8 @@ function applyPulsePref(){
   else document.documentElement.setAttribute('data-dusty-pulse', 'off');
 }
 applyPulsePref();
-function themePickerHtml(){
-  return `
-  <div class="settings-card">
-    ${settingsCardHeader('tag','var(--navy-wash)','var(--navy)',t('theme_title'))}
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;">
-      ${DUSTY_THEMES.map(th=>`
-      <button type="button" data-set-theme="${th.id}" aria-pressed="${dustyTheme===th.id}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;">
-        <span style="width:38px;height:38px;border-radius:50%;background:${th.bg};border:2.5px solid ${dustyTheme===th.id?'var(--navy)':'var(--line)'};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);">
-          <span style="width:16px;height:16px;border-radius:50%;background:${th.accent};"></span>
-        </span>
-        <span style="font-size:10px;font-weight:700;color:${dustyTheme===th.id?'var(--navy)':'var(--ink-soft)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${uiLang==='en'?th.en:th.es}</span>
-      </button>`).join('')}
-    </div>
-    ${/* Interruptor de LATIDOS (pedido del usuario 2026-09-07). */''}
-    <div class="pulse-row">
-      <div class="pulse-text"><b>${t('pulse_label')}</b><small>${t('pulse_helper')}</small></div>
-      <span class="pulse-state">${dustyPulse ? t('pulse_on') : t('pulse_off')}</span>
-      <label class="pulse-switch" aria-label="${t('pulse_label')}">
-        <input type="checkbox" id="pulse-toggle" ${dustyPulse?'checked':''}>
-        <i></i>
-      </label>
-    </div>
-  </div>`;
-}
+// (El selector de tema vive dentro de la tarjeta Apariencia de alertSettingsModal
+// desde la reorganización de Ajustes del 2026-09-07.)
 function settingsCardHeader(icon, bg, fg, title){
   return `
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -1581,37 +1559,56 @@ function settingsCardHeader(icon, bg, fg, title){
   </div>`;
 }
 function alertSettingsModal(){
+  /* AJUSTES reorganizado (auditoría 2026-09-07): título propio (antes decía
+     "Alertas de precio", el nombre de lo que era esta pantalla antes de crecer),
+     cinco secciones con nombre en orden de uso — Apariencia, Inventario,
+     Alertas, Catálogo, Cuenta — y UNA sola regla de guardado: todo se aplica al
+     instante (los umbrales al soltar el campo, como ya lo hacían tema, idioma,
+     latidos y formato). Sin Guardar ni Cancelar: un Cerrar abajo y la ✕ arriba. */
   return `
   <div class="overlay" id="alert-settings-overlay">
     <div class="modal">
-      <button type="button" class="modal-close-btn" id="btn-close-alert-settings" aria-label="${t('btn_cancel')}">✕</button>
-      <h3 class="saffron">${t('alert_title')}</h3>
-      <div class="sub">${t('alert_sub')}</div>
+      <button type="button" class="modal-close-btn" id="btn-close-alert-settings" aria-label="${t('btn_close')}">✕</button>
+      <h3 class="saffron">${t('settings_title')}</h3>
+      <div class="sub">${t('settings_sub')}</div>
 
-      ${/* La sección "Business name" se eliminó de raíz (pedido del usuario) —
-           el campo, su guardado y el título que pintaba en Inventario. */''}
+      ${/* 1. APARIENCIA: tema, latidos, idioma y formato de montos — lo que un
+           usuario nuevo busca primero. Todo instantáneo y guardado en el dispositivo. */''}
       <div class="settings-card">
-        ${settingsCardHeader('bell','var(--saffron-soft)','var(--saffron-ink)',t('alert_threshold_title'))}
-        <div class="field">
-          <label>${t('alert_threshold_label')}</label>
-          <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftThreshold)}">
+        ${settingsCardHeader('tag','var(--navy-wash)','var(--navy)',t('settings_appearance_title'))}
+        <div style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;">${t('theme_title')}</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;">
+          ${DUSTY_THEMES.map(th=>`
+          <button type="button" data-set-theme="${th.id}" aria-pressed="${dustyTheme===th.id}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;">
+            <span style="width:38px;height:38px;border-radius:50%;background:${th.bg};border:2.5px solid ${dustyTheme===th.id?'var(--navy)':'var(--line)'};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);">
+              <span style="width:16px;height:16px;border-radius:50%;background:${th.accent};"></span>
+            </span>
+            <span style="font-size:10px;font-weight:700;color:${dustyTheme===th.id?'var(--navy)':'var(--ink-soft)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${uiLang==='en'?th.en:th.es}</span>
+          </button>`).join('')}
         </div>
-        <div class="helper-note">${t('alert_helper')}</div>
-        ${/* Umbral del aviso de presupuesto (auditoría 2026-09-07), al lado del de precios. */''}
-        <div class="field" style="margin-top:6px;">
-          <label>${t('budget_alert_pct_label')}</label>
-          <input id="budget-alert-input" type="number" min="10" max="99" step="5" inputmode="numeric" value="${escapeHtml(budgetMeta.alertPct)}">
+        ${/* Interruptor de LATIDOS (pedido del usuario 2026-09-07). */''}
+        <div class="pulse-row">
+          <div class="pulse-text"><b>${t('pulse_label')}</b><small>${t('pulse_helper')}</small></div>
+          <span class="pulse-state">${dustyPulse ? t('pulse_on') : t('pulse_off')}</span>
+          <label class="pulse-switch" aria-label="${t('pulse_label')}">
+            <input type="checkbox" id="pulse-toggle" ${dustyPulse?'checked':''}>
+            <i></i>
+          </label>
         </div>
-        <div class="helper-note" style="margin-bottom:0;">${t('budget_alert_pct_helper')}</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
+          ${/* El rótulo del idioma va en el idioma ACTUAL (pedido del usuario 2026-09-07). */''}
+          <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Cambiar a inglés':'🌐 Switch to Spanish'}</button>
+          <div class="field" style="margin:12px 0 0;">
+            <label for="money-format-select">${t('money_format_label')}</label>
+            <select id="money-format-select">
+              ${[['plain','$1000.00'],['us','$1,000.00'],['latam','$1.000,00']].map(([v,l])=>`<option value="${v}" ${moneyFormatPref===v?'selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="helper-note" style="margin:10px 0 0;">${t('settings_device_note')}</div>
+        </div>
       </div>
 
-      ${/* El presupuesto mensual salió de acá DE RAÍZ (pedido del usuario
-           2026-09-04): se edita solo desde el lápiz del Dashboard, que abre su
-           propio mini-modal (budgetModal) — un único lugar, sin duplicados. */''}
-      ${/* Categorías (gestión) y Conteo cíclico viven acá desde 2026-09-04
-           (pedido del usuario): son configuración del inventario, no acciones
-           del día a día. Sus ids son los de siempre — los handlers de
-           attachEvents los encuentran igual, solo cierran este modal antes. */''}
+      ${/* 2. INVENTARIO: categorías y conteo cíclico (configuración, no acciones del día). */''}
       <div class="settings-card">
         ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('settings_inventory_title'))}
         <div style="display:flex;flex-direction:column;gap:8px;">
@@ -1622,55 +1619,43 @@ function alertSettingsModal(){
         </div>
       </div>
 
-      ${/* "Cuenta" agrupa respaldo local, borrar cuenta y privacidad en su
-           propio submodal (pedido del usuario 2026-09-04: Ajustes más
-           compacto) — vuelve acá al cerrarse, como Categorías y el Conteo. */''}
+      ${/* 3. ALERTAS: umbral de precio al escanear + aviso de presupuesto. Se
+           guardan al soltar el campo (onchange en app-07). */''}
       <div class="settings-card">
-        ${/* Publicación del catálogo: la config de una vez (WhatsApp, canales,
-             redes) y despublicar viven acá desde que el engranaje de la pestaña
-             se borró — la publicación diaria es automática. */''}
-        <button class="btn btn-ghost btn-sm" id="btn-open-catalog-publish" style="width:100%;margin-bottom:8px;">${t('settings_catalog_btn')}</button>
+        ${settingsCardHeader('bell','var(--saffron-soft)','var(--saffron-ink)',t('settings_alerts_title'))}
+        <div class="field">
+          <label>${t('alert_threshold_label')}</label>
+          <input id="alert-threshold-input" type="number" min="1" max="100" step="1" inputmode="numeric" value="${escapeHtml(priceAlertThreshold)}">
+        </div>
+        <div class="helper-note">${t('alert_helper')}</div>
+        <div class="field" style="margin-top:6px;">
+          <label>${t('budget_alert_pct_label')}</label>
+          <input id="budget-alert-input" type="number" min="10" max="99" step="5" inputmode="numeric" value="${escapeHtml(budgetMeta.alertPct)}">
+        </div>
+        <div class="helper-note" style="margin-bottom:0;">${t('budget_alert_pct_helper')}</div>
+      </div>
+
+      ${/* 4. CATÁLOGO: la publicación (WhatsApp, canales, redes, despublicar). */''}
+      <div class="settings-card">
+        ${settingsCardHeader('share','var(--sky-soft)','var(--sky-ink)',t('settings_catalog_title'))}
+        <button class="btn btn-ghost btn-sm" id="btn-open-catalog-publish" style="width:100%;">${t('settings_catalog_btn')}</button>
+      </div>
+
+      ${/* 5. CUENTA: submodal con respaldo, compartir cuenta, cerrar sesión,
+           eliminar y privacidad — vuelve acá al cerrarse. */''}
+      <div class="settings-card">
+        ${settingsCardHeader('cloud','var(--sky-soft)','var(--sky-ink)',t('settings_account_title'))}
         <button class="btn btn-ghost btn-sm" id="btn-open-account" style="width:100%;">${t('account_btn')}</button>
       </div>
 
-      ${/* Tema de colores: 10 opciones de un toque — se aplica al instante,
-           sin Guardar (como el idioma). El selector se pinta con los colores
-           de muestra de DUSTY_THEMES; el CSS real está en dusty.css. */''}
-      ${themePickerHtml()}
-
-      ${/* Idioma DE ÚLTIMO (pedido del usuario 2026-09-04): vivía en el topbar,
-           pero se cambia una sola vez — no merecía lugar permanente en la barra.
-           El rótulo va en el idioma ACTUAL de la interfaz (pedido del usuario
-           2026-09-07: con la app en inglés decía "Cambiar a español", un botón
-           en español en medio de una pantalla en inglés). Antes iba en el idioma
-           destino; el que no entiende el idioma actual ya eligió el suyo en la
-           primera pantalla (langChoiceModal), no necesita esta pista. Mismo id
-           de siempre, el handler de attachEvents lo encuentra acá igual; setLang
-           re-renderiza y el modal queda abierto con el rótulo ya cambiado. */''}
-      <div class="settings-card">
-        <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Cambiar a inglés':'🌐 Switch to Spanish'}</button>
-        ${/* Formato regional de montos (auditoría 2026-09-07): preferencia del
-             dispositivo, se aplica al toque. */''}
-        <div class="field" style="margin:12px 0 0;">
-          <label for="money-format-select">${t('money_format_label')}</label>
-          <select id="money-format-select">
-            ${[['plain','$1000.00'],['us','$1,000.00'],['latam','$1.000,00']].map(([v,l])=>`<option value="${v}" ${moneyFormatPref===v?'selected':''}>${l}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-cancel-alert-settings">${t('btn_cancel')}</button>
-        <button class="btn btn-primary" id="btn-save-alert-settings">${t('btn_save')}</button>
+        <button class="btn btn-primary" id="btn-cancel-alert-settings" style="width:100%;">${t('btn_close')}</button>
       </div>
     </div>
   </div>`;
 }
-
-/* ================= MODAL: CUENTA (respaldo, borrar, privacidad) =================
-   Submodal de Ajustes (2026-09-04): las tarjetas viajaron acá tal cual, con los
-   MISMOS ids — los handlers de export/import/borrar de attachEvents los
-   encuentran igual. Cerrar vuelve a Ajustes (settingsReturnPending). */
+/* "Cuenta": submodal de Ajustes (respaldo, compartir, cerrar sesión, eliminar,
+   privacidad). Cerrar vuelve a Ajustes (settingsReturnPending). */
 let showAccountModal = false;
 function closeAccountModal(){ showAccountModal=false; reopenSettingsIfPending(); render(); }
 function accountModal(){
@@ -1691,13 +1676,17 @@ function accountModal(){
         <div class="helper-note" style="margin-top:10px;margin-bottom:0;">${t('backup_section_hint')}</div>
       </div>
 
-      ${/* Cerrar sesión vive acá (se mudó del modal de equipo 2026-09-04):
-           compartir la cuenta y salir de ella son cosas distintas. */''}
-      ${currentUser && !currentUser.isAnonymous ? `
+      ${/* Compartir cuenta (equipo) vive TAMBIÉN acá (auditoría de Ajustes
+           2026-09-07): es una acción de Cuenta como cerrar sesión o eliminar;
+           el botón del menú del Dashboard sigue. Mismo flujo (app-07). */''}
       <div class="settings-card">
-        <button class="btn btn-ghost btn-sm" id="btn-sign-out-account" style="width:100%;">${t('team_sign_out_btn')}</button>
+        <button class="btn btn-ghost btn-sm" id="btn-share-account-settings" style="width:100%;">${t('share_account_btn')}</button>
+        ${/* Cerrar sesión vive acá (se mudó del modal de equipo 2026-09-04):
+             compartir la cuenta y salir de ella son cosas distintas. */''}
+        ${currentUser && !currentUser.isAnonymous ? `
+        <button class="btn btn-ghost btn-sm" id="btn-sign-out-account" style="width:100%;margin-top:8px;">${t('team_sign_out_btn')}</button>
+        ` : ''}
       </div>
-      ` : ''}
       ${currentUser ? `
       <div class="settings-card" style="background:var(--tomato-soft);">
         <button class="btn btn-ghost btn-sm" id="btn-open-delete-account" style="color:var(--tomato);border-color:color-mix(in srgb, var(--tomato) 35%, var(--panel));">${t('delete_account_btn')}</button>
@@ -2611,6 +2600,10 @@ async function composeCollageLayout(layoutId){
 
 /* Modal de PUBLICACIÓN (abre la herramienta Compartir de la tarjeta): WhatsApp,
    publicar/actualizar, y con link ya publicado las acciones de compartirlo. */
+// Cerrar Publicación vuelve a Ajustes si se abrió desde ahí (auditoría de
+// Ajustes 2026-09-07: era el único hijo que no volvía); desde Compartir del
+// Catálogo, settingsReturnPending es false y no pasa nada extra.
+function closeCatalogPublishModal(){ showCatalogPublishModal=false; reopenSettingsIfPending(); render(); }
 function catalogPublishModal(){
   const url = catalogUrl();
   return `

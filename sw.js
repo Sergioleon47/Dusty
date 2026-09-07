@@ -227,7 +227,12 @@
 // no reconocidos del estante → alta con la misma foto; código de barras local,
 // entrada manual, linterna y SKU siempre; ficha que no pisa lo escrito; consejos
 // de encuadre y cupo visible — app-01/03/05/06/07/08 + css + prompts.
-const CACHE_NAME = 'patron-shell-v79';
+// v80: AJUSTES reorganizado (auditoría 2026-09-07): título "Ajustes", cinco
+// secciones con nombre (Apariencia, Inventario, Alertas, Catálogo, Cuenta),
+// todo se aplica al instante (sin Guardar/Cancelar), Publicación vuelve a
+// Ajustes, Compartir cuenta también en Cuenta, y el respaldo exporta la
+// configuración del catálogo — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v80';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

@@ -231,6 +231,9 @@ const I18N = {
     supplier_compare_title:'Comparar proveedores', cheapest_label:'más barato', avg_price_label:'prom.',
     supplier_compare_helper:'Según el precio de la última compra a cada proveedor.', ph_full_history_label:'Historial completo',
     btn_cancel:'Cancelar', btn_close:'Cerrar',
+    settings_title:'Ajustes', settings_sub:'Cada cambio se aplica al instante.',
+    settings_appearance_title:'Apariencia', settings_alerts_title:'Alertas', settings_catalog_title:'Catálogo',
+    settings_account_title:'Cuenta', settings_device_note:'El tema, los latidos, el idioma y el formato se guardan en este dispositivo.',
     ms_title:'Gasto por mes', ms_sub:'Todos los meses con compras registradas, uno al lado del otro',
     ms_no_purchases:'Todavía no hay compras registradas.', ms_current_month:'mes actual',
     alert_title:'Alertas de precio', alert_sub:'Ajustá cuándo un aumento de precio al escanear un recibo se marca como algo que requiere revisión inmediata.',
@@ -836,6 +839,9 @@ const I18N = {
     supplier_compare_title:'Compare suppliers', cheapest_label:'cheapest', avg_price_label:'avg.',
     supplier_compare_helper:"Based on the most recent purchase from each supplier.", ph_full_history_label:'Full history',
     btn_cancel:'Cancel', btn_close:'Close',
+    settings_title:'Settings', settings_sub:'Every change applies instantly.',
+    settings_appearance_title:'Appearance', settings_alerts_title:'Alerts', settings_catalog_title:'Catalog',
+    settings_account_title:'Account', settings_device_note:'Theme, pulses, language and format are saved on this device.',
     ms_title:'Spending by month', ms_sub:'All months with recorded purchases, side by side',
     ms_no_purchases:'No purchases recorded yet.', ms_current_month:'current month',
     alert_title:'Price alerts', alert_sub:'Adjust when a price increase on a scanned receipt gets flagged as something that needs immediate review.',
@@ -1549,6 +1555,9 @@ function exportData(){
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
     recipes, outflows, outflowArchive, deletedRecipeIds,
+    // Configuración del catálogo (auditoría de Ajustes 2026-09-07): sin esto el
+    // respaldo perdía el número de WhatsApp, los canales y el id del link.
+    catalogWhatsApp, catalogId, catalogChannels,
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});

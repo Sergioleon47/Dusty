@@ -393,15 +393,20 @@ function attachEvents(){
   // "Compartir cuenta" (menú del Dashboard): con sesión real abre el modal de
   // equipo directo; trial anónimo → guardar la cuenta primero; sin sesión →
   // login. Mismo criterio que los botones de nube del topbar.
-  const btnShareAccount=document.getElementById('btn-share-account');
   // La tarjeta "Mejor en equipo" (ex paso 3 del tutorial) se muestra acá, la
   // primera vez — en el momento en que sirve — y después sigue con lo de siempre.
-  if(btnShareAccount) btnShareAccount.onclick=()=>openTeamIntroOrContinue(()=>{
+  // El mismo flujo sirve al botón del menú del Dashboard y al de Cuenta en
+  // Ajustes (auditoría 2026-09-07); desde Cuenta se cierra ese submodal antes.
+  const shareAccountFlow=()=>openTeamIntroOrContinue(()=>{
     if(currentUser && !currentUser.isAnonymous){ openTeamModal(); return; }
     ensurePatronFirebaseReady().catch(()=>{});
     if(currentUser && currentUser.isAnonymous) openUpgradeModal();
     else openAuthModal();
   });
+  const btnShareAccount=document.getElementById('btn-share-account');
+  if(btnShareAccount) btnShareAccount.onclick=shareAccountFlow;
+  const btnShareAccountSettings=document.getElementById('btn-share-account-settings');
+  if(btnShareAccountSettings) btnShareAccountSettings.onclick=()=>{ settingsReturnPending=false; showAccountModal=false; shareAccountFlow(); };
   document.querySelectorAll('[data-open-category]').forEach(btn=>{
     btn.onclick=()=>{
       inventoryCategoryFilter = btn.dataset.openCategory;
@@ -711,9 +716,9 @@ function attachEvents(){
     };
     const publishOverlay=document.getElementById('catalog-publish-overlay');
     if(publishOverlay){
-      publishOverlay.onmousedown=(e)=>{ if(e.target===publishOverlay){ showCatalogPublishModal=false; render(); } };
+      publishOverlay.onmousedown=(e)=>{ if(e.target===publishOverlay) closeCatalogPublishModal(); };
       const btnClosePub=document.getElementById('btn-close-catalog-publish');
-      if(btnClosePub) btnClosePub.onclick=()=>{ showCatalogPublishModal=false; render(); };
+      if(btnClosePub) btnClosePub.onclick=closeCatalogPublishModal;
       // Canales (chips) y redes (inputs): guardan al toque/confirmar.
       document.querySelectorAll('[data-cat-channel]').forEach(ch=>{
         ch.onclick=()=>{ const k=ch.dataset.catChannel; catalogChannels[k]=!catalogChannels[k]; saveState(); render(); };
@@ -1441,23 +1446,28 @@ function attachEvents(){
     alertSettingsOverlay.onmousedown=(e)=>{ if(e.target===alertSettingsOverlay){ showAlertSettingsModal=false; render(); } };
     const closeAlertSettingsBtn=document.getElementById('btn-close-alert-settings');
     if(closeAlertSettingsBtn) closeAlertSettingsBtn.onclick=()=>{ showAlertSettingsModal=false; render(); };
+    // Un solo botón abajo: Cerrar (auditoría de Ajustes 2026-09-07 — todo se
+    // aplica al instante, así que Guardar/Cancelar ya no tenían sentido).
     const cancelAlertBtn=document.getElementById('btn-cancel-alert-settings');
     if(cancelAlertBtn) cancelAlertBtn.onclick=()=>{ showAlertSettingsModal=false; render(); };
-    const saveAlertBtn=document.getElementById('btn-save-alert-settings');
-    if(saveAlertBtn) saveAlertBtn.onclick=()=>{
-      const val=parseFloat(document.getElementById('alert-threshold-input').value);
-      if(val>0) priceAlertThreshold=val;
-      const bInp=document.getElementById('budget-alert-input');
-      if(bInp){ const b=parseFloat(bInp.value); if(Number.isFinite(b) && b>=10 && b<100) budgetMeta.alertPct=b; }
-      const fmtSel=document.getElementById('money-format-select');
-      if(fmtSel) setMoneyFormatPref(fmtSel.value);
+    // Umbrales: se guardan al SOLTAR el campo (onchange), con la misma
+    // validación de siempre; un valor inválido vuelve al guardado.
+    const thrInp=document.getElementById('alert-threshold-input');
+    if(thrInp) thrInp.onchange=()=>{
+      const val=parseFloat(thrInp.value);
+      if(val>0 && val<=100) priceAlertThreshold=val; else thrInp.value=String(priceAlertThreshold);
       saveState();
-      showAlertSettingsModal=false; render();
     };
-    // "Cuenta": submodal con respaldo local, borrar cuenta y privacidad —
-    // Ajustes queda compacto y al cerrar Cuenta se vuelve acá.
+    const bInp=document.getElementById('budget-alert-input');
+    if(bInp) bInp.onchange=()=>{
+      const b=parseFloat(bInp.value);
+      if(Number.isFinite(b) && b>=10 && b<100) budgetMeta.alertPct=b; else bInp.value=String(budgetMeta.alertPct);
+      saveState();
+    };
+    // Publicación del catálogo y Cuenta: hijos de Ajustes — al cerrarse
+    // vuelven acá (settingsReturnPending), como Categorías y el Conteo.
     const btnOpenCatalogPublish=document.getElementById('btn-open-catalog-publish');
-    if(btnOpenCatalogPublish) btnOpenCatalogPublish.onclick=()=>{ showAlertSettingsModal=false; showCatalogPublishModal=true; render(); };
+    if(btnOpenCatalogPublish) btnOpenCatalogPublish.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; showCatalogPublishModal=true; render(); };
     const btnOpenAccount=document.getElementById('btn-open-account');
     if(btnOpenAccount) btnOpenAccount.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; showAccountModal=true; render(); };
   }
@@ -2627,7 +2637,7 @@ document.addEventListener('keydown', (e)=>{
   if(catalogPendingPhoto){ const btn=document.getElementById('btn-cancel-assign-photo'); if(btn) btn.click(); return; }
   if(showCatalogCameraModal){ showCatalogCameraModal=false; render(); return; }
   if(showCollageLayoutModal){ const btn=document.getElementById('btn-cancel-collage'); if(btn) btn.click(); return; }
-  if(showCatalogPublishModal){ showCatalogPublishModal=false; render(); return; }
+  if(showCatalogPublishModal){ closeCatalogPublishModal(); return; }
   if(showItemModal){ closeItemModal(); return; }
   if(showScanModal){ closeScanModal(); return; }
   if(showPriceHistoryModal){ closePriceHistoryModal(); return; }
