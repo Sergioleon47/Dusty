@@ -217,7 +217,9 @@
 // v76: el aviso de presupuesto PALPITA (pedido del usuario, en vez de
 // notificaciones fuera de la app): barra que respira, tarjeta con halo y
 // ícono latiendo, punto sobre el Dashboard en la barra inferior — app-03/04 + css.
-const CACHE_NAME = 'patron-shell-v76';
+// v77: el calendario de Recibos vuelve a verse SIEMPRE (sin recibos no se podía
+// anotar un recordatorio tocando un día) — app-05.
+const CACHE_NAME = 'patron-shell-v77';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

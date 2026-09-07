@@ -1205,15 +1205,18 @@ function recibosView(){
     <div><h2>${t('rec_title')}</h2><p>${t('rec_sub')}</p></div>
     ${/* Sin el botón "Scan receipt" (lo tachó el usuario): escanear ya vive en el
          botón grande del Dashboard — acá duplicaba y apretaba el buscador. */''}
-    ${/* Sin recibos todavía no hay nada que buscar ni que pintar en el calendario
-         (auditoría de primer minuto 2026-09-07): buscador y calendario recién
-         aparecen con el primer recibo (o con una nota de calendario). */''}
+    ${/* Sin recibos todavía no hay nada que buscar (auditoría de primer minuto
+         2026-09-07): el buscador por monto recién aparece con el primer recibo.
+         El calendario sí se muestra siempre (sirve para anotar recordatorios). */''}
     ${receipts.length>0 ? `
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
     </div>` : ''}
   </div>
-  ${(receipts.length>0 || (typeof calNotes!=='undefined' && calNotes.length>0)) ? receiptCalendarWidget() : ''}
+  ${/* El calendario va SIEMPRE (corrección 2026-09-07): esconderlo sin recibos
+       dejaba a un usuario nuevo sin poder anotar un recordatorio tocando un día.
+       Solo el buscador por monto (arriba) espera al primer recibo. */''}
+  ${receiptCalendarWidget()}
   ${receipts.length>0 ? `<div class="field" style="max-width:340px;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div>` : ''}
   ${receipts.length===0 ? emptyState('receipt',t('empty_receipts_title'),'',true,
       `<button type="button" class="btn btn-primary" id="btn-rec-empty-scan">${t('dash_empty_scan_btn')}</button>`) :
