@@ -2028,32 +2028,43 @@ function catalogoView(){
     ${/* Misma organización que el Inventario: grupos por categoría
          (groupRowsByCategory) y las mismas tarjetas en la misma grilla
          fila/2col/3col con el selector compartido (invLayout). */''}
-    ${/* Cámara SOLO para fotos, en EL MISMO punto de pantalla que el escáner de
-         estante del Inventario (pedido del usuario 2026-09-06, captura): misma
-         estructura section-head + .shelf-fab-row + .shelf-scan-fab de 76px, así
-         los FABs laten en el mismo lugar al deslizar entre pestañas. Sin rings
-         de pulso a propósito (no es un escáner) y con badge de lápiz: esta
-         cámara EDITA fotos, no descuenta stock. */''}
-    ${/* margin-top calibrado midiendo ambos centros a 375px (misma práctica que
-         el propio .shelf-fab-row): deja ESTA cámara en el mismo punto exacto de
-         pantalla que la del Inventario al deslizar entre pestañas. */''}
-    <div class="shelf-fab-row" style="width:100%;margin-top:93px;">
-      ${/* Subir de la galería (pedido del usuario): botón secundario junto a la
-           cámara — mismo destino (el modal de asignar), sin capture. */''}
-      <button type="button" id="btn-catalog-gallery" aria-label="${t('catalog_gallery_aria')}" title="${t('catalog_gallery_aria')}" style="width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--raised);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-right:14px;align-self:center;flex-shrink:0;">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/></svg>
-      </button>
-      <div class="shelf-fab-wrap">
-        <button type="button" class="shelf-scan-fab" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" title="${t('catalog_photo_fab_aria')}">
-          ${lineIcon('camera',32)}
+    ${/* FILA DE HERRAMIENTAS con etiqueta (referencia del usuario 2026-09-06:
+         una app de edición "bien organizada" — botones grandes redondos con su
+         nombre debajo, parejos): Galería · CÁMARA (la protagonista, más grande,
+         con su badge ✎) · Seleccionar · Compartir. Reemplaza al FAB suelto +
+         galería chiquita + chip de Seleccionar regados por la pantalla. */''}
+    ${(()=>{
+      const tool = (id, inner, label, extra)=>`
+        <button type="button" id="${id}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
+          ${inner}
+          <span style="font-size:12.5px;font-weight:700;color:var(--ink);${extra||''}">${label}</span>
+        </button>`;
+      const ring = (svg, bg, fg, on)=>`
+        <span style="width:54px;height:54px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform .15s;${on?'outline:3px solid var(--sky);outline-offset:2px;':''}">${svg}</span>`;
+      const galSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/></svg>';
+      const selSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+      const shareSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>';
+      return `
+    ${/* Tarjeta elevada estilo "Create New" de InShot (segunda captura del
+         usuario): los círculos con gradiente y etiqueta viven juntos en una
+         tarjeta redondeada — la casa de las herramientas del catálogo. */''}
+    <div style="margin:16px 0 6px;">
+      <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 8px;">${t('catalog_tools_header')}</div>
+      <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:20px;padding:16px 8px 14px;box-shadow:var(--shadow);">
+        ${tool('btn-catalog-gallery', ring(galSvg, 'linear-gradient(145deg, var(--navy-wash), var(--panel))', 'var(--navy-ink)'), t('catalog_tool_gallery'))}
+        <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
+          <span class="shelf-fab-wrap" style="display:inline-block;">
+            <span class="shelf-scan-fab" style="width:64px;height:64px;display:flex;">${lineIcon('camera',30)}</span>
+            <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
+          </span>
+          <span style="font-size:12.5px;font-weight:800;color:var(--ink);">${t('catalog_tool_camera')}</span>
         </button>
-        <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
+        ${tool('btn-catalog-select', ring(selSvg, catalogSelectMode?'linear-gradient(145deg, var(--basil), var(--sky-bright))':'linear-gradient(145deg, var(--saffron-soft), var(--panel))', catalogSelectMode?'#fff':'var(--saffron-ink)', catalogSelectMode), catalogSelectMode?t('catalog_select_done'):t('catalog_select_btn'))}
+        ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
       </div>
-    </div>
-    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;gap:8px;">
-      <button type="button" class="exit-reason-chip ${catalogSelectMode?'on':''}" id="btn-catalog-select" style="font-weight:800;">${catalogSelectMode ? t('catalog_select_done') : t('catalog_select_btn')}</button>
-      ${invLayoutToggleHtml()}
-    </div>
+    </div>`;
+    })()}
+    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
     ${catalogSelectMode ? `<div class="helper-note" style="margin:2px 0 6px;">${t('catalog_select_hint')}</div>` : ''}
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>

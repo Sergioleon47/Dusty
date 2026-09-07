@@ -112,7 +112,10 @@
 // v42: editor a tamaño de dedo y más dinámico — tipografías 14px, pestaña
 // activa con relieve, valores que se encienden fuera del neutro, transición
 // suave del filtro en el preview, swatches más grandes con pop — app-05/07.
-const CACHE_NAME = 'patron-shell-v42';
+// v43: tarjeta de herramientas del Catálogo estilo InShot "Create New" —
+// Galería · Cámara · Seleccionar · Compartir como círculos con etiqueta en una
+// tarjeta elevada (reemplaza al FAB suelto + chips regados) — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v43';
 
 const PRECACHE_URLS = [
   '/',

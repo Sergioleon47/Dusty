@@ -549,6 +549,15 @@ function attachEvents(){
     // foto completa; con modo, tocar marca/desmarca para el catálogo.
     const btnCatalogSelect=document.getElementById('btn-catalog-select');
     if(btnCatalogSelect) btnCatalogSelect.onclick=()=>{ catalogSelectMode=!catalogSelectMode; render(); };
+    // Compartir desde la tarjeta de herramientas: el menú nativo si ya hay
+    // catálogo publicado; si no, guía hacia el Publicar de abajo.
+    const btnShareTop=document.getElementById('btn-catalog-share-top');
+    if(btnShareTop) btnShareTop.onclick=async()=>{
+      const url=catalogUrl();
+      if(!url){ showToast(t('catalog_none_published'), 'info'); return; }
+      if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
+      else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
+    };
     document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
       el.onclick=()=>{
         const s=el.dataset.catToggle, sep=s.indexOf(':');
