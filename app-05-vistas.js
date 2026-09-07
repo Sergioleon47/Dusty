@@ -522,18 +522,20 @@ function inventoryMenuRow(){
    tocar uno filtra la lista a esa categoría (data-open-category en attachEvents
    y el filtro inventoryCategoryFilter). El número es cuántos productos tiene
    esa categoría ahora mismo, no un conteo fijo. Se arrastra para reordenar. */
+/* Chips de categoría como FILTRO con "Todos" primero (maqueta 2026-09-07):
+   justo sobre la lista, el activo resaltado; "Todos" quita el filtro. El
+   Dashboard usa el mismo data-open-category para saltar al Inventario filtrado. */
 function categoryChipsRow(){
+  const total = inventory.filter(i=>!isExpenseItem(i)).length;
   return `
-  ${/* margin/padding inferior a 0: dentro del section-head, el margen propio de
-       la fila + el del section-head apilaban ~38px de vacío hasta el banner
-       (captura del usuario 2026-09-04) — con el margen del section-head alcanza. */''}
-  <div class="category-chip-row" style="flex:1 1 100%;min-width:0;margin-bottom:0;padding-bottom:2px;">
+  <div class="inv-chips">
+    <button type="button" class="category-chip ${inventoryCategoryFilter?'':'on'}" data-inv-all="1">${t('inv_all_chip')}<span>${total}</span></button>
     ${categories.map(c=>{
       // Solo mercadería real: las categorías de gasto (Utilities, Eat out)
       // viven en el botón de Presupuesto y acá ni aparecen (chips "0" fuera).
       const count = inventory.filter(i=>i.categoryId===c.id && !isExpenseItem(i)).length;
       if(count===0) return '';
-      return `<button type="button" class="category-chip" data-open-category="${c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
+      return `<button type="button" class="category-chip ${inventoryCategoryFilter===c.id?'on':''}" data-open-category="${c.id}" aria-pressed="${inventoryCategoryFilter===c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
     }).join('')}
   </div>
   `;
@@ -603,6 +605,24 @@ try{ const v = localStorage.getItem('patron_inv_layout'); if(['rows','cols2','co
 // app-04): con view-transition-name por tarjeta, cada una VUELA a su nueva
 // posición/tamaño en vez del redibujado seco — el morph estilo iOS que faltaba.
 let invLayoutTransitionPending = false;
+/* Inventario reorganizado (maqueta aprobada 2026-09-07, pensado para 100+
+   productos): orden elegible, tres filtros rápidos, grupos plegables que
+   recuerdan su estado y "ver los restantes" en los grupos grandes. */
+let invSort = 'name'; // 'name' | 'stock' | 'value'
+try{ const v = localStorage.getItem('patron_inv_sort'); if(['name','stock','value'].includes(v)) invSort = v; }catch(e){}
+let invQuickFilter = null; // null | 'crit' | 'count' | 'nophoto' — solo en memoria
+let invCollapsed = new Set();
+try{ const v = JSON.parse(localStorage.getItem('patron_inv_collapsed')||'[]'); if(Array.isArray(v)) invCollapsed = new Set(v); }catch(e){}
+let invExpanded = new Set(); // grupos grandes ya desplegados enteros (memoria)
+const INV_GROUP_PREVIEW = 12;
+function invGroupKey(g){ return g.id || '__none'; }
+function invSortRows(rows){
+  const arr = rows.slice();
+  if(invSort==='stock') arr.sort((a,b)=>(a.ing.qtyOnHand||0)-(b.ing.qtyOnHand||0) || String(a.ing.name).localeCompare(String(b.ing.name)));
+  else if(invSort==='value') arr.sort((a,b)=>((b.ing.qtyOnHand||0)*(b.ing.costPerUnit||0))-((a.ing.qtyOnHand||0)*(a.ing.costPerUnit||0)) || String(a.ing.name).localeCompare(String(b.ing.name)));
+  else arr.sort((a,b)=>String(a.ing.name).localeCompare(String(b.ing.name), undefined, {sensitivity:'base'}));
+  return arr;
+}
 function invLayoutToggleHtml(){
   const opt = (val, label, icon)=>`<button type="button" data-inv-layout="${val}" class="${invLayout===val?'on':''}" aria-label="${label}" aria-pressed="${invLayout===val}" title="${label}">${icon}</button>`;
   const sq = (n)=>{
@@ -860,104 +880,101 @@ function attachOrderCalcEvents(){
 }
 
 function inventarioView(){
+  /* INVENTARIO reorganizado (maqueta aprobada por el usuario 2026-09-07, "hazlo
+     exactamente así", pensado para 100+ productos):
+     1. franja de números (Valor · Potencial de venta) lado a lado;
+     2. fila de herramientas con nombre, como el Catálogo: Pedido, Conteo (punto
+        cuando toca), Escanear estante (el FAB, sin el badge "−");
+     3. buscador fijo arriba al scrollear, con vista y ORDEN en la misma fila;
+     4. tres filtros rápidos: Crítico, Toca contar, Sin foto;
+     5. chips de categoría como filtro justo sobre la lista, con "Todos";
+     6. grupos plegables (recuerdan su estado) y "ver los restantes" pasados
+        los 12 — lo plegado no se dibuja, así la pestaña sigue liviana. */
   const allRows = stockRowsData();
   const ccDue = isCycleCountDue();
   const ccDueIds = cycleCountDueIds();
   const filterCategory = inventoryCategoryFilter ? categories.find(c=>c.id===inventoryCategoryFilter) : null;
-  // INVERSIÓN 2026-09-04 (pedido del usuario): Inventario muestra SIEMPRE el
-  // catálogo completo — el filtro "solo lo que toca contar" se mudó al Dashboard,
-  // que ahora lista únicamente los pendientes de conteo. Acá los pendientes solo
-  // parpadean (cc-due-blink) y el banner sigue abriendo el conteo.
-  // La lupa vive ACÁ (pedido del usuario, captura 2026-09-04): se busca donde
-  // están todos los ítems. Filtra también dentro de una categoría abierta.
-  const rows = (filterCategory
-    ? allRows.filter(r=>r.ing.categoryId===filterCategory.id)
-    : allRows).filter(r=>invMatches(r.ing.name, invSearch));
+  const sellRows = allRows.filter(r=>!isExpenseItem(r.ing));
+  const quick = { crit: sellRows.filter(r=>r.status==='crit'), count: sellRows.filter(r=>ccDueIds.has(r.ing.id)), nophoto: sellRows.filter(r=>!itemPhotoSrc(r.ing)) };
+  const searching = !!invSearch.trim();
+  let rows = filterCategory ? allRows.filter(r=>r.ing.categoryId===filterCategory.id) : allRows;
+  if(invQuickFilter && quick[invQuickFilter]){ const ids = new Set(quick[invQuickFilter].map(r=>r.ing.id)); rows = rows.filter(r=>ids.has(r.ing.id)); }
+  rows = invSortRows(rows.filter(r=>invMatches(r.ing.name, invSearch)));
   const groups = groupRowsByCategory(rows);
-  // Valor total del inventario (cantidad × costo de cada producto) — vive arriba a
-  // la izquierda, encima de la calculadora. Reemplaza al título "Inventario"
-  // (pedido del usuario: la pestaña de abajo ya dice dónde estás, no repetirlo);
-  // el nombre del negocio, si existe, queda encima del valor.
+  const total = sellRows.length;
   const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
+  const fmt = (n)=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const withSale = inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0);
+  const missingSale = inventory.filter(i=>!i.expenseOnly && !(i.salePrice>0) && (i.qtyOnHand||0)>0).length;
+  const potential = withSale.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
+  const ocTotal = orderCalcTotal();
+  const countSvg = '<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>';
+  const sortIcon = '<svg viewBox="0 0 20 20" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 4v12M6 16l-3-3M6 16l3-3M14 16V4M14 4l-3 3M14 4l3 3"/></svg>';
+  const quickChip = (k, label)=>{ const n = quick[k].length; return `<button type="button" class="category-chip quick ${invQuickFilter===k?'on':''} ${n===0?'zero':''}" data-inv-quick="${k}" aria-pressed="${invQuickFilter===k}">${label}<span>${n}</span></button>`; };
+  const groupHtml = (g)=>{
+    const key = invGroupKey(g);
+    // Con búsqueda o filtro rápido no se pliega ni se recorta: el usuario está buscando algo.
+    const collapsed = !searching && !invQuickFilter && invCollapsed.has(key);
+    const canTrim = !searching && !invQuickFilter && g.rows.length > INV_GROUP_PREVIEW && !invExpanded.has(key);
+    const shown = canTrim ? g.rows.slice(0, INV_GROUP_PREVIEW) : g.rows;
+    const moreBtn = canTrim
+      ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_more').replace('{n}', g.rows.length-INV_GROUP_PREVIEW)} ▾</button>`
+      : (invExpanded.has(key) && g.rows.length > INV_GROUP_PREVIEW ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_less')} ▴</button>` : '');
+    return `
+      <div class="category-group-header inv-group ${collapsed?'collapsed':''}" data-inv-group="${key}" role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${t('inv_group_toggle_aria')}">${escapeHtml(g.name)} <span>${g.rows.length}</span><span class="inv-chev">▾</span></div>
+      ${collapsed ? '' : `<div class="inv-grid ${invLayout}" style="margin-bottom:${moreBtn ? 4 : 16}px;">${shown.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>${moreBtn}`}`;
+  };
+  const toolbar = invLayoutToggleHtml().replace('</div>', `
+          <span class="inv-sort-wrap ${invSort!=='name'?'on':''}" title="${t('inv_sort_label')}">${sortIcon}
+            <select id="inv-sort" aria-label="${t('inv_sort_label')}">
+              <option value="name" ${invSort==='name'?'selected':''}>${t('inv_sort_name')}</option>
+              <option value="stock" ${invSort==='stock'?'selected':''}>${t('inv_sort_stock')}</option>
+              <option value="value" ${invSort==='value'?'selected':''}>${t('inv_sort_value')}</option>
+            </select>
+          </span></div>`);
   return `
-  <div class="section-head">
-    <div style="min-width:0;flex:1 1 100%;">${filterCategory ? `<h2>${escapeHtml(filterCategory.name)}</h2>` : ''}</div>
-    ${/* El FAB del escáner de estante va ANTES que la fila de botones (pedido del
-         usuario: el menú debajo del escáner) y en su propia fila a la derecha,
-         calibrado para quedar en la MISMA posición de pantalla (alto Y ancho) que el
-         botón de escanear del Dashboard — al deslizar entre pestañas, los dos
-         escáneres laten en el mismo punto. Medido a 375px, ver .shelf-fab-row. */''}
-    ${/* Columna izquierda del hueco junto al escáner: Valor del inventario arriba
-         y la calculadora debajo, apilados — espejo de la columna de gasto del
-         Dashboard. El valor DENTRO de la fila (no en el encabezado) evita el
-         bloque flotante con aire muerto que quedaba arriba. */''}
-    ${!filterCategory ? `<div class="shelf-fab-row">${inventory.length>0 ? `
-      <div class="inv-left-col">
-        ${canSeeFinancials() ? (()=>{
-          // Potencial de venta: qty × precio de venta de cada producto que lo
-          // tiene puesto. Los que no tienen precio de venta no suman (y se avisa
-          // cuántos faltan) — mejor un potencial honesto-parcial que uno inflado
-          // mezclando costos. expenseOnly no participa (qty 0 por diseño).
-          const withSale = inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0);
-          const missingSale = inventory.filter(i=>!i.expenseOnly && !(i.salePrice>0) && (i.qtyOnHand||0)>0).length;
-          const potential = withSale.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
-          return `
-        <div>
-          <div class="inv-value-label">${t('inv_value_label')}</div>
-          <div class="inv-total-value">$${invValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-          ${potential>0 ? `
-          <div class="inv-potential">
-            <span class="inv-potential-label">🏷 ${t('inv_potential_label')}</span>
-            <span class="inv-potential-value">$${potential.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-            ${missingSale>0 ? `<span class="inv-potential-note">${t('inv_potential_missing').replace('{n}', missingSale)}</span>` : ''}
-          </div>` : ''}
-        </div>`;
-        })() : ''}
-        ${orderCalcCard()}
-      </div>` : ''}${shelfScanFab()}</div>` : ''}
-    ${/* Los chips de categoría viven acá desde el intercambio 2026-09-04 (el
-         menú de botones se fue al Dashboard, ver inventoryMenuRow): filtran la
-         lista que tienen justo debajo. */''}
-    ${inventory.length>0 && categories.length>0 && !filterCategory ? categoryChipsRow() : ''}
-  </div>
-  ${/* Producción y escáner de estante (app-08) viven arriba como los dos botones
-       redondos junto al título — las recetas se abren en su propio modal (hub). */''}
-  ${filterCategory ? `
-  <div class="alert-banner" id="category-filter-banner" style="background:var(--navy-wash);border-color:transparent;color:var(--navy-ink);justify-content:space-between;">
-    <span>${t('inv_filtered_by_category').replace('{name}', escapeHtml(filterCategory.name))}</span>
-    <button type="button" class="link-btn" id="btn-clear-category-filter" style="padding:0;color:var(--navy-ink);">${t('btn_clear_category_filter')}</button>
-  </div>` : (ccDue && inventory.length>0 ? `
-  ${/* Sin la caja .alert-banner (pedido del usuario, captura 2026-09-04): el
-       aviso de conteo es una línea suelta — mismo tap, mismo destino. */''}
-  <div id="cc-banner" role="button" tabindex="0" style="cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--tomato-ink);font-size:13.5px;font-weight:600;margin:0 2px 14px;">
-    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
-    <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
-  </div>` : '')}
+  ${inventory.length>0 && canSeeFinancials() ? `
+  <div class="inv-stats">
+    <div class="inv-stat"><div class="inv-stat-label">${t('inv_value_label')}</div><div class="inv-stat-value">${fmt(invValue)}</div></div>
+    <div class="inv-stat"><div class="inv-stat-label">🏷 ${t('inv_potential_label')}</div><div class="inv-stat-value">${fmt(potential)}</div>${missingSale>0 ? `<div class="inv-stat-note">${t('inv_potential_missing').replace('{n}', missingSale)}</div>` : ''}</div>
+  </div>` : ''}
+  ${inventory.length>0 ? `
+  <div class="inv-tools">
+    ${/* Pedido: mismo id oc-card que la tarjeta vieja — attachOrderCalcEvents lo abre. */''}
+    <button type="button" class="inv-tool" id="oc-card" aria-expanded="${orderCalcOpen}" title="${t('oc_card_label')}">
+      <span class="inv-tool-ring" style="background:var(--saffron-soft);color:var(--saffron-ink);">🧮</span>
+      ${ocTotal>0 ? `<span class="inv-tool-badge">${money(ocTotal)}</span>` : ''}
+      <span class="inv-tool-label">${t('inv_tool_order')}</span>
+    </button>
+    ${/* Conteo: mismo id cc-banner que la línea roja vieja — abre el conteo cíclico. */''}
+    <button type="button" class="inv-tool" id="cc-banner" title="${t('cc_btn')}">
+      <span class="inv-tool-ring" style="background:var(--tomato-soft);color:var(--tomato);">${countSvg}</span>
+      ${ccDue ? '<span class="inv-tool-dot"></span>' : ''}
+      <span class="inv-tool-label">${t('inv_tool_count')}</span>
+    </button>
+    ${shelfScanFab()}
+  </div>` : ''}
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
       `<button type="button" class="btn btn-primary" id="btn-inv-empty-scan">${t('dash_empty_scan_btn')}</button>
-       <button type="button" class="btn btn-ghost" id="btn-inv-empty-manual">${t('dash_empty_manual_btn')}</button>`)) : (
-    // Sin la caja .stock-card alrededor: las tarjetas ya son cajas por sí
-    // mismas — caja dentro de caja era redundante (captura del usuario). La
-    // lupa a la izquierda (margin-right:auto de .inv-search-wrap) y el selector
-    // de vista a la derecha — la barra se renderiza AUNQUE la búsqueda no
-    // encuentre nada, para poder borrar lo tipeado.
-    `<div class="inv-toolbar" style="align-items:center;gap:8px;">
-      <div class="inv-search-wrap">
-        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="inv-search" type="search" value="${escapeHtml(invSearch)}" aria-label="${t('inv_search_aria')}" autocomplete="off">
+       <button type="button" class="btn btn-ghost" id="btn-inv-empty-manual">${t('dash_empty_manual_btn')}</button>`)) : `
+    <div class="inv-sticky">
+      <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
+        <div class="inv-search-wrap">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="inv-search" type="search" value="${escapeHtml(invSearch)}" placeholder="${t('inv_search_ph').replace('{n}', total)}" aria-label="${t('inv_search_aria')}" autocomplete="off">
+        </div>
+        ${toolbar}
       </div>
-      ${invLayoutToggleHtml()}
-    </div>` + (
-    rows.length===0
-      ? (invSearch.trim() ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
+    </div>
+    <div class="inv-chips">
+      ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
+    </div>
+    ${categories.length>0 ? categoryChipsRow() : ''}
+    ${rows.length===0
+      ? (searching || invQuickFilter ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
         : (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))))
-      : (groups.length>1
-      ? groups.map(g=>`
-        <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
-        <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>
-      `).join('')
-      : `<div class="inv-grid ${invLayout}">${rows.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>`))
-  )}
+      : groups.map(groupHtml).join('')}
+  `}
   `;
 }
 

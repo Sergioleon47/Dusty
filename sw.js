@@ -232,7 +232,12 @@
 // todo se aplica al instante (sin Guardar/Cancelar), Publicación vuelve a
 // Ajustes, Compartir cuenta también en Cuenta, y el respaldo exporta la
 // configuración del catálogo — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v80';
+// v81: INVENTARIO reorganizado (maqueta aprobada 2026-09-07, para 100+
+// productos): franja Valor/Potencial, fila de herramientas con nombre (Pedido,
+// Conteo, Escanear estante sin badge), buscador fijo con vista y orden, filtros
+// rápidos Crítico/Toca contar/Sin foto, chips con "Todos", grupos plegables y
+// "ver los restantes" — app-03/05/07/08 + css.
+const CACHE_NAME = 'patron-shell-v81';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

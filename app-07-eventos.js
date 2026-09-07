@@ -1957,6 +1957,31 @@ function attachEvents(){
       render();
     };
   });
+  // Inventario reorganizado (maqueta 2026-09-07): orden, filtros rápidos, chip
+  // "Todos", grupos plegables y "ver los restantes".
+  const invSortSel=document.getElementById('inv-sort');
+  if(invSortSel) invSortSel.onchange=()=>{
+    invSort=invSortSel.value;
+    try{ localStorage.setItem('patron_inv_sort', invSort); }catch(e){}
+    invLayoutTransitionPending=true; render();
+  };
+  document.querySelectorAll('[data-inv-quick]').forEach(b=>{
+    b.onclick=()=>{ const k=b.dataset.invQuick; invQuickFilter = (invQuickFilter===k) ? null : k; render(); };
+  });
+  const invAllChip=document.querySelector('[data-inv-all]');
+  if(invAllChip) invAllChip.onclick=()=>{ inventoryCategoryFilter=null; render(); };
+  document.querySelectorAll('[data-inv-group]').forEach(h=>{
+    h.onclick=()=>{
+      const k=h.dataset.invGroup;
+      if(invCollapsed.has(k)) invCollapsed.delete(k); else invCollapsed.add(k);
+      try{ localStorage.setItem('patron_inv_collapsed', JSON.stringify([...invCollapsed])); }catch(e){}
+      render();
+    };
+    h.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); h.click(); } };
+  });
+  document.querySelectorAll('[data-inv-more]').forEach(b=>{
+    b.onclick=()=>{ const k=b.dataset.invMore; if(invExpanded.has(k)) invExpanded.delete(k); else invExpanded.add(k); render(); };
+  });
   // Tarjeta-botón del inventario: tocar el ítem abre su ficha (editar/eliminar).
   document.querySelectorAll('[data-open-item]').forEach(el=>{
     el.onclick=()=>{
