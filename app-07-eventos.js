@@ -108,6 +108,7 @@ function promptItemPhotoUpload(item, afterSet, useCamera){
       // con una vieja de otra foto.
       delete item.photoHiUrl;
       saveState();
+      if(item.inCatalog) scheduleCatalogAutoPublish();
       if(afterSet) afterSet();
       render();
     }catch(err){
@@ -616,8 +617,6 @@ function attachEvents(){
       if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
       else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
     };
-    const btnPublishSettings=document.getElementById('btn-catalog-publish-settings');
-    if(btnPublishSettings) btnPublishSettings.onclick=()=>{ showCatalogPublishModal=true; render(); };
     const publishOverlay=document.getElementById('catalog-publish-overlay');
     if(publishOverlay){
       publishOverlay.onmousedown=(e)=>{ if(e.target===publishOverlay){ showCatalogPublishModal=false; render(); } };
@@ -645,6 +644,7 @@ function attachEvents(){
         target.inCatalog=!target.inCatalog;
         if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
         saveState();
+        scheduleCatalogAutoPublish();
         render();
       };
     });
@@ -724,6 +724,7 @@ function attachEvents(){
           catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
           catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
           saveState();
+          scheduleCatalogAutoPublish();
           uploadCatalogHiRes(target, kind, hiFull, hiEdit, hiFilter);
           // La foto de una receta viaja por Storage (meta solo lleva la referencia).
           if(kind==='recipe') uploadRecipePhoto(target);
@@ -992,6 +993,8 @@ function attachEvents(){
     };
     // "Cuenta": submodal con respaldo local, borrar cuenta y privacidad —
     // Ajustes queda compacto y al cerrar Cuenta se vuelve acá.
+    const btnOpenCatalogPublish=document.getElementById('btn-open-catalog-publish');
+    if(btnOpenCatalogPublish) btnOpenCatalogPublish.onclick=()=>{ showAlertSettingsModal=false; showCatalogPublishModal=true; render(); };
     const btnOpenAccount=document.getElementById('btn-open-account');
     if(btnOpenAccount) btnOpenAccount.onclick=()=>{ settingsReturnPending=true; showAlertSettingsModal=false; showAccountModal=true; render(); };
   }

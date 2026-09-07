@@ -132,7 +132,11 @@
 // el medio — comparación del usuario con la hoja de iOS); los ajustes de
 // Publicación viven en un engranaje junto al encabezado, siempre visible —
 // app-05/07.
-const CACHE_NAME = 'patron-shell-v49';
+// v50: el engranaje se borra de raíz — PUBLICACIÓN AUTOMÁTICA (cada cambio del
+// catálogo republica solo a los 4s, silencioso, con toast "Catálogo
+// actualizado"); la config de una vez vive en la primera publicación
+// (Compartir) y después en Ajustes → Publicación del catálogo — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v50';
 
 const PRECACHE_URLS = [
   '/',

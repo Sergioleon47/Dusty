@@ -1473,6 +1473,10 @@ function alertSettingsModal(){
            propio submodal (pedido del usuario 2026-09-04: Ajustes más
            compacto) — vuelve acá al cerrarse, como Categorías y el Conteo. */''}
       <div class="settings-card">
+        ${/* Publicación del catálogo: la config de una vez (WhatsApp, canales,
+             redes) y despublicar viven acá desde que el engranaje de la pestaña
+             se borró — la publicación diaria es automática. */''}
+        <button class="btn btn-ghost btn-sm" id="btn-open-catalog-publish" style="width:100%;margin-bottom:8px;">${t('settings_catalog_btn')}</button>
         <button class="btn btn-ghost btn-sm" id="btn-open-account" style="width:100%;">${t('account_btn')}</button>
       </div>
 
@@ -1946,6 +1950,17 @@ function resolveCatalogSuggestion(res){
   return null;
 }
 function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
+/* PUBLICACIÓN AUTOMÁTICA (2026-09-06, "borra ese settings de raíz"): con el
+   catálogo ya publicado, cada cambio relevante (selección, foto asignada, alta
+   subida) agenda una republicación silenciosa a los 4s — los cambios seguidos
+   se agrupan en una sola. La PRIMERA publicación sigue siendo explícita (el
+   modal de Compartir), que es donde se configuran número, canales y redes. */
+let catalogAutoPublishTimer = null;
+function scheduleCatalogAutoPublish(){
+  if(!catalogId || !currentUser || currentUser.isAnonymous) return;
+  clearTimeout(catalogAutoPublishTimer);
+  catalogAutoPublishTimer = setTimeout(()=>{ publishCatalogNow(true); }, 4000);
+}
 /* Los 4 filtros de edición más usados (pedido del usuario 2026-09-06), a puro
    píxel (getImageData) a propósito: ctx.filter no existe en Safari viejo y los
    thumbnails de 300px hacen esto instantáneo en cualquier teléfono.
@@ -2048,14 +2063,11 @@ function catalogoView(){
     ${/* Sin tarjeta contenedora (el usuario la tachó, captura 2026-09-06): los
          círculos flotan directo sobre la página, cada uno ya trae su sombra. */''}
     <div style="margin:16px 0 6px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin:0 2px 10px;">
-        <span style="font-size:13px;font-weight:800;color:var(--ink);">${t('catalog_tools_header')}</span>
-        ${/* Engranaje de Publicación SIEMPRE a mano (también sin productos):
-             WhatsApp, canales, redes, publicar/actualizar y despublicar. */''}
-        <button type="button" id="btn-catalog-publish-settings" aria-label="${t('catalog_publish_header')}" title="${t('catalog_publish_header')}" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--raised);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
-          <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </button>
-      </div>
+      ${/* SIN engranaje (el usuario lo borró de raíz): la publicación es
+           AUTOMÁTICA — cada cambio del catálogo se publica solo (ver
+           scheduleCatalogAutoPublish). La config de una vez vive en la primera
+           publicación (Compartir) y después en Ajustes generales. */''}
+      <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 10px;">${t('catalog_tools_header')}</div>
       <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;padding:2px 0;">
         ${/* Orden (pedido del usuario 2026-09-06): la CÁMARA primera desde la
              DERECHA — donde cae el pulgar. */''}
@@ -2219,6 +2231,9 @@ async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
     if(res && res.url){
       target.photoHiUrl = res.url;
       saveState();
+      // La alta llegó DESPUÉS de la auto-publicación del asignado: se agenda
+      // otra para que el catálogo público apunte a la versión nítida.
+      scheduleCatalogAutoPublish();
     }
   }catch(err){
     console.warn('[Dusty] la foto en alta no se pudo subir (el catálogo usará la normal):', err.message || err);
@@ -2320,10 +2335,10 @@ function catalogEditorModal(){
     </div>
   </div>`;
 }
-async function publishCatalogNow(){
+async function publishCatalogNow(auto){
   // Publicar necesita cuenta REAL: el link es permanente y las fotos quedan
   // públicas — una sesión anónima de prueba no debería dejar rastros públicos.
-  if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
+  if(!currentUser || currentUser.isAnonymous){ if(!auto) openUpgradeModal(t('catalog_needs_account_note')); return; }
   const waEl = document.getElementById('catalog-wa-input');
   if(waEl) catalogWhatsApp = waEl.value.trim();
   const items = [];
@@ -2369,10 +2384,12 @@ async function publishCatalogNow(){
     catalogId = data.catalogId;
     saveState();
     logActivity('catalog_published', '', String(data.itemCount||items.length));
-    showToast(t('catalog_published_toast'));
+    showToast(t(auto ? 'catalog_auto_updated' : 'catalog_published_toast'));
   }catch(e){
     console.error('[Dusty] no se pudo publicar el catálogo:', e);
-    showToast(t('catalog_error'), 'error');
+    // En automático los errores no molestan (sin señal pasa): el próximo cambio
+    // vuelve a agendar. En manual sí se avisa.
+    if(!auto) showToast(t('catalog_error'), 'error');
   }
   catalogPublishing = false; render();
 }
