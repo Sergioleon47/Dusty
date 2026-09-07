@@ -546,31 +546,14 @@ function attachEvents(){
     // nativa del teléfono ofrece "Tomar foto" y "Fototeca" en el mismo toque.
     const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
     if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>openCatalogPhotoPicker(false);
-    // COLLAGE (pedido del usuario 2026-09-06): 2 a 4 fotos de la galería se
-    // componen en UNA imagen (lado a lado / 1+2 / 2x2 con separador blanco) y el
-    // resultado entra al flujo normal — editor, filtros, IA y asignar.
+    // COLLAGE — DISEÑO PRIMERO (pedido del usuario 2026-09-06): tocar Collage
+    // abre el menú de layouts; elegir uno dispara el selector de fotos con la
+    // cantidad exacta que ese diseño necesita.
     const btnCatalogCollage=document.getElementById('btn-catalog-collage');
     if(btnCatalogCollage) btnCatalogCollage.onclick=()=>{
-      const input=document.createElement('input');
-      input.type='file'; input.accept='image/*'; input.multiple=true;
-      input.style.display='none';
-      document.body.appendChild(input);
-      input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
-      input.onchange=async ()=>{
-        const files=[...input.files].filter(f=>/^image\//.test(f.type)).slice(0,4);
-        if(input.parentNode) input.parentNode.removeChild(input);
-        if(files.length<2){ showToast(t('catalog_collage_min'), 'info'); return; }
-        try{
-          const imgs=[];
-          for(const f of files) imgs.push(await loadImageFromFile(f));
-          // Con las fotos cargadas, se abre el SELECTOR DE DISEÑOS (referencia
-          // del usuario: la galería de layouts de las apps de collage).
-          collageImgsCache = imgs;
-          showCollageLayoutModal = true;
-          render();
-        }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
-      };
-      input.click();
+      collageImgsCache=[]; collageChosenLayout=null;
+      showCollageLayoutModal=true;
+      render();
     };
     // Patrón iOS Fotos: "Seleccionar" alterna el modo; sin modo, tocar ABRE la
     // foto completa; con modo, tocar marca/desmarca para el catálogo.
@@ -618,17 +601,40 @@ function attachEvents(){
         render();
       };
     });
-    // Selector de diseño del collage: tocar uno compone y entra al flujo normal.
+    // Selector de diseño del collage: elegir uno abre las fotos (la cantidad
+    // que pide el diseño), y con ellas compone y entra al flujo normal.
     const collageOverlay=document.getElementById('collage-layout-overlay');
     if(collageOverlay){
-      const dropCollage=()=>{ collageImgsCache=[]; showCollageLayoutModal=false; render(); };
+      const dropCollage=()=>{ collageImgsCache=[]; collageChosenLayout=null; showCollageLayoutModal=false; render(); };
       collageOverlay.onmousedown=(e)=>{ if(e.target===collageOverlay) dropCollage(); };
       const btnCancelCollage=document.getElementById('btn-cancel-collage');
       if(btnCancelCollage) btnCancelCollage.onclick=dropCollage;
       document.querySelectorAll('[data-collage-layout]').forEach(lb=>{
-        lb.onclick=async ()=>{
+        lb.onclick=()=>{
+          collageChosenLayout=lb.dataset.collageLayout;
+          const need=collageLayoutCount(collageChosenLayout);
+          const input=document.createElement('input');
+          input.type='file'; input.accept='image/*'; input.multiple=true;
+          input.style.display='none';
+          document.body.appendChild(input);
+          input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
+          input.onchange=async ()=>{
+            const files=[...input.files].filter(f=>/^image\//.test(f.type)).slice(0, need);
+            if(input.parentNode) input.parentNode.removeChild(input);
+            if(files.length<need){ showToast(t('catalog_collage_need_n').replace('{n}', need), 'info'); return; }
+            try{
+              const imgs=[];
+              for(const f of files) imgs.push(await loadImageFromFile(f));
+              collageImgsCache=imgs;
+              await finishCollage(collageChosenLayout);
+            }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
+          };
+          input.click();
+        };
+      });
+      const finishCollage=async (layoutId)=>{
           try{
-            const composite = await composeCollageLayout(lb.dataset.collageLayout);
+            const composite = await composeCollageLayout(layoutId);
             catalogEditFull = composite;
             const compImg = await loadB64Image(composite);
             catalogPendingOriginal = resizeToBase64(compImg, 300, 0.75);
@@ -642,7 +648,6 @@ function attachEvents(){
             render();
           }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
         };
-      });
     }
     // El visor se cierra tocando en cualquier lado.
     const catalogViewerEl=document.getElementById('catalog-photo-viewer');

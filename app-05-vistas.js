@@ -2052,7 +2052,6 @@ function catalogoView(){
         </button>`;
       const ring = (svg, bg, fg, on)=>`
         <span style="width:54px;height:54px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform .15s;${on?'outline:3px solid var(--sky);outline-offset:2px;':''}">${svg}</span>`;
-      const selSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
       const shareSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>';
       const collageSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>';
       return `
@@ -2073,7 +2072,6 @@ function catalogoView(){
              (pedido del usuario: "eso ahí está demasiado"): sin capture, el
              teléfono ofrece Tomar foto y Fototeca en la misma hoja nativa. */''}
         ${tool('btn-catalog-collage', ring(collageSvg, 'linear-gradient(145deg, var(--tomato-soft, #4a2a28), var(--panel))', 'var(--tomato)'), t('catalog_tool_collage'))}
-        ${tool('btn-catalog-select', ring(selSvg, catalogSelectMode?'linear-gradient(145deg, var(--basil), var(--sky-bright))':'linear-gradient(145deg, var(--saffron-soft), var(--panel))', catalogSelectMode?'#fff':'var(--saffron-ink)', catalogSelectMode), catalogSelectMode?t('catalog_select_done'):t('catalog_select_btn'))}
         ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
         <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
           <span class="shelf-fab-wrap" style="display:inline-block;">
@@ -2090,7 +2088,12 @@ function catalogoView(){
     : `
     ${/* Misma organización que el Inventario: grupos por categoría y las mismas
          tarjetas en la grilla fila/2col/3col con el selector compartido. */''}
-    <div class="inv-toolbar" style="justify-content:flex-end;align-items:center;">${invLayoutToggleHtml()}</div>
+    ${/* Seleccionar vive a la IZQUIERDA de esta fila (donde lo señaló el
+         usuario, captura 2026-09-06), frente al selector de vista. */''}
+    <div class="inv-toolbar" style="justify-content:space-between;align-items:center;gap:8px;">
+      <button type="button" class="exit-reason-chip ${catalogSelectMode?'on':''}" id="btn-catalog-select" style="font-weight:800;font-size:13.5px;padding:8px 16px;">${catalogSelectMode ? '✓ '+t('catalog_select_done') : t('catalog_select_btn')}</button>
+      ${invLayoutToggleHtml()}
+    </div>
     ${catalogSelectMode ? `<div class="helper-note" style="margin:2px 0 6px;">${t('catalog_select_hint')}</div>` : ''}
     ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
@@ -2112,7 +2115,12 @@ function catalogoView(){
    sobre fondo de estudio. Curado para fotos de producto. */
 let showCollageLayoutModal = false;
 let collageImgsCache = []; // elementos Image — viven acá, no en estado serializable
+let collageChosenLayout = null; // el diseño elegido ANTES de elegir las fotos
 const COLLAGE_LAYOUTS = { 2:['v2','h2','pin2'], 3:['bigL3','cols3','pin3'], 4:['grid4','bigT4','pin4'] };
+function collageLayoutCount(id){
+  for(const n of [2,3,4]) if(COLLAGE_LAYOUTS[n].indexOf(id)!==-1) return n;
+  return 2;
+}
 function collagePreviewSvg(id){
   const r=(x,y,w,h,rot)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="none" stroke="currentColor" stroke-width="2.4" ${rot?`transform="rotate(${rot} ${x+w/2} ${y+h/2})"`:''}/>`;
   const map={
@@ -2129,16 +2137,19 @@ function collagePreviewSvg(id){
   return `<svg viewBox="0 0 66 60" width="72" height="66" style="color:var(--ink);">${map[id]||''}</svg>`;
 }
 function collageLayoutModal(){
-  const n = Math.min(4, Math.max(2, collageImgsCache.length));
-  const opts = COLLAGE_LAYOUTS[n] || COLLAGE_LAYOUTS[2];
+  // DISEÑO PRIMERO (pedido del usuario 2026-09-06: al tocar Collage saltaba el
+  // selector de archivos — debía salir el menú de diseños): se muestran TODOS
+  // los layouts agrupados por cantidad de fotos; elegir uno abre las fotos.
   return `
   <div class="overlay" id="collage-layout-overlay">
     <div class="modal">
       <h3 class="sky">${t('catalog_collage_pick')}</h3>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:14px;">
-        ${opts.map(id=>`
-        <button type="button" data-collage-layout="${id}" style="background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;">${collagePreviewSvg(id)}</button>`).join('')}
-      </div>
+      ${[2,3,4].map(n=>`
+      <div style="font-size:12.5px;font-weight:800;color:var(--ink-soft);margin:14px 2px 8px;">${n} ${t('catalog_collage_photos')}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${COLLAGE_LAYOUTS[n].map(id=>`
+        <button type="button" data-collage-layout="${id}" style="background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;">${collagePreviewSvg(id)}</button>`).join('')}
+      </div>`).join('')}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-collage" style="width:100%;">${t('btn_cancel')}</button>
       </div>

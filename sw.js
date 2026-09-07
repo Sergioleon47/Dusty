@@ -141,7 +141,10 @@
 // dusty.css.
 // v52: Galería se fusiona en la Cámara (sin capture → la hoja nativa ofrece
 // Tomar foto y Fototeca en un toque); quedan 4 herramientas — app-03/05/07.
-const CACHE_NAME = 'patron-shell-v52';
+// v53: Collage con DISEÑO PRIMERO (tocar Collage abre el menú de 9 layouts y
+// recién el elegido pide sus fotos) y Seleccionar se muda a la izquierda de la
+// fila del selector de vista (donde lo señaló el usuario) — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v53';
 
 const PRECACHE_URLS = [
   '/',
