@@ -27,7 +27,19 @@
     --navy-wash:color-mix(in srgb, var(--navy) 15%, var(--panel));
     --sky:var(--basil); --sky-bright:#7fe9bb; --sky-soft:color-mix(in srgb, var(--basil) 12%, var(--panel));
     --radius:14px;
-    --stock-ok:var(--basil); --stock-warn:var(--saffron); --stock-crit:var(--tomato);
+    /* ===== COLORES DE DINERO (pedido del usuario 2026-09-06): montos, signos de
+       dinero, porcentajes y barras SIEMPRE verdes/rojos/ámbar, en TODOS los
+       temas. Estos tokens NO se tocan en los bloques de tema (solo la base
+       clara los oscurece un punto por contraste) — así un tema con acento verde
+       o rojo no "se come" el significado de ganancia/pérdida/alerta. ===== */
+    --money-pos:#3ddc97; --money-neg:#ff5c5c; --money-warn:#f5a623;
+    --money-pos-ink:color-mix(in oklch, var(--money-pos), white 25%);
+    --money-neg-ink:color-mix(in oklch, var(--money-neg), white 30%);
+    --money-pos-soft:color-mix(in srgb, var(--money-pos) 15%, var(--panel));
+    --money-neg-soft:color-mix(in srgb, var(--money-neg) 15%, var(--panel));
+    --money-warn-ink:color-mix(in oklch, var(--money-warn), white 28%);
+    --money-warn-soft:color-mix(in srgb, var(--money-warn) 15%, var(--panel));
+    --stock-ok:var(--money-pos); --stock-warn:var(--money-warn); --stock-crit:var(--money-neg);
     /* Superficies intermedias del tema oscuro: --inset se hunde respecto al panel
        (inputs, tarjetas de configuración dentro de modales); --raised sobresale
        (botones redondos, thumbs); --raised-2 es su estado hover/presionado. */
@@ -128,6 +140,12 @@
     color-scheme:light;
     --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
     --tomato:#e04545; --saffron:#c8860d; --basil:#0e9f6e; --sky-bright:#0a8f63;
+    /* Dinero sobre fondo claro: mismos tres significados, un punto más oscuros
+       para pasar contraste; las tintas se OSCURECEN (no aclaran) en claro. */
+    --money-pos:#0e9f6e; --money-neg:#e04545; --money-warn:#d97706;
+    --money-pos-ink:color-mix(in oklch, var(--money-pos), black 15%);
+    --money-neg-ink:color-mix(in oklch, var(--money-neg), black 12%);
+    --money-warn-ink:color-mix(in oklch, var(--money-warn), black 12%);
     --tomato-ink:color-mix(in oklch, var(--tomato), black 18%);
     --sky-ink:color-mix(in oklch, var(--basil), black 18%);
     --saffron-ink:color-mix(in oklch, var(--saffron), black 15%);
@@ -141,9 +159,8 @@
      veía "raro" (captura del usuario 2026-09-06, botón Guardar tachado): en
      ESTOS TRES el saffron pasa a ser el ACENTO del tema — el botón primario,
      la campanita, el hoy del calendario y todo lo demás toman el color del
-     tema y el mostaza desaparece. Solo en Menta las barras de stock en alerta
-     conservan un durazno propio: si no, "en alerta" y "todo bien" serían los
-     dos verdes y no se distinguirían. */
+     tema y el mostaza desaparece. (Las barras y montos de dinero no se ven
+     afectados: usan los tokens --money-* fijos de :root.) */
   html[data-dusty-theme="claro"]{
     --navy:#e85d24; --navy-soft:#f07b47; --saffron:var(--navy);
     --bg:#f3f4f8; --panel:#ffffff; --inset:#eaecf2; --raised:#f2f3f7; --raised-2:#e9ebf1; --line:#dfe3ea;
@@ -154,16 +171,16 @@
     --ink:#2b2318; --ink-soft:#8a7c66; --ink-mid:#54483a;
   }
   html[data-dusty-theme="menta"]{
-    --navy:#0fa37f; --navy-soft:#3cbf9a; --saffron:var(--navy); --stock-warn:#e28f4a;
+    --navy:#0fa37f; --navy-soft:#3cbf9a; --saffron:var(--navy);
     --bg:#eef6f1; --panel:#ffffff; --inset:#e3efe8; --raised:#f0f7f3; --raised-2:#e6f0ea; --line:#d6e5dc;
   }
   /* --- Claros de las paletas del usuario (mismas reglas: solo colores de la
      paleta, mezclados entre sí o con blanco/negro para las superficies). --- */
   html[data-dusty-theme="pastel"]{ /* gatito: 87AEEE/F8D3FF/FFD8CC/C4EEFF */
     /* saffron = acento (mismo mostaza de la base que el usuario tachó en los
-       otros claros); stock-warn durazno: un aviso azul no se leería como aviso. */
+       otros claros). */
     --navy:color-mix(in oklch, #87AEEE, black 25%); --navy-soft:#87AEEE;
-    --saffron:var(--navy); --stock-warn:#e28f4a;
+    --saffron:var(--navy);
     --bg:color-mix(in srgb, #C4EEFF 40%, white); --panel:#ffffff; --inset:color-mix(in srgb, #C4EEFF 55%, white);
     --raised:color-mix(in srgb, #F8D3FF 40%, white); --raised-2:color-mix(in srgb, #FFD8CC 55%, white);
     --line:color-mix(in srgb, #87AEEE 32%, white);
@@ -177,10 +194,9 @@
     --line:color-mix(in srgb, #752FFF 20%, white);
   }
   html[data-dusty-theme="coral"]{ /* Fujifilm: FF5844/A8D3F2/F7D78C/AFC3A8 */
-    /* saffron = acento (el amarillo apagado tachado por el usuario, 2026-09-06);
-       stock-warn durazno aparte: acento y crítico son rojos casi iguales. */
+    /* saffron = acento (el amarillo apagado tachado por el usuario, 2026-09-06). */
     --navy:#FF5844; --navy-soft:color-mix(in oklch, #FF5844, white 14%);
-    --basil:color-mix(in oklch, #AFC3A8, black 30%); --saffron:var(--navy); --stock-warn:#e28f4a;
+    --basil:color-mix(in oklch, #AFC3A8, black 30%); --saffron:var(--navy);
     --bg:color-mix(in srgb, #F7D78C 20%, white); --panel:#ffffff; --inset:color-mix(in srgb, #A8D3F2 24%, white);
     --raised:color-mix(in srgb, #A8D3F2 16%, white); --raised-2:color-mix(in srgb, #A8D3F2 28%, white);
     --line:color-mix(in srgb, #A8D3F2 48%, white);
@@ -374,7 +390,7 @@
 
   .mono-cell{font-family:'IBM Plex Mono';}
 
-  .price-updated{display:inline-block;background:var(--basil-soft);color:var(--basil);font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px;}
+  .price-updated{display:inline-block;background:var(--money-pos-soft);color:var(--money-pos);font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px;}
 
   .link-btn{background:none;border:none;color:var(--navy-ink);font-weight:600;font-size:13px;cursor:pointer;padding:8px;transition:opacity .15s ease;}
   .link-btn:hover{text-decoration:underline;}
@@ -929,7 +945,7 @@
   /* Etiqueta del valor: con color y algo más grande que un stat-label (pedido del
      usuario) — misma familia verde que el monto, se leen como una sola pieza. */
   .inv-value-label{font-size:13px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
-    color:var(--basil);opacity:.8;}
+    color:var(--money-pos);opacity:.8;}
   /* Grilla de inventario en 2 columnas: cada ítem es una tarjeta-botón entera
      (tocarla abre la ficha para editar/eliminar) — sin ✕ ni lápiz por fila,
      entran dos por renglón y la lista pide la mitad de scroll. */
@@ -993,7 +1009,7 @@
   .oc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
     padding:12px 14px;cursor:pointer;transition:border-color .25s;width:fit-content;min-width:140px;box-sizing:border-box;}
   .oc-card.open{border-color:var(--navy);}
-  .oc-card-total{display:flex;align-items:center;gap:7px;font-size:21px;font-weight:800;color:var(--navy);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .oc-card-total{display:flex;align-items:center;gap:7px;font-size:21px;font-weight:800;color:var(--money-warn);margin-top:2px;font-variant-numeric:tabular-nums;}
   .oc-card-hint{font-size:12px;color:var(--ink-soft);margin-top:4px;}
   /* Hoja de pantalla completa: sube desde abajo con transform (compuesto por GPU,
      suave en teléfonos de gama baja). visibility con delay = invisible recién
@@ -1075,13 +1091,13 @@
   .recap-col.focus{border-color:var(--basil);box-shadow:0 0 0 1px var(--basil);}
   .recap-col-head{padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:2px;}
   .recap-col-period{font-weight:800;font-size:15px;color:var(--ink);}
-  .recap-col-vs{font-size:11px;font-weight:700;color:var(--sky-bright);margin-top:1px;}
+  .recap-col-vs{font-size:11px;font-weight:700;color:var(--money-pos-ink);margin-top:1px;}
   /* Columna sin base de comparación: lo dice en gris en vez de callar. */
   .recap-col-vs.muted{color:var(--ink-soft);font-weight:600;}
   /* Veredicto en una línea de la columna en foco: la conclusión antes que las cifras. */
   .recap-verdict{margin-top:6px;font-size:11.5px;font-weight:800;border-radius:8px;padding:3px 8px;display:inline-block;}
-  .recap-verdict.pos{background:var(--basil-soft);color:var(--basil-ink);}
-  .recap-verdict.neg{background:var(--tomato-soft);color:var(--tomato);}
+  .recap-verdict.pos{background:var(--money-pos-soft);color:var(--money-pos-ink);}
+  .recap-verdict.neg{background:var(--money-neg-soft);color:var(--money-neg);}
   .recap-col-val{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:0;}
   /* En columnas angostas la etiqueta larga cede y envuelve; el monto no se toca. */
   .recap-col .recap-label{flex-shrink:1;min-width:0;}
@@ -1131,12 +1147,12 @@
   .dash-pencil-btn:active{transform:scale(.92);}
   /* Valor total del inventario, arriba a la izquierda de la pestaña Inventario —
      verde: en esta app el verde es el color de "dato bueno" (es un activo). */
-  .inv-total-value{font-size:26px;font-weight:800;color:var(--basil);font-variant-numeric:tabular-nums;line-height:1.15;}
+  .inv-total-value{font-size:26px;font-weight:800;color:var(--money-pos);font-variant-numeric:tabular-nums;line-height:1.15;}
   /* Potencial a precio de venta, debajo del Valor (costo) — verde más claro:
      mismo lado del semáforo, distinta intensidad. */
   .inv-potential{margin-top:4px;display:flex;flex-direction:column;gap:1px;}
   .inv-potential-label{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-soft);}
-  .inv-potential-value{font-size:15px;font-weight:800;color:var(--sky-bright);font-variant-numeric:tabular-nums;}
+  .inv-potential-value{font-size:15px;font-weight:800;color:var(--money-pos-ink);font-variant-numeric:tabular-nums;}
   .inv-potential-note{font-size:10.5px;color:var(--ink-soft);}
   .oc-total-label{font-size:13px;color:var(--ink-mid);}
   .oc-total{font-size:23px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;}

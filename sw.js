@@ -167,7 +167,10 @@
 // en Menta las barras de alerta conservan un durazno propio para distinguirse.
 // v62: mismo pedido que v61 pero en Coral, Miel y Pastel — el amarillo apagado
 // del botón Guardar (y todo lo que lo usaba) pasa a ser el acento del tema.
-const CACHE_NAME = 'patron-shell-v62';
+// v63: COLORES DE DINERO FIJOS en los 18 temas (pedido del usuario): montos,
+// $, porcentajes y barras siempre verde/rojo/ámbar (--money-*), sin importar
+// el acento del tema — dusty.css + app-03/05/06/08.
+const CACHE_NAME = 'patron-shell-v63';
 
 const PRECACHE_URLS = [
   '/',

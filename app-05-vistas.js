@@ -410,7 +410,7 @@ function dashboardView(){
         return `
       <div class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</div>
       <div style="display:flex;align-items:center;gap:10px;">
-        <div class="stat-value" style="color:var(--basil);margin:0;">${money(sp.invested)}</div>
+        <div class="stat-value" style="color:var(--money-pos);margin:0;">${money(sp.invested)}</div>
         <button type="button" class="dash-pencil-btn" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>
@@ -1211,7 +1211,7 @@ function priceHistoryChart(points){
 
   const first = points[0].unitPrice, last = points[points.length-1].unitPrice;
   const changePct = first>0 ? ((last-first)/first)*100 : 0;
-  const trendColor = changePct>3 ? 'var(--tomato)' : changePct<-3 ? 'var(--basil)' : 'var(--navy)';
+  const trendColor = changePct>3 ? 'var(--money-neg)' : changePct<-3 ? 'var(--money-pos)' : 'var(--navy)';
 
   const gridLines = [0,0.5,1].map(f=>{
     const y = padT + innerH*f;
@@ -1289,8 +1289,8 @@ function priceHistoryModal(){
     const first = points[0].unitPrice, last = points[points.length-1].unitPrice;
     const changePct = first>0 ? ((last-first)/first)*100 : 0;
     const up = changePct>3, down = changePct<-3;
-    const color = up?'var(--tomato-ink)':down?'var(--basil)':'var(--ink-soft)';
-    const bg = up?'var(--tomato-soft)':down?'var(--basil-soft)':'var(--inset)';
+    const color = up?'var(--money-neg-ink)':down?'var(--money-pos)':'var(--ink-soft)';
+    const bg = up?'var(--money-neg-soft)':down?'var(--money-pos-soft)':'var(--inset)';
     const arrow = up?'▲':down?'▼':'→';
     const phrase = (up||down)
       ? `${arrow} ${up?t('ph_up'):t('ph_down')} ${Math.abs(changePct).toFixed(0)}% ${t('ph_since_first')} (${points[0].date})`
@@ -1384,8 +1384,8 @@ function monthlySpendChart(monthsAsc, currentMonthKey){
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
     <defs>
       <linearGradient id="${barGradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--basil)"/>
-        <stop offset="100%" stop-color="var(--navy)"/>
+        <stop offset="0%" stop-color="var(--money-pos)"/>
+        <stop offset="100%" stop-color="color-mix(in oklch, var(--money-pos), black 30%)"/>
       </linearGradient>
     </defs>
     ${gridLines}

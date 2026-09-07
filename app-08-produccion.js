@@ -241,7 +241,7 @@ function recipeModal(){
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-component" style="margin-top:6px;">${t('recipe_add_component')}</button>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
           <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('recipe_cost_line')}</span>
-          <span id="recipe-cost-display" style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--basil);">${money(cost.total)}</span>
+          <span id="recipe-cost-display" style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--money-pos);">${money(cost.total)}</span>
         </div>
         ${cost.missing>0 ? `<div class="helper-note" style="margin:8px 0 0;color:var(--saffron-ink);">⚠ ${t('recipe_cost_missing').replace('{n}', cost.missing)}</div>` : ''}
         ${/* Precio de venta por pieza (opcional): la ÚNICA forma honesta de que el
@@ -417,7 +417,7 @@ function produceModal(){
 
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;">
         <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('produce_batch_cost')}</span>
-        <span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--basil);">${money(batchCost)}</span>
+        <span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--money-pos);">${money(batchCost)}</span>
       </div>
 
       ${(()=>{

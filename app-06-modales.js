@@ -917,7 +917,7 @@ function monthRecapModal(){
     const focusKey = demo ? nowKey : (recapMode==='year' ? (monthRecapKey||nowKey).slice(0,4) : (monthRecapKey||nowKey));
     const invValue = demo ? 14350 : inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
     const potential = demo ? 22980 : inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
-    const posNeg = (v)=> v>=0 ? 'var(--basil)' : 'var(--tomato)';
+    const posNeg = (v)=> v>=0 ? 'var(--money-pos)' : 'var(--money-neg)';
     // Formato contable: negativos con signo "−" adelante, nunca "$-120.00".
     const moneyAbs = (v)=> v<0 ? '−'+money(-v) : money(v);
     const dAmt = (v)=> (v>=0?'+':'−')+'$'+Math.abs(Math.round(v));
@@ -929,7 +929,7 @@ function monthRecapModal(){
       let d='';
       if(bp!==null && bp!==undefined){
         const pp = p-bp;
-        if(Math.abs(pp)>=0.5) d = ` <span style="color:${pp>=0?'var(--basil)':'var(--tomato)'};">${pp>0?'▲':'▼'} ${Math.abs(pp).toFixed(0)} pp</span>`;
+        if(Math.abs(pp)>=0.5) d = ` <span style="color:${pp>=0?'var(--money-pos)':'var(--money-neg)'};">${pp>0?'▲':'▼'} ${Math.abs(pp).toFixed(0)} pp</span>`;
       }
       return `<div class="recap-note">${p.toFixed(0)}% ${t('recap_margin')}${d}</div>`;
     };
@@ -944,7 +944,7 @@ function monthRecapModal(){
       if(Math.abs(delta)<0.5) return `<span class="recap-delta">＝</span>`;
       const good = goodUp===false ? delta<=0 : delta>=0;
       const shown = Math.abs(delta)>=1000 ? '999+' : Math.abs(delta).toFixed(0);
-      return `<span class="recap-delta" style="color:${good?'var(--basil)':'var(--tomato)'};">${delta>0?'▲':'▼'} ${shown}% (${(fmt||dAmt)(a-b)})</span>`;
+      return `<span class="recap-delta" style="color:${good?'var(--money-pos)':'var(--money-neg)'};">${delta>0?'▲':'▼'} ${shown}% (${(fmt||dAmt)(a-b)})</span>`;
     };
     // op: el operador de la cascada (− / =) pegado a la etiqueta; cls: rsub
     // (subtotal, raya simple) o rtotal (resultado final, raya doble).
@@ -973,10 +973,10 @@ function monthRecapModal(){
       const conn=(i,v)=>`<line x1="${(X(i)+bw).toFixed(1)}" y1="${Y(v).toFixed(1)}" x2="${X(i+1).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-dasharray="2 3"/>`;
       const lbl=(i,txt)=>`<text x="${(X(i)+bw/2).toFixed(1)}" y="${h-4}" text-anchor="middle" font-size="8.5" font-weight="700" fill="var(--ink-soft)">${txt}</text>`;
       return `<div class="recap-wf"><svg viewBox="0 0 ${w} ${h}" aria-hidden="true">
-        ${bar(0,0,fin.revenue,'var(--sky-bright)')}${conn(0,fin.revenue)}
-        ${bar(1,fin.revenue,fin.gross,'var(--tomato)')}${conn(1,fin.gross)}
+        ${bar(0,0,fin.revenue,'var(--money-pos-ink)')}${conn(0,fin.revenue)}
+        ${bar(1,fin.revenue,fin.gross,'var(--money-neg)')}${conn(1,fin.gross)}
         ${bar(2,fin.gross,fin.net,'var(--saffron)')}${conn(2,fin.net)}
-        ${bar(3,0,fin.net, fin.net>=0?'var(--basil)':'var(--tomato)')}
+        ${bar(3,0,fin.net, fin.net>=0?'var(--money-pos)':'var(--money-neg)')}
         ${min<0?`<line x1="0" y1="${Y(0).toFixed(1)}" x2="${w}" y2="${Y(0).toFixed(1)}" stroke="var(--line)"/>`:''}
         ${lbl(0,t('recap_wf_rev'))}${lbl(1,t('recap_wf_cogs'))}${lbl(2,t('recap_wf_exp'))}${lbl(3,t('recap_wf_net'))}
       </svg><div class="recap-spark-cap" style="text-align:center;">${t('recap_bridge_label')}</div></div>`;
@@ -1005,24 +1005,24 @@ function monthRecapModal(){
         ${emptyCol ? `<div class="oc-empty" style="margin:14px 0;">${t('recap_empty')}</div>` : `
         <div class="recap-section-title">${t('recap_pl_title')}</div>
         ${fin.hadOutflows ? `
-        ${crow('💵', t('recap_revenue'), money(fin.revenue), 'var(--sky-bright)', d(fin.revenue, base&&base.revenue, true))}
+        ${crow('💵', t('recap_revenue'), money(fin.revenue), 'var(--money-pos-ink)', d(fin.revenue, base&&base.revenue, true))}
         ${crow('📤', t('recap_cogs'), money(fin.cogs), null, d(fin.cogs, base&&base.cogs, false), '−')}
         ${crow('💹', t('recap_gross'), moneyAbs(fin.gross), posNeg(fin.gross), (d(fin.gross, base&&base.gross, true))+pctTxt(fin.grossMarginPct, base&&base.grossMarginPct), '=', 'rsub')}
-        ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--saffron)', d(fin.expense, base&&base.expense, false), '−')}
+        ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false), '−')}
         ${crow('🏁', t('recap_net'), moneyAbs(fin.net), posNeg(fin.net), (d(fin.net, base&&base.net, true))+pctTxt(fin.netMarginPct, base&&base.netMarginPct), '=', 'rtotal')}
         ${isFocus && fin.revenue>0 ? wfSvg(fin) : ''}`
         : `<div class="recap-note" style="padding:6px 2px;">${t('recap_no_outflows')}</div>`}
         <div class="recap-section-title">${t('recap_cash_title')}</div>
-        ${crow('📦', t('recap_cash_purchases'), money(fin.invested), 'var(--basil)', d(fin.invested, base&&base.invested, true))}
-        ${fin.hadOutflows ? '' : crow('💸', t('spend_expenses'), money(fin.expense), 'var(--saffron)', d(fin.expense, base&&base.expense, false))}
+        ${crow('📦', t('recap_cash_purchases'), money(fin.invested), 'var(--money-pos)', d(fin.invested, base&&base.invested, true))}
+        ${fin.hadOutflows ? '' : crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false))}
         ${fin.hadOutflows ? crow('🪙', t('recap_cash_net'), moneyAbs(cashNet), posNeg(cashNet)) : ''}
-        ${showBudget ? crow('🎯', t('recap_budget_used'), budgetPct+'%', budgetStatus(budgetPct)==='crit'?'var(--tomato)':'var(--ink)',
+        ${showBudget ? crow('🎯', t('recap_budget_used'), budgetPct+'%', budgetStatus(budgetPct)==='crit'?'var(--money-neg)':'var(--ink)',
           `<div class="recap-note">${budgetLeft>=0 ? t('recap_budget_left').replace('{amount}', money(budgetLeft)) : t('recap_budget_over').replace('{amount}', money(-budgetLeft))}</div>`) : ''}
         ${crow('🧾', t('recap_receipts'), String(fin.receiptsCount), null, d(fin.receiptsCount, base&&base.receiptsCount, true, dCnt))}
         ${isCur && (demo || canSeeFinancials()) ? `
         <div class="recap-section-title"></div>
-        ${crow('💰', t('recap_value_today'), money(invValue), 'var(--basil)')}
-        ${potential>0 ? crow('🏷', t('inv_potential_label'), money(potential), 'var(--sky-bright)') : ''}` : ''}
+        ${crow('💰', t('recap_value_today'), money(invValue), 'var(--money-pos)')}
+        ${potential>0 ? crow('🏷', t('inv_potential_label'), money(potential), 'var(--money-pos-ink)') : ''}` : ''}
         `}
       </div>`;
     };
@@ -1064,13 +1064,13 @@ function monthRecapModal(){
         const good = goodUp===false ? df<=0 : df>=0;
         const amt=(df>0?'+':'−')+(isMoney===false?'':'$')+Math.abs(Math.round(df));
         const pct = a!==0 ? `<div class="recap-note">${df>0?'▲':'▼'} ${Math.min(999,Math.abs(df/Math.abs(a)*100)).toFixed(0)}%</div>` : `<div class="recap-note">${t('recap_new_delta')}</div>`;
-        return `<span style="color:${good?'var(--basil)':'var(--tomato)'};font-weight:800;">${amt}</span>${pct}`;
+        return `<span style="color:${good?'var(--money-pos)':'var(--money-neg)'};font-weight:800;">${amt}</span>${pct}`;
       };
       const cmpPP=(a,b)=>{
         if(a===null||a===undefined||b===null||b===undefined) return '—';
         const pp=b-a;
         if(Math.abs(pp)<0.5) return '＝';
-        return `<span style="color:${pp>=0?'var(--basil)':'var(--tomato)'};font-weight:800;">${pp>0?'+':'−'}${Math.abs(pp).toFixed(0)} pp</span>`;
+        return `<span style="color:${pp>=0?'var(--money-pos)':'var(--money-neg)'};font-weight:800;">${pp>0?'+':'−'}${Math.abs(pp).toFixed(0)} pp</span>`;
       };
       const pctv=(p)=> p===null||p===undefined ? '—' : p.toFixed(0)+'%';
       const cmpRow=(label,va,vb,vd,op,cls)=>`
@@ -1120,15 +1120,15 @@ function monthRecapModal(){
         });
         if(seg.length>1) segs.push(seg);
         const dots = vals.map((v,i)=> v===null ? '' :
-          `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="1.6" fill="var(--basil)"/>`).join('');
+          `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="1.6" fill="var(--money-pos)"/>`).join('');
         const lastIdx = vals.length-1-[...vals].reverse().findIndex(v=>v!==null);
         const last = vals[lastIdx];
         spark = `<div class="recap-spark">
           <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
             ${min<0&&max>0 ? `<line x1="${pad}" y1="${Y(0).toFixed(1)}" x2="${w-pad}" y2="${Y(0).toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/>` : ''}
-            ${segs.map(s=>`<polyline points="${s.join(' ')}" fill="none" stroke="var(--basil)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
+            ${segs.map(s=>`<polyline points="${s.join(' ')}" fill="none" stroke="var(--money-pos)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
             ${dots}
-            <circle cx="${X(lastIdx).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="3" fill="${last>=0?'var(--basil)':'var(--tomato)'}"/>
+            <circle cx="${X(lastIdx).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="3" fill="${last>=0?'var(--money-pos)':'var(--money-neg)'}"/>
           </svg>
           <div class="recap-spark-cap">${t('recap_trend_label')}</div>
         </div>`;
@@ -1424,7 +1424,7 @@ function itemModal(){
             ${(()=>{
               const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
               const display = margin===null ? '—' : `${margin.toFixed(0)}%`;
-              const color = margin===null ? 'var(--ink-soft)' : margin<0 ? 'var(--tomato)' : margin<15 ? 'var(--saffron)' : 'var(--basil)';
+              const color = margin===null ? 'var(--ink-soft)' : margin<0 ? 'var(--money-neg)' : margin<15 ? 'var(--money-warn)' : 'var(--money-pos)';
               return `<div id="fi-profit-display" role="status" aria-labelledby="fi-profit-label" style="padding:9px 11px;font-size:14px;font-weight:700;color:${color};">${display}</div>`;
             })()}
           </div>
@@ -1900,12 +1900,12 @@ function scanModal(){
               const sentence = uiLang==='en'
                 ? `Supplier price went up ${diffPct.toFixed(0)}% vs. current cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirm the reading is correct':''}`
                 : `Precio de proveedor subió ${diffPct.toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirma que la lectura sea correcta':''}`;
-              priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'var(--tomato-ink)':'var(--saffron)'};background:${strong?'var(--tomato-soft)':'var(--saffron-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">▲ ${sentence}</div>`;
+              priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'var(--money-neg-ink)':'var(--money-warn-ink)'};background:${strong?'var(--money-neg-soft)':'var(--money-warn-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">▲ ${sentence}</div>`;
             } else if(diffPct<-0.5){
               const sentence = uiLang==='en'
                 ? `Price went down ${Math.abs(diffPct).toFixed(0)}% vs. current cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`
                 : `Precio bajó ${Math.abs(diffPct).toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`;
-              priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--basil);background:var(--basil-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">▼ ${sentence}</div>`;
+              priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--money-pos);background:var(--money-pos-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">▼ ${sentence}</div>`;
             }
             }
           }
