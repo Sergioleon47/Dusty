@@ -545,6 +545,62 @@ function attachEvents(){
     if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>openCatalogPhotoPicker(true);
     const btnCatalogGallery=document.getElementById('btn-catalog-gallery');
     if(btnCatalogGallery) btnCatalogGallery.onclick=()=>openCatalogPhotoPicker(false);
+    // COLLAGE (pedido del usuario 2026-09-06): 2 a 4 fotos de la galería se
+    // componen en UNA imagen (lado a lado / 1+2 / 2x2 con separador blanco) y el
+    // resultado entra al flujo normal — editor, filtros, IA y asignar.
+    const btnCatalogCollage=document.getElementById('btn-catalog-collage');
+    if(btnCatalogCollage) btnCatalogCollage.onclick=()=>{
+      const input=document.createElement('input');
+      input.type='file'; input.accept='image/*'; input.multiple=true;
+      input.style.display='none';
+      document.body.appendChild(input);
+      input.addEventListener('cancel', ()=>{ if(input.parentNode) input.parentNode.removeChild(input); });
+      input.onchange=async ()=>{
+        const files=[...input.files].filter(f=>/^image\//.test(f.type)).slice(0,4);
+        if(input.parentNode) input.parentNode.removeChild(input);
+        if(files.length<2){ showToast(t('catalog_collage_min'), 'info'); return; }
+        try{
+          const imgs=[];
+          for(const f of files) imgs.push(await loadImageFromFile(f));
+          const S=1600, gap=8;
+          const cv=document.createElement('canvas'); cv.width=cv.height=S;
+          const ctx=cv.getContext('2d');
+          ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+          ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,S,S);
+          // celda con ajuste cover
+          const cell=(im,x,y,w,h)=>{
+            const s=Math.max(w/im.naturalWidth, h/im.naturalHeight);
+            const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
+            ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+            ctx.drawImage(im, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+            ctx.restore();
+          };
+          const half=(S-gap)/2;
+          if(imgs.length===2){
+            cell(imgs[0],0,0,half,S); cell(imgs[1],half+gap,0,half,S);
+          } else if(imgs.length===3){
+            cell(imgs[0],0,0,half,S);
+            cell(imgs[1],half+gap,0,half,half); cell(imgs[2],half+gap,half+gap,half,half);
+          } else {
+            cell(imgs[0],0,0,half,half); cell(imgs[1],half+gap,0,half,half);
+            cell(imgs[2],0,half+gap,half,half); cell(imgs[3],half+gap,half+gap,half,half);
+          }
+          const composite={base64: cv.toDataURL('image/jpeg',0.9).split(',')[1], mediaType:'image/jpeg'};
+          // Entra al flujo normal: el collage es la nueva foto pendiente.
+          catalogEditFull = composite;
+          const compImg = await loadB64Image(composite);
+          catalogPendingOriginal = resizeToBase64(compImg, 300, 0.75);
+          catalogPendingPhoto = catalogPendingOriginal;
+          catalogPendingFilter='original';
+          catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
+          catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
+          catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
+          catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff';
+          render();
+        }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
+      };
+      input.click();
+    };
     // Patrón iOS Fotos: "Seleccionar" alterna el modo; sin modo, tocar ABRE la
     // foto completa; con modo, tocar marca/desmarca para el catálogo.
     const btnCatalogSelect=document.getElementById('btn-catalog-select');
@@ -558,6 +614,13 @@ function attachEvents(){
       publishOverlay.onmousedown=(e)=>{ if(e.target===publishOverlay){ showCatalogPublishModal=false; render(); } };
       const btnClosePub=document.getElementById('btn-close-catalog-publish');
       if(btnClosePub) btnClosePub.onclick=()=>{ showCatalogPublishModal=false; render(); };
+      // Canales (chips) y redes (inputs): guardan al toque/confirmar.
+      document.querySelectorAll('[data-cat-channel]').forEach(ch=>{
+        ch.onclick=()=>{ const k=ch.dataset.catChannel; catalogChannels[k]=!catalogChannels[k]; saveState(); render(); };
+      });
+      document.querySelectorAll('[data-cat-social]').forEach(inp=>{
+        inp.onchange=()=>{ catalogChannels[inp.dataset.catSocial]=inp.value.trim(); saveState(); };
+      });
     }
     document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
       el.onclick=()=>{

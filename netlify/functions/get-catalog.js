@@ -34,6 +34,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         businessName: d.businessName || '',
         whatsapp: d.whatsapp || '',
+        channels: (d.channels && typeof d.channels === 'object') ? d.channels : {},
         lang: d.lang === 'en' ? 'en' : 'es',
         items: Array.isArray(d.items) ? d.items : [],
         updatedAt: d.updatedAt || null

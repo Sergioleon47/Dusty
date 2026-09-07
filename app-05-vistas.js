@@ -2040,6 +2040,7 @@ function catalogoView(){
       const galSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5-9 9"/></svg>';
       const selSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
       const shareSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>';
+      const collageSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>';
       return `
     ${/* Tarjeta elevada estilo "Create New" de InShot (segunda captura del
          usuario): los círculos con gradiente y etiqueta viven juntos en una
@@ -2055,6 +2056,7 @@ function catalogoView(){
           </span>
           <span style="font-size:12.5px;font-weight:800;color:var(--ink);">${t('catalog_tool_camera')}</span>
         </button>
+        ${tool('btn-catalog-collage', ring(collageSvg, 'linear-gradient(145deg, var(--tomato-soft, #4a2a28), var(--panel))', 'var(--tomato)'), t('catalog_tool_collage'))}
         ${tool('btn-catalog-select', ring(selSvg, catalogSelectMode?'linear-gradient(145deg, var(--basil), var(--sky-bright))':'linear-gradient(145deg, var(--saffron-soft), var(--panel))', catalogSelectMode?'#fff':'var(--saffron-ink)', catalogSelectMode), catalogSelectMode?t('catalog_select_done'):t('catalog_select_btn'))}
         ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
       </div>
@@ -2092,7 +2094,25 @@ function catalogPublishModal(){
         <label>${t('catalog_wa_label')}</label>
         <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
       </div>
-      <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;margin-top:12px;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
+      ${/* Canales de pedido a elección del dueño (SMS/llamadas usan el mismo
+           número) + sus redes — el cliente ve TODOS los habilitados. */''}
+      <div style="margin-top:10px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_channels_label')}</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="exit-reason-chip on" disabled style="opacity:.8;">💬 WhatsApp</button>
+          <button type="button" class="exit-reason-chip ${catalogChannels.sms?'on':''}" data-cat-channel="sms">✉️ ${t('catalog_ch_sms')}</button>
+          <button type="button" class="exit-reason-chip ${catalogChannels.call?'on':''}" data-cat-channel="call">📞 ${t('catalog_ch_call')}</button>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_socials_label')}</label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <input data-cat-social="instagram" type="text" placeholder="Instagram: ${t('catalog_social_ph')}" value="${escapeHtml(catalogChannels.instagram||'')}">
+          <input data-cat-social="facebook" type="text" placeholder="Facebook: ${t('catalog_social_ph')}" value="${escapeHtml(catalogChannels.facebook||'')}">
+          <input data-cat-social="tiktok" type="text" placeholder="TikTok: ${t('catalog_social_ph')}" value="${escapeHtml(catalogChannels.tiktok||'')}">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;margin-top:14px;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
       ${url ? `
       <div style="display:flex;gap:8px;margin-top:12px;">
         <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
@@ -2323,7 +2343,14 @@ async function publishCatalogNow(){
       headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
       body: JSON.stringify({
         catalogId: catalogId || undefined, ownerUid: syncUid(), businessName,
-        whatsapp: catalogWhatsApp.replace(/\D/g,''), lang: uiLang, items
+        whatsapp: catalogWhatsApp.replace(/\D/g,''), lang: uiLang, items,
+        // Canales elegidos por el dueño (limpios: solo usuario, sin @ ni URL)
+        channels: {
+          sms: !!catalogChannels.sms, call: !!catalogChannels.call,
+          instagram: String(catalogChannels.instagram||'').replace(/^@|\s|https?:\/\/[^\/]+\//g,'').slice(0,40),
+          facebook: String(catalogChannels.facebook||'').replace(/^@|\s|https?:\/\/[^\/]+\//g,'').slice(0,60),
+          tiktok: String(catalogChannels.tiktok||'').replace(/^@|\s|https?:\/\/[^\/]+\//g,'').slice(0,40)
+        }
       })
     });
     const data = await res.json().catch(()=>({}));

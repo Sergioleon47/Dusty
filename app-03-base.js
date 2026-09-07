@@ -58,6 +58,13 @@ const I18N = {
     catalog_photo_fab_aria:'Sacar foto para un producto',
     catalog_tools_header:'Herramientas del catálogo',
     catalog_publish_header:'Publicación',
+    catalog_channels_label:'Canales de pedido (usan tu mismo número)',
+    catalog_ch_sms:'SMS',
+    catalog_ch_call:'Llamadas',
+    catalog_socials_label:'Tus redes (opcional — aparecen en el catálogo)',
+    catalog_social_ph:'usuario, sin @',
+    catalog_tool_collage:'Collage',
+    catalog_collage_min:'Elegí de 2 a 4 fotos para el collage',
     catalog_tool_camera:'Cámara',
     catalog_tool_gallery:'Galería',
     catalog_select_btn:'Seleccionar',
@@ -549,6 +556,13 @@ const I18N = {
     catalog_photo_fab_aria:'Take a photo for a product',
     catalog_tools_header:'Catalog tools',
     catalog_publish_header:'Publishing',
+    catalog_channels_label:'Order channels (use your same number)',
+    catalog_ch_sms:'SMS',
+    catalog_ch_call:'Calls',
+    catalog_socials_label:'Your socials (optional — shown on the catalog)',
+    catalog_social_ph:'username, no @',
+    catalog_tool_collage:'Collage',
+    catalog_collage_min:'Pick 2 to 4 photos for the collage',
     catalog_tool_camera:'Camera',
     catalog_tool_gallery:'Gallery',
     catalog_select_btn:'Select',
@@ -1155,7 +1169,7 @@ function saveState(){
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-      businessName, monthlyBudget, catalogWhatsApp, catalogId, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
+      businessName, monthlyBudget, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
       recipes, outflows, outflowArchive, deletedRecipeIds
     }));
   }catch(e){
@@ -1214,6 +1228,7 @@ function applyStateData(data){
   if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
   if(typeof data.catalogWhatsApp==='string') catalogWhatsApp = data.catalogWhatsApp;
   if(data.catalogId===null || typeof data.catalogId==='string') catalogId = data.catalogId;
+  if(data.catalogChannels && typeof data.catalogChannels==='object') catalogChannels = Object.assign({sms:false, call:false, instagram:'', facebook:'', tiktok:''}, data.catalogChannels);
   if(Array.isArray(data.categories)) categories = data.categories;
   if(Array.isArray(data.expenseCategories)) expenseCategories = data.expenseCategories;
   // Las lápidas de notas se aplican ANTES de las notas: un snapshot de la nube que

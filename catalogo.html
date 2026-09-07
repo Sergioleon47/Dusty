@@ -106,11 +106,11 @@
       ? {sub:'Catálogo de productos', order:'Pedir', consult:'Consultar precio',
          msg:'Hola! Vi tu catálogo y quiero pedir: ', foot:'Catálogo hecho con Dusty',
          empty:'Este catálogo no tiene productos todavía.',
-         share:'Compartir este catálogo', copied:'Link copiado'}
+         share:'Compartir este catálogo', copied:'Link copiado', sms:'SMS', call:'Llamar'}
       : {sub:'Product catalog', order:'Order', consult:'Ask for price',
          msg:'Hi! I saw your catalog and I want to order: ', foot:'Catalog made with Dusty',
          empty:'This catalog has no products yet.',
-         share:'Share this catalog', copied:'Link copied'};
+         share:'Share this catalog', copied:'Link copied', sms:'Text', call:'Call'};
 
     // Botón de compartir para el propio cliente: navigator.share abre el menú
     // nativo con TODAS sus apps (SMS, Facebook, Instagram, TikTok, Snapchat…);
@@ -193,11 +193,42 @@
         var ask = document.createElement('div'); ask.className='ask'; ask.textContent = T.consult;
         body.appendChild(ask);
       }
+      // Canales de pedido: WhatsApp primero (mensaje pre-escrito), y los que el
+      // dueño habilitó — SMS (con texto), Llamar, y sus redes como chips.
+      var chs = cat.channels || {};
       if(waDigits){
         var a = document.createElement('a'); a.className='wa-btn'; a.target='_blank'; a.rel='noopener';
-        a.textContent = '💬 ' + T.order;
+        a.textContent = '💬 ' + T.order + ' · WhatsApp';
         a.href = 'https://wa.me/' + waDigits + '?text=' + encodeURIComponent(T.msg + (it.name||''));
         body.appendChild(a);
+      }
+      if(waDigits && (chs.sms || chs.call)){
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
+        var alt = function(label, href){
+          var b = document.createElement('a');
+          b.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);border-radius:12px;padding:10px 8px;font-size:13px;font-weight:800;color:var(--ink);text-decoration:none;background:var(--panel);';
+          b.textContent = label; b.href = href;
+          return b;
+        };
+        if(chs.sms) row.appendChild(alt('✉️ ' + T.sms, 'sms:+' + waDigits + '?&body=' + encodeURIComponent(T.msg + (it.name||''))));
+        if(chs.call) row.appendChild(alt('📞 ' + T.call, 'tel:+' + waDigits));
+        body.appendChild(row);
+      }
+      var socials = [];
+      if(chs.instagram) socials.push(['Instagram', 'https://instagram.com/' + encodeURIComponent(chs.instagram)]);
+      if(chs.facebook) socials.push(['Facebook', 'https://facebook.com/' + encodeURIComponent(chs.facebook)]);
+      if(chs.tiktok) socials.push(['TikTok', 'https://tiktok.com/@' + encodeURIComponent(chs.tiktok)]);
+      if(socials.length){
+        var srow = document.createElement('div');
+        srow.style.cssText = 'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center;';
+        socials.forEach(function(s){
+          var l = document.createElement('a');
+          l.style.cssText = 'font-size:12px;font-weight:800;color:var(--ink-soft);text-decoration:none;border:1px solid var(--line);border-radius:20px;padding:6px 12px;';
+          l.textContent = s[0]; l.href = s[1]; l.target='_blank'; l.rel='noopener';
+          srow.appendChild(l);
+        });
+        body.appendChild(srow);
       }
       sheet.appendChild(body);
       ov.appendChild(sheet);

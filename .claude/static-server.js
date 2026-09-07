@@ -34,6 +34,7 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       businessName: 'Panadería La Espiga', whatsapp: '5215512345678', lang: 'es',
+      channels: { sms: true, call: true, instagram: 'laespiga', facebook: 'laespigapan', tiktok: 'laespiga' },
       items: [
         { name: 'Pan de masa madre', price: 6.5, unit: 'unidad', category: 'Panes', photoUrl: null },
         { name: 'Concha de vainilla', price: 1.25, unit: 'unidad', category: 'Dulce', photoUrl: null },

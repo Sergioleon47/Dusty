@@ -120,7 +120,11 @@
 // v45: el cuadro de Publicación sale de la página de raíz — vive en un modal
 // que abre la herramienta Compartir; la tarjeta de herramientas pasa a estar
 // SIEMPRE (sin productos tampoco había cámara, bug cazado) — app-03/04/05/07.
-const CACHE_NAME = 'patron-shell-v45';
+// v46: canales de pedido a elección del dueño (WhatsApp + SMS/Llamadas con el
+// mismo número + Instagram/Facebook/TikTok) que el cliente ve en la ficha, y
+// COLLAGE de 2-4 fotos como quinta herramienta — app-02/03/05/07 + funciones +
+// catalogo.html.
+const CACHE_NAME = 'patron-shell-v46';
 
 const PRECACHE_URLS = [
   '/',

@@ -122,10 +122,19 @@ exports.handler = async (event) => {
 
   // El número de WhatsApp viaja ya reducido a dígitos (wa.me no acepta otra cosa).
   const whatsapp = str(body.whatsapp, 20).replace(/\D/g, '');
+  // Canales elegidos por el dueño: SMS/llamadas (mismo número) y redes como
+  // usuarios saneados — nunca URLs arbitrarias.
+  const ch = (body.channels && typeof body.channels === 'object') ? body.channels : {};
+  const user = (v, max) => str(v, max).replace(/[^A-Za-z0-9._-]/g, '');
+  const channels = {
+    sms: ch.sms === true, call: ch.call === true,
+    instagram: user(ch.instagram, 40), facebook: user(ch.facebook, 60), tiktok: user(ch.tiktok, 40)
+  };
   await db.doc(`publicCatalogs/${finalId}`).set({
     ownerUid,
     businessName: str(body.businessName, 120),
     whatsapp,
+    channels,
     lang: body.lang === 'en' ? 'en' : 'es',
     items,
     updatedAt: new Date().toISOString()
