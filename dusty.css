@@ -532,6 +532,60 @@
   .budget-bar-fill.warn{background:var(--stock-warn);}
   .budget-bar-fill.crit{background:var(--stock-crit);}
   .budget-bar-fill.none{background:var(--line);}
+  /* ===== PRESUPUESTO con ritmo (auditoría 2026-09-07) ===== */
+  .budget-block{margin-top:2px;}
+  .budget-bar-track.pace-track{position:relative;overflow:visible;margin-top:6px;}
+  .budget-bar-track.pace-track .budget-bar-fill{position:relative;z-index:1;}
+  /* Tramo fantasma: bills con monto que todavía no se pagaron este mes. */
+  .budget-ghost{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg, color-mix(in srgb, var(--money-warn) 45%, transparent) 0 3px, transparent 3px 6px);border-radius:0 20px 20px 0;}
+  /* Marca "hoy deberías ir por acá" (trayectoria lineal del mes). */
+  .pace-mark{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink);border-radius:2px;z-index:2;opacity:.85;}
+  .pace-mark::after{content:'';position:absolute;left:50%;top:-4px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--ink);}
+  .budget-bar-fill.crit{animation:budgetPulse 1.4s ease-in-out 3;}
+  @keyframes budgetPulse{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35);}}
+  .budget-line{font-size:12.5px;color:var(--ink-soft);margin-top:8px;font-variant-numeric:tabular-nums;line-height:1.35;}
+  .budget-line b{color:var(--ink);font-weight:700;}
+  .budget-line .budget-left{color:var(--money-pos-ink);}
+  .budget-line .budget-over{color:var(--money-neg-ink);}
+  .budget-pace{font-size:11.5px;margin-top:4px;line-height:1.35;color:var(--ink-soft);}
+  .budget-pace.warn{color:var(--money-warn-ink);font-weight:600;}
+  .budget-pace.crit{color:var(--money-neg-ink);font-weight:600;}
+  .budget-set-cta{all:unset;cursor:pointer;display:flex;align-items:baseline;gap:6px;margin-top:10px;padding:10px 10px 10px 0;margin-bottom:-10px;}
+  .budget-set-link{font-size:13.5px;font-weight:800;color:var(--basil-ink);}
+  .dash-plus-btn{color:var(--basil-ink);}
+  /* Tarjeta de alerta del tablero: entra deslizando; en rojo tiembla una vez. */
+  .budget-alert-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--line);border-left-width:4px;background:var(--panel);box-shadow:var(--shadow);margin-bottom:16px;cursor:pointer;animation:budgetAlertIn .45s var(--ease-spring);}
+  .budget-alert-card.warn{border-left-color:var(--money-warn);}
+  .budget-alert-card.crit{border-left-color:var(--money-neg);animation:budgetAlertIn .45s var(--ease-spring), budgetShake .5s ease-in-out .5s 1;}
+  .budget-alert-card .ba-icon{font-size:20px;flex-shrink:0;}
+  .budget-alert-card .ba-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .budget-alert-card .ba-text b{font-size:13.5px;color:var(--ink);}
+  .budget-alert-card .ba-text span{font-size:12px;color:var(--ink-soft);line-height:1.35;}
+  .budget-alert-card .ba-chev{color:var(--ink-soft);font-size:16px;}
+  .budget-alert-card:active{transform:scale(.99);}
+  @keyframes budgetAlertIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes budgetShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-4px);}40%{transform:translateX(4px);}60%{transform:translateX(-3px);}80%{transform:translateX(3px);}}
+  /* Resumen dentro del modal de presupuesto y gastado por categoría. */
+  .budget-modal-summary{margin:0 0 12px;}
+  .bycat{margin:4px 0 12px;}
+  .bycat-title{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;}
+  .bycat-row{display:grid;grid-template-columns:minmax(0,1fr) 42% auto;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;animation:helpQIn .35s var(--ease-soft) both;}
+  .bycat-name{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bycat-bar{height:6px;border-radius:99px;background:var(--bg);overflow:hidden;}
+  .bycat-bar i{display:block;height:100%;border-radius:99px;background:var(--money-warn);animation:bycatGrow .6s var(--ease-soft) both;transform-origin:left;}
+  .bycat-amt{font-family:'IBM Plex Mono';font-size:11.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+  @keyframes bycatGrow{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+  /* Gráfico de meses apilado: las barras crecen desde abajo al abrir. */
+  .ms-bar{transform-box:fill-box;transform-origin:bottom;animation:msGrow .55s var(--ease-soft) both;}
+  @keyframes msGrow{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+  .ms-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-soft);margin:-6px 0 10px;}
+  .ms-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ms-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .ms-legend .ms-legend-line{width:14px;height:0;border-top:2px dashed var(--ink);border-radius:0;}
+  .ms-row-detail{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+  @media (prefers-reduced-motion: reduce){
+    .budget-bar-fill.crit, .budget-alert-card, .bycat-row, .bycat-bar i, .ms-bar{animation:none;}
+  }
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
   .stock-caption-muted{font-style:italic;}
   .stock-icon-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--on-accent);transition:transform .2s ease;}

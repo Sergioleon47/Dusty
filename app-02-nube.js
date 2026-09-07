@@ -100,6 +100,7 @@ function ensurePatronFirebaseReady(){
               inventory: inventory.slice(), purchases: purchases.slice(), receipts: receipts.slice(),
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
+              budgetMeta: JSON.parse(JSON.stringify(budgetMeta)),
               catalogWhatsApp, catalogId,
               catalogChannels: Object.assign({}, catalogChannels),
               profitsVisibleToMembers,
@@ -583,6 +584,7 @@ function metaContentShape(m){
     priceAlertThreshold: m.priceAlertThreshold, cycleCountPct: m.cycleCountPct,
     cycleCountIntervalDays: m.cycleCountIntervalDays, cycleCountLastDate: m.cycleCountLastDate,
     cycleCountCursor: m.cycleCountCursor, businessName: m.businessName, monthlyBudget: m.monthlyBudget,
+    budgetMeta: normalizeBudgetMeta(m.budgetMeta),
     catalogWhatsApp: m.catalogWhatsApp || '', catalogId: m.catalogId || null,
     catalogChannels: m.catalogChannels || {sms:false, call:false, instagram:'', facebook:'', tiktok:''},
     profitsVisibleToMembers: m.profitsVisibleToMembers === true,
@@ -598,7 +600,7 @@ function metaContentShape(m){
 function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes,
+    businessName, monthlyBudget, budgetMeta, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes,
     recipes: recipesForCloud(), outflows, outflowArchive,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
   });
@@ -769,7 +771,7 @@ function syncAllToFirestore(){
     const metaHash = valueHash(metaContent);
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
-        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes,
+        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes,
         recipes: recipesForCloud(), outflows,
         // outflowArchive viaja en el mismo set con {merge:true}: Firestore mergea
         // los mapas por clave, así dos dispositivos archivando meses distintos no
@@ -1061,7 +1063,7 @@ function applyRemoteMetaSnapshot(doc){
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1607,6 +1609,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         profitsVisibleToMembers: metaSnap.exists ? remoteMeta.profitsVisibleToMembers : localSnapshot.profitsVisibleToMembers,
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
+        budgetMeta: normalizeBudgetMeta(metaSnap.exists ? (remoteMeta.budgetMeta || localSnapshot.budgetMeta) : localSnapshot.budgetMeta),
         catalogWhatsApp: metaSnap.exists ? (remoteMeta.catalogWhatsApp || localSnapshot.catalogWhatsApp || '') : (localSnapshot.catalogWhatsApp || ''),
         catalogId: metaSnap.exists ? (remoteMeta.catalogId || localSnapshot.catalogId || null) : (localSnapshot.catalogId || null),
         catalogChannels: metaSnap.exists ? (remoteMeta.catalogChannels || localSnapshot.catalogChannels) : localSnapshot.catalogChannels,
@@ -1644,6 +1647,48 @@ let draftBusinessName = businessName;
 // en ese caso el Dashboard no muestra la barra.
 let monthlyBudget = null;
 let draftMonthlyBudget = monthlyBudget;
+/* PRESUPUESTO, auditoría 2026-09-07. Todo lo que no es el monto por defecto viaja en
+   UN solo objeto (menos puntos de sync que tocar):
+   - byMonth: {'2026-08': 1000} — el presupuesto que tenía CADA mes. Al cambiar el
+     monto, los meses cerrados conservan el suyo (setMonthlyBudget lo congela) en vez
+     de juzgarse con el número de hoy en el Cierre de mes.
+   - alertPct: % del primer aviso (80 por defecto); el segundo es al pasarse (100).
+   - alerted: {'2026-09': 80|100} — nivel ya avisado ese mes, para avisar UNA vez.
+   - cogsTargetPct: objetivo opcional de costo de mercadería sobre ventas (gastronomía). */
+let budgetMeta = normalizeBudgetMeta(null);
+function normalizeBudgetMeta(m){
+  const src = (m && typeof m==='object') ? m : {};
+  const byMonth = {};
+  Object.keys(src.byMonth||{}).forEach(k=>{ const v=Number(src.byMonth[k]); if(/^\d{4}-\d{2}$/.test(k) && Number.isFinite(v) && v>0) byMonth[k]=v; });
+  const alerted = {};
+  Object.keys(src.alerted||{}).forEach(k=>{ const v=Number(src.alerted[k]); if(/^\d{4}-\d{2}$/.test(k) && Number.isFinite(v) && v>0) alerted[k]=v; });
+  const ap = Number(src.alertPct);
+  const ct = Number(src.cogsTargetPct);
+  return {
+    byMonth, alerted,
+    alertPct: (Number.isFinite(ap) && ap>=10 && ap<100) ? ap : 80,
+    cogsTargetPct: (Number.isFinite(ct) && ct>0 && ct<100) ? ct : null
+  };
+}
+// Presupuesto vigente para un mes: el congelado de ese mes si existe, si no el general.
+function budgetForMonth(key){
+  const v = budgetMeta.byMonth[key];
+  if(typeof v==='number' && v>0) return v;
+  return (typeof monthlyBudget==='number' && monthlyBudget>0) ? monthlyBudget : null;
+}
+/* Cambiar el presupuesto aplica desde el mes actual en adelante: los meses
+   anteriores con recibos que no tenían un valor propio se quedan con el viejo. */
+function setMonthlyBudget(value){
+  const v = (typeof value==='number' && Number.isFinite(value) && value>0) ? Math.round(value*100)/100 : null;
+  const cm = localMonthStr();
+  const old = (typeof monthlyBudget==='number' && monthlyBudget>0) ? monthlyBudget : null;
+  if(old!==null && v!==old){
+    allMonths().forEach(k=>{ if(k<cm && budgetMeta.byMonth[k]===undefined) budgetMeta.byMonth[k]=old; });
+  }
+  monthlyBudget = v;
+  if(v!==null) budgetMeta.byMonth[cm]=v; else delete budgetMeta.byMonth[cm];
+  Object.keys(budgetMeta.byMonth).forEach(k=>{ if(k>cm) delete budgetMeta.byMonth[k]; });
+}
 /* Catálogo público para clientes del negocio (2026-09-06): el número de WhatsApp
    al que llegan los pedidos y el id del catálogo publicado (null = nunca publicó).
    Viajan por meta como businessName/monthlyBudget; la SELECCIÓN de productos no

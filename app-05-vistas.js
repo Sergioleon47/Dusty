@@ -391,7 +391,10 @@ function stockAnalyticsCard(){
 
 function dashboardView(){
   const months = allMonths();
-  const currentMonthKey = months[0] || localMonthStr();
+  // SIEMPRE el mes calendario (auditoría de presupuesto 2026-09-07): antes era el
+  // último mes con recibos — sin recibos en septiembre mostraba agosto, y un
+  // recibo con fecha futura por error secuestraba el tablero a ese mes.
+  const currentMonthKey = localMonthStr();
   const currentSpend = spendForMonth(currentMonthKey);
 
   return `
@@ -418,31 +421,41 @@ function dashboardView(){
       <div class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <div class="stat-value" style="color:var(--money-pos);margin:0;">${money(sp.invested)}</div>
-        <button type="button" class="dash-pencil-btn" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        ${/* ＋ y no lápiz (auditoría de presupuesto 2026-09-07): un lápiz junto a un
+             número dice "editar ese número", y este botón AGREGA un gasto. */''}
+        <button type="button" class="dash-pencil-btn dash-plus-btn" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
         </button>
       </div>`;
       })()}
-      ${monthlyBudget ? (()=>{
-        const expenseNow = spendSplitForMonth(currentMonthKey).expense;
-        const pct = Math.round((expenseNow/monthlyBudget)*100);
-        return `
-        ${/* La barra va DEBAJO del monto del budget (pedido del usuario
-             2026-09-05): pegada al número de Inversión parecía medir la
-             inversión — el orden monto→barra deja claro de quién es. */''}
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;">
-          <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(monthlyBudget)}</strong> (${pct}%)</span>
-          ${/* Lápiz en vez del texto "Edit" (lo tachó el usuario). */''}
+      ${/* Presupuesto con ritmo (auditoría 2026-09-07): la barra va DEBAJO del
+           monto del budget, y debajo de la barra la línea que faltaba —
+           "Gastos $X de $Y · Quedan $Z" — más la nota de ritmo/proyección y lo
+           comprometido (bills sin pagar). Marca en la barra = dónde deberías ir
+           hoy. Solo el dueño (o quien ve finanzas) edita el monto. */''}
+      ${(()=>{
+        const p = budgetPace(currentMonthKey);
+        const canEdit = canSeeFinancials();
+        const pencil = canEdit ? `
           <button type="button" class="dash-pencil-btn" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>
-        </div>
-        <div class="budget-bar-track" style="margin-top:6px;"><div class="budget-bar-fill ${budgetStatus(pct)}" style="width:${Math.min(Math.max(pct,3),100)}%;"></div></div>`;
-      })() : `
-        <button id="btn-edit-budget" style="all:unset;cursor:pointer;display:flex;align-items:baseline;gap:6px;margin-top:10px;padding:10px 10px 10px 0;margin-bottom:-10px;">
+          </button>` : '';
+        if(p) return `
+        <div class="budget-block">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;">
+            <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(p.budget)}</strong> (${Math.round(p.pct)}%)</span>
+            ${pencil}
+          </div>
+          ${budgetBarHtml(p)}
+          ${budgetSummaryHtml(p)}
+        </div>`;
+        if(!canEdit) return '';
+        return `
+        <button id="btn-edit-budget" class="budget-set-cta" type="button">
           <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
-          <span style="font-size:16px;font-weight:800;color:var(--navy);">${money(0)}</span>
-        </button>`}
+          <span class="budget-set-link">${t('budget_set_cta')}</span>
+        </button>`;
+      })()}
       <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
     </div>`}
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
@@ -469,6 +482,7 @@ function dashboardView(){
     </div>
   </div>
 
+  ${budgetAlertCard()}
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : ''}
   ${inventory.length>0 ? inventoryMenuRow() : ''}
   ${priceAlertsCard()}
@@ -1386,58 +1400,55 @@ function priceHistoryModal(){
 function openMonthlySpendModal(){ showMonthlySpendModal = true; render(); }
 function closeMonthlySpendModal(){ showMonthlySpendModal = false; render(); }
 
-function monthlySpendChart(monthsAsc, currentMonthKey){
-  const W = 560, H = 200, padL = 52, padR = 16, padT = 16, padB = 28;
+/* Gráfico APILADO (auditoría de presupuesto 2026-09-07): mercadería abajo (verde),
+   gastos operativos arriba (ámbar) y la línea punteada del presupuesto de CADA mes
+   sobre su barra — antes se graficaba el total sin presupuesto, y el presupuesto
+   mide solo gastos. Las barras crecen al abrir (animación CSS, .ms-bar). */
+function monthlySpendChartStacked(monthsAsc, currentMonthKey){
+  const W = 560, H = 210, padL = 52, padR = 16, padT = 18, padB = 28;
   const innerW = W - padL - padR, innerH = H - padT - padB;
-  const spends = monthsAsc.map(m=>spendForMonth(m));
-  const max = Math.max(...spends, 1);
-
+  const splits = monthsAsc.map(m=>spendSplitForMonth(m));
+  const budgets = monthsAsc.map(m=>budgetForMonth(m)||0);
+  const max = Math.max(...splits.map(s=>s.invested+s.expense), ...budgets, 1);
   const n = monthsAsc.length;
   const slot = innerW / n;
-  const barW = Math.min(slot * 0.55, 24);
-
+  const barW = Math.min(slot * 0.55, 26);
+  const yOf = v => padT + innerH - (v/max)*innerH;
   const gridLines = [0,0.5,1].map(f=>{
     const y = padT + innerH*(1-f);
-    const val = max*f;
     return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
-      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(val)}</text>`;
+      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(max*f)}</text>`;
   }).join('');
-
-  // El mes actual se destaca con el mismo degradé navy→basil de la marca (brand-mark,
-  // el ícono de escanear, el badge del dashboard vacío) en vez de un azul plano —
-  // así el ojo va directo al mes que importa sin perder la comparación con el resto.
-  const barGradId = 'ms-grad-'+(__chartGradientSeq++);
   const bars = monthsAsc.map((m,i)=>{
-    const spend = spends[i];
-    const barH = max>0 ? (spend/max)*innerH : 0;
+    const s = splits[i];
     const x = padL + i*slot + (slot-barW)/2;
-    const y = padT + innerH - barH;
+    const invH = (s.invested/max)*innerH, expH = (s.expense/max)*innerH;
+    const yInv = padT + innerH - invH, yExp = yInv - expH;
     const isCurrent = m===currentMonthKey;
-    const fill = isCurrent ? `url(#${barGradId})` : '#3c434d';
+    const dim = isCurrent ? '' : 'opacity:.55;';
+    const total = s.invested + s.expense;
+    const b = budgets[i];
+    const budgetLine = b>0 ? `<line x1="${(x-6).toFixed(1)}" y1="${yOf(b).toFixed(1)}" x2="${(x+barW+6).toFixed(1)}" y2="${yOf(b).toFixed(1)}" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="3 3" opacity="${isCurrent?'.9':'.5'}"><title>${escapeHtml(t('ms_legend_budget'))} · ${money(b)}</title></line>` : '';
     return `
-      <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(barH,2).toFixed(1)}" rx="4" fill="${fill}">
-        <title>${escapeHtml(monthLabel(m, uiLang))} · ${money(spend)}</title>
-      </rect>
-      <text x="${(x+barW/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(spend)}</text>
-      <text x="${(x+barW/2).toFixed(1)}" y="${(padT+innerH+16).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${escapeHtml(monthLabel(m, uiLang))}</text>
+      <g class="ms-bar" style="animation-delay:${i*60}ms;">
+        <rect x="${x.toFixed(1)}" y="${yInv.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(invH, s.invested>0?2:0).toFixed(1)}" rx="3" fill="var(--money-pos)" style="${dim}"><title>${escapeHtml(t('ms_legend_inv'))} · ${money(s.invested)}</title></rect>
+        <rect x="${x.toFixed(1)}" y="${yExp.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(expH, s.expense>0?2:0).toFixed(1)}" rx="3" fill="var(--money-warn)" style="${dim}"><title>${escapeHtml(t('ms_legend_exp'))} · ${money(s.expense)}</title></rect>
+      </g>
+      ${budgetLine}
+      <text x="${(x+barW/2).toFixed(1)}" y="${(Math.min(yExp, b>0?yOf(b):yExp)-6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(total)}</text>
+      <text x="${(x+barW/2).toFixed(1)}" y="${(padT+innerH+16).toFixed(1)}" text-anchor="middle" font-size="10" fill="${isCurrent?'var(--ink)':'var(--ink-soft)'}" font-weight="${isCurrent?'700':'400'}" font-family="IBM Plex Mono">${escapeHtml(monthLabel(m, uiLang))}</text>
     `;
   }).join('');
-
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
-    <defs>
-      <linearGradient id="${barGradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--money-pos)"/>
-        <stop offset="100%" stop-color="color-mix(in oklch, var(--money-pos), black 30%)"/>
-      </linearGradient>
-    </defs>
     ${gridLines}
     ${bars}
   </svg>`;
 }
-
 function monthlySpendModal(){
+  const currentMonthKey = localMonthStr();
   const months = allMonths();
-  const currentMonthKey = months[0] || localMonthStr();
+  // El mes actual siempre está, aunque todavía no tenga recibos.
+  if(!months.includes(currentMonthKey)) months.unshift(currentMonthKey);
   const monthsAsc = [...months].reverse(); // más viejo primero, para leer izquierda a derecha en el tiempo
 
   return `
@@ -1448,14 +1459,23 @@ function monthlySpendModal(){
       ${monthsAsc.length===0 ? `
         <div class="helper-note" style="margin:0 0 16px;">${t('ms_no_purchases')}</div>
       ` : `
-        <div style="margin:14px 0;overflow-x:auto;">${monthlySpendChart(monthsAsc, currentMonthKey)}</div>
+        <div style="margin:14px 0;overflow-x:auto;">${monthlySpendChartStacked(monthsAsc, currentMonthKey)}</div>
+        <div class="ms-legend">
+          <span><i style="background:var(--money-pos);"></i>${t('ms_legend_inv')}</span>
+          <span><i style="background:var(--money-warn);"></i>${t('ms_legend_exp')}</span>
+          <span><i class="ms-legend-line"></i>${t('ms_legend_budget')}</span>
+        </div>
         <div class="ing-list-mini" style="max-height:180px;">
-          ${[...monthsAsc].reverse().map(m=>`
+          ${[...monthsAsc].reverse().map(m=>{
+            const s = spendSplitForMonth(m); const b = budgetForMonth(m);
+            const detail = b ? t('ms_row_detail').replace('{exp}', money(s.expense)).replace('{pct}', String(Math.round(s.expense/b*100)))
+                             : t('ms_row_detail_nb').replace('{exp}', money(s.expense));
+            return `
             <div class="ing-list-mini-item">
-              <span>${escapeHtml(monthLabel(m, uiLang))} ${m===currentMonthKey?`<span class="price-updated">${t('ms_current_month')}</span>`:''}</span>
+              <span>${escapeHtml(monthLabel(m, uiLang))} ${m===currentMonthKey?`<span class="price-updated">${t('ms_current_month')}</span>`:''}<div class="ms-row-detail">${detail}</div></span>
               <span class="mono-cell">${money(spendForMonth(m))}</span>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
       `}
       <div class="modal-actions">
@@ -1541,7 +1561,13 @@ function alertSettingsModal(){
           <label>${t('alert_threshold_label')}</label>
           <input id="alert-threshold-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftThreshold)}">
         </div>
-        <div class="helper-note" style="margin-bottom:0;">${t('alert_helper')}</div>
+        <div class="helper-note">${t('alert_helper')}</div>
+        ${/* Umbral del aviso de presupuesto (auditoría 2026-09-07), al lado del de precios. */''}
+        <div class="field" style="margin-top:6px;">
+          <label>${t('budget_alert_pct_label')}</label>
+          <input id="budget-alert-input" type="number" min="10" max="99" step="5" inputmode="numeric" value="${escapeHtml(budgetMeta.alertPct)}">
+        </div>
+        <div class="helper-note" style="margin-bottom:0;">${t('budget_alert_pct_helper')}</div>
       </div>
 
       ${/* El presupuesto mensual salió de acá DE RAÍZ (pedido del usuario
@@ -1663,8 +1689,10 @@ function budgetModal(){
   let ph = t('budget_placeholder');
   const noBudget = draftMonthlyBudget===null || draftMonthlyBudget===undefined || draftMonthlyBudget==='';
   if(noBudget){
-    const prev = spendForMonth(shiftMonthStr(localMonthStr(), -1));
-    const curr = spendForMonth(localMonthStr());
+    // Solo GASTOS OPERATIVOS (auditoría 2026-09-07): el presupuesto mide eso;
+    // sumar la mercadería sugería un número inflado por las compras.
+    const prev = spendSplitForMonth(shiftMonthStr(localMonthStr(), -1)).expense;
+    const curr = spendSplitForMonth(localMonthStr()).expense;
     const base = prev>0 ? prev : curr;
     if(base>0){
       const sugerido = Math.ceil(base/50)*50;
@@ -1677,9 +1705,17 @@ function budgetModal(){
       <h3 class="basil">${t('budget_title')}</h3>
       <div class="field" style="margin-top:10px;">
         <label>${t('budget_label')}</label>
-        <input id="budget-input" type="number" min="0" step="1" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}">
+        <input id="budget-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}" ${canSeeFinancials()?'':'disabled'}>
       </div>
-      <div class="helper-note">${t('budget_helper')}</div>
+      ${canSeeFinancials()
+        ? `<div class="helper-note">${t('budget_helper')}${Object.keys(budgetMeta.byMonth).some(k=>k<localMonthStr() && budgetMeta.byMonth[k]!==monthlyBudget) ? ' '+t('budget_history_note') : ''}</div>`
+        : `<div class="helper-note" style="color:var(--saffron-ink);">${t('budget_locked_note')}</div>`}
+      ${canSeeFinancials() ? `
+      <div class="field" style="margin-top:4px;">
+        <label for="cogs-target-input">${t('budget_cogs_label')}</label>
+        <input id="cogs-target-input" type="number" min="1" max="99" step="1" inputmode="numeric" placeholder="30" value="${budgetMeta.cogsTargetPct!==null ? escapeHtml(budgetMeta.cogsTargetPct) : ''}">
+      </div>
+      <div class="helper-note">${t('budget_cogs_helper')}</div>` : ''}
       ${(()=>{
         /* LA CASA de los ítems de gasto (pedido del usuario 2026-09-05): agua,
            luz, Eat out y demás salieron del inventario (no son mercadería) y
@@ -1696,9 +1732,8 @@ function budgetModal(){
         // (recibo con una línea aplicada a este ítem — el supplier ahí es la
         // empresa, ej. "CFE", no el nombre del bill) — sin la segunda pata, un
         // bill recién escaneado mostraba el ＋ y tocarlo duplicaba el gasto.
-        const paidThisMonth = (id,name)=> receipts.some(r=> monthKey(r.date)===localMonthStr()
-          && ((r.manual && r.manualKind==='expense' && r.supplier===name)
-            || (r.appliedItems||[]).some(it=>it.ingId===id)));
+        // Por id del bill desde 2026-09-07 (renombrarlo ya no lo "despaga"), ver billPaidInMonth.
+        const paidThisMonth = (id,name)=>{ const it = inventory.find(i=>i.id===id); return it ? billPaidInMonth(it, localMonthStr()) : false; };
         const row = (id,name,amount,muted)=>`
           <div ${id?`data-open-item="${id}" role="button" tabindex="0"`:''} style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);${id?'cursor:pointer;':'opacity:.55;'}">
             <span style="font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;">${escapeHtml(name)}${muted?` <span style="font-size:10px;font-weight:700;color:var(--ink-soft);background:var(--inset);border-radius:6px;padding:1px 6px;">${t('budget_exp_example_tag')}</span>`:''}</span>
@@ -1742,7 +1777,21 @@ function budgetModal(){
         return `
       <div class="settings-card" style="margin-top:14px;">
         ${settingsCardHeader('chart','var(--saffron-soft)','var(--saffron-ink)',t('budget_exp_title'))}
-        ${spent>0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('budget_spent_line').replace('{amount}', money(spent))}</div>` : ''}
+        ${/* Mismo resumen que el tablero (barra con marca de ritmo + "Gastos X de
+             Y · Quedan Z") y el gasto real del mes por categoría con mini-barras
+             (auditoría 2026-09-07). Sin presupuesto, la línea de siempre. */''}
+        ${(()=>{
+          const p = budgetPace(localMonthStr());
+          if(p) return `<div class="budget-modal-summary">${budgetBarHtml(p)}${budgetSummaryHtml(p)}</div>`;
+          return spent>0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('budget_spent_line').replace('{amount}', money(spent))}</div>` : '';
+        })()}
+        ${(()=>{
+          const cats = expenseByCategoryForMonth(localMonthStr());
+          if(cats.length===0) return '';
+          const max = cats[0].amount||1;
+          return `<div class="bycat"><div class="bycat-title">${t('budget_bycat_title')}</div>${cats.map((c,i)=>`
+            <div class="bycat-row" style="animation-delay:${i*50}ms;"><span class="bycat-name">${escapeHtml(c.name)}</span><span class="bycat-bar"><i style="width:${Math.max(4, c.amount/max*100).toFixed(0)}%;"></i></span><span class="bycat-amt">${money(c.amount)}</span></div>`).join('')}</div>`;
+        })()}
         ${/* Sin bills creados pero CON gasto real en el mes, el "Gastado" quedaba
              pegado a las filas de EJEMPLO y parecía que los ejemplos sumaban
              (confusión real del usuario 2026-09-05: "no tengo nada ahí y como

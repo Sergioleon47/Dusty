@@ -183,6 +183,8 @@ function attachEvents(){
   // Primeros pasos del tablero vacío.
   const fsScan=document.getElementById('fs-scan');
   if(fsScan){ fsScan.onclick=openScanModal; fsScan.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openScanModal(); } }; }
+  const btnBudgetAlert=document.getElementById('btn-budget-alert');
+  if(btnBudgetAlert){ btnBudgetAlert.onclick=openBudgetModal; btnBudgetAlert.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openBudgetModal(); } }; }
   const fsBudget=document.getElementById('fs-budget');
   if(fsBudget){ fsBudget.onclick=openBudgetModal; fsBudget.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openBudgetModal(); } }; }
   // Botones de los estados vacíos de Inventario y Recibos.
@@ -491,8 +493,16 @@ function attachEvents(){
     if(btnCancelBudget) btnCancelBudget.onclick=closeBudgetModal;
     const btnSaveBudget=document.getElementById('btn-save-budget');
     if(btnSaveBudget) btnSaveBudget.onclick=()=>{
-      const budgetRaw=document.getElementById('budget-input').value.trim();
-      monthlyBudget = budgetRaw==='' ? null : Math.max(0, parseFloat(budgetRaw)||0);
+      // Solo quien ve finanzas cambia el monto (auditoría 2026-09-07); cero o
+      // negativo = vacío (antes se guardaba un 0 que no era ni presupuesto ni vacío).
+      if(canSeeFinancials()){
+        const budgetRaw=document.getElementById('budget-input').value.trim();
+        const v = budgetRaw==='' ? null : parseFloat(budgetRaw);
+        setMonthlyBudget((Number.isFinite(v) && v>0) ? v : null);
+        const cogsInp=document.getElementById('cogs-target-input');
+        if(cogsInp){ const c=parseFloat(cogsInp.value); budgetMeta.cogsTargetPct = (Number.isFinite(c) && c>0 && c<100) ? c : null; }
+        resetFinancialCache();
+      }
       saveState();
       closeBudgetModal();
     };
@@ -521,7 +531,7 @@ function attachEvents(){
           id: uid('r'), images: [], supplier: item.name, date: localDateStr(),
           total: Math.round(item.costPerUnit*100)/100, itemCount: 0, appliedItems: [],
           createdAt: new Date().toISOString(), purchaseIds: [], manual: true,
-          manualKind: 'expense'
+          manualKind: 'expense', billItemId: item.id
         });
         saveState();
         showToast(t('expense_payment_logged').replace('{name}', item.name));
@@ -1395,6 +1405,8 @@ function attachEvents(){
     if(saveAlertBtn) saveAlertBtn.onclick=()=>{
       const val=parseFloat(document.getElementById('alert-threshold-input').value);
       if(val>0) priceAlertThreshold=val;
+      const bInp=document.getElementById('budget-alert-input');
+      if(bInp){ const b=parseFloat(bInp.value); if(Number.isFinite(b) && b>=10 && b<100) budgetMeta.alertPct=b; }
       saveState();
       showAlertSettingsModal=false; render();
     };
@@ -2188,7 +2200,7 @@ function attachEvents(){
           id: uid('r'), images: [], supplier: item.name, date: localDateStr(),
           total: Math.round(item.costPerUnit*100)/100, itemCount: 0, appliedItems: [],
           createdAt: new Date().toISOString(), purchaseIds: [], manual: true,
-          manualKind: 'expense'
+          manualKind: 'expense', billItemId: item.id
         });
         showToast(t('expense_payment_logged').replace('{name}', item.name));
       }
@@ -2349,7 +2361,7 @@ function attachEvents(){
     const supplierInp=document.getElementById('scan-supplier');
     if(supplierInp) supplierInp.oninput=(e)=>scanSupplier=e.target.value;
     const dateInp=document.getElementById('scan-date');
-    if(dateInp) dateInp.oninput=(e)=>scanDate=e.target.value;
+    if(dateInp) dateInp.oninput=(e)=>{ scanDate=e.target.value; if(scanDate && scanDate>localDateStr()) showToast(t('spend_future_date_note'), 'error'); };
     const invoiceTotalInp=document.getElementById('scan-invoice-total');
     if(invoiceTotalInp) invoiceTotalInp.oninput=(e)=>{ const v=parseFloat(e.target.value); scanInvoiceTotal=isNaN(v)?null:v; };
     const dupCheck=document.getElementById('scan-dup-confirm');
@@ -2646,3 +2658,7 @@ try{
     setTimeout(()=>{ if(cloudSyncPending){ cloudSyncPending = false; render(); } }, 8000);
   }
 }catch(e){}
+// Avisos de presupuesto (auditoría 2026-09-07): se arman recién después del
+// arranque (y de la posible bajada de la nube) para no gritar con datos a medio
+// cargar; el primer chequeo cubre el caso de abrir la app ya pasado el umbral.
+setTimeout(()=>{ budgetAlertsArmed = true; checkBudgetAlerts(); }, 2500);

@@ -219,6 +219,26 @@ const I18N = {
     alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
     budget_title:'Presupuesto mensual', budget_label:'Monto ($)', budget_placeholder:'Ej. 2000',
     budget_helper:'Se repite todos los meses hasta que lo cambies. Dejalo vacío para no mostrar la barra de presupuesto.',
+    /* Presupuesto con ritmo, avisos e historial (auditoría 2026-09-07). */
+    budget_set_cta:'Fijalo →',
+    budget_line:'Gastos {spent} de {budget}', budget_left:'Quedan {amount}', budget_over:'Excedido por {amount}',
+    budget_pace_fast:'⚡ Vas rápido: a este ritmo cerrás en {proj}', budget_pace_ok:'A este ritmo cerrás en {proj}', budget_pace_over:'🔴 Ya pasaste el presupuesto del mes',
+    budget_pace_today:'Hoy deberías ir por {amount}',
+    budget_committed:'con {amount} por pagar ({names})',
+    budget_alert_warn_title:'Vas por el {pct}% del presupuesto', budget_alert_warn_sub:'Quedan {left} para el resto del mes. Tocá para ver los gastos.',
+    budget_alert_fast_sub:'A este ritmo cerrás en {proj}. Tocá para ver los gastos.',
+    budget_alert_over_title:'Te pasaste del presupuesto', budget_alert_over_sub:'Excedido por {amount}. Tocá para revisar los gastos.',
+    budget_toast_warn:'🟡 Ojo: vas por el {pct}% del presupuesto. Quedan {left}.', budget_toast_over:'🔴 Te pasaste del presupuesto por {amount}.',
+    budget_alert_pct_label:'Aviso de presupuesto (%)', budget_alert_pct_helper:'Te avisamos una vez al cruzar este % del presupuesto del mes, y otra al pasarte.',
+    budget_locked_note:'El presupuesto lo define el dueño de la cuenta. Vos podés registrar gastos.',
+    budget_history_note:'Los meses cerrados conservan el presupuesto que tenían.',
+    budget_bycat_title:'Gastado este mes por categoría',
+    budget_cogs_label:'Objetivo de costo sobre ventas (%)', budget_cogs_helper:'Opcional, para gastronomía: cuánto de lo vendido debería irse en mercadería (entre 28 y 35% es lo normal). Se compara en el Cierre de mes.',
+    recap_cogs_ratio:'{p}% de las ventas · objetivo {t}%', recap_under_budget:'🎉 Cerraste bajo presupuesto',
+    ms_legend_inv:'Mercadería', ms_legend_exp:'Gastos', ms_legend_budget:'Presupuesto',
+    ms_row_detail:'gastos {exp} · {pct}% del presupuesto', ms_row_detail_nb:'gastos {exp}',
+    manual_spend_category:'Categoría (opcional)',
+    spend_future_date_confirm:'La fecha es futura. ¿Guardar igual?', spend_future_date_note:'Ojo: esa fecha es futura — el gasto va a caer en un mes que todavía no empezó.',
     btn_manage_categories:'Categorías', categories_title:'Categorías de inventario',
     categories_sub:'Agrupá tus productos como quieras — Comida, Hogar, Ropa, Mantenimiento, o las que necesites.',
     categories_empty:'No tenés categorías — todo el inventario aparece en una sola lista.',
@@ -772,6 +792,25 @@ const I18N = {
     alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
     budget_title:'Monthly budget', budget_label:'Amount ($)', budget_placeholder:'E.g. 2000',
     budget_helper:'Repeats every month until you change it. Leave it blank to hide the budget bar.',
+    budget_set_cta:'Set it →',
+    budget_line:'Expenses {spent} of {budget}', budget_left:'{amount} left', budget_over:'Over by {amount}',
+    budget_pace_fast:'⚡ Going fast: at this pace you close at {proj}', budget_pace_ok:'At this pace you close at {proj}', budget_pace_over:'🔴 You are past this month\'s budget',
+    budget_pace_today:'Today you should be around {amount}',
+    budget_committed:'with {amount} still to pay ({names})',
+    budget_alert_warn_title:'You are at {pct}% of the budget', budget_alert_warn_sub:'{left} left for the rest of the month. Tap to see expenses.',
+    budget_alert_fast_sub:'At this pace you close at {proj}. Tap to see expenses.',
+    budget_alert_over_title:'You went over budget', budget_alert_over_sub:'Over by {amount}. Tap to review expenses.',
+    budget_toast_warn:'🟡 Heads up: you are at {pct}% of the budget. {left} left.', budget_toast_over:'🔴 You went over budget by {amount}.',
+    budget_alert_pct_label:'Budget warning (%)', budget_alert_pct_helper:'We warn you once when you cross this % of the monthly budget, and again when you go over.',
+    budget_locked_note:'The budget is set by the account owner. You can still log expenses.',
+    budget_history_note:'Closed months keep the budget they had.',
+    budget_bycat_title:'Spent this month by category',
+    budget_cogs_label:'Cost-of-goods target over sales (%)', budget_cogs_helper:'Optional, for food businesses: how much of what you sell should go to goods (28 to 35% is typical). Compared in the Month recap.',
+    recap_cogs_ratio:'{p}% of sales · target {t}%', recap_under_budget:'🎉 Closed under budget',
+    ms_legend_inv:'Goods', ms_legend_exp:'Expenses', ms_legend_budget:'Budget',
+    ms_row_detail:'expenses {exp} · {pct}% of budget', ms_row_detail_nb:'expenses {exp}',
+    manual_spend_category:'Category (optional)',
+    spend_future_date_confirm:'That date is in the future. Save anyway?', spend_future_date_note:'Heads up: that date is in the future — the expense will land in a month that has not started yet.',
     btn_manage_categories:'Categories', categories_title:'Inventory categories',
     categories_sub:'Group your products however you want — Food, Household, Clothing, Maintenance, or whatever you need.',
     categories_empty:'No categories yet — the whole inventory shows as a single list.',
@@ -1310,7 +1349,7 @@ function saveState(){
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-      businessName, monthlyBudget, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
+      businessName, monthlyBudget, budgetMeta, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
       recipes, outflows, outflowArchive, deletedRecipeIds
     }));
   }catch(e){
@@ -1332,7 +1371,7 @@ function saveState(){
           inventory, purchases, receipts, aliasMap, priceAlertThreshold,
           cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
           deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
-          businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
+          businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
           recipes, outflows, outflowArchive, deletedRecipeIds
         }));
         retried = true;
@@ -1349,6 +1388,8 @@ function saveState(){
   // solo no se guardaba local, tampoco subía a la nube (que sí tiene espacio), y se perdía
   // al cerrar la app. Ahora la nube — la vía de escape real — recibe el cambio igual.
   scheduleCloudSync();
+  // Avisos de presupuesto: cualquier cambio de datos puede cruzar un umbral.
+  checkBudgetAlerts();
   return localOk;
 }
 function applyStateData(data){
@@ -1367,6 +1408,7 @@ function applyStateData(data){
   if(Array.isArray(data.deletedPurchaseIds)) deletedPurchaseIds = data.deletedPurchaseIds;
   if(typeof data.businessName==='string') businessName = data.businessName;
   if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
+  if(data.budgetMeta && typeof data.budgetMeta==='object') budgetMeta = normalizeBudgetMeta(data.budgetMeta);
   if(typeof data.catalogWhatsApp==='string') catalogWhatsApp = data.catalogWhatsApp;
   if(data.catalogId===null || typeof data.catalogId==='string') catalogId = data.catalogId;
   if(data.catalogChannels && typeof data.catalogChannels==='object') catalogChannels = Object.assign({sms:false, call:false, instagram:'', facebook:'', tiktok:''}, data.catalogChannels);
@@ -1424,7 +1466,7 @@ function exportData(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
+    businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
     recipes, outflows, outflowArchive, deletedRecipeIds,
     exportedAt: new Date().toISOString()
   };
@@ -1554,6 +1596,127 @@ function priceAlertsCard(){
       </div>
     `).join('')}
   </div>`;
+}
+/* ===== PRESUPUESTO: ritmo, comprometido, avisos (auditoría 2026-09-07) =====
+   Un solo cálculo (budgetPace) alimenta la tarjeta del tablero, el modal de
+   presupuesto, la tarjeta de alerta y los toasts — así todos dicen lo mismo. */
+// ¿Este bill ya se pagó en el mes? Por id del bill (recibos nuevos) o por nombre
+// (recibos viejos que no lo guardaban), o porque una boleta escaneada lo aplicó.
+function billPaidInMonth(item, key){
+  return receipts.some(r=> monthKey(r.date)===key
+    && ((r.manual && r.manualKind==='expense' && (r.billItemId ? r.billItemId===item.id : r.supplier===item.name))
+      || (r.appliedItems||[]).some(it=>it.ingId===item.id)));
+}
+function budgetPace(key){
+  const budget = budgetForMonth(key);
+  if(!budget) return null;
+  const expense = spendSplitForMonth(key).expense;
+  const pct = expense/budget*100;
+  const [y,m] = key.split('-').map(Number);
+  const daysIn = new Date(y, m, 0).getDate();
+  const isCurrent = key===localMonthStr();
+  const day = isCurrent ? new Date().getDate() : daysIn;
+  // Dónde "deberías ir hoy" con un gasto parejo (trayectoria lineal del mes).
+  const expectedPct = Math.min(100, day/daysIn*100);
+  // Proyección de cierre: recién desde el día 3 (antes es ruido).
+  // Redondeada a pesos enteros: "$3642.86" de proyección suena a certeza que no hay.
+  const projected = (isCurrent && day>=3) ? Math.round(expense/day*daysIn) : null;
+  // Comprometido: bills con monto que todavía no se pagaron este mes.
+  let committed=0; const committedNames=[];
+  if(isCurrent){
+    inventory.forEach(i=>{ if(isExpenseItem(i) && i.costPerUnit>0 && !billPaidInMonth(i, key)){ committed+=i.costPerUnit; committedNames.push(i.name); } });
+  }
+  const left = budget-expense;
+  const threshold = budgetMeta.alertPct||80;
+  const fast = projected!==null && day>=5 && projected>budget*1.05;
+  const status = pct>=100 ? 'crit' : (pct>=threshold || fast) ? 'warn' : 'ok';
+  return {key, budget, expense, pct, left, day, daysIn, expectedPct, projected, committed, committedNames, threshold, status, fast, isCurrent};
+}
+// Las dos líneas bajo la barra: "Gastos $X de $Y · Quedan $Z" y la nota de ritmo.
+function budgetSummaryHtml(p){
+  const line1 = `<div class="budget-line">${t('budget_line').replace('{spent}', `<b>${money(p.expense)}</b>`).replace('{budget}', money(p.budget))} · ${p.left>=0
+    ? `<b class="budget-left">${t('budget_left').replace('{amount}', money(p.left))}</b>`
+    : `<b class="budget-over">${t('budget_over').replace('{amount}', money(-p.left))}</b>`}</div>`;
+  let pace='';
+  if(p.pct>=100) pace = t('budget_pace_over');
+  else if(p.fast) pace = t('budget_pace_fast').replace('{proj}', money(p.projected));
+  else if(p.projected!==null && p.day>=5) pace = t('budget_pace_ok').replace('{proj}', money(p.projected));
+  let committed='';
+  if(p.committed>0 && p.left>0){
+    const names = p.committedNames.slice(0,2).join(', ') + (p.committedNames.length>2 ? '…' : '');
+    committed = t('budget_committed').replace('{amount}', money(p.committed)).replace('{names}', escapeHtml(names));
+  }
+  const notes = [pace, committed].filter(Boolean);
+  return line1 + (notes.length ? `<div class="budget-pace ${p.status}">${notes.join(' · ')}</div>` : '');
+}
+// Barra con la marca de "hoy deberías ir por acá" y el tramo fantasma de lo comprometido.
+function budgetBarHtml(p){
+  const w = Math.min(Math.max(p.pct,2),100);
+  const ghost = (p.committed>0 && p.pct<100) ? `<div class="budget-ghost" style="left:${w.toFixed(1)}%;width:${Math.min(100-w, p.committed/p.budget*100).toFixed(1)}%;"></div>` : '';
+  const mark = p.isCurrent ? `<i class="pace-mark" style="left:${p.expectedPct.toFixed(1)}%;" title="${escapeHtml(t('budget_pace_today').replace('{amount}', money(p.budget*p.day/p.daysIn)))}"></i>` : '';
+  return `<div class="budget-bar-track pace-track"><div class="budget-bar-fill ${p.status}" style="width:${w.toFixed(1)}%;"></div>${ghost}${mark}</div>`;
+}
+// Gasto operativo del mes agrupado por categoría de GASTO — recibos reales
+// (manuales con categoría, pagos de bills, líneas de servicio escaneadas).
+function expenseByCategoryForMonth(key){
+  const sums = {}; const cache = finCache();
+  const catName = id => { const c = expenseCategories.find(c=>c.id===id); return c ? c.name : t('budget_exp_uncat'); };
+  receipts.filter(r=>monthKey(r.date)===key).forEach(r=>{
+    if(r.manual){
+      if(r.manualKind==='investment') return;
+      let cid = r.expenseCategoryId||null;
+      if(!cid && r.billItemId){ const it = cache.byId.get(r.billItemId); cid = it ? (it.expenseCategoryId||null) : null; }
+      const n = catName(cid); sums[n]=(sums[n]||0)+(r.total||0);
+      return;
+    }
+    (r.appliedItems||[]).forEach(it=>{
+      const isExp = it.unit==='servicio' || it.expenseOnly===true;
+      if(!isExp) return;
+      const ing = it.ingId ? cache.byId.get(it.ingId) : null;
+      const n = catName(ing ? (ing.expenseCategoryId||null) : null);
+      sums[n]=(sums[n]||0)+(it.totalPrice||0);
+    });
+  });
+  return Object.keys(sums).map(name=>({name, amount:sums[name]})).sort((a,b)=>b.amount-a.amount);
+}
+// Tarjeta de alerta del tablero: solo cuando el mes va en amarillo o rojo.
+function budgetAlertCard(){
+  const p = budgetPace(localMonthStr());
+  if(!p || p.status==='ok') return '';
+  const over = p.pct>=100;
+  const title = over ? t('budget_alert_over_title') : t('budget_alert_warn_title').replace('{pct}', String(Math.round(p.pct)));
+  const sub = over ? t('budget_alert_over_sub').replace('{amount}', money(-p.left))
+    : (p.fast && p.pct<p.threshold ? t('budget_alert_fast_sub').replace('{proj}', money(p.projected)) : t('budget_alert_warn_sub').replace('{left}', money(p.left)));
+  return `
+  <div class="budget-alert-card ${p.status}" id="btn-budget-alert" role="button" tabindex="0">
+    <span class="ba-icon">${over ? '🔴' : '🟡'}</span>
+    <span class="ba-text"><b>${title}</b><span>${sub}</span></span>
+    <span class="ba-chev">›</span>
+  </div>`;
+}
+/* Aviso UNA vez por mes y por nivel (umbral y 100%): toast al cruzarlo. Corre al
+   final de saveState (cualquier cambio de datos, propio o del equipo). Se arma
+   recién después del arranque (ver el final de app-07). */
+let budgetAlertsArmed = false, budgetAlertCheckRunning = false;
+function checkBudgetAlerts(){
+  if(!budgetAlertsArmed || budgetAlertCheckRunning) return;
+  try{
+    const key = localMonthStr();
+    const p = budgetPace(key);
+    if(!p) return;
+    const level = p.pct>=100 ? 100 : p.pct>=p.threshold ? p.threshold : 0;
+    if(!level) return;
+    const already = budgetMeta.alerted[key]||0;
+    if(level<=already) return;
+    budgetAlertCheckRunning = true;
+    budgetMeta.alerted[key] = level;
+    saveState();
+    showToast(level>=100
+      ? t('budget_toast_over').replace('{amount}', money(-p.left))
+      : t('budget_toast_warn').replace('{pct}', String(Math.round(p.pct))).replace('{left}', money(p.left)),
+      level>=100 ? 'error' : 'info');
+  }catch(e){}
+  budgetAlertCheckRunning = false;
 }
 function allMonths(){
   const set = new Set(receipts.map(r=>monthKey(r.date)));

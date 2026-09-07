@@ -209,7 +209,12 @@
 // (Entrar hasta tener datos, luego Guardar); tarjeta Primeros pasos en vez de los
 // ceros; "?" = ayuda con reporte al pie; estados vacíos con botón; alta rápida;
 // confeti + toast al primer escaneo — app-01/03/04/05/06/07 + css + extract-receipt.
-const CACHE_NAME = 'patron-shell-v74';
+// v75: auditoría del presupuesto. Tarjeta siempre en el mes calendario con
+// "Gastos X de Y · Quedan Z", marca de ritmo y proyección; avisos al umbral y al
+// 100% (toast + tarjeta); historial por mes; gráfico apilado con línea de
+// presupuesto; gastado por categoría; solo el dueño edita; pago de bill por id;
+// comprometido de bills; objetivo costo/ventas — app-02/03/05/06/07 + css.
+const CACHE_NAME = 'patron-shell-v75';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

@@ -1124,13 +1124,25 @@ function monthRecapModal(){
     // acumulado del año (YTD). base===null ⇒ sin deltas + nota de por qué.
     // pickKey: clave que esta columna aporta al comparador (null = no elegible,
     // como el acumulado del año — comparar YTD contra un mes sería mezclar granos).
+    // Objetivo de costo de mercadería sobre ventas (gastronomía, opcional — se fija
+    // en el modal de Presupuesto): costo/ventas del período contra el objetivo.
+    const cogsTargetNote=(fin)=>{
+      const tgt = budgetMeta.cogsTargetPct;
+      if(!tgt || !(fin.revenue>0)) return '';
+      const ratio = fin.cogs/fin.revenue*100;
+      const good = ratio<=tgt;
+      return `<div class="recap-note" style="color:${good?'var(--money-pos)':'var(--money-neg)'};">${good?'✅':'⚠️'} ${t('recap_cogs_ratio').replace('{p}', ratio.toFixed(0)).replace('{t}', String(tgt))}</div>`;
+    };
     const colHtml=(o)=>{
       const { fin, base, headLabel, vsLabel, isCur, isFocus, idx, showBudget, pickKey } = o;
       const d=(a,b,gU,fmt)=> base ? badge(a,b,gU,fmt) : '';
       const emptyCol = fin.receiptsCount===0 && fin.invested===0 && fin.expense===0 && !fin.hadOutflows;
       const cashNet = fin.revenue - fin.invested - fin.expense;
-      const budgetPct = showBudget ? Math.round(fin.expense/monthlyBudget*100) : 0;
-      const budgetLeft = showBudget ? monthlyBudget - fin.expense : 0;
+      // Presupuesto DEL MES (historial por mes, auditoría 2026-09-07): un mes
+      // cerrado se juzga con el monto que tenía, no con el de hoy.
+      const budgetAmt = showBudget ? o.budgetAmt : 0;
+      const budgetPct = showBudget ? Math.round(fin.expense/budgetAmt*100) : 0;
+      const budgetLeft = showBudget ? budgetAmt - fin.expense : 0;
       const pickAttr = (recapCompare && pickKey) ? ` data-recap-pick="${pickKey}"` : '';
       const pickCls = (recapCompare && pickKey) ? (recapComparePick.includes(pickKey)?' picked':' pickable') : '';
       return `
@@ -1145,7 +1157,7 @@ function monthRecapModal(){
         <div class="recap-section-title">${t('recap_pl_title')}</div>
         ${fin.hadOutflows ? `
         ${crow('💵', t('recap_revenue'), money(fin.revenue), 'var(--money-pos-ink)', d(fin.revenue, base&&base.revenue, true))}
-        ${crow('📤', t('recap_cogs'), money(fin.cogs), null, d(fin.cogs, base&&base.cogs, false), '−')}
+        ${crow('📤', t('recap_cogs'), money(fin.cogs), null, d(fin.cogs, base&&base.cogs, false) + cogsTargetNote(fin), '−')}
         ${crow('💹', t('recap_gross'), moneyAbs(fin.gross), posNeg(fin.gross), (d(fin.gross, base&&base.gross, true))+pctTxt(fin.grossMarginPct, base&&base.grossMarginPct), '=', 'rsub')}
         ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false), '−')}
         ${crow('🏁', t('recap_net'), moneyAbs(fin.net), posNeg(fin.net), (d(fin.net, base&&base.net, true))+pctTxt(fin.netMarginPct, base&&base.netMarginPct), '=', 'rtotal')}
@@ -1156,7 +1168,7 @@ function monthRecapModal(){
         ${fin.hadOutflows ? '' : crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false))}
         ${fin.hadOutflows ? crow('🪙', t('recap_cash_net'), moneyAbs(cashNet), posNeg(cashNet)) : ''}
         ${showBudget ? crow('🎯', t('recap_budget_used'), budgetPct+'%', budgetStatus(budgetPct)==='crit'?'var(--money-neg)':'var(--ink)',
-          `<div class="recap-note">${budgetLeft>=0 ? t('recap_budget_left').replace('{amount}', money(budgetLeft)) : t('recap_budget_over').replace('{amount}', money(-budgetLeft))}</div>`) : ''}
+          `<div class="recap-note">${budgetLeft>=0 ? t('recap_budget_left').replace('{amount}', money(budgetLeft)) : t('recap_budget_over').replace('{amount}', money(-budgetLeft))}${(budgetLeft>=0 && !isCur) ? ' '+t('recap_under_budget') : ''}</div>`) : ''}
         ${crow('🧾', t('recap_receipts'), String(fin.receiptsCount), null, d(fin.receiptsCount, base&&base.receiptsCount, true, dCnt))}
         ${isCur && (demo || canSeeFinancials()) ? `
         <div class="recap-section-title"></div>
@@ -1187,7 +1199,7 @@ function monthRecapModal(){
       return colHtml({ fin:finOf(k), base:withData.has(baseKey)?finOf(baseKey):null,
         headLabel:recapKeyLabel(k), vsLabel:recapKeyLabel(baseKey),
         isCur:k===nowKey, isFocus:k===focusKey, idx:idx+(ytdCol?1:0),
-        showBudget:!demo && !!monthlyBudget && recapMode==='month', pickKey:k });
+        showBudget:!demo && recapMode==='month' && !!budgetForMonth(k), budgetAmt: budgetForMonth(k), pickKey:k });
     }).join('');
     // Tabla comparativa A | B | Δ cuando hay dos períodos elegidos: el estado
     // comparativo clásico — Δ en monto (lo que le habla al dueño) con el % debajo,
@@ -1314,13 +1326,18 @@ function saveManualSpend(){
   if(isNaN(amt) || amt<=0){ manualSpendError=true; render(); return; }
   const desc = (document.getElementById('ms-desc').value||'').trim();
   const date = document.getElementById('ms-date').value || localDateStr();
+  // Fecha futura (auditoría 2026-09-07): casi siempre es un error de tipeo y el
+  // gasto caería en un mes que no empezó — se confirma antes de guardar.
+  if(date > localDateStr() && !confirm(t('spend_future_date_confirm'))) return;
+  const catSel = document.getElementById('ms-category');
   const rec = {
     id: uid('r'), images: [], supplier: desc || t('manual_expense_label'), date,
     total: Math.round(amt*100)/100, itemCount: 0, appliedItems: [],
     createdAt: new Date().toISOString(), purchaseIds: [], manual: true,
     // 'expense' (default) va a gastos operativos; 'investment' a inversión —
     // una compra de mercadería en efectivo sin recibo también existe.
-    manualKind: manualSpendKind
+    manualKind: manualSpendKind,
+    expenseCategoryId: (manualSpendKind==='expense' && catSel && catSel.value) ? catSel.value : null
   };
   receipts.push(rec);
   saveState();
@@ -1346,6 +1363,11 @@ function manualSpendModal(){
       </div>
       <div class="field"><label for="ms-desc">${t('manual_spend_desc')}</label>
         <input id="ms-desc" type="text" maxlength="60" placeholder="${t('manual_spend_ph')}"></div>
+      ${/* Categoría de GASTO opcional (auditoría 2026-09-07): sin esto el modal
+           de Presupuesto no podía decir cuánto se fue en cada rubro. */''}
+      ${expenseCategories.length>0 ? `
+      <div class="field"><label for="ms-category">${t('manual_spend_category')}</label>
+        <select id="ms-category"><option value="">${t('category_none_option')}</option>${expenseCategories.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}</select></div>` : ''}
       <div class="field"><label for="ms-date">${t('lbl_date')}</label>
         <input id="ms-date" type="date" value="${localDateStr()}"></div>
       <div class="modal-actions">
