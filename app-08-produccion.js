@@ -513,18 +513,25 @@ function outflowsModal(){
 }
 
 /* ---------- MODAL: ESCÁNER DE ESTANTE ---------- */
+// Botón de cámara del ESTANTE: al toque, solo la hoja de fotos; con la foto
+// elegida se abre el modal directo en "leyendo".
+function startShelfScanFromButton(){
+  showShelfInfoBubble = false;
+  if(!scanAccountGate()) return;
+  const go=async (files)=>{
+    try{ const img=await loadImageFromFile(files[0]); openShelfModalCore(); processShelfSource(img); }
+    catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
+  };
+  openPhotoSource({ camera: ()=>pickPhotoFiles({capture:true}, go), gallery: ()=>pickPhotoFiles({}, go) });
+}
 function openShelfModal(){
   showShelfInfoBubble = false; // abrir el escáner cierra la burbuja de instrucciones
-  if(!currentUser){
-    // Mismo trato que los otros escáneres: cuenta real desconectada → login;
-    // si no, trial anónimo en segundo plano y el modal abre al instante.
-    if(everHadRealAccount()){
-      ensurePatronFirebaseReady().catch(()=>{});
-      openAuthModal(t('scan_requires_account'));
-      return;
-    }
-    ensureTrialAccount().catch(()=>{});
-  }
+  // Mismo trato que los otros escáneres: cuenta real desconectada → login;
+  // si no, trial anónimo en segundo plano y el modal abre al instante.
+  if(!scanAccountGate()) return;
+  openShelfModalCore();
+}
+function openShelfModalCore(){
   shelfRequestId++;
   shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason='sale';
   showShelfModal = true; render();
@@ -784,7 +791,10 @@ function applyShelfAdjust(){
 // en vez de apilar), y campos de texto que escriben en el estado sin re-render.
 function attachProductionEvents(){
   const btnShelfScan=document.getElementById('btn-shelf-scan');
-  if(btnShelfScan) btnShelfScan.onclick=openShelfModal;
+  if(btnShelfScan){
+    btnShelfScan.onclick=()=>{ if(consumeCameraHintLongPress('btn-shelf-scan')) return; startShelfScanFromButton(); };
+    attachCameraHint('btn-shelf-scan', t('shelf_banner_title'), t('shelf_banner_sub'));
+  }
   // Badge "−" y su burbuja de instrucciones: el badge la abre/cierra; tocar la
   // burbuja o cualquier parte de afuera (backdrop transparente) la cierra.
   const btnShelfInfo=document.getElementById('btn-shelf-info');

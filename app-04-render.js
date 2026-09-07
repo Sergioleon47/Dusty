@@ -191,7 +191,6 @@ function renderApp(){
     ${/* Presupuesto ANTES de itemModal a propósito: sus filas de gastos abren
          la ficha del ítem, que debe apilarse ENCIMA (el orden del DOM manda). */''}
     ${showBudgetModal ? budgetModal() : ''}
-    ${showCatalogCameraModal && !catalogPendingPhoto ? catalogCameraModal() : ''}
     ${catalogPendingPhoto ? catalogAssignModal() : ''}
     ${catalogPendingPhoto && catalogEditorOpen ? catalogEditorModal() : ''}
     ${showCatalogPublishModal ? catalogPublishModal() : ''}

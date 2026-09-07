@@ -1753,6 +1753,84 @@ function photoSourceSheetHtml(){
     </div>
   </div>`;
 }
+/* BURBUJA que explica cada cámara (pedido del usuario 2026-09-07, opción 2):
+   como al tocar ya no sale un modal, la línea que explicaba qué hace cada
+   escáner vive en una burbuja al lado del botón — sola la PRIMERA vez que el
+   botón se ve (una vez por dispositivo y por botón) y siempre al mantenerlo
+   presionado medio segundo. Se va sola a los segundos, o al tocar/scrollear. */
+let camHintEl=null, camHintTimer=null, camHintLongPressedId=null, camHintDownHandler=null;
+function hideCameraHint(){
+  if(camHintEl){ camHintEl.remove(); camHintEl=null; }
+  clearTimeout(camHintTimer); camHintTimer=null;
+  if(camHintDownHandler){ document.removeEventListener('pointerdown', camHintDownHandler, true); camHintDownHandler=null; }
+  window.removeEventListener('scroll', hideCameraHint, true);
+}
+function showCameraHint(btnId, title, text, sticky){
+  const btn=document.getElementById(btnId); if(!btn) return;
+  hideCameraHint();
+  const r=btn.getBoundingClientRect();
+  const el=document.createElement('div'); el.className='cam-hint'; el.setAttribute('role','tooltip');
+  el.innerHTML=`<strong>${escapeHtml(title)}</strong>${escapeHtml(text)}`;
+  const w=Math.min(300, window.innerWidth-24);
+  let left=r.left+r.width/2-w/2; left=Math.max(12, Math.min(window.innerWidth-w-12, left));
+  el.style.width=w+'px'; el.style.left=left+'px';
+  // Debajo del botón si hay lugar; si no, arriba — la flecha apunta al botón.
+  if(r.bottom+150 < window.innerHeight){ el.style.top=(r.bottom+12)+'px'; }
+  else { el.style.bottom=(window.innerHeight-r.top+12)+'px'; el.classList.add('above'); }
+  el.style.setProperty('--arrow-x', Math.round(r.left+r.width/2-left)+'px');
+  document.body.appendChild(el);
+  camHintEl=el;
+  camHintTimer=setTimeout(hideCameraHint, sticky ? 9000 : 6500);
+  // Tocar en cualquier lado la cierra — salvo sobre el propio botón (el mismo
+  // pointerdown de la presión larga que la abrió no debe cerrarla al instante).
+  camHintDownHandler=(e)=>{ if(btn.contains(e.target)) return; hideCameraHint(); };
+  document.addEventListener('pointerdown', camHintDownHandler, true);
+  window.addEventListener('scroll', hideCameraHint, true);
+}
+// Presión larga sobre el botón → burbuja (y ese toque NO abre la cámara: el
+// onclick del botón consulta consumeCameraHintLongPress).
+function attachCameraHint(btnId, title, text){
+  const btn=document.getElementById(btnId); if(!btn) return;
+  let timer=null;
+  btn.onpointerdown=(e)=>{
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    clearTimeout(timer);
+    const x0=e.clientX, y0=e.clientY;
+    timer=setTimeout(()=>{ camHintLongPressedId=btnId; showCameraHint(btnId, title, text, true); }, 500);
+    btn.onpointermove=(mv)=>{ if(Math.hypot(mv.clientX-x0, mv.clientY-y0)>10) clearTimeout(timer); };
+  };
+  btn.onpointerup=btn.onpointercancel=btn.onpointerleave=()=>clearTimeout(timer);
+  btn.oncontextmenu=(e)=>e.preventDefault();
+}
+function consumeCameraHintLongPress(btnId){
+  if(camHintLongPressedId!==btnId) return false;
+  camHintLongPressedId=null; return true;
+}
+// Primera vez: apenas el botón está a la vista (una vez por dispositivo y botón).
+const CAMERA_HINTS = ()=>[
+  ['btn-scan-fab', t('scan_title'), t('scan_sub')],
+  ['btn-scan-products', t('pb_title'), t('pb_sub')],
+  ['btn-shelf-scan', t('shelf_banner_title'), t('shelf_banner_sub')],
+  ['btn-catalog-photo', t('catalog_camera_title'), t('catalog_camera_sub')]
+];
+let camHintFirstTimer=null;
+function scheduleFirstCameraHint(){
+  clearTimeout(camHintFirstTimer);
+  camHintFirstTimer=setTimeout(()=>{
+    if(camHintEl || document.querySelector('.overlay')) return; // con algo abierto, no molesta
+    for(const [id,title,text] of CAMERA_HINTS()){
+      const key='patron_camhint_'+id;
+      let seen=true; try{ seen=!!localStorage.getItem(key); }catch(e){}
+      if(seen) continue;
+      const btn=document.getElementById(id); if(!btn) continue;
+      const r=btn.getBoundingClientRect();
+      if(r.width===0 || r.top<0 || r.bottom>window.innerHeight || r.left<0 || r.right>window.innerWidth) continue;
+      try{ localStorage.setItem(key,'1'); }catch(e){}
+      showCameraHint(id, title, text, false);
+      return; // una por vez
+    }
+  }, 600);
+}
 // Los inputs del escáner de recibos (con capture = cámara; sin capture y
 // multiple = galería/hoja nativa).
 function receiptPhotoSource(){
@@ -1761,12 +1839,34 @@ function receiptPhotoSource(){
     gallery: ()=>{ const i=document.getElementById('receipt-file-gallery'); if(i) i.click(); }
   };
 }
-function openScanModal(){
-  // El escaneo le pega a la API de Claude y cuesta plata real cada vez que se usa —
-  // a diferencia de cargar productos a mano (gratis, no toca ningún servidor), esto
-  // necesita quedar atado a una cuenta identificable. Sin este chequeo, cualquiera que
-  // encontrara la URL podía escanear recibos sin límite y sin haber iniciado sesión
-  // nunca, y la factura de la API le llegaba igual al dueño de la app.
+/* Input de archivo EFÍMERO: se crea, se dispara dentro del toque y se va. Es lo
+   que permite que al tocar una cámara salga SOLO la hoja de fotos (nativa en
+   iOS, de Dusty en Android) sin ningún modal detrás — el modal del escáner
+   recién aparece con la foto elegida (pedido del usuario 2026-09-07, tercera
+   vuelta: "que solo salga la caja gris"). Si se cancela, no pasa nada. */
+function pickPhotoFiles(opts, onFiles){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='image/*';
+  if(opts && opts.capture) input.setAttribute('capture','environment');
+  if(opts && opts.multiple) input.multiple=true;
+  input.style.display='none';
+  document.body.appendChild(input);
+  const cleanup=()=>{ if(input.parentNode) input.parentNode.removeChild(input); };
+  input.addEventListener('cancel', cleanup);
+  input.onchange=()=>{
+    const files=Array.from(input.files||[]).filter(f=>/^image\//.test(f.type));
+    cleanup();
+    if(files.length) onFiles(files);
+  };
+  input.click();
+}
+/* El escaneo le pega a la API de Claude y cuesta plata real cada vez que se usa —
+   a diferencia de cargar productos a mano (gratis, no toca ningún servidor), esto
+   necesita quedar atado a una cuenta identificable. Sin este chequeo, cualquiera que
+   encontrara la URL podía escanear recibos sin límite y sin haber iniciado sesión
+   nunca, y la factura de la API le llegaba igual al dueño de la app.
+   Devuelve false cuando en vez del escáner se abrió el login. */
+function scanAccountGate(){
   if(!currentUser){
     // Dispositivo que ya tuvo cuenta real y está desconectado: login de siempre,
     // NUNCA el trial anónimo — forkearlo en silencio a una cuenta vacía hacía
@@ -1774,16 +1874,34 @@ function openScanModal(){
     if(everHadRealAccount()){
       ensurePatronFirebaseReady().catch(()=>{});
       openAuthModal(t('scan_requires_account'));
-      return;
+      return false;
     }
     // Trial sin fricción: en vez de frenar con un login, se arranca una cuenta
-    // anónima en segundo plano (ver ensureTrialAccount) y el modal de escaneo se
-    // abre YA. La llamada real a la API (callReceiptReader) espera a que la cuenta
-    // esté lista — para cuando el usuario terminó de sacar la foto, casi siempre
-    // ya está. Si la creación falla (sin red), el propio flujo de escaneo muestra
+    // anónima en segundo plano (ver ensureTrialAccount) y el escáner sigue YA.
+    // La llamada real a la API (callReceiptReader) espera a que la cuenta esté
+    // lista — para cuando el usuario terminó de sacar la foto, casi siempre ya
+    // está. Si la creación falla (sin red), el propio flujo de escaneo muestra
     // su error de conexión de siempre.
     ensureTrialAccount().catch(()=>{});
   }
+  return true;
+}
+// Botón de cámara de RECIBOS (Dashboard, "Escanear" vacío, "Fotografiar boleta"):
+// al toque, solo la hoja de fotos; con la(s) foto(s) elegida(s) se abre el
+// modal ya con las páginas cargadas.
+function startReceiptScanFromButton(){
+  if(!scanAccountGate()) return;
+  const go=async (files)=>{ openScanModalCore(); for(const f of files) await addScanPage(f); };
+  openPhotoSource({
+    camera: ()=>pickPhotoFiles({capture:true}, go),
+    gallery: ()=>pickPhotoFiles({multiple:true}, go)
+  });
+}
+function openScanModal(){
+  if(!scanAccountGate()) return;
+  openScanModalCore();
+}
+function openScanModalCore(){
   scanRequestId++;
   scanState='idle'; scanImages=[]; scanImagesHiRes=[]; scanSourceFiles=[]; scanPageWarnings=[]; scanExtracted=[]; scanErrorMsg='';
   scanSupplier=''; scanDate=localDateStr(); scanInvoiceTotal=null;
@@ -2164,17 +2282,23 @@ async function identifyProductsFromPhoto(image){
   return Array.isArray(parsed.products) ? parsed.products : [];
 }
 
+// Botón de cámara de PRODUCTOS: al toque, solo la hoja de fotos; con la foto
+// elegida se abre el modal directo en "leyendo".
+function startProductScanFromButton(){
+  if(!scanAccountGate()) return;
+  const go=async (files)=>{
+    try{ const img=await loadImageFromFile(files[0]); openProductBatchModalCore(); processProductBatchSource(img); }
+    catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
+  };
+  openPhotoSource({ camera: ()=>pickPhotoFiles({capture:true}, go), gallery: ()=>pickPhotoFiles({}, go) });
+}
 function openProductBatchModal(){
-  if(!currentUser){
-    // Mismo trato que el escaneo de recibos: cuenta real desconectada → login;
-    // si no, trial anónimo en segundo plano y el modal abre al instante.
-    if(everHadRealAccount()){
-      ensurePatronFirebaseReady().catch(()=>{});
-      openAuthModal(t('scan_requires_account'));
-      return;
-    }
-    ensureTrialAccount().catch(()=>{});
-  }
+  // Mismo trato que el escaneo de recibos: cuenta real desconectada → login;
+  // si no, trial anónimo en segundo plano y el modal abre al instante.
+  if(!scanAccountGate()) return;
+  openProductBatchModalCore();
+}
+function openProductBatchModalCore(){
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   showProductBatchModal=true; render();

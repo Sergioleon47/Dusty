@@ -468,7 +468,7 @@ function attachEvents(){
     // Fotografiar la boleta: el escáner de recibos de siempre (cierra Budget
     // primero — el escáner es pantalla completa y maneja solo trial/login).
     const btnScanBill=document.getElementById('btn-scan-bill');
-    if(btnScanBill) btnScanBill.onclick=()=>{ closeBudgetModal(); openScanModal(); };
+    if(btnScanBill) btnScanBill.onclick=()=>{ closeBudgetModal(); startReceiptScanFromButton(); };
     // ＋ por fila: registra el pago de ESTE mes del bill (recibo manual de
     // gasto) sin abrir nada — la barra del presupuesto reacciona al instante.
     // stopPropagation: la fila entera abre la ficha, el ＋ no debe hacerlo.
@@ -521,7 +521,6 @@ function attachEvents(){
         if(!file || !/^image\//.test(file.type)) return;
         try{
           const img=await loadImageFromFile(file);
-          showCatalogCameraModal=false; // con foto elegida, el modal de cámara cede al de asignar
           catalogPendingOriginal = resizeToBase64(img, 400, 0.78);
           catalogPendingPhoto = catalogPendingOriginal;
           catalogPendingFilter = 'original';
@@ -565,17 +564,15 @@ function attachEvents(){
     // nativa en iOS (input sin capture), de Dusty en Android (elige el input).
     // Intro única (captura del usuario 2026-09-07): el botón abre el MISMO modal
     // con caja punteada que los tres escáneres; la hoja de fotos, al tocar la caja.
+    // Al toque, SOLO la hoja de fotos (nativa en iOS, de Dusty en Android); la
+    // explicación vive en la burbuja (primera vez / presión larga).
     const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
-    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>{ showCatalogCameraModal=true; render(); };
-    const catCamOverlay=document.getElementById('catalog-camera-overlay');
-    if(catCamOverlay){
-      const closeCatCam=()=>{ showCatalogCameraModal=false; render(); };
-      catCamOverlay.onmousedown=(e)=>{ if(e.target===catCamOverlay) closeCatCam(); };
-      document.getElementById('btn-cancel-catalog-camera').onclick=closeCatCam;
-      document.getElementById('catalog-drop-zone').onclick=()=>openPhotoSource({
-        camera: ()=>openCatalogPhotoPicker(true),
-        gallery: ()=>openCatalogPhotoPicker(false)
-      });
+    if(btnCatalogPhoto){
+      btnCatalogPhoto.onclick=()=>{
+        if(consumeCameraHintLongPress('btn-catalog-photo')) return;
+        openPhotoSource({ camera: ()=>openCatalogPhotoPicker(true), gallery: ()=>openCatalogPhotoPicker(false) });
+      };
+      attachCameraHint('btn-catalog-photo', t('catalog_camera_title'), t('catalog_camera_sub'));
     }
     // COLLAGE — DISEÑO PRIMERO (pedido del usuario 2026-09-06): tocar Collage
     // abre el menú de layouts; elegir uno dispara el selector de fotos con la
@@ -1601,16 +1598,26 @@ function attachEvents(){
     document.getElementById('photo-src-camera').onclick=()=>{ const o=photoSourceSheet; photoSourceSheet=null; render(); try{ o.camera(); }catch(e){} };
   }
 
+  // Cámaras grandes (intro única, 2026-09-07): al toque SOLO la hoja de fotos;
+  // el modal del escáner aparece con la foto elegida. La explicación de cada
+  // una vive en la burbuja (primera vez / presión larga, ver showCameraHint).
   const btnScanFab=document.getElementById('btn-scan-fab');
-  if(btnScanFab) btnScanFab.onclick=openScanModal;
+  if(btnScanFab){
+    btnScanFab.onclick=()=>{ if(consumeCameraHintLongPress('btn-scan-fab')) return; startReceiptScanFromButton(); };
+    attachCameraHint('btn-scan-fab', t('scan_title'), t('scan_sub'));
+  }
   const btnDashEmptyScan=document.getElementById('btn-dash-empty-scan');
-  if(btnDashEmptyScan) btnDashEmptyScan.onclick=openScanModal;
+  if(btnDashEmptyScan) btnDashEmptyScan.onclick=startReceiptScanFromButton;
   const btnDashEmptyManual=document.getElementById('btn-dash-empty-manual');
   if(btnDashEmptyManual) btnDashEmptyManual.onclick=()=>openItemModal(null);
   const btnDashEmptyBatch=document.getElementById('btn-dash-empty-batch');
-  if(btnDashEmptyBatch) btnDashEmptyBatch.onclick=openProductBatchModal;
+  if(btnDashEmptyBatch) btnDashEmptyBatch.onclick=startProductScanFromButton;
   const btnScanProducts=document.getElementById('btn-scan-products');
-  if(btnScanProducts) btnScanProducts.onclick=openProductBatchModal;
+  if(btnScanProducts){
+    btnScanProducts.onclick=()=>{ if(consumeCameraHintLongPress('btn-scan-products')) return; startProductScanFromButton(); };
+    attachCameraHint('btn-scan-products', t('pb_title'), t('pb_sub'));
+  }
+  scheduleFirstCameraHint();
 
   /* Modal del escáner de productos (lote + identificador, un solo flujo) */
   const pbOverlay=document.getElementById('product-batch-overlay');
@@ -2459,7 +2466,7 @@ document.addEventListener('keydown', (e)=>{
   if(catalogViewPhoto){ const btn=document.getElementById('cv-close'); if(btn) btn.click(); else { catalogViewPhoto=null; render(); } return; }
   if(catalogEditorOpen){ const btn=document.getElementById('btn-cancel-edit'); if(btn) btn.click(); return; }
   if(catalogPendingPhoto){ const btn=document.getElementById('btn-cancel-assign-photo'); if(btn) btn.click(); return; }
-  if(showCatalogCameraModal){ showCatalogCameraModal=false; render(); return; }
+  if(camHintEl){ hideCameraHint(); return; }
   if(showCollageLayoutModal){ const btn=document.getElementById('btn-cancel-collage'); if(btn) btn.click(); return; }
   if(showCatalogPublishModal){ showCatalogPublishModal=false; render(); return; }
   if(showItemModal){ closeItemModal(); return; }

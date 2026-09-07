@@ -757,6 +757,16 @@
     font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;}
   @keyframes photoSrcUp{from{transform:translateY(24px);opacity:0;}to{transform:none;opacity:1;}}
   @media (prefers-reduced-motion: reduce){ .photo-src-sheet{animation:none;} }
+  /* Burbuja que explica cada cámara (primera vez / presión larga, ver showCameraHint). */
+  .cam-hint{position:fixed;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 12px;font-size:12.5px;line-height:1.4;color:var(--ink);box-shadow:var(--shadow-lg);
+    pointer-events:none;animation:camHintIn .2s ease-out;}
+  .cam-hint strong{display:block;color:var(--sky-ink);font-size:13px;margin-bottom:4px;}
+  .cam-hint::before{content:'';position:absolute;top:-6.5px;left:calc(var(--arrow-x, 50%) - 6px);width:12px;height:12px;
+    background:var(--panel);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg);}
+  .cam-hint.above::before{top:auto;bottom:-6.5px;transform:rotate(225deg);}
+  @keyframes camHintIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .cam-hint{animation:none;} }
   /* Toast con acción (Deshacer) */
   .toast-action{display:flex;align-items:center;gap:12px;}
   .toast-action span{flex:1;}
