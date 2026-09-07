@@ -156,7 +156,10 @@
 // v58: 10 TEMAS DE COLOR elegibles en Ajustes (7 oscuros con distintos acentos
 // + 3 claros) — bloques de variables en dusty.css, selector de circulitos,
 // se aplica al instante y se recuerda en el dispositivo — index/app-03/05/07.
-const CACHE_NAME = 'patron-shell-v58';
+// v59: apple-touch-icon y og-image regenerados con la marca naranja vigente
+// (la tarjeta de compartir en iOS mostraba los colores viejos) + catalogo.html
+// con favicon/theme-color/og propios.
+const CACHE_NAME = 'patron-shell-v59';
 
 const PRECACHE_URLS = [
   '/',
