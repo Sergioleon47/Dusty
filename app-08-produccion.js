@@ -554,13 +554,51 @@ function stopShelfCamera(){
 // cámara, ver openPhotoSource en app-06. shelfCamStream queda declarado porque
 // el guard de render() lo consulta; ahora es siempre null.)
 
+// Aviso de calidad antes de gastar el escaneo (compartido con Recibos y Productos).
+function gateShelfSource(source){
+  let warn = null;
+  try{ warn = assessImageQuality(source); }catch(e){}
+  if(warn){ shelfPendingImg = source; shelfQualityWarn = warn; shelfState='quality'; render(); return; }
+  processShelfSource(source);
+}
+function cancelShelfReading(){ shelfRequestId++; endAiWait(); shelfState='camera'; render(); }
+// Precio de la última salida registrada de este producto (cuando no tiene precio
+// de venta cargado, cada escaneo lo pedía de nuevo).
+function lastSalePriceFor(ingId){
+  for(const o of outflows){
+    if(!o || !Array.isArray(o.items)) continue;
+    const it = o.items.find(x=>x && x.ingId===ingId && Number(x.priceAt)>0);
+    if(it) return it.priceAt;
+  }
+  return '';
+}
+// Los no reconocidos del estante pasan a "Productos" con la MISMA foto, sin otro
+// escaneo: la lista de revisión se arma con lo que la IA ya leyó (nombre, cuántos
+// vio, su recorte) y el usuario los da de alta desde ahí.
+function shelfUnmatchedToProductBatch(){
+  if(!shelfUnmatched.length) return;
+  const src = shelfLastSource;
+  const items = shelfUnmatched.map(p=>{
+    const count = Number(p.count);
+    return { name: p.name||'', unit:'unidad', cost:'', qty: (Number.isFinite(count) && count>0) ? count : 1, sku:'', categoryId:null,
+      confidence: p.confidence||'baja', photo: (src && p.box) ? cropToBase64(src, p.box, 300, 0.75) : null, selected:true, dupOfId:null };
+  });
+  closeShelfModal();
+  pbRequestId++;
+  pbItems = items; pbSourceImg = src; pbState='review'; pbError=''; pbMatchedId=null; pbPendingImg=null;
+  showProductBatchModal = true;
+  render();
+}
 async function processShelfSource(source){
   const requestId = ++shelfRequestId;
   stopShelfCamera();
-  shelfState='loading'; shelfError=''; render();
+  shelfPendingImg = null; shelfQualityWarn = null; shelfLastSource = source;
+  shelfState='loading'; shelfError=''; beginAiWait(); render();
   try{
-    const image = resizeToBase64(source, 1400, 0.9);
+    // 2000 px (antes 1400): las etiquetas de un estante entero necesitan píxeles.
+    const image = resizeToBase64(source, 2000, 0.88);
     const products = await readStockFromPhoto(image);
+    endAiWait();
     if(requestId !== shelfRequestId || !showShelfModal) return;
     shelfItems = [];
     shelfUnmatched = [];
@@ -600,13 +638,16 @@ async function processShelfSource(source){
         // usuario 2026-09-06: "a veces no vendemos al precio que registramos").
         // Arranca en el salePrice del producto; vacío = el producto no tiene
         // precio y sin escribir uno acá la venta no suma Ingresos al Cierre.
-        salePriceDraft: Number(ing.salePrice)>0 ? ing.salePrice : '',
+        salePriceDraft: Number(ing.salePrice)>0 ? ing.salePrice : lastSalePriceFor(ing.id),
+        // Recorte de lo que la IA contó, para verificar de un vistazo.
+        photo: p.box ? cropToBase64(source, p.box, 300, 0.75) : null,
         include: detected!==null
       });
     });
     shelfState = (shelfItems.length>0 || shelfUnmatched.length>0) ? 'review' : 'empty';
     render();
   }catch(err){
+    endAiWait();
     if(requestId !== shelfRequestId) return;
     if(err && err.trialQuota){ closeShelfModal(); openUpgradeModal(t('trial_scans_over_note')); return; }
     if(!showShelfModal) return;
@@ -648,11 +689,14 @@ function shelfScanModal(){
         </div>
         <button type="button" id="btn-shelf-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
         <div class="helper-note" style="margin:0;">💡 ${t('shelf_tip')}</div>
+        ${scanQuotaLineHtml()}
       ` : ''}
       <input type="file" id="shelf-photo-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="shelf-photo-file-gallery" accept="image/*" style="display:none;">
 
-      ${shelfState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('shelf_loading')}</div>` : ''}
+      ${shelfState==='quality' && shelfPendingImg ? qualityGateHtml(shelfPendingImg, shelfQualityWarn, 'btn-shelf-quality-use', 'btn-shelf-quality-retake') : ''}
+      ${shelfState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('shelf_loading')}</div>${aiWaitSlowHtml()}<button type="button" class="scan-cancel-reading" id="btn-shelf-cancel-reading">${t('scan_cancel_reading')}</button>` : ''}
+      ${shelfPhotoView!==null && shelfItems[shelfPhotoView] && shelfItems[shelfPhotoView].photo ? photoViewerHtml(`data:${shelfItems[shelfPhotoView].photo.mediaType};base64,${shelfItems[shelfPhotoView].photo.base64}`, 'shelf-photo-viewer') : ''}
       ${shelfState==='error' ? `<div class="scan-error">⚠ ${escapeHtml(shelfError)}</div>` : ''}
       ${shelfState==='empty' ? `<div class="scan-error">⚠ ${t('shelf_none')}</div>` : ''}
 
@@ -675,7 +719,7 @@ function shelfScanModal(){
           <div class="matched-item" style="${it.include?'':'opacity:.55;'}">
             <div class="mi-top">
               <input data-shelf-include="${idx}" type="checkbox" ${it.include?'checked':''} style="width:18px;height:18px;flex-shrink:0;accent-color:var(--navy);">
-              <div class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;">${stockIconSvg(ing)}</div>
+              ${it.photo ? `<img class="shelf-thumb" data-shelf-view="${idx}" src="data:${it.photo.mediaType};base64,${it.photo.base64}" alt="">` : `<div class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;">${stockIconSvg(ing)}</div>`}
               <strong style="flex:1;min-width:0;overflow-wrap:anywhere;">${escapeHtml(ing.name)}</strong>
               ${shelfConfidencePill(it.confidence)}
             </div>
@@ -716,6 +760,8 @@ function shelfScanModal(){
           <strong style="display:block;font-size:12px;color:var(--ink);margin-bottom:4px;">${t('shelf_unmatched_title')}</strong>
           ${shelfUnmatched.map(p=>escapeHtml(p.name)).join(' · ')}
           <div style="margin-top:5px;font-size:11px;">${t('shelf_unmatched_hint')}</div>
+          ${/* Salida real (antes era un callejón: cerrar, abrir Productos y sacar la misma foto). */''}
+          <button type="button" class="btn btn-primary btn-sm" id="btn-shelf-unmatched-to-pb" style="margin-top:8px;">${t('shelf_unmatched_to_pb')}</button>
         </div>` : ''}
       ` : ''}
 
@@ -912,7 +958,7 @@ function attachProductionEvents(){
       if(!file || !/^image\//.test(file.type)) return;
       try{
         const img = await loadImageFromFile(file);
-        processShelfSource(img);
+        gateShelfSource(img);
       }catch(err){
         stopShelfCamera();
         shelfState='error'; shelfError=err.message||t('product_scan_error'); render();
@@ -920,6 +966,18 @@ function attachProductionEvents(){
     };
     if(shelfFile) shelfFile.onchange=onShelfFile;
     if(shelfGallery) shelfGallery.onchange=onShelfFile;
+    // Aviso de calidad, cancelar lectura, recortes y no reconocidos → Productos.
+    const btnShelfQualityUse=document.getElementById('btn-shelf-quality-use');
+    if(btnShelfQualityUse) btnShelfQualityUse.onclick=()=>{ if(shelfPendingImg) processShelfSource(shelfPendingImg); };
+    const btnShelfQualityRetake=document.getElementById('btn-shelf-quality-retake');
+    if(btnShelfQualityRetake) btnShelfQualityRetake.onclick=()=>{ shelfPendingImg=null; restartShelfCamera(); };
+    const btnShelfCancelReading=document.getElementById('btn-shelf-cancel-reading');
+    if(btnShelfCancelReading) btnShelfCancelReading.onclick=cancelShelfReading;
+    document.querySelectorAll('[data-shelf-view]').forEach(im=>{ im.onclick=(e)=>{ e.stopPropagation(); shelfPhotoView=+im.dataset.shelfView; render(); }; });
+    const shelfViewer=document.getElementById('shelf-photo-viewer');
+    if(shelfViewer) shelfViewer.onclick=()=>{ shelfPhotoView=null; render(); };
+    const btnShelfToPb=document.getElementById('btn-shelf-unmatched-to-pb');
+    if(btnShelfToPb) btnShelfToPb.onclick=shelfUnmatchedToProductBatch;
     document.querySelectorAll('[data-shelf-include]').forEach(cb=>{
       cb.onchange=()=>{ const it=shelfItems[+cb.dataset.shelfInclude]; if(it){ it.include=cb.checked; render(); } };
     });

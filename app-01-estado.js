@@ -80,6 +80,20 @@ let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcom
    - lastScanQuota: {limit, used} que devuelve el servidor con cada escaneo — para
      decirle al trial cuántos escaneos gratis le quedan, antes de que choque el tope. */
 let showHelpModal=false, showTeamIntroModal=false, teamIntroContinue=null, itemModalExpanded=false, lastScanQuota=null;
+/* Auditoría de cámaras 2026-09-07 (ver el informe "Las seis cámaras"):
+   - scanPhotoView: página del recibo abierta a pantalla completa durante la revisión.
+   - scanTruncated: el modelo avisó que el recibo parece cortado.
+   - pbPendingImg / shelfPendingImg: foto retenida por el aviso de calidad ("¿usar igual?").
+   - shelfLastSource: la foto del estante, para dar de alta los no reconocidos sin otra foto.
+   - shelfPhotoView: recorte de una fila del estante abierto grande.
+   - productScanSuggest: lo que la IA detectó en la ficha para campos que ya tenían texto.
+   - barcodeLastCode: último código leído (se conserva aunque no se encuentre el producto).
+   - aiWaitStartedAt/aiWaitTimer: "sigue leyendo…" pasados 8 s en cualquier escáner.
+   - catalogSuggestOn: reconocer el producto de una foto de catálogo con IA (usa 1 escaneo). */
+let scanPhotoView=null, scanTruncated=false, pbPendingImg=null, shelfPendingImg=null, shelfLastSource=null, shelfPhotoView=null, productScanSuggest=null, barcodeLastCode='', aiWaitStartedAt=0, aiWaitTimer=null;
+let pbQualityWarn=null, shelfQualityWarn=null;
+let catalogSuggestOn=true;
+try{ if(localStorage.getItem('patron_catalog_suggest')==='off') catalogSuggestOn=false; }catch(e){}
 // Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
 let welcomeStep = 0;
 // Dirección del último cambio de paso (1 = avanzando, -1 = retrocediendo) — decide si

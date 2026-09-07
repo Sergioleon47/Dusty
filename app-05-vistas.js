@@ -2511,6 +2511,8 @@ function catalogCameraModal(){
         <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
       </div>
       <button type="button" id="btn-catalog-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
+      <div class="scan-tip">📷 ${t('catalog_tip')}</div>
+      ${scanQuotaLineHtml()}
       <div class="modal-actions" style="margin-top:0;">
         <button class="btn btn-ghost" id="btn-cancel-catalog-camera" style="width:100%;">${t('btn_cancel')}</button>
       </div>
@@ -2686,7 +2688,14 @@ function catalogAssignModal(){
         ${catalogEditFull ? `<button type="button" class="exit-reason-chip" id="btn-open-photo-editor" style="font-weight:800;">✂️ ${t('catalog_edit_btn')}</button>` : ''}
         ${['original','vivid','warm','retro','bw'].map(k=>`<button type="button" class="exit-reason-chip ${catalogPendingFilter===k?'on':''}" data-photo-filter="${k}">${t('catalog_filter_'+k)}</button>`).join('')}
       </div>
-      ${catalogAssignDetecting ? `<div class="scan-status" style="margin-top:10px;flex-shrink:0;"><div class="spinner"></div> ${t('catalog_detecting')}</div>` : ''}
+      ${/* Reconocer con IA: se dice que usa 1 escaneo y se puede apagar (antes
+           gastaba el cupo en silencio, auditoría 2026-09-07). */''}
+      ${(currentUser && !currentUser.isAnonymous) ? `
+      <div class="catalog-suggest-row">
+        <span>✨ ${t('catalog_suggest_toggle')} <small>(${t('catalog_suggest_cost')})</small></span>
+        <label class="pulse-switch" aria-label="${t('catalog_suggest_toggle')}"><input type="checkbox" id="catalog-suggest-toggle" ${catalogSuggestOn?'checked':''}><i></i></label>
+      </div>` : ''}
+      ${catalogAssignDetecting ? `<div class="scan-status" style="margin-top:10px;flex-shrink:0;"><div class="spinner"></div> ${t('catalog_detecting')} <small style="color:var(--ink-soft);">(${t('catalog_suggest_cost')})</small></div>` : ''}
       ${(()=>{
         if(!catalogAssignSuggestion) return '';
         const s = catalogAssignSuggestion;

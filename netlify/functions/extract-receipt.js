@@ -145,8 +145,11 @@ Formato de cada item:
       "eat_out": true o false,
       "duplicate_of": number o null
     }
-  ]
-}`}`;
+  ],
+  "truncated": true o false
+}
+
+SOBRE "truncated": true si el recibo parece CORTADO en la foto — el total final no se ve completo, la última línea queda al borde, o el papel sigue fuera del cuadro. false si se ve entero. (Auditoría 2026-09-07: la app ofrece agregar otra página cuando es true.)`}`;
 }
 
 exports.handler = async (event) => {

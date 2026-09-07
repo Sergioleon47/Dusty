@@ -26,11 +26,14 @@ Analiza la imagen y devolvé JSON puro (sin markdown, sin backticks, sin texto e
   "name": "string (en inglés, nombre claro y natural del producto — ej. 'Chicken Tenders', 'Aluminum Pan (9 in)')",
   "unit": "string: lb, kg, oz, g, ml, l, o unidad (usá 'unidad' para piezas sueltas sin peso)",
   "cost_per_unit": number o null,
+  "price_visible": true o false,
   "sku": "string o null",
   "category": "string (de la lista de abajo, o una categoría nueva propuesta), o null",
   "confidence": "alta" | "media" | "baja",
   "matched_inventory_name": "string o null"
 }
+
+- "price_visible": true SOLO si se ve un precio impreso en la foto. Si es false, "cost_per_unit" DEBE ser null — nunca un precio estimado (auditoría 2026-09-07).
 
 ${hasInventory ? `SOBRE "matched_inventory_name":
 Esta es la lista de productos que el usuario YA tiene cargados en su inventario:
@@ -64,6 +67,8 @@ Identificá CADA producto DISTINTO que se vea con claridad razonable y devolvé 
       "name": "string (en inglés, nombre claro y natural — ej. 'Chicken Tenders', 'Aluminum Pan (9 in)')",
       "unit": "string: lb, kg, oz, g, ml, l, o unidad (usá 'unidad' para piezas sueltas sin peso)",
       "cost_per_unit": number o null,
+      "price_visible": true o false,
+      "count": number o null,
       "sku": "string o null",
       "category": "string (de la lista de abajo, o una categoría nueva propuesta), o null",
       "confidence": "alta" | "media" | "baja",
@@ -72,6 +77,9 @@ Identificá CADA producto DISTINTO que se vea con claridad razonable y devolvé 
     }
   ]
 }
+
+- "price_visible": true SOLO si para ESE producto se ve un precio impreso en la foto (etiqueta de góndola, sticker, cartel). Si es false, "cost_per_unit" DEBE ser null — nunca un precio estimado o de memoria (auditoría 2026-09-07: un costo inventado entra al inventario como real).
+- "count": cuántas unidades de ESE producto se ven en la foto (ej. 6 latas iguales → 6), o null si no se puede contar.
 
 REGLAS:
 - UN objeto por producto DISTINTO. Varias unidades idénticas del mismo producto (ej. 6 latas iguales) son UN solo objeto, no seis.

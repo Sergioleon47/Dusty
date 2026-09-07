@@ -221,7 +221,13 @@
 // anotar un recordatorio tocando un día) — app-05.
 // v78: interruptor "Latidos de aviso" en Ajustes (apaga/prende las palpitaciones
 // de Inventario y Presupuesto) — app-03/05/07 + css.
-const CACHE_NAME = 'patron-shell-v78';
+// v79: auditoría de cámaras (30 puntos): revisión compacta con foto de referencia
+// y barra fija en Recibos; costo solo con precio visible; "sigue leyendo" y
+// cancelar sin perder la foto; aviso de calidad y 2000 px en Productos y Estante;
+// no reconocidos del estante → alta con la misma foto; código de barras local,
+// entrada manual, linterna y SKU siempre; ficha que no pisa lo escrito; consejos
+// de encuadre y cupo visible — app-01/03/05/06/07/08 + css + prompts.
+const CACHE_NAME = 'patron-shell-v79';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

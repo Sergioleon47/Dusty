@@ -1196,6 +1196,59 @@
   .matched-item .mi-top strong{color:var(--ink);font-size:13px;}
   .mi-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--on-accent);}
   .mi-fields{display:flex;gap:8px;}
+  /* ===== AUDITORÍA DE CÁMARAS 2026-09-07 ===== */
+  /* Campos con etiqueta corta encima (en el teléfono se apilaban como "5 / lb / 12.5"). */
+  .mi-fields-labeled{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+  .mi-fields-labeled .mi-f{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .mi-fields-labeled .mi-f-wide{grid-column:1 / -1;}
+  .mi-fields-labeled .mi-f select, .mi-fields-labeled .mi-f input{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--inset);color:var(--ink);}
+  .mi-lbl{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);}
+  /* Fila compacta: lo que se leyó bien se confirma de un vistazo y se expande al tocar. */
+  .matched-item.mi-compact{padding:9px 12px;cursor:pointer;border-color:color-mix(in srgb, var(--basil) 30%, var(--line));}
+  .matched-item.mi-compact:active{background:var(--bg);}
+  .matched-item.mi-compact .mi-top{margin:0;gap:8px;}
+  .mi-name{flex:1;min-width:0;font-weight:700;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mi-brief{font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink-soft);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .mi-ok{width:18px;height:18px;border-radius:50%;background:var(--basil-soft);color:var(--basil-ink);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;}
+  .mi-chev{color:var(--ink-soft);font-size:16px;flex-shrink:0;}
+  .mi-sub{font-size:11px;color:var(--ink-soft);margin:4px 0 0 30px;}
+  .mi-collapse-btn{display:block;width:100%;margin-top:8px;background:none;border:1px dashed var(--line);border-radius:8px;padding:6px;font-size:11.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  /* Barra de acción fija al pie del modal de revisión. */
+  .modal-actions-sticky{position:sticky;bottom:-1px;background:var(--panel);padding:12px 0 2px;margin-top:14px;border-top:1px solid var(--line);z-index:3;}
+  .modal-actions-sticky .btn-ghost{flex:0 0 auto;padding-left:16px;padding-right:16px;}
+  .modal-actions-sticky .btn-primary{white-space:nowrap;}
+  /* Tira de miniaturas del recibo durante la revisión + visor a pantalla completa. */
+  .scan-ref-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;margin-bottom:8px;scrollbar-width:none;}
+  .scan-ref-strip img{width:56px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex-shrink:0;cursor:zoom-in;}
+  .scan-ref-strip .scan-ref-hint{font-size:11px;color:var(--ink-soft);align-self:center;}
+  .scan-photo-viewer{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:helpAIn .2s ease;}
+  .scan-photo-viewer img{max-width:100%;max-height:100%;object-fit:contain;touch-action:pinch-zoom;}
+  .scan-photo-viewer button{position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:20px;cursor:pointer;}
+  /* Recibo cortado, "sigue leyendo…", cupo y consejo de encuadre. */
+  .scan-truncated{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--saffron-soft);color:var(--saffron-ink);border-radius:8px;padding:8px 10px;font-size:12.5px;font-weight:600;margin-bottom:10px;}
+  .scan-truncated button{margin-left:auto;}
+  .ai-slow{margin:-6px 0 12px;color:var(--ink-soft);font-size:12px;animation:helpAIn .3s ease;}
+  .scan-quota-line{font-family:'IBM Plex Mono';font-size:11px;color:var(--ink-soft);margin:-4px 0 12px;text-align:center;}
+  .scan-tip{font-size:12px;color:var(--ink-soft);margin:-8px 0 12px;line-height:1.4;}
+  .scan-cancel-reading{display:block;margin:0 auto 12px;background:none;border:1px solid var(--line);border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer;}
+  /* Aviso de calidad antes de gastar un escaneo (Productos, Estante). */
+  .quality-gate{background:var(--saffron-soft);border-radius:12px;padding:12px 14px;margin-bottom:12px;}
+  .quality-gate b{display:block;font-size:13.5px;color:var(--saffron-ink);margin-bottom:4px;}
+  .quality-gate p{margin:0 0 10px;font-size:12.5px;color:var(--ink);}
+  .quality-gate img{width:100%;max-height:180px;object-fit:contain;border-radius:8px;background:#151515;margin-bottom:10px;display:block;}
+  .quality-gate .qg-actions{display:flex;gap:8px;}
+  /* Chips "Detectado: X · Usar" en la ficha, y fila del código manual. */
+  .scan-suggest{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .scan-suggest-chip{display:inline-flex;align-items:center;gap:6px;background:var(--sky-soft);color:var(--sky-ink);border:none;border-radius:20px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;max-width:100%;}
+  .scan-suggest-chip b{font-weight:800;}
+  .scan-suggest-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .barcode-manual{display:flex;gap:8px;margin-top:10px;}
+  .barcode-manual input{flex:1;min-width:0;}
+  .barcode-tools{display:flex;justify-content:flex-end;margin-top:8px;}
+  .shelf-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1px solid var(--line);}
+  .catalog-suggest-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-shrink:0;font-size:12.5px;color:var(--ink);}
+  .catalog-suggest-row small{color:var(--ink-soft);}
+  .catalog-suggest-row .pulse-switch{margin-left:auto;}
   .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--inset);color:var(--ink);}
 
   @media (max-width:720px){

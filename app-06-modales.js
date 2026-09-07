@@ -1559,8 +1559,14 @@ function itemModal(){
           <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-barcode" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_barcode')}</button>
           <input type="file" id="item-scan-photo-file" accept="image/*" capture="environment" style="display:none;">
         </div>
+        <div class="helper-note" style="margin:8px 0 0;">${t('scan_uses_one')}</div>
         ${productScanState==='loading' ? `<div class="scan-status" style="margin-top:14px;margin-bottom:0;"><div class="spinner"></div> ${t('product_scan_loading')}</div>` : ''}
         ${productScanState==='error' ? `<div class="scan-error" style="margin-top:14px;margin-bottom:0;">⚠ ${productScanError||t('product_scan_error')}</div>` : ''}
+        ${/* Lo detectado para campos que YA tenían texto no pisa nada: chips "Detectado: X · Usar". */''}
+        ${productScanSuggest && Object.keys(productScanSuggest).length ? `
+        <div class="scan-suggest">
+          ${Object.keys(productScanSuggest).map(k=>`<button type="button" class="scan-suggest-chip" data-scan-suggest="${k}"><span>${t('item_scan_detected').replace('{v}', escapeHtml(String(productScanSuggest[k].label)))}</span><b>${t('item_scan_use')}</b></button>`).join('')}
+        </div>` : ''}
       </div>`}
 
       <div class="settings-card">
@@ -1673,7 +1679,11 @@ function itemModal(){
 let barcodeLibLoadPromise = null;
 function ensureBarcodeLibReady(){
   if(barcodeLibLoadPromise) return barcodeLibLoadPromise;
-  barcodeLibLoadPromise = loadExternalScript('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js');
+  // Servida con la app (html5-qrcode.min.js, auditoría de cámaras 2026-09-07): sin
+  // señal o con el CDN bloqueado el lector seguía diciendo "no se pudo abrir la
+  // cámara". El CDN queda solo de respaldo si la copia local no cargara.
+  barcodeLibLoadPromise = loadExternalScript('/html5-qrcode.min.js')
+    .catch(()=>loadExternalScript('https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'));
   return barcodeLibLoadPromise;
 }
 function openBarcodeScanModal(){
@@ -1694,8 +1704,43 @@ function openBarcodeScanModal(){
   ensureBarcodeLibReady().then(()=>{
     startBarcodeScanner();
   }).catch(()=>{
-    barcodeScanState='error'; barcodeScanError=t('barcode_scan_camera_error'); render();
+    // "No cargó el lector" ≠ "sin permiso de cámara" (auditoría 2026-09-07).
+    barcodeScanState='error'; barcodeScanError=t('barcode_lib_error'); render();
   });
+}
+// Linterna: donde el navegador lo permita (Android Chrome sí, iOS no).
+async function toggleBarcodeTorch(){
+  if(!barcodeScannerInstance) return;
+  try{
+    barcodeTorchOn = !barcodeTorchOn;
+    await barcodeScannerInstance.applyVideoConstraints({ advanced: [{ torch: barcodeTorchOn }] });
+  }catch(e){
+    barcodeTorchOn = false;
+    showToast(t('barcode_torch_unsupported'), 'error');
+  }
+}
+// Búsqueda del código (compartida por la cámara y la entrada manual).
+async function lookupBarcode(code){
+  barcodeLastCode = String(code||'').trim();
+  barcodeScanState='looking'; render();
+  try{
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcodeLastCode)}.json`);
+    const data = await res.json();
+    if(data && data.status===1 && data.product && (data.product.product_name || data.product.generic_name)){
+      if(draftItem){ draftItem.name = data.product.product_name || data.product.generic_name; draftItem.sku = barcodeLastCode; }
+      showBarcodeScanModal=false;
+      barcodeScanState='scanning';
+      render();
+    } else {
+      // El código leído NO se pierde: queda como SKU aunque el producto no esté
+      // en Open Food Facts (que cubre comida y bebida, no ferretería ni limpieza).
+      if(draftItem) draftItem.sku = barcodeLastCode;
+      barcodeScanState='notfound'; render();
+    }
+  }catch(e){
+    if(draftItem) draftItem.sku = barcodeLastCode;
+    barcodeScanState='notfound'; render();
+  }
 }
 function startBarcodeScanner(){
   const el = document.getElementById('barcode-reader');
@@ -1747,29 +1792,16 @@ async function onBarcodeDetected(code){
   // apagarse del todo. La cámara igual se apaga en paralelo, sin bloquear la UI.
   const instance = barcodeScannerInstance;
   barcodeScannerInstance = null;
+  barcodeTorchOn = false;
   barcodeScanState='looking'; render();
   try{ await instance.stop(); }catch(e){}
   try{ instance.clear(); }catch(e){}
-  try{
-    // Open Food Facts: base pública, sin API key, sin costo — cubre bien productos de
-    // marca (sobre todo comida/bebida), pero no todo lo que un negocio pueda escanear
-    // (insumos genéricos sin marca, por ejemplo). Si no está, se avisa y se completa a
-    // mano — nunca se inventa un producto para un código que no se encontró.
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`);
-    const data = await res.json();
-    if(data && data.status===1 && data.product && (data.product.product_name || data.product.generic_name)){
-      draftItem.name = data.product.product_name || data.product.generic_name;
-      draftItem.sku = code;
-      showBarcodeScanModal=false;
-      barcodeScanState='scanning';
-      render();
-    } else {
-      barcodeScanState='notfound'; render();
-    }
-  }catch(e){
-    barcodeScanState='notfound'; render();
-  }
+  // Open Food Facts: base pública, sin API key, sin costo — cubre bien productos de
+  // marca (sobre todo comida/bebida). Si no está, se avisa, el código queda como
+  // SKU y se completa a mano o con una foto — nunca se inventa un producto.
+  await lookupBarcode(code);
 }
+let barcodeTorchOn = false;
 function barcodeScanModal(){
   return `
   <div class="overlay" id="barcode-scan-overlay">
@@ -1777,14 +1809,25 @@ function barcodeScanModal(){
       <h3 class="navy">${t('barcode_scan_title')}</h3>
       ${barcodeScanState==='scanning' ? `
         <div class="sub">${t('barcode_scan_hint')}</div>
-        <div id="barcode-reader" style="border-radius:12px;overflow:hidden;margin:14px 0;background:#000;"></div>
+        <div id="barcode-reader" style="border-radius:12px;overflow:hidden;margin:14px 0 0;background:#000;"></div>
+        <div class="barcode-tools"><button type="button" class="btn btn-ghost btn-sm" id="btn-barcode-torch">${t('barcode_torch')}</button></div>
       ` : ''}
       ${barcodeScanState==='looking' ? `<div class="scan-status"><div class="spinner"></div> ${t('barcode_scan_looking')}</div>` : ''}
-      ${barcodeScanState==='notfound' ? `<div class="scan-error">⚠ ${t('barcode_not_found')}</div>` : ''}
+      ${barcodeScanState==='notfound' ? `<div class="scan-error">⚠ ${t('barcode_notfound_code').replace('{code}', escapeHtml(barcodeLastCode))}</div>` : ''}
       ${barcodeScanState==='error' ? `<div class="scan-error">⚠ ${barcodeScanError||t('barcode_scan_camera_error')}</div>` : ''}
-      <div class="modal-actions">
-        ${barcodeScanState==='notfound' ? `<button class="btn btn-ghost" id="btn-barcode-retry">${t('btn_retry_scan')}</button>` : ''}
-        <button class="btn ${barcodeScanState==='notfound'?'btn-primary':'btn-ghost'}" id="btn-close-barcode-scan" style="flex:1;">${t('btn_cancel')}</button>
+      ${/* Entrada manual (auditoría 2026-09-07): un código gastado o con poca luz
+           no se lee — y si la cámara directamente no abre, tipearlo es la salida. */''}
+      ${(barcodeScanState==='scanning' || barcodeScanState==='error') ? `
+        <div class="barcode-manual">
+          <input id="barcode-manual-input" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="${t('barcode_manual_ph')}" autocomplete="off">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-barcode-manual">${t('barcode_manual_btn')}</button>
+        </div>` : ''}
+      <div class="modal-actions" style="flex-wrap:wrap;">
+        ${barcodeScanState==='notfound' ? `
+        <button class="btn btn-ghost" id="btn-barcode-retry">${t('btn_retry_scan')}</button>
+        <button class="btn btn-ghost" id="btn-barcode-identify">${t('barcode_identify_photo')}</button>
+        <button class="btn btn-primary" id="btn-barcode-write" style="flex-basis:100%;">${t('barcode_write_name')}</button>` : ''}
+        ${barcodeScanState!=='notfound' ? `<button class="btn btn-ghost" id="btn-close-barcode-scan" style="flex:1;">${t('btn_cancel')}</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -1945,6 +1988,47 @@ function receiptPhotoSource(){
     gallery: ()=>{ const i=document.getElementById('receipt-file-gallery'); if(i) i.click(); }
   };
 }
+/* ===== Compartido por los escáneres (auditoría de cámaras 2026-09-07) ===== */
+// "Sigue leyendo…" pasados 8 s de espera, en cualquier escáner: un spinner mudo
+// durante 10 s se siente colgado. beginAiWait al arrancar la lectura, endAiWait al
+// terminar; aiWaitSlowHtml se pinta debajo del estado de carga.
+function beginAiWait(){
+  aiWaitStartedAt = Date.now();
+  clearTimeout(aiWaitTimer);
+  aiWaitTimer = setTimeout(()=>{ try{ render(); }catch(e){} }, 8200);
+}
+function endAiWait(){ aiWaitStartedAt = 0; clearTimeout(aiWaitTimer); aiWaitTimer = null; }
+function aiWaitSlowHtml(){
+  return (aiWaitStartedAt && Date.now()-aiWaitStartedAt>8000) ? `<div class="helper-note ai-slow">${t('scan_slow_note')}</div>` : '';
+}
+// Cupo visible en cada escáner para el trial (antes solo lo decía el festejo del
+// primer recibo, y las otras cinco llamadas descontaban en silencio).
+function scanQuotaLineHtml(){
+  if(!currentUser || !currentUser.isAnonymous || !lastScanQuota || !Number.isFinite(lastScanQuota.limit)) return '';
+  const left = Math.max(0, (lastScanQuota.limit|0) - (lastScanQuota.used|0));
+  return `<div class="scan-quota-line">${left===1 ? t('trial_scans_last') : t('trial_scans_left').replace('{n}', String(left))}</div>`;
+}
+// Aviso de calidad ANTES de gastar un escaneo (Productos y Estante lo comparten
+// con Recibos): oscura, borrosa o lavada → "¿usar igual o sacar otra?".
+function qualityGateHtml(img, warn, useId, retakeId){
+  if(!warn) return '';
+  let src = '';
+  try{ src = resizeToBase64(img, 480, 0.7); src = `data:${src.mediaType};base64,${src.base64}`; }catch(e){}
+  return `
+  <div class="quality-gate">
+    <b>⚠ ${t('quality_gate_title')}</b>
+    <p>${t('scan_quality_'+warn)}. ${t('scan_quality_hint')}</p>
+    ${src ? `<img src="${src}" alt="">` : ''}
+    <div class="qg-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="${retakeId}" style="flex:1;">${t('quality_retake')}</button>
+      <button type="button" class="btn btn-primary btn-sm" id="${useId}" style="flex:1;">${t('quality_use_anyway')}</button>
+    </div>
+  </div>`;
+}
+// Visor a pantalla completa de una foto (recibo en revisión, recorte del estante).
+function photoViewerHtml(src, closeId){
+  return `<div class="scan-photo-viewer" id="${closeId}"><img src="${src}" alt=""><button type="button" aria-label="${t('btn_close')}">✕</button></div>`;
+}
 function openScanModal(){
   // El escaneo le pega a la API de Claude y cuesta plata real cada vez que se usa —
   // a diferencia de cargar productos a mano (gratis, no toca ningún servidor), esto
@@ -1970,6 +2054,7 @@ function openScanModal(){
   }
   scanRequestId++;
   scanState='idle'; scanImages=[]; scanImagesHiRes=[]; scanSourceFiles=[]; scanPageWarnings=[]; scanExtracted=[]; scanErrorMsg='';
+  scanPhotoView=null; scanTruncated=false; endAiWait();
   scanSupplier=''; scanDate=localDateStr(); scanInvoiceTotal=null;
   scanDuplicateOf=null; scanDuplicateConfirmed=false;
   resetScanBatchState();
@@ -1997,6 +2082,8 @@ function scanModal(){
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
         <button type="button" id="btn-scan-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
+        <div class="scan-tip">📷 ${t('scan_tip_frame')}</div>
+        ${scanQuotaLineHtml()}
       ` : ''}
       <input type="file" id="receipt-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="receipt-file-gallery" accept="image/*" multiple style="display:none;">
@@ -2040,8 +2127,12 @@ function scanModal(){
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
           <div class="beam"></div>
         </div>` : ''}
-        <div class="scan-status"><div class="spinner"></div> ${t('scan_reading')}</div>`;
+        <div class="scan-status"><div class="spinner"></div> ${t('scan_reading')}</div>
+        ${aiWaitSlowHtml()}
+        ${/* Cancelar SIN perder las páginas (antes cerraba todo y había que volver a sacar la foto). */''}
+        <button type="button" class="scan-cancel-reading" id="btn-cancel-reading">${t('scan_cancel_reading')}</button>`;
       })() : ''}
+      ${scanPhotoView!==null && (scanCurrentImages||scanImages)[scanPhotoView] ? (()=>{ const im=(scanCurrentImages||scanImages)[scanPhotoView]; return photoViewerHtml(`data:${im.mediaType};base64,${im.base64}`, 'scan-photo-viewer'); })() : ''}
       ${scanState==='error' ? `<div class="scan-error">⚠ ${scanErrorMsg}</div>` : ''}
       ${scanState==='error' ? `<div class="helper-note" style="margin-top:-4px;">${t('scan_tip_manual')}</div>` : ''}
 
@@ -2053,6 +2144,17 @@ function scanModal(){
       ` : ''}
 
       ${scanState==='matched' ? `
+        ${/* La foto SIEMPRE a mano mientras se corrige (auditoría 2026-09-07):
+             tira de miniaturas, cada una abre la página a pantalla completa. */''}
+        ${(()=>{ const imgs = scanCurrentImages || scanImages; if(!imgs.length) return ''; return `
+        <div class="scan-ref-strip">
+          ${imgs.map((im,i)=>`<img src="data:${im.mediaType};base64,${im.base64}" alt="" data-scan-view="${i}">`).join('')}
+          <span class="scan-ref-hint">${t('scan_ref_hint')}</span>
+        </div>`; })()}
+        ${scanTruncated ? `
+        <div class="scan-truncated">✂️ ${t('scan_truncated_note')}
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-add-page-after">${t('scan_add_page_after')}</button>
+        </div>` : ''}
         ${scanExtracted.length>0 && (scanExtracted.filter(i=>!i.qtyVerified).length/scanExtracted.length) > 0.4 ? `
         <div class="scan-error" style="background:var(--saffron-soft);color:var(--saffron-ink);">⚠ ${t('scan_low_confidence_hint')}</div>
         ` : ''}
@@ -2162,6 +2264,27 @@ function scanModal(){
           // app (ícono en círculo de color): ámbar = todavía no existe en tu inventario,
           // verde = ya emparejado con un producto que ya tenés.
           const miIcon = `<span class="mi-icon" style="background:${isUnrecognized?'var(--saffron)':'var(--basil)'};">${lineIcon(isUnrecognized?'box':'chart',12)}</span>`;
+          /* Revisar, no releer (auditoría de cámaras 2026-09-07): una línea
+             emparejada con confianza alta y sin alertas se muestra COMPACTA
+             (nombre · 5 lb · $12.50 · ✓) y se expande al tocar. Solo lo nuevo
+             o dudoso abre desplegado. item.expanded manda si el usuario tocó. */
+          const fuzzyOpen = !!(item.fuzzySuggestedId && item.matchedIngId===item.fuzzySuggestedId && !item.fuzzyConfirmed);
+          const attention = isUnrecognized || item.confidence!=='alta' || !!priceAlert || !!qtyAlert || fuzzyOpen || item.matchedIngId==='__eatout__' || !(item.qty>0) || !(item.totalPrice>0);
+          const expanded = item.expanded===true || (item.expanded!==false && attention);
+          if(!expanded){
+            const mName = matchedIng ? matchedIng.name : '';
+            const aka = (mName && mName.toLowerCase().trim()!==String(item.rawName).toLowerCase().trim()) ? `<div class="mi-sub">${t('scan_matched_as').replace('{name}', escapeHtml(mName))}</div>` : '';
+            return `
+          <div class="matched-item mi-compact" data-scan-expand="${idx}" role="button" tabindex="0" title="${t('scan_row_ok')}">
+            <div class="mi-top">
+              ${miIcon}
+              <span class="mi-name">${escapeHtml(item.rawName)}</span>
+              <span class="mi-brief">${escapeHtml(item.qty)} ${escapeHtml(unitLabel(item.unit))} · ${money(item.totalPrice)}</span>
+              <span class="mi-ok" aria-label="${t('scan_row_ok')}">✓</span>
+              <span class="mi-chev">›</span>
+            </div>${aka}
+          </div>`;
+          }
           return `
           <div class="matched-item" style="${isUnrecognized?'border-color:color-mix(in srgb, var(--saffron) 40%, var(--panel));background:var(--saffron-soft);':''}">
             <div class="mi-top">
@@ -2189,15 +2312,17 @@ function scanModal(){
             })()}
             ${item.confidence==='baja' ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
             ${item.confidence==='media' ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${t('scan_qty_review')}</div>` : ''}
-            <div class="mi-fields">
-              <select data-scan-match="${idx}" style="flex:2;">
+            ${/* Etiquetas cortas encima de cada campo: en el teléfono se apilaban como "5 / lb / 12.5" sin decir qué eran. */''}
+            <div class="mi-fields mi-fields-labeled">
+              <div class="mi-f mi-f-wide"><span class="mi-lbl">${t('scan_lbl_match')}</span>
+              <select data-scan-match="${idx}">
                 <option value="__new__" ${item.matchedIngId==='__new__'?'selected':''}>${t('opt_add_new_ing')}</option>
                 <option value="__eatout__" ${item.matchedIngId==='__eatout__'?'selected':''}>${t('opt_eat_out')}</option>
                 ${inventory.map(i=>`<option value="${i.id}" ${item.matchedIngId===i.id?'selected':''}>${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})</option>`).join('')}
-              </select>
-              <input data-scan-qty="${idx}" type="number" step="0.01" value="${escapeHtml(item.qty)}" style="flex:1;border:${confBorder};" placeholder="${t('ph_qty_short')}">
-              <select data-scan-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${item.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
-              <input data-scan-price="${idx}" type="number" step="0.01" value="${escapeHtml(item.totalPrice)}" style="flex:1;" placeholder="${t('ph_price_short')}">
+              </select></div>
+              <div class="mi-f"><span class="mi-lbl">${t('scan_lbl_qty')}</span><input data-scan-qty="${idx}" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(item.qty)}" style="border:${confBorder};" placeholder="${t('ph_qty_short')}"></div>
+              <div class="mi-f"><span class="mi-lbl">${t('scan_lbl_unit')}</span><select data-scan-unit="${idx}" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${item.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select></div>
+              <div class="mi-f"><span class="mi-lbl">${t('scan_lbl_price')}</span><input data-scan-price="${idx}" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(item.totalPrice)}" placeholder="${t('ph_price_short')}"></div>
             </div>
             ${(()=>{
               // Selector de categoría solo para productos NUEVOS. La lista depende
@@ -2225,6 +2350,7 @@ function scanModal(){
             ${priceAlert}
             ${qtyAlert}
             ${mergedNote}
+            ${!attention ? `<button type="button" class="mi-collapse-btn" data-scan-collapse="${idx}">${t('scan_row_collapse')}</button>` : ''}
           </div>`;
         }).join('')}
         ${scanExtracted.length===0 ? `<div style="font-size:12.5px;color:var(--ink-soft);padding:10px 2px;">${t('scan_no_products_left')}</div>` : ''}
@@ -2232,10 +2358,18 @@ function scanModal(){
         ${scanPayReminderHtml()}
       ` : ''}
 
-      <div class="modal-actions">
+      ${/* Barra de acción FIJA al pie durante la revisión (antes quedaba al fondo
+           de tres pantallas de scroll) y el botón dice qué va a aplicar. */''}
+      <div class="modal-actions${scanState==='matched' ? ' modal-actions-sticky' : ''}">
         <button class="btn btn-ghost" id="btn-cancel-scan">${t(scanBatchMode && scanState==='matched' ? 'btn_finish_batch' : 'btn_cancel')}</button>
         ${scanState==='matched' && scanBatchMode ? `<button class="btn btn-ghost" id="btn-skip-queued">${t('btn_skip_receipt')}</button>` : ''}
-        ${scanState==='matched' ? `<button class="btn btn-primary" id="btn-apply-scan" ${(scanExtracted.length===0 || (scanDuplicateOf && !scanDuplicateConfirmed)) ? 'disabled':''}>${t(scanBatchMode && scanQueue.length>0 ? 'btn_save_and_next' : 'btn_confirm_apply')}</button>` : ''}
+        ${scanState==='matched' ? (()=>{
+          const valid = scanExtracted.filter(i=>i.qty>0 && i.totalPrice>0 && i.rawName && i.rawName.trim());
+          const sum = valid.reduce((s,i)=>s+i.totalPrice,0);
+          const total = scanInvoiceTotal!==null ? scanInvoiceTotal : sum;
+          const label = (scanBatchMode && scanQueue.length>0) ? t('btn_save_and_next') : t('scan_apply_summary').replace('{n}', String(valid.length)).replace('{total}', money(total));
+          return `<button class="btn btn-primary" id="btn-apply-scan" ${(valid.length===0 || (scanDuplicateOf && !scanDuplicateConfirmed)) ? 'disabled':''}>${label}</button>`;
+        })() : ''}
         ${scanState==='error' ? `<button class="btn btn-primary" id="btn-retry-scan">${t('btn_retry_scan')}</button>` : ''}
       </div>
     </div>
@@ -2383,13 +2517,25 @@ function restartScannerCamera(){
 }
 
 // source: un canvas (cuadro capturado del <video>) o un Image (foto del input nativo/galería)
+/* Aviso de calidad antes de gastar el escaneo (compartido con Recibos). Si la
+   foto se ve oscura, borrosa o lavada, se pregunta "¿usar igual?"; si no, sigue. */
+function gateProductBatchSource(source){
+  let warn = null;
+  try{ warn = assessImageQuality(source); }catch(e){}
+  if(warn){ pbPendingImg = source; pbQualityWarn = warn; pbState='quality'; render(); return; }
+  processProductBatchSource(source);
+}
 async function processProductBatchSource(source){
   const requestId = ++pbRequestId;
   stopScannerCamera();
-  pbState='loading'; pbError=''; render();
+  pbPendingImg = null; pbQualityWarn = null;
+  pbState='loading'; pbError=''; beginAiWait(); render();
   try{
-    const image = resizeToBase64(source, 1400, 0.9);
+    // 2000 px (antes 1400): con ocho productos en cuadro cada etiqueta quedaba con
+    // un puñado de píxeles. Una sola imagen por pedido, entra en el tope del servidor.
+    const image = resizeToBase64(source, 2000, 0.88);
     const products = await identifyProductsFromPhoto(image);
+    endAiWait();
     // Si mientras la IA pensaba el usuario cerró el modal o disparó otra foto,
     // esta respuesta ya es vieja — se descarta sin tocar nada.
     if(requestId !== pbRequestId || !showProductBatchModal) return;
@@ -2408,18 +2554,24 @@ async function processProductBatchSource(source){
       // "__newcat__:<nombre>" — el select la muestra preseleccionada como nueva
       // y applyProductBatch la crea de verdad recién al confirmar.
       const catMatch = p.category ? categories.find(c=>c.name.trim().toLowerCase()===p.category.trim().toLowerCase()) : null;
+      const unit = ['lb','kg','oz','g','ml','l','unidad','caja','servicio'].includes(p.unit) ? p.unit : 'unidad';
+      const count = Number(p.count);
       return {
         name: p.name,
-        unit: ['lb','kg','oz','g','ml','l','unidad','caja','servicio'].includes(p.unit) ? p.unit : 'unidad',
-        cost: typeof p.cost_per_unit==='number' ? p.cost_per_unit : '',
-        // Cantidad en stock: la escribe el usuario en la revisión (la foto muestra
-        // QUÉ es el producto, no cuánto hay en total) — vacío = 0, como antes.
-        qty: '',
+        unit,
+        // Costo SOLO con precio visible en la foto (auditoría 2026-09-07): un costo
+        // adivinado entraba al inventario como real y contaminaba valor y P&L.
+        cost: (p.price_visible===true && typeof p.cost_per_unit==='number') ? p.cost_per_unit : '',
+        // Cantidad propuesta: las unidades que la IA vio; 1 para piezas sueltas
+        // sin conteo. El usuario la corrige en la revisión.
+        qty: (Number.isFinite(count) && count>0) ? count : (unit==='unidad' ? 1 : ''),
         sku: p.sku || '',
         categoryId: catMatch ? catMatch.id : (p.category && p.category.trim() ? '__newcat__:'+p.category.trim() : null),
         confidence: p.confidence || 'baja',
         photo: p.box ? cropToBase64(source, p.box, 300, 0.75) : null,
-        selected: !dup,
+        // Confianza baja arranca DESTILDADA: un toque en Agregar no debe meter una
+        // "lata sin etiqueta" al inventario.
+        selected: !dup && (p.confidence||'baja')!=='baja',
         dupOfId: dup ? dup.id : null
       };
     });
@@ -2433,11 +2585,20 @@ async function processProductBatchSource(source){
     }
     render();
   }catch(err){
+    endAiWait();
     if(requestId !== pbRequestId) return;
     if(!showProductBatchModal) return; // el 429 del trial ya cerró este modal y abrió el suyo
     pbState='error'; pbError = err.message || t('product_scan_error');
     render();
   }
+}
+// Cancelar la lectura sin cerrar: vuelve a la caja (la foto es una sola y sacarla
+// de nuevo es barato); la respuesta que llegue después se descarta por requestId.
+function cancelProductBatchReading(){ pbRequestId++; endAiWait(); pbState='camera'; render(); }
+// "+ Agregar uno que la IA no vio": fila vacía, seleccionada, para tipear a mano.
+function addManualProductBatchRow(){
+  pbItems.push({ name:'', unit:'unidad', cost:'', qty:1, sku:'', categoryId:null, confidence:'alta', photo:null, selected:true, dupOfId:null, manual:true });
+  render();
 }
 
 function applyProductBatch(){
@@ -2542,11 +2703,14 @@ function productBatchModal(){
           <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
         </div>
         <button type="button" id="btn-pb-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
+        <div class="scan-tip">📷 ${t('pb_tip')}</div>
+        ${scanQuotaLineHtml()}
       ` : ''}
       <input type="file" id="pb-photo-file" accept="image/*" capture="environment" style="display:none;">
       <input type="file" id="pb-photo-file-gallery" accept="image/*" style="display:none;">
 
-      ${pbState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('pb_loading')}</div>` : ''}
+      ${pbState==='quality' && pbPendingImg ? qualityGateHtml(pbPendingImg, pbQualityWarn, 'btn-pb-quality-use', 'btn-pb-quality-retake') : ''}
+      ${pbState==='loading' ? `<div class="scan-status"><div class="spinner"></div> ${t('pb_loading')}</div>${aiWaitSlowHtml()}<button type="button" class="scan-cancel-reading" id="btn-pb-cancel-reading">${t('scan_cancel_reading')}</button>` : ''}
       ${pbState==='error' ? `<div class="scan-error">⚠ ${escapeHtml(pbError)}</div>` : ''}
       ${pbState==='empty' ? `<div class="scan-error">⚠ ${t('pb_none_found')}</div>` : ''}
 
@@ -2581,7 +2745,7 @@ function productBatchModal(){
             <div class="mi-fields">
               <select data-pb-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${it.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
               <input data-pb-qty="${idx}" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtml(it.qty)}" style="flex:1;" placeholder="${t('ph_qty_short')}" title="${t('lbl_stock')}">
-              <input data-pb-cost="${idx}" type="number" step="0.01" value="${escapeHtml(it.cost)}" style="flex:1;" placeholder="${t('pb_cost_ph')}" title="${t('lbl_cost_unit')}">
+              <input data-pb-cost="${idx}" type="number" step="0.01" inputmode="decimal" value="${escapeHtml(it.cost)}" style="flex:1;" placeholder="${it.cost==='' && !it.manual ? t('pb_cost_ph_novisible') : t('pb_cost_ph')}" title="${t('lbl_cost_unit')}">
               <select data-pb-category="${idx}" style="flex:1.4;">
                 <option value="">${t('category_none_option')}</option>
                 ${(it.categoryId||'').startsWith('__newcat__:') ? `<option value="${escapeHtml(it.categoryId)}" selected>＋ ${escapeHtml(it.categoryId.slice('__newcat__:'.length))} (${t('category_new_tag')})</option>` : ''}
@@ -2596,9 +2760,10 @@ function productBatchModal(){
             ${categories.length>0 && !it.categoryId && !it.categoryTouched && !it.dupOfId && it.selected ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:8px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
           </div>`;
         }).join('')}
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-pb-add-row" style="margin-top:4px;">${t('pb_add_row')}</button>
       ` : ''}
 
-      <div class="modal-actions">
+      <div class="modal-actions${pbState==='review' ? ' modal-actions-sticky' : ''}">
         <button class="btn btn-ghost" id="btn-cancel-pb">${t(pbState==='matched'||pbState==='review' ? 'btn_close' : 'btn_cancel')}</button>
         ${pbState==='review'||pbState==='matched'||pbState==='error'||pbState==='empty' ? `<button class="btn btn-ghost" id="btn-pb-again">${t('ids_scan_again')}</button>` : ''}
         ${/* "Producto nuevo": el match del escáner es por parecido y puede errar
@@ -2867,6 +3032,7 @@ async function processReceiptImage(){
   const requestId = scanRequestId;
   scanState='loading';
   scanErrorMsg='';
+  beginAiWait();
   render();
   try{
     const imagesToRead = await buildImagesForReading();
@@ -2876,11 +3042,13 @@ async function processReceiptImage(){
     if(requestId!==scanRequestId) return;
     if(scanBatchMode){
       await processReceiptBatch(imagesToRead, requestId);
+      endAiWait();
       return;
     }
     // Modo normal: todas las páginas juntas, como un solo documento.
     const parsed = await callReceiptReader(imagesToRead, false);
     if(requestId!==scanRequestId) return;
+    endAiWait();
     if(!Array.isArray(parsed.items) || parsed.items.length===0){
       throw new Error(t('err_no_text'));
     }
@@ -2890,6 +3058,7 @@ async function processReceiptImage(){
     render();
   }catch(err){
     if(requestId!==scanRequestId) return;
+    endAiWait();
     scanErrorMsg = err.message || t('err_generic_receipt');
     scanState='error';
     render();
@@ -2989,6 +3158,8 @@ function finishScanBatch(){
    el mismo camino ya probado que un recibo suelto, incluidas todas las alertas. */
 function applyParsedReceiptToScanState(parsed){
     scanSupplier = parsed.supplier || '';
+    scanTruncated = parsed.truncated===true;
+    scanPhotoView = null;
     // Cada recibo nuevo (incluido cada uno de la cola en modo lote) arranca con la
     // oferta de recordatorio de pago pre-marcada — es POR recibo, no una preferencia
     // global: desmarcarla en la boleta de luz no debe apagarla para la de internet.
@@ -3040,9 +3211,10 @@ function applyParsedReceiptToScanState(parsed){
       let matchedId = null;
       // 1. Prioridad: Claude ya nos dice a qué ingrediente existente corresponde
       //    (le mandamos tu inventario y usa su propio criterio, no comparación literal)
+      let matchSource = null; // 'ai' cuando el emparejamiento vino de Claude
       if(it.matched_inventory_name){
         const byName = inventory.find(ing=>ing.name.toLowerCase().trim()===it.matched_inventory_name.toLowerCase().trim());
-        if(byName) matchedId = byName.id;
+        if(byName){ matchedId = byName.id; matchSource = 'ai'; }
       }
       // 2. Si no vino o no calzó con nada real, alias aprendido de una corrección manual anterior
       if(!matchedId && aliasMap[nameLower] && inventory.some(ing=>ing.id===aliasMap[nameLower])){
@@ -3105,7 +3277,9 @@ function applyParsedReceiptToScanState(parsed){
       let fuzzySuggestedId = null;
       if(matchedId && matchedId!=='__new__'){
         const m = inventory.find(ing=>ing.id===matchedId);
-        if(m && m.name.toLowerCase().trim() !== nameLower) fuzzySuggestedId = matchedId;
+        // Solo cuando hay duda real (auditoría 2026-09-07): si Claude lo emparejó
+        // con confianza alta, la pregunta era ruido en casi todas las líneas.
+        if(m && m.name.toLowerCase().trim() !== nameLower && !(matchSource==='ai' && it.confidence==='alta')) fuzzySuggestedId = matchedId;
       }
       // Consumo del momento (café, almuerzo — la IA lo marca con eat_out): arranca
       // en "☕ Eat out": gasto real, pero sin entrar al stock. El usuario puede

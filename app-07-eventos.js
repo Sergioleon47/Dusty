@@ -609,7 +609,9 @@ function attachEvents(){
           // el modal ya está abierto — la foto para la IA va a 1400px (a 300px el
           // thumbnail no alcanza para leer etiquetas). Solo cuentas reales (gasta
           // 1 escaneo del cupo); si falla o no reconoce, silencio y lista manual.
-          const canDetect = currentUser && !currentUser.isAnonymous
+          // Aviso de calidad (no bloquea: la vista previa y el editor están ahí mismo).
+          try{ const w = assessImageQuality(img); if(w) showToast(t('scan_quality_'+w)+'. '+t('catalog_quality_hint'), 'error'); }catch(e){}
+          const canDetect = catalogSuggestOn && currentUser && !currentUser.isAnonymous
             && (inventory.some(i=>i && !isExpenseItem(i)) || recipes.some(r=>r && r.id));
           if(canDetect){
             const detectImg = catalogEditFull;
@@ -648,6 +650,23 @@ function attachEvents(){
       document.getElementById('catalog-drop-zone').onclick=()=>openCatalogPhotoPicker(true);
       const btnCatGallery=document.getElementById('btn-catalog-gallery');
       if(btnCatGallery) btnCatGallery.onclick=()=>openCatalogPhotoPicker(false);
+    }
+    // Interruptor "Reconocer el producto con IA" en el modal de asignar: preferencia
+    // del dispositivo; al prenderlo con una foto pendiente, reconoce ahora.
+    const catSuggestToggle=document.getElementById('catalog-suggest-toggle');
+    if(catSuggestToggle) catSuggestToggle.onchange=()=>{
+      catalogSuggestOn = !!catSuggestToggle.checked;
+      try{ localStorage.setItem('patron_catalog_suggest', catalogSuggestOn ? 'on' : 'off'); }catch(e){}
+      if(catalogSuggestOn && catalogEditFull && !catalogAssignSuggestion && !catalogAssignDetecting && currentUser && !currentUser.isAnonymous){
+        const reqId = ++catalogAssignReqId;
+        catalogAssignDetecting = true; render();
+        identifyProductFromPhoto(catalogEditFull).then(res=>{
+          if(reqId!==catalogAssignReqId || !catalogPendingOriginal) return;
+          catalogAssignDetecting = false; catalogAssignSuggestion = resolveCatalogSuggestion(res); render();
+        }).catch(()=>{ if(reqId!==catalogAssignReqId) return; catalogAssignDetecting = false; render(); });
+      } else render();
+    };
+    {
     }
     // COLLAGE — DISEÑO PRIMERO (pedido del usuario 2026-09-06): tocar Collage
     // abre el menú de layouts; elegir uno dispara el selector de fotos con la
@@ -1694,7 +1713,7 @@ function attachEvents(){
       if(!file || !/^image\//.test(file.type)) return;
       try{
         const img = await loadImageFromFile(file);
-        processProductBatchSource(img);
+        gateProductBatchSource(img);
       }catch(err){
         stopScannerCamera();
         pbState='error'; pbError=err.message||t('product_scan_error'); render();
@@ -1704,6 +1723,15 @@ function attachEvents(){
     if(pbGalleryFile) pbGalleryFile.onchange=onPbFile;
     const btnPbAgain=document.getElementById('btn-pb-again');
     if(btnPbAgain) btnPbAgain.onclick=restartScannerCamera;
+    // Aviso de calidad, cancelar lectura y fila manual (auditoría 2026-09-07).
+    const btnPbQualityUse=document.getElementById('btn-pb-quality-use');
+    if(btnPbQualityUse) btnPbQualityUse.onclick=()=>{ if(pbPendingImg) processProductBatchSource(pbPendingImg); };
+    const btnPbQualityRetake=document.getElementById('btn-pb-quality-retake');
+    if(btnPbQualityRetake) btnPbQualityRetake.onclick=()=>{ pbPendingImg=null; restartScannerCamera(); };
+    const btnPbCancelReading=document.getElementById('btn-pb-cancel-reading');
+    if(btnPbCancelReading) btnPbCancelReading.onclick=cancelProductBatchReading;
+    const btnPbAddRow=document.getElementById('btn-pb-add-row');
+    if(btnPbAddRow) btnPbAddRow.onclick=addManualProductBatchRow;
     const btnPbOpenItem=document.getElementById('btn-pb-open-item');
     if(btnPbOpenItem) btnPbOpenItem.onclick=()=>{
       const item=inventory.find(i=>i.id===pbMatchedId);
@@ -2022,13 +2050,27 @@ function attachEvents(){
         // Si el usuario cerró el modal mientras la IA respondía, closeItemModal ya puso
         // draftItem en null — tocarlo acá tiraba un TypeError. Se descarta el resultado.
         if(!draftItem){ productScanState='idle'; return; }
-        if(result.name) draftItem.name = result.name;
-        if(result.unit) draftItem.unit = result.unit;
-        if(typeof result.cost_per_unit==='number') draftItem.costPerUnit = result.cost_per_unit;
-        if(result.sku) draftItem.sku = result.sku;
+        // Lo que el usuario YA escribió no se pisa (auditoría 2026-09-07): se
+        // rellenan solo los campos vacíos; para los ocupados queda un chip
+        // "Detectado: X · Usar". El costo solo si la foto mostraba un precio.
+        const g = id => document.getElementById(id);
+        if(g('fi-name')) draftItem.name = g('fi-name').value;
+        if(g('fi-cost')) draftItem.costPerUnit = g('fi-cost').value;
+        if(g('fi-sku')) draftItem.sku = g('fi-sku').value;
+        productScanSuggest = {};
+        const nameTyped = String(draftItem.name||'').trim();
+        if(result.name){ if(!nameTyped) draftItem.name = result.name; else if(result.name!==nameTyped) productScanSuggest.name = {label:result.name, value:result.name}; }
+        if(result.unit && result.unit!==draftItem.unit){
+          if(!nameTyped) draftItem.unit = result.unit; else productScanSuggest.unit = {label:unitLabel(result.unit), value:result.unit};
+        }
+        if(result.price_visible===true && typeof result.cost_per_unit==='number'){
+          const costTyped = parseFloat(draftItem.costPerUnit)>0;
+          if(!costTyped) draftItem.costPerUnit = result.cost_per_unit; else if(result.cost_per_unit!==parseFloat(draftItem.costPerUnit)) productScanSuggest.cost = {label:money(result.cost_per_unit), value:result.cost_per_unit};
+        }
+        if(result.sku){ if(!String(draftItem.sku||'').trim()) draftItem.sku = result.sku; else if(result.sku!==draftItem.sku) productScanSuggest.sku = {label:result.sku, value:result.sku}; }
         if(result.category){
           const match = categories.find(c=>c.name===result.category);
-          if(match) draftItem.categoryId = match.id;
+          if(match){ if(!draftItem.categoryId) draftItem.categoryId = match.id; else if(draftItem.categoryId!==match.id) productScanSuggest.category = {label:match.name, value:match.id}; }
         }
         // Ya sacó la foto para identificar el producto — reusarla como ícono (mismo
         // tamaño/calidad que sube "Subir foto" a mano) evita que tenga que sacar una
@@ -2045,6 +2087,23 @@ function attachEvents(){
     };
     const btnScanBarcode=document.getElementById('btn-scan-barcode');
     if(btnScanBarcode) btnScanBarcode.onclick=openBarcodeScanModal;
+    // Chips "Detectado: X · Usar" (identificación con foto sobre campos ya escritos).
+    document.querySelectorAll('[data-scan-suggest]').forEach(chip=>{
+      chip.onclick=()=>{
+        const k=chip.dataset.scanSuggest; const s=productScanSuggest && productScanSuggest[k]; if(!s) return;
+        const g = id => document.getElementById(id);
+        if(g('fi-name')) draftItem.name = g('fi-name').value;
+        if(g('fi-cost')) draftItem.costPerUnit = g('fi-cost').value;
+        if(g('fi-sku')) draftItem.sku = g('fi-sku').value;
+        if(k==='name') draftItem.name = s.value;
+        else if(k==='unit') draftItem.unit = s.value;
+        else if(k==='cost') draftItem.costPerUnit = s.value;
+        else if(k==='sku') draftItem.sku = s.value;
+        else if(k==='category') draftItem.categoryId = s.value;
+        delete productScanSuggest[k];
+        render();
+      };
+    });
     // Recalcula el % de ganancia en vivo mientras se escribe el costo o el precio de
     // venta. Antes esto llamaba a render() (reconstruía la ventana entera) para
     // actualizar el número — pero como el modal tiene una animación de entrada, cada
@@ -2246,6 +2305,27 @@ function attachEvents(){
       barcodeScanState='scanning'; render();
       startBarcodeScanner();
     };
+    // Entrada manual del código, linterna, y las dos salidas de "no encontrado"
+    // (el código ya quedó como SKU): escribir el nombre o identificar con foto.
+    const manualInp=document.getElementById('barcode-manual-input');
+    const btnManual=document.getElementById('btn-barcode-manual');
+    const goManual=async ()=>{
+      const code=(manualInp && manualInp.value||'').replace(/\s+/g,'');
+      if(!/^\d{6,14}$/.test(code)) return;
+      await stopBarcodeScanner();
+      lookupBarcode(code);
+    };
+    if(btnManual) btnManual.onclick=goManual;
+    if(manualInp) manualInp.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); goManual(); } };
+    const btnTorch=document.getElementById('btn-barcode-torch');
+    if(btnTorch) btnTorch.onclick=toggleBarcodeTorch;
+    const btnBarcodeWrite=document.getElementById('btn-barcode-write');
+    if(btnBarcodeWrite) btnBarcodeWrite.onclick=()=>{ showBarcodeScanModal=false; barcodeScanState='scanning'; render(); };
+    const btnBarcodeIdentify=document.getElementById('btn-barcode-identify');
+    if(btnBarcodeIdentify) btnBarcodeIdentify.onclick=()=>{
+      showBarcodeScanModal=false; barcodeScanState='scanning'; render();
+      const inp=document.getElementById('item-scan-photo-file'); if(inp) inp.click();
+    };
   }
 
   /* Modal escaneo de recibo */
@@ -2318,6 +2398,24 @@ function attachEvents(){
 
     const retryBtn=document.getElementById('btn-retry-scan');
     if(retryBtn) retryBtn.onclick=()=>{ scanState='idle'; render(); };
+    // Cancelar la lectura SIN perder las páginas; la respuesta tardía se descarta.
+    const cancelReadingBtn=document.getElementById('btn-cancel-reading');
+    if(cancelReadingBtn) cancelReadingBtn.onclick=()=>{ scanRequestId++; endAiWait(); scanState='idle'; render(); };
+    // Recibo cortado → volver a las páginas para agregar otra y leer de nuevo.
+    const addPageAfterBtn=document.getElementById('btn-scan-add-page-after');
+    if(addPageAfterBtn) addPageAfterBtn.onclick=()=>{ scanState='idle'; scanTruncated=false; render(); };
+    // Foto de referencia: tira de miniaturas → visor a pantalla completa.
+    document.querySelectorAll('[data-scan-view]').forEach(im=>{ im.onclick=()=>{ scanPhotoView=+im.dataset.scanView; render(); }; });
+    const scanViewer=document.getElementById('scan-photo-viewer');
+    if(scanViewer) scanViewer.onclick=()=>{ scanPhotoView=null; render(); };
+    // Filas compactas: expandir al tocar, colapsar con el botón.
+    document.querySelectorAll('[data-scan-expand]').forEach(row=>{
+      const open=()=>{ const it=scanExtracted[+row.dataset.scanExpand]; if(it){ it.expanded=true; render(); } };
+      row.onclick=open; row.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } };
+    });
+    document.querySelectorAll('[data-scan-collapse]').forEach(b=>{
+      b.onclick=(e)=>{ e.stopPropagation(); const it=scanExtracted[+b.dataset.scanCollapse]; if(it){ it.expanded=false; render(); } };
+    });
 
     document.querySelectorAll('[data-scan-name]').forEach(inp=>{
       inp.onchange=()=>{ scanExtracted[parseInt(inp.dataset.scanName)].rawName=inp.value; render(); };

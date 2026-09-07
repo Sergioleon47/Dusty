@@ -436,6 +436,28 @@ const I18N = {
     scan_quality_hint:'Una o más fotos pueden ser difíciles de leer — podés sacarlas de nuevo (❌ y agregar otra) o leer igual y revisar bien cada producto después.',
     scan_low_confidence_hint:'Esta lectura tiene bastante incertidumbre — puede que la foto no se haya leído bien del todo. Revisá cada producto con cuidado, o cancelá y probá con otra foto más clara.',
     scan_tip_manual:'Tip: si la conexión falla en vivo, puedes registrar la compra manualmente y seguir con la demo.',
+    /* Auditoría de cámaras 2026-09-07 */
+    scan_tip_frame:'Recibo entero, plano y sin sombra. Si es largo, sacalo en dos fotos.',
+    pb_tip:'Los productos de frente, con la etiqueta a la vista y sin que se tapen entre sí.',
+    catalog_tip:'Fondo liso, luz de ventana y el producto llenando el cuadro.',
+    scan_slow_note:'Sigue leyendo… las facturas largas y las fotos con muchos productos tardan un poco más.',
+    scan_cancel_reading:'Cancelar lectura',
+    scan_truncated_note:'Parece que falta el final del recibo (el total no se ve completo).',
+    scan_add_page_after:'+ Agregar otra página',
+    scan_apply_summary:'Aplicar {n} · {total}',
+    scan_row_ok:'Leído bien', scan_row_collapse:'Listo, cerrar ▴', scan_matched_as:'≈ {name}', scan_ref_hint:'Tocá para ver la foto grande',
+    scan_lbl_match:'Producto', scan_lbl_qty:'Cantidad', scan_lbl_unit:'Unidad', scan_lbl_price:'Total línea',
+    quality_gate_title:'Esta foto puede leerse mal', quality_use_anyway:'Usar igual', quality_retake:'Sacar otra',
+    pb_add_row:'+ Agregar uno que la IA no vio', pb_cost_ph_novisible:'sin precio en la foto',
+    shelf_unmatched_to_pb:'Darlos de alta con esta foto',
+    catalog_suggest_toggle:'Reconocer el producto con IA', catalog_suggest_cost:'usa 1 escaneo',
+    catalog_quality_hint:'Podés editarla o sacar otra desde la vista previa.',
+    scan_uses_one:'Cada identificación usa 1 escaneo del cupo.',
+    barcode_lib_error:'No se pudo cargar el lector de códigos — revisá la conexión y probá de nuevo.',
+    barcode_manual_ph:'o escribí el código', barcode_manual_btn:'Buscar', barcode_torch:'🔦 Linterna', barcode_torch_unsupported:'Este teléfono no permite prender la linterna desde acá.',
+    barcode_notfound_code:'No encontramos el código {code}. Lo guardamos como SKU: completá el nombre a mano o identificalo con una foto.',
+    barcode_write_name:'Escribir el nombre', barcode_identify_photo:'📷 Identificar con una foto',
+    item_scan_detected:'Detectado: {v}', item_scan_use:'Usar',
     scan_dup_confirm_label:'Sí, es una compra distinta — aplicar de todos modos',
     lbl_detected_products:'Productos detectados — confirma o corrige cada uno', ph_product_name:'Nombre del producto',
     title_remove_product:'Eliminar este producto',
@@ -1013,6 +1035,27 @@ const I18N = {
     scan_quality_hint:"One or more photos may be hard to read — you can retake them (❌ and add another) or read anyway and double-check each product afterward.",
     scan_low_confidence_hint:"This reading has a lot of uncertainty — the photo may not have been fully readable. Review each product carefully, or cancel and try again with a clearer photo.",
     scan_tip_manual:"Tip: if the connection fails live, you can log the purchase manually and keep going.",
+    scan_tip_frame:'Whole receipt, flat and without shadows. If it is long, take it in two photos.',
+    pb_tip:'Products facing the camera, labels visible, not covering each other.',
+    catalog_tip:'Plain background, window light, and the product filling the frame.',
+    scan_slow_note:'Still reading… long invoices and photos with many products take a bit longer.',
+    scan_cancel_reading:'Cancel reading',
+    scan_truncated_note:'It looks like the end of the receipt is missing (the total is not fully visible).',
+    scan_add_page_after:'+ Add another page',
+    scan_apply_summary:'Apply {n} · {total}',
+    scan_row_ok:'Read fine', scan_row_collapse:'Done, collapse ▴', scan_matched_as:'≈ {name}', scan_ref_hint:'Tap to see the photo full size',
+    scan_lbl_match:'Product', scan_lbl_qty:'Quantity', scan_lbl_unit:'Unit', scan_lbl_price:'Line total',
+    quality_gate_title:'This photo may read poorly', quality_use_anyway:'Use anyway', quality_retake:'Retake',
+    pb_add_row:'+ Add one the AI missed', pb_cost_ph_novisible:'no price in the photo',
+    shelf_unmatched_to_pb:'Add them with this photo',
+    catalog_suggest_toggle:'Recognize the product with AI', catalog_suggest_cost:'uses 1 scan',
+    catalog_quality_hint:'You can edit it or retake it from the preview.',
+    scan_uses_one:'Each identification uses 1 scan of your quota.',
+    barcode_lib_error:'Could not load the barcode reader — check your connection and try again.',
+    barcode_manual_ph:'or type the code', barcode_manual_btn:'Search', barcode_torch:'🔦 Flashlight', barcode_torch_unsupported:'This phone does not allow turning on the flashlight from here.',
+    barcode_notfound_code:'Could not find code {code}. Saved as SKU: type the name by hand or identify it with a photo.',
+    barcode_write_name:'Type the name', barcode_identify_photo:'📷 Identify with a photo',
+    item_scan_detected:'Detected: {v}', item_scan_use:'Use',
     scan_dup_confirm_label:"Yes, it's a different purchase — apply anyway",
     lbl_detected_products:'Detected products — confirm or correct each one', ph_product_name:'Product name',
     title_remove_product:'Remove this product',
@@ -1960,7 +2003,11 @@ function periodFinancials(key){
    mantiene 'lb' (el default histórico) y la fila manual del escaneo 'unidad'. */
 function mostUsedInventoryUnit(fallback){
   const counts = {};
-  inventory.forEach(i=>{ if(i.unit) counts[i.unit] = (counts[i.unit]||0)+1; });
+  // Solo mercadería (bug cazado en la auditoría de cámaras 2026-09-07): con un
+  // bill ("Luz", unidad servicio) cargado antes que el primer producto, la unidad
+  // más usada era "servicio" y "Nuevo producto" abría como ficha de GASTO, sin
+  // foto ni escáneres.
+  inventory.forEach(i=>{ if(i.unit && i.unit!=='servicio' && !isExpenseItem(i)) counts[i.unit] = (counts[i.unit]||0)+1; });
   let best = fallback, n = 0;
   Object.keys(counts).forEach(u=>{ if(counts[u]>n){ n = counts[u]; best = u; } });
   return best;
