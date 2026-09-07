@@ -219,7 +219,9 @@
 // ícono latiendo, punto sobre el Dashboard en la barra inferior — app-03/04 + css.
 // v77: el calendario de Recibos vuelve a verse SIEMPRE (sin recibos no se podía
 // anotar un recordatorio tocando un día) — app-05.
-const CACHE_NAME = 'patron-shell-v77';
+// v78: interruptor "Latidos de aviso" en Ajustes (apaga/prende las palpitaciones
+// de Inventario y Presupuesto) — app-03/05/07 + css.
+const CACHE_NAME = 'patron-shell-v78';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

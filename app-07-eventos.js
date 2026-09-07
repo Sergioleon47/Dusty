@@ -145,6 +145,15 @@ function attachEvents(){
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
+  // Latidos de aviso (Ajustes): interruptor, se aplica al instante y queda en el
+  // dispositivo — misma mecánica que el tema.
+  const pulseToggle=document.getElementById('pulse-toggle');
+  if(pulseToggle) pulseToggle.onchange=()=>{
+    dustyPulse = !!pulseToggle.checked;
+    applyPulsePref();
+    try{ localStorage.setItem('patron_pulse', dustyPulse ? 'on' : 'off'); }catch(e){}
+    render();
+  };
   // Tema de colores (Ajustes): se aplica AL INSTANTE con el atributo en <html>
   // — el CSS hace el resto — y queda guardado en el dispositivo. Sin Guardar.
   document.querySelectorAll('[data-set-theme]').forEach(b=>{

@@ -1538,6 +1538,17 @@ const DUSTY_THEMES = [
 ];
 let dustyTheme = 'night';
 try{ const v = localStorage.getItem('patron_theme'); if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v; }catch(e){}
+/* LATIDOS de aviso (pedido del usuario 2026-09-07): un interruptor en Ajustes apaga
+   o prende las palpitaciones de Inventario (conteo pendiente, stock crítico, días
+   del calendario) y de Presupuesto (barra, tarjeta de alerta, punto del Dashboard).
+   Preferencia del dispositivo; el CSS lee html[data-dusty-pulse="off"]. */
+let dustyPulse = true;
+try{ if(localStorage.getItem('patron_pulse')==='off') dustyPulse = false; }catch(e){}
+function applyPulsePref(){
+  if(dustyPulse) document.documentElement.removeAttribute('data-dusty-pulse');
+  else document.documentElement.setAttribute('data-dusty-pulse', 'off');
+}
+applyPulsePref();
 function themePickerHtml(){
   return `
   <div class="settings-card">
@@ -1550,6 +1561,15 @@ function themePickerHtml(){
         </span>
         <span style="font-size:10px;font-weight:700;color:${dustyTheme===th.id?'var(--navy)':'var(--ink-soft)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${uiLang==='en'?th.en:th.es}</span>
       </button>`).join('')}
+    </div>
+    ${/* Interruptor de LATIDOS (pedido del usuario 2026-09-07). */''}
+    <div class="pulse-row">
+      <div class="pulse-text"><b>${t('pulse_label')}</b><small>${t('pulse_helper')}</small></div>
+      <span class="pulse-state">${dustyPulse ? t('pulse_on') : t('pulse_off')}</span>
+      <label class="pulse-switch" aria-label="${t('pulse_label')}">
+        <input type="checkbox" id="pulse-toggle" ${dustyPulse?'checked':''}>
+        <i></i>
+      </label>
     </div>
   </div>`;
 }
