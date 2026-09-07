@@ -54,6 +54,67 @@
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
+  /* ================= TEMAS DE COLOR (Ajustes → Tema de colores) =================
+     10 temas elegibles por el usuario (pedido 2026-09-06). Cada uno es SOLO un
+     bloque de variables sobre html[data-dusty-theme] — todo lo derivado con
+     color-mix() en :root (softs, washes, tintas, resplandor del fondo, degradé
+     de botones) se recalcula solo. El atributo lo pone un mini-script inline en
+     index.html ANTES de pintar (sin parpadeo) y se guarda en localStorage
+     (preferencia del dispositivo, como la vista del inventario).
+     Los 7 oscuros solo cambian acento + superficies teñidas; los 3 claros ("claro",
+     "crema", "menta") además invierten tintas, sombras y color-scheme, y las
+     tintas "-ink" se OSCURECEN (en claro el contraste se gana hacia negro). */
+  html[data-dusty-theme="oceano"]{
+    --navy:#4da3ff; --navy-soft:#7db9ff;
+    --bg:#0d1220; --panel:#161c2b; --inset:#101624; --raised:#1e2536; --raised-2:#252d41; --line:#242c40;
+  }
+  html[data-dusty-theme="bosque"]{
+    --navy:#2fd08c; --navy-soft:#63e0ad;
+    --bg:#0d1411; --panel:#151f1a; --inset:#0f1713; --raised:#1c2822; --raised-2:#233029; --line:#24322b;
+  }
+  html[data-dusty-theme="uva"]{
+    --navy:#a78bfa; --navy-soft:#c3aefc;
+    --bg:#120f1d; --panel:#1a1629; --inset:#140f22; --raised:#221d33; --raised-2:#2a243f; --line:#2a2440;
+  }
+  html[data-dusty-theme="rosa"]{
+    --navy:#ff6b9d; --navy-soft:#ff94b8;
+    --bg:#160f14; --panel:#20171e; --inset:#180f16; --raised:#291d27; --raised-2:#32242f; --line:#332430;
+  }
+  html[data-dusty-theme="dorado"]{
+    --navy:#f0b429; --navy-soft:#f6c95e;
+    --bg:#14110a; --panel:#1d1910; --inset:#16130b; --raised:#262114; --raised-2:#2e2819; --line:#2e2817;
+  }
+  html[data-dusty-theme="medianoche"]{
+    --navy:#22d3ee; --navy-soft:#5ce1f2;
+    --bg:#000000; --panel:#0b0c0e; --inset:#050607; --raised:#141518; --raised-2:#1b1d21; --line:#1d1f24;
+  }
+  /* Base compartida de los 3 temas CLAROS. */
+  html[data-dusty-theme="claro"], html[data-dusty-theme="crema"], html[data-dusty-theme="menta"]{
+    color-scheme:light;
+    --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
+    --tomato:#e04545; --saffron:#c8860d; --basil:#0e9f6e; --sky-bright:#0a8f63;
+    --tomato-ink:color-mix(in oklch, var(--tomato), black 18%);
+    --sky-ink:color-mix(in oklch, var(--basil), black 18%);
+    --saffron-ink:color-mix(in oklch, var(--saffron), black 15%);
+    --basil-ink:color-mix(in oklch, var(--basil), black 18%);
+    --navy-ink:color-mix(in oklch, var(--navy), black 18%);
+    --shadow-sm:0 1px 2px rgba(20,30,55,.10);
+    --shadow:0 1px 2px rgba(20,30,55,.08), 0 8px 24px rgba(20,30,55,.10);
+    --shadow-lg:0 12px 20px rgba(20,30,55,.16), 0 24px 64px rgba(20,30,55,.18);
+  }
+  html[data-dusty-theme="claro"]{
+    --navy:#e85d24; --navy-soft:#f07b47;
+    --bg:#f3f4f8; --panel:#ffffff; --inset:#eaecf2; --raised:#f2f3f7; --raised-2:#e9ebf1; --line:#dfe3ea;
+  }
+  html[data-dusty-theme="crema"]{
+    --navy:#c65b2e; --navy-soft:#d97a4b;
+    --bg:#f6f1e7; --panel:#fffcf5; --inset:#eee7d8; --raised:#f4eee1; --raised-2:#ece4d3; --line:#e2d8c4;
+    --ink:#2b2318; --ink-soft:#8a7c66; --ink-mid:#54483a;
+  }
+  html[data-dusty-theme="menta"]{
+    --navy:#0fa37f; --navy-soft:#3cbf9a;
+    --bg:#eef6f1; --panel:#ffffff; --inset:#e3efe8; --raised:#f0f7f3; --raised-2:#e6f0ea; --line:#d6e5dc;
+  }
   *{box-sizing:border-box;}
   /* -webkit-text-size-adjust: iOS agranda texto por su cuenta al rotar/en algunos
      contenedores — otra fuente de "zoom fantasma" no nativa. 100% lo congela. */
@@ -61,7 +122,7 @@
   /* En oscuro el degradé de marca a toda pantalla del tema claro sería un foco
      encendido — queda solo un resplandor naranja tenue arriba, suficiente para que
      el header se sienta "de marca" sin quemar el fondo #0f1115. */
-  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, rgba(255,107,53,0.22) 0%, rgba(255,107,53,0.07) 45%, rgba(255,107,53,0) 72%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
+  body{margin:0;background:radial-gradient(ellipse 900px 480px at 50% -60px, color-mix(in srgb, var(--navy) 22%, transparent) 0%, color-mix(in srgb, var(--navy) 7%, transparent) 45%, transparent 72%) var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;touch-action:manipulation;}
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
   /* Foco de teclado consistente en toda la app (accesibilidad + look pulido) —
      antes solo los inputs de formulario tenían anillo de foco definido. */
@@ -116,7 +177,7 @@
     width:42px;height:42px;border-radius:11px;flex-shrink:0;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,#e0501d);
+      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,color-mix(in oklch, var(--navy), black 18%));
     display:flex;align-items:center;justify-content:center;color:var(--on-accent);font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
   }
   .brand-name{font-size:20px;font-weight:700;}
@@ -650,7 +711,7 @@
     width:64px;height:64px;margin:0 auto 16px;border-radius:18px;
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,#e0501d);
+      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,color-mix(in oklch, var(--navy), black 18%));
     display:flex;align-items:center;justify-content:center;color:var(--on-accent);
     box-shadow:0 6px 18px rgba(255,107,53,0.3);
     animation:dash-empty-breathe 2.6s ease-in-out infinite;

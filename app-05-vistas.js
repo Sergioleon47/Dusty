@@ -1428,6 +1428,41 @@ function monthlySpendModal(){
 // se sienta parte de la misma familia visual que el resto de la app (categorías con
 // sus burbujas de color, el dashboard con sus íconos por tarjeta) en vez de ser la
 // única pantalla que todavía es puro texto plano apilado.
+/* ================= TEMAS DE COLOR =================
+   10 temas elegibles en Ajustes (pedido 2026-09-06). El CSS real vive en
+   dusty.css (bloques html[data-dusty-theme]); acá solo la lista para pintar
+   los circulitos del selector (bg + acento de muestra) y validar lo guardado.
+   Preferencia del DISPOSITIVO (localStorage, como la vista del inventario) —
+   no viaja por sync. index.html re-aplica el atributo al abrir, sin parpadeo. */
+const DUSTY_THEMES = [
+  {id:'night',      es:'Noche',      en:'Night',    bg:'#0f1115', accent:'#ff6b35'},
+  {id:'oceano',     es:'Océano',     en:'Ocean',    bg:'#0d1220', accent:'#4da3ff'},
+  {id:'bosque',     es:'Bosque',     en:'Forest',   bg:'#0d1411', accent:'#2fd08c'},
+  {id:'uva',        es:'Uva',        en:'Grape',    bg:'#120f1d', accent:'#a78bfa'},
+  {id:'rosa',       es:'Rosa',       en:'Rose',     bg:'#160f14', accent:'#ff6b9d'},
+  {id:'dorado',     es:'Dorado',     en:'Gold',     bg:'#14110a', accent:'#f0b429'},
+  {id:'medianoche', es:'Medianoche', en:'Midnight', bg:'#000000', accent:'#22d3ee'},
+  {id:'claro',      es:'Claro',      en:'Light',    bg:'#f3f4f8', accent:'#e85d24'},
+  {id:'crema',      es:'Crema',      en:'Cream',    bg:'#f6f1e7', accent:'#c65b2e'},
+  {id:'menta',      es:'Menta',      en:'Mint',     bg:'#eef6f1', accent:'#0fa37f'},
+];
+let dustyTheme = 'night';
+try{ const v = localStorage.getItem('patron_theme'); if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v; }catch(e){}
+function themePickerHtml(){
+  return `
+  <div class="settings-card">
+    ${settingsCardHeader('tag','var(--navy-wash)','var(--navy)',t('theme_title'))}
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;">
+      ${DUSTY_THEMES.map(th=>`
+      <button type="button" data-set-theme="${th.id}" aria-pressed="${dustyTheme===th.id}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;">
+        <span style="width:38px;height:38px;border-radius:50%;background:${th.bg};border:2.5px solid ${dustyTheme===th.id?'var(--navy)':'var(--line)'};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);">
+          <span style="width:16px;height:16px;border-radius:50%;background:${th.accent};"></span>
+        </span>
+        <span style="font-size:10px;font-weight:700;color:${dustyTheme===th.id?'var(--navy)':'var(--ink-soft)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${uiLang==='en'?th.en:th.es}</span>
+      </button>`).join('')}
+    </div>
+  </div>`;
+}
 function settingsCardHeader(icon, bg, fg, title){
   return `
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -1481,6 +1516,11 @@ function alertSettingsModal(){
         <button class="btn btn-ghost btn-sm" id="btn-open-catalog-publish" style="width:100%;margin-bottom:8px;">${t('settings_catalog_btn')}</button>
         <button class="btn btn-ghost btn-sm" id="btn-open-account" style="width:100%;">${t('account_btn')}</button>
       </div>
+
+      ${/* Tema de colores: 10 opciones de un toque — se aplica al instante,
+           sin Guardar (como el idioma). El selector se pinta con los colores
+           de muestra de DUSTY_THEMES; el CSS real está en dusty.css. */''}
+      ${themePickerHtml()}
 
       ${/* Idioma DE ÚLTIMO (pedido del usuario 2026-09-04): vivía en el topbar,
            pero se cambia una sola vez — no merecía lugar permanente en la barra.

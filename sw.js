@@ -153,7 +153,10 @@
 // producto real — app-03/05.
 // v57: cuarta opción de vista — cuadrícula de 4 columnas (ícono de 8 puntitos)
 // en Inventario y Catálogo, la más densa — app-03/05 + dusty.css.
-const CACHE_NAME = 'patron-shell-v57';
+// v58: 10 TEMAS DE COLOR elegibles en Ajustes (7 oscuros con distintos acentos
+// + 3 claros) — bloques de variables en dusty.css, selector de circulitos,
+// se aplica al instante y se recuerda en el dispositivo — index/app-03/05/07.
+const CACHE_NAME = 'patron-shell-v58';
 
 const PRECACHE_URLS = [
   '/',

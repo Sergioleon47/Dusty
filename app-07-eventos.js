@@ -142,6 +142,19 @@ function attachEvents(){
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
+  // Tema de colores (Ajustes): se aplica AL INSTANTE con el atributo en <html>
+  // — el CSS hace el resto — y queda guardado en el dispositivo. Sin Guardar.
+  document.querySelectorAll('[data-set-theme]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.dataset.setTheme;
+      if(dustyTheme===id) return;
+      dustyTheme=id;
+      if(id==='night') document.documentElement.removeAttribute('data-dusty-theme');
+      else document.documentElement.setAttribute('data-dusty-theme', id);
+      try{ localStorage.setItem('patron_theme', id); }catch(e){}
+      render(); // re-pinta el selector con el circulito activo nuevo
+    };
+  });
   const btnFeedback=document.getElementById('btn-feedback');
   if(btnFeedback) btnFeedback.onclick=()=>openFeedbackModal();
   const feedbackOverlay=document.getElementById('feedback-overlay');

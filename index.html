@@ -54,6 +54,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="dusty.css">
+<!-- Tema de colores elegido (Ajustes): el atributo va en <html> ANTES del primer
+     pintado para que no haya flash del tema por defecto al abrir. La lista de
+     temas válidos vive en app-05 (DUSTY_THEMES); acá solo se re-aplica el guardado. -->
+<script>try{var _th=localStorage.getItem('patron_theme');if(_th&&_th!=='night')document.documentElement.setAttribute('data-dusty-theme',_th);}catch(e){}</script>
 </head>
 <body>
 <div id="app"></div>
