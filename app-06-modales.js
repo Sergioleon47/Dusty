@@ -3380,6 +3380,7 @@ function animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, onSettled)
   let vel = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, initialVelocityPxPerSec||0));
   let lastT = null;
   track.style.transition = 'none';
+  track.classList.add('vt-live'); // capa de composición solo mientras anima
   function frame(now){
     if(lastT===null) lastT = now;
     let dt = (now-lastT)/1000;
@@ -3391,6 +3392,7 @@ function animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, onSettled)
     const settled = Math.abs(pos-toPx)<REST_EPSILON_PX && Math.abs(vel)<REST_VELOCITY_EPSILON;
     if(settled){
       track.style.transform = `translateX(${toPx}px)`;
+      track.classList.remove('vt-live'); // asentado: la capa gigante se libera
       trackSpringFrame = null;
       trackAnimating = false;
       onSettled();
@@ -3552,6 +3554,9 @@ function attachViewSwipeHandlers(){
       s.axis = Math.abs(s.dx) > Math.abs(dy)*AXIS_BIAS ? 'x' : 'y';
       if(s.axis==='x'){
         s.track.style.transition = 'none';
+        // Capa de composición SOLO durante el gesto (ver .vt-live en dusty.css) —
+        // el resorte la quita al asentarse.
+        s.track.classList.add('vt-live');
         // Re-base: el movimiento arranca desde CERO en este punto, no desde donde
         // se apoyó el dedo — sin esto, al confirmarse el eje la pantalla pegaba un
         // salto seco de ~10px (la distancia ya recorrida para detectar el eje), y

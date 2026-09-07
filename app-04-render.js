@@ -152,11 +152,14 @@ function renderApp(){
      acciones (p. ej. el futuro escáner de estante). */
   const html = `
     <div class="view-viewport">
+      ${/* .far en las páginas a 2+ pestañas de la activa: no se rasterizan
+           (content-visibility, ver dusty.css) — la vecina inmediata queda
+           entera para que el swipe la muestre sin pop. */''}
       <div class="view-track" style="transform:translateX(-${tabIdx*(100/TAB_ORDER.length)}%);">
-        <div class="view-page">${topbar()}${dashboardView()}</div>
-        <div class="view-page">${inventarioView()}</div>
-        <div class="view-page">${recibosView()}</div>
-        <div class="view-page">${catalogoView()}</div>
+        <div class="view-page${Math.abs(0-tabIdx)>1?' far':''}">${topbar()}${dashboardView()}</div>
+        <div class="view-page${Math.abs(1-tabIdx)>1?' far':''}">${inventarioView()}</div>
+        <div class="view-page${Math.abs(2-tabIdx)>1?' far':''}">${recibosView()}</div>
+        <div class="view-page${Math.abs(3-tabIdx)>1?' far':''}">${catalogoView()}</div>
       </div>
     </div>
     ${/* Presupuesto ANTES de itemModal a propósito: sus filas de gastos abren

@@ -1079,7 +1079,7 @@ function dayModal(){
           return `
           <div class="day-receipt-row" data-view-receipt="${r.id}">
             <div class="day-receipt-thumb">
-              ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
+              ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:13.5px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
@@ -1171,12 +1171,13 @@ function recibosView(){
           const cover = imgs[0];
           return `
           <div class="dish-card" style="cursor:pointer;position:relative;${showReceiptDetail===r.id?'':`view-transition-name:${receiptVtName(r.id)};`}" data-view-receipt="${r.id}">
-            ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
+            ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" loading="lazy" decoding="async" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
               <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
               <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${escapeHtml(r.date)} &middot; ${escapeHtml(r.itemCount)} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
-              <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:15px;">${money(r.total)}</div>
+              ${/* Monto = color de dinero fijo (regla 2026-09-06), no el acento del tema. */''}
+              <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--money-pos);font-size:15px;">${money(r.total)}</div>
             </div>
           </div>
         `;
@@ -2078,7 +2079,7 @@ function catalogoView(){
     <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${checked?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':''}">
       ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;">✓</span>`:''}
       ${photoSrc
-        ? `<img src="${escapeHtml(photoSrc)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">`
+        ? `<img src="${escapeHtml(photoSrc)}" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">`
         : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-weight:800;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;background:var(--inset);">${escapeHtml(invShortName(name))}</div>`}
     </div>`;
   const itemTile = (i)=> tile('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), !!i.inCatalog);

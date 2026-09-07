@@ -170,7 +170,11 @@
 // v63: COLORES DE DINERO FIJOS en los 18 temas (pedido del usuario): montos,
 // $, porcentajes y barras siempre verde/rojo/ámbar (--money-*), sin importar
 // el acento del tema — dusty.css + app-03/05/06/08.
-const CACHE_NAME = 'patron-shell-v63';
+// v64: scroll sin parpadeos — la capa de composición del track solo existe
+// mientras se desliza/asienta (.vt-live), las páginas a 2+ pestañas no se
+// rasterizan (content-visibility) y las fotos decodifican async; de paso el
+// total del recibo pasa al verde de dinero fijo.
+const CACHE_NAME = 'patron-shell-v64';
 
 const PRECACHE_URLS = [
   '/',
