@@ -108,12 +108,17 @@ exports.handler = async (event) => {
         console.error('[Dusty] no se pudo subir la foto de catálogo de', name, e.message);
       }
     }
+    // Miniatura (480px) para la grilla pública — solo de nuestro Storage, como
+    // la foto grande. Sin ella la página usa photoUrl como siempre.
+    const givenThumb = str(it.photoThumbUrl, 1000);
+    const photoThumbUrl = (photoUrl && givenThumb && OWN_STORAGE_URL.test(givenThumb)) ? givenThumb : null;
     items.push({
       name,
       price,
       unit: str(it.unit, 30) || null,
       category: str(it.category, 80) || null,
-      photoUrl
+      photoUrl,
+      photoThumbUrl
     });
   }
   if (items.length === 0) {

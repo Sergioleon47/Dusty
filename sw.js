@@ -181,7 +181,20 @@
 // v67: dos temas claros más por captura del usuario — Robin (blanco + verde
 // neón estilo Robinhood) y Cupertino (gris iOS + azul Apple, look App Store).
 // Ya son 20 — dusty.css + app-05.
-const CACHE_NAME = 'patron-shell-v68';
+// v68: idioma en el botón, D con color fijo, catálogo más fluido (filas como
+// lista, ayuda como toast, un solo scroll en asignar), auditoría de scroll.
+// v69: auditoría "smooth" del Catálogo — visor con gestos (deslizar, pellizco,
+// doble tap, X, Escape, vuelo desde la miniatura), compartir foto con archivo,
+// miniaturas a 400px, editor a pantalla completa con antes/después, formato,
+// enderezar y guía, progreso/cancelar en PRO, modo selección con contador,
+// presión larga y arrastre, deshacer al pisar una foto — y ESTE cache de fotos
+// de Storage (cache-first, tope de entradas) para la app y la página pública.
+const CACHE_NAME = 'patron-shell-v69';
+// Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
+// con tope — la app y catalogo.html las muestran sin volver a bajarlas.
+const PHOTO_CACHE = 'patron-photos-v1';
+const PHOTO_HOSTS = ['storage.googleapis.com', 'firebasestorage.googleapis.com'];
+const PHOTO_CACHE_MAX = 240;
 
 const PRECACHE_URLS = [
   '/',
@@ -222,7 +235,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(names => Promise.all(
-        names.filter(name => name !== CACHE_NAME).map(name => caches.delete(name))
+        names.filter(name => name !== CACHE_NAME && name !== PHOTO_CACHE).map(name => caches.delete(name))
       ))
       .then(() => self.clients.claim())
   );
@@ -241,8 +254,31 @@ self.addEventListener('fetch', event => {
     event.respondWith(networkFirst(req));
   } else if (FONT_HOSTS.includes(url.hostname)) {
     event.respondWith(cacheFirst(req));
+  } else if (PHOTO_HOSTS.includes(url.hostname) && req.destination === 'image') {
+    // Solo las <img> (destination image): las llamadas del SDK de Firebase al
+    // mismo host (subidas, metadata) siguen sin tocarse.
+    event.respondWith(photoCacheFirst(req));
   }
 });
+
+async function photoCacheFirst(req){
+  const cache = await caches.open(PHOTO_CACHE);
+  const cached = await cache.match(req);
+  if (cached) return cached;
+  const fresh = await fetch(req);
+  if (fresh && (fresh.ok || fresh.type === 'opaque')) {
+    cache.put(req, fresh.clone()).then(() => trimPhotoCache(cache)).catch(() => {});
+  }
+  return fresh;
+}
+// Tope de entradas (las más viejas primero — el orden de keys() es el de
+// inserción): sin esto un catálogo grande crecería sin límite en el disco.
+async function trimPhotoCache(cache){
+  const keys = await cache.keys();
+  if (keys.length <= PHOTO_CACHE_MAX) return;
+  const extra = keys.slice(0, keys.length - PHOTO_CACHE_MAX);
+  await Promise.all(extra.map(k => cache.delete(k)));
+}
 
 async function networkFirst(req){
   const cache = await caches.open(CACHE_NAME);

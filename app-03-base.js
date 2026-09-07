@@ -118,6 +118,34 @@ const I18N = {
     srv_needs_account:'Quitar fondo necesita una cuenta guardada',
     catalog_suggested:'Parece que es:',
     catalog_photo_saved:'Foto guardada en "{name}"',
+    catalog_photo_replaced:'Foto reemplazada en "{name}"',
+    catalog_undo:'Deshacer',
+    catalog_viewer_close:'Cerrar',
+    catalog_viewer_share:'Compartir foto',
+    catalog_viewer_in:'En el catálogo',
+    catalog_viewer_add:'Al catálogo',
+    catalog_viewer_counter:'{i} de {n}',
+    catalog_share_text:'Mirá el catálogo de {biz} y hacé tu pedido:',
+    catalog_share_text_nobiz:'Mirá mi catálogo y hacé tu pedido:',
+    catalog_share_photo_ready:'Foto lista para compartir — el link quedó copiado',
+    catalog_share_no_photo:'Este producto no tiene foto todavía',
+    catalog_select_count:'{n} seleccionados',
+    catalog_select_all:'Todos',
+    catalog_select_none:'Ninguno',
+    catalog_missing_photos:'Faltan fotos',
+    catalog_assign_search_ph:'Buscar producto…',
+    catalog_assign_create:'Crear "{name}" con esta foto',
+    catalog_assign_create_hint:'¿No está en la lista? Escribí el nombre y crealo nuevo.',
+    catalog_assign_no_match:'Ningún producto coincide',
+    catalog_edit_compare_hint:'Mantené presionada la foto para ver el original',
+    catalog_edit_reset:'Restablecer',
+    catalog_edit_ratio:'Formato',
+    catalog_edit_ratio_orig:'Original',
+    catalog_edit_guide:'Guía 85%',
+    catalog_edit_tilt:'Enderezar',
+    catalog_edit_original_badge:'Original',
+    catalog_ai_progress:'Suele tardar {s} s',
+    catalog_ai_cancelled:'Cancelado',
     catalog_filter_original:'Original',
     catalog_filter_vivid:'Vívido',
     catalog_filter_warm:'Cálido',
@@ -620,6 +648,34 @@ const I18N = {
     srv_needs_account:'Removing backgrounds needs a saved account',
     catalog_suggested:'Looks like:',
     catalog_photo_saved:'Photo saved to "{name}"',
+    catalog_photo_replaced:'Photo replaced on "{name}"',
+    catalog_undo:'Undo',
+    catalog_viewer_close:'Close',
+    catalog_viewer_share:'Share photo',
+    catalog_viewer_in:'In catalog',
+    catalog_viewer_add:'Add to catalog',
+    catalog_viewer_counter:'{i} of {n}',
+    catalog_share_text:'Check out the {biz} catalog and place your order:',
+    catalog_share_text_nobiz:'Check out my catalog and place your order:',
+    catalog_share_photo_ready:'Photo ready to share — the link was copied',
+    catalog_share_no_photo:'This product has no photo yet',
+    catalog_select_count:'{n} selected',
+    catalog_select_all:'All',
+    catalog_select_none:'None',
+    catalog_missing_photos:'Missing photos',
+    catalog_assign_search_ph:'Search product…',
+    catalog_assign_create:'Create "{name}" with this photo',
+    catalog_assign_create_hint:'Not on the list? Type the name and create it.',
+    catalog_assign_no_match:'No product matches',
+    catalog_edit_compare_hint:'Press and hold the photo to see the original',
+    catalog_edit_reset:'Reset',
+    catalog_edit_ratio:'Format',
+    catalog_edit_ratio_orig:'Original',
+    catalog_edit_guide:'85% guide',
+    catalog_edit_tilt:'Straighten',
+    catalog_edit_original_badge:'Original',
+    catalog_ai_progress:'Usually takes {s}s',
+    catalog_ai_cancelled:'Cancelled',
     catalog_filter_original:'Original',
     catalog_filter_vivid:'Vivid',
     catalog_filter_warm:'Warm',
@@ -1059,6 +1115,32 @@ function showToast(message, type){
     };
     el.onclick = dismiss;
     setTimeout(dismiss, type === 'error' ? 6500 : 4200);
+  }catch(e){}
+}
+/* Toast CON acción (auditoría del Catálogo 2026-09-07: "Deshacer" al pisar
+   una foto): el mensaje a la izquierda y un botón a la derecha; tocar el
+   botón ejecuta la acción y cierra. Vive 6 s — el tiempo de arrepentirse. */
+function showActionToast(message, actionLabel, onAction){
+  try{
+    const root = document.getElementById('toast-root');
+    if(!root){ showToast(message); return; }
+    const el = document.createElement('div');
+    el.className = 'toast toast-info toast-action';
+    const txt = document.createElement('span'); txt.textContent = String(message);
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = String(actionLabel);
+    el.appendChild(txt); el.appendChild(btn);
+    root.appendChild(el);
+    while(root.children.length > 3) root.removeChild(root.firstChild);
+    let gone = false;
+    const dismiss = ()=>{
+      if(gone) return;
+      gone = true;
+      el.classList.add('toast-out');
+      setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 260);
+    };
+    btn.onclick = (ev)=>{ ev.stopPropagation(); dismiss(); try{ onAction(); }catch(e){} };
+    txt.onclick = dismiss;
+    setTimeout(dismiss, 6000);
   }catch(e){}
 }
 function unitLabel(u){ return u==='unidad' ? t('unit_unidad') : u==='caja' ? t('unit_caja') : u==='servicio' ? t('unit_servicio') : u; }

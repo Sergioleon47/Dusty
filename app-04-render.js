@@ -62,13 +62,18 @@ function render(){
     showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
     showActivityModal, showTeamModal, showProductBatchModal,
-    showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal, showProductionHub];
+    showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal, showProductionHub,
+    !!catalogViewPhoto];
   const RECEIPT_DETAIL_FLAG = 2; // índice de !!showReceiptDetail en overlayFlags
+  // El visor de foto del Catálogo (último de la lista) va en AMBAS direcciones,
+  // como el detalle de recibo: su gracia es el vuelo miniatura ↔ foto grande
+  // (view-transition-name compartido, ver catalogPhotoViewer / catalogoView).
+  const CATALOG_VIEWER_FLAG = overlayFlags.length - 1;
   let overlayClosed = false, receiptDetailToggled = false;
   if(lastOverlayFlags){
     overlayFlags.forEach((v,i)=>{
       if(v !== lastOverlayFlags[i]){
-        if(i === RECEIPT_DETAIL_FLAG) receiptDetailToggled = true;
+        if(i === RECEIPT_DETAIL_FLAG || i === CATALOG_VIEWER_FLAG) receiptDetailToggled = true;
         if(!v) overlayClosed = true;
       }
     });

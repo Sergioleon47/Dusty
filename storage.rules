@@ -26,6 +26,18 @@ service firebase.storage {
         firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
       );
     }
+    // Fotos del catálogo en ALTA (las sube upload-catalog-photo con el Admin
+    // SDK y quedan públicas por ACL para la página del catálogo). Esta lectura
+    // por el SDK es para "Compartir foto" desde la app (auditoría 2026-09-07):
+    // la URL pública de storage.googleapis.com no manda cabeceras CORS, así que
+    // un fetch() desde la app no puede leerla — la URL de descarga de Firebase
+    // sí. Solo lectura, para el dueño o su equipo; nadie escribe por acá.
+    match /catalogHires/{ownerUid}/{allPaths=**} {
+      allow read: if request.auth != null && (
+        request.auth.uid == ownerUid ||
+        firestore.exists(/databases/(default)/documents/users/$(ownerUid)/members/$(request.auth.uid))
+      );
+    }
     // Fotos de recetas: mismas condiciones que las de recibos (dueño o miembro del
     // equipo; subidas solo de imágenes y acotadas).
     match /users/{ownerUid}/recipes/{allPaths=**} {

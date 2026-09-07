@@ -1769,7 +1769,14 @@ let catalogEditFull = null; // base 1400px de la foto recién sacada/subida
 // temperatura (corrige el color del foco del local), sombras (levanta lo oscuro
 // sin lavar el resto) y luces (recupera lo quemado). Van horneados en el preview
 // (no existen en CSS filter) con el debounce corto de la nitidez.
-const CATALOG_EDIT_DEFAULTS = {rot:0, zoom:1, offX:0.5, offY:0.5, bright:0, contrast:0, sat:0, sharp:0, auto:false, temp:0, shadows:0, highlights:0};
+// ratio: '1:1' | '4:5' | 'orig' (formato del recorte — auditoría 2026-09-07: la
+// vista previa siempre mostraba un cuadrado aunque la alta guardara la forma
+// original; ahora lo que se ve es lo que se publica). tilt: enderezado fino en
+// grados (−15..15), aparte del giro de 90°.
+const CATALOG_EDIT_DEFAULTS = {rot:0, tilt:0, ratio:'1:1', zoom:1, offX:0.5, offY:0.5, bright:0, contrast:0, sat:0, sharp:0, auto:false, temp:0, shadows:0, highlights:0};
+let catalogEditGuide = false;      // guía de encuadre 85% (regla de Amazon) visible
+let catalogEditSrcAspect = 1;      // ancho/alto de la base ya girada (lienzo del formato "Original")
+let catalogAiJob = null;           // {kind, startedAt, expectSec, cancelled} — progreso/cancelar de las funciones PRO
 let catalogEdit = Object.assign({}, CATALOG_EDIT_DEFAULTS);
 let catalogEditBackup = null;   // para que Cancelar deshaga lo tocado en esta pasada
 let catalogEditPreviewUrl = null;
@@ -1796,18 +1803,65 @@ let catalogStageOpen = false;
    igual que Select en iOS — así ver y seleccionar no se pisan nunca. */
 let catalogSelectMode = false;
 let catalogViewPhoto = null; // {kind:'item'|'recipe', id} — visor abierto
+// Al CERRAR el visor, la miniatura de este producto lleva el view-transition-name
+// un render (el vuelo de vuelta) — se consume en attachEvents (app-07).
+let catalogViewerReturnTo = null;
+/* La lista que recorre el visor (deslizar izquierda/derecha): el mismo orden
+   en que se ven las tarjetas en la grilla — categorías y después recetas. */
+function catalogViewerList(){
+  const sellables = inventory.filter(i=>i && !isExpenseItem(i));
+  const list = [];
+  // Mismo orden que catalogoView: "Faltan fotos", categorías, recetas.
+  sellables.filter(i=>!catalogPhotoThumbSrc(i.photo)).forEach(i=>list.push({kind:'item', id:i.id}));
+  groupRowsByCategory(sellables.filter(i=>!!catalogPhotoThumbSrc(i.photo)).map(i=>({ing:i}))).forEach(g=>g.rows.forEach(r=>list.push({kind:'item', id:r.ing.id})));
+  recipes.filter(r=>r && r.id).forEach(r=>list.push({kind:'recipe', id:r.id}));
+  return list;
+}
+function catalogViewerObj(s){
+  if(!s) return null;
+  return s.kind==='item' ? inventory.find(i=>i.id===s.id) : recipes.find(r=>r && r.id===s.id);
+}
+/* VISOR DE FOTO (auditoría "smooth" 2026-09-07, contra iOS Fotos / PhotoSwipe):
+   - la miniatura (ya en memoria) aparece AL INSTANTE como placeholder con blur y
+     la alta (photoHiUrl) la reemplaza apenas baja — antes el fondo quedaba negro;
+   - ✕ arriba, contador "3 de 12", nombre y precio abajo con acciones (Compartir
+     foto / Al catálogo); tocar la foto muestra u oculta ese chrome, tocar el
+     fondo cierra, deslizar hacia abajo cierra, deslizar a los lados pasa de
+     foto, doble tap y pellizco hacen zoom (todo en app-07);
+   - role=dialog + aria-modal, Escape cierra (handler global), y el fondo no
+     scrollea (body.catalog-viewer-open);
+   - vuelo miniatura ↔ visor con view-transition-name compartido (ver render). */
 function catalogPhotoViewer(){
   const s = catalogViewPhoto;
-  const obj = s.kind==='item' ? inventory.find(i=>i.id===s.id) : recipes.find(r=>r && r.id===s.id);
+  const obj = catalogViewerObj(s);
   if(!obj) return '';
-  // La alta (photoHiUrl) si existe — es el visor, que se luzca la calidad.
-  const src = obj.photoHiUrl || catalogPhotoThumbSrc(obj.photo);
+  const list = catalogViewerList();
+  const idx = list.findIndex(x=>x.kind===s.kind && x.id===s.id);
+  const thumb = catalogPhotoThumbSrc(obj.photo);
+  const hi = obj.photoHiUrl || null;
+  const inCat = !!obj.inCatalog;
+  const counter = idx>=0 ? t('catalog_viewer_counter').replace('{i}', idx+1).replace('{n}', list.length) : '';
+  const shareSvg = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>';
   return `
-  <div class="overlay" id="catalog-photo-viewer" style="background:rgba(0,0,0,.93);align-items:center;justify-content:center;cursor:zoom-out;padding:0;">
-    ${src
-      ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(obj.name)}" style="max-width:100vw;max-height:100vh;object-fit:contain;">`
-      : `<div style="color:#fff;font-weight:800;font-size:18px;">${escapeHtml(obj.name)}</div>`}
-    <div style="position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 8px rgba(0,0,0,.85);pointer-events:none;">${escapeHtml(obj.name)}${obj.salePrice>0 ? ` · ${money(obj.salePrice)}` : ''}</div>
+  <div class="overlay overlay-fast catalog-viewer" id="catalog-photo-viewer" role="dialog" aria-modal="true" aria-label="${escapeHtml(obj.name)}" data-cv-kind="${s.kind}" data-cv-id="${escapeHtml(s.id)}">
+    <div class="cv-stage" id="cv-stage">
+      ${thumb || hi
+        ? `<img id="cv-img" src="${escapeHtml(thumb || hi)}" ${hi && thumb ? `data-hi="${escapeHtml(hi)}" class="cv-placeholder"` : ''} alt="${escapeHtml(obj.name)}" decoding="async" style="view-transition-name:catalog-photo;">`
+        : `<div class="cv-empty">${escapeHtml(obj.name)}</div>`}
+    </div>
+    <div class="cv-top">
+      <button type="button" class="cv-btn" id="cv-close" aria-label="${t('catalog_viewer_close')}">✕</button>
+      <span class="cv-counter">${counter}</span>
+      <span style="width:40px;"></span>
+    </div>
+    <div class="cv-bottom">
+      <div class="cv-name">${escapeHtml(obj.name)}</div>
+      ${obj.salePrice>0 ? `<div class="cv-price">${money(obj.salePrice)}</div>` : ''}
+      <div class="cv-actions">
+        <button type="button" id="cv-share">${shareSvg} ${t('catalog_viewer_share')}</button>
+        <button type="button" id="cv-toggle" class="${inCat?'on':''}" aria-pressed="${inCat}">${inCat ? '✓ '+t('catalog_viewer_in') : '+ '+t('catalog_viewer_add')}</button>
+      </div>
+    </div>
   </div>`;
 }
 // Escenarios incorporados (2026-09-06, idea "maniquíes y fondos"): texturas
@@ -1891,6 +1945,13 @@ let catalogEditTab = 'light';
 /* Hornea la foto a outSize px: giro → recorte cuadrado (zoom + encuadre) →
    auto-niveles → nitidez; brillo/contraste/saturación solo cuando
    withAdjust=true (el guardado final) — el preview los muestra por CSS. */
+/* Relación alto/ancho del recorte según el formato elegido: 1:1 cuadrado, 4:5
+   vertical (Instagram), 'orig' la forma de la foto (ya girada). */
+function catalogEditAspect(e, rw, rh){
+  if(e.ratio==='4:5') return 1.25;
+  if(e.ratio==='orig') return rh/rw;
+  return 1;
+}
 async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
   // fullSrc/editSrc opcionales: la subida en ALTA (uploadCatalogHiRes) hornea
   // después de que el estado global ya se limpió, con sus copias capturadas.
@@ -1899,18 +1960,34 @@ async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
   const rot = ((e.rot%360)+360)%360;
   const rw = (rot===90||rot===270) ? img.naturalHeight : img.naturalWidth;
   const rh = (rot===90||rot===270) ? img.naturalWidth : img.naturalHeight;
+  if(!fullSrc || fullSrc===catalogEditFull) catalogEditSrcAspect = rw/rh;
   const rc = document.createElement('canvas'); rc.width = rw; rc.height = rh;
   const rctx = rc.getContext('2d');
-  rctx.translate(rw/2, rh/2); rctx.rotate(rot*Math.PI/180);
+  // Giro de 90° + ENDEREZADO fino (tilt): se gira todo junto y, si hay tilt, se
+  // agranda lo justo para que no asomen esquinas vacías (el zoom mínimo que
+  // cubre el lienzo tras girar un rectángulo).
+  const tilt = Number(e.tilt)||0;
+  rctx.translate(rw/2, rh/2); rctx.rotate((rot+tilt)*Math.PI/180);
+  if(tilt){
+    const a = Math.abs(tilt)*Math.PI/180;
+    const cover = Math.max((rw*Math.cos(a)+rh*Math.sin(a))/rw, (rw*Math.sin(a)+rh*Math.cos(a))/rh);
+    rctx.scale(cover, cover);
+  }
   rctx.drawImage(img, -img.naturalWidth/2, -img.naturalHeight/2);
-  const side = Math.min(rw, rh)/Math.max(1, e.zoom);
-  const cx = Math.min(Math.max(e.offX*rw, side/2), rw - side/2);
-  const cy = Math.min(Math.max(e.offY*rh, side/2), rh - side/2);
-  const oc = document.createElement('canvas'); oc.width = outSize; oc.height = outSize;
+  // Recorte con el formato elegido (antes: siempre cuadrado).
+  const aspect = catalogEditAspect(e, rw, rh); // alto/ancho
+  const zoom = Math.max(1, e.zoom);
+  let cw = rw, chh = rw*aspect;
+  if(chh > rh){ chh = rh; cw = rh/aspect; }
+  cw /= zoom; chh /= zoom;
+  const cx = Math.min(Math.max(e.offX*rw, cw/2), rw - cw/2);
+  const cy = Math.min(Math.max(e.offY*rh, chh/2), rh - chh/2);
+  const outW = outSize, outH = Math.max(1, Math.round(outSize*aspect));
+  const oc = document.createElement('canvas'); oc.width = outW; oc.height = outH;
   const ctx = oc.getContext('2d');
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(rc, cx-side/2, cy-side/2, side, side, 0, 0, outSize, outSize);
-  const d = ctx.getImageData(0, 0, outSize, outSize), p = d.data;
+  ctx.drawImage(rc, cx-cw/2, cy-chh/2, cw, chh, 0, 0, outW, outH);
+  const d = ctx.getImageData(0, 0, outW, outH), p = d.data;
   const clamp = v=>v<0?0:v>255?255:v;
   // LUZ (temperatura / sombras / luces) — antes del auto y de los ajustes: son
   // correcciones de la escena, no de estilo. Pesos cuadráticos por luminancia:
@@ -1953,8 +2030,8 @@ async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
     }
   }
   if(e.sharp>0){
-    const amt = e.sharp/100*0.9, w = outSize, src = new Uint8ClampedArray(p);
-    for(let y=1; y<w-1; y++) for(let x=1; x<w-1; x++){
+    const amt = e.sharp/100*0.9, w = outW, h = outH, src = new Uint8ClampedArray(p);
+    for(let y=1; y<h-1; y++) for(let x=1; x<w-1; x++){
       const i=(y*w+x)*4;
       for(let ch=0; ch<3; ch++){
         const c=i+ch;
@@ -1966,12 +2043,16 @@ async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
   ctx.putImageData(d, 0, 0);
   return {base64: oc.toDataURL('image/jpeg', 0.82).split(',')[1], mediaType:'image/jpeg'};
 }
-async function refreshCatalogEditPreview(){
+/* size: 480 al soltar (nítido); 320 MIENTRAS se arrastra nitidez/temperatura/
+   sombras/luces (auditoría 2026-09-07: el horneado de 480 con ajustes medía
+   ~90 ms en escritorio, 300-450 en un teléfono medio — a 320 baja a menos de
+   la mitad y el deslizador sigue al dedo). */
+async function refreshCatalogEditPreview(size){
   if(!catalogEditFull) return;
   const req = ++catalogEditPrevReq;
   catalogEditBaking = true;
   try{
-    const out = await bakeCatalogEdit(480, false); // sin b/c/s: esos van por CSS
+    const out = await bakeCatalogEdit(size||480, false); // sin b/c/s: esos van por CSS
     if(req!==catalogEditPrevReq || !catalogEditorOpen) return;
     catalogEditPreviewUrl = 'data:image/jpeg;base64,'+out.base64;
   }catch(err){}
@@ -2090,12 +2171,15 @@ function catalogoView(){
       ? `<span style="width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;flex-shrink:0;">✓</span>`
       : '';
     const border = checked ? 'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));' : '';
+    // Vuelo de VUELTA del visor: la miniatura del producto que se estaba viendo
+    // lleva el nombre de transición un render (ver catalogViewerReturnTo).
+    const vt = (catalogViewerReturnTo && catalogViewerReturnTo.kind===kind && catalogViewerReturnTo.id===id) ? 'view-transition-name:catalog-photo;' : '';
     if(invLayout==='rows'){
       return `
     <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="display:flex;flex-direction:row;align-items:center;gap:12px;padding:8px 12px 8px 8px;${border}">
       <span style="width:58px;height:58px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--inset);display:flex;align-items:center;justify-content:center;">
         ${photoSrc
-          ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">`
+          ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;${vt}">`
           : lineIcon('tag',20)}
       </span>
       <span style="flex:1;min-width:0;font-weight:700;font-size:15px;color:var(--ink);overflow-wrap:anywhere;">${escapeHtml(name)}</span>
@@ -2106,7 +2190,7 @@ function catalogoView(){
     <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${border}">
       ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;">${check}</span>`:''}
       ${photoSrc
-        ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;">`
+        ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;${vt}">`
         : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-weight:800;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;background:var(--inset);">${escapeHtml(invShortName(name))}</div>`}
     </div>`;
   };
@@ -2206,19 +2290,43 @@ function catalogoView(){
       ${/* Seleccionar SIN caja (pedido del usuario): texto pelado, como el
            "Select" de iOS Fotos — verde cuando el modo está activo. */''}
       <button type="button" id="btn-catalog-select" style="background:none;border:none;cursor:pointer;padding:8px 4px;font-weight:800;font-size:15px;color:${catalogSelectMode?'var(--basil)':'var(--ink)'};">${catalogSelectMode ? '✓ '+t('catalog_select_done') : t('catalog_select_btn')}</button>
-      ${invLayoutToggleHtml()}
+      ${/* En modo selección (auditoría 2026-09-07, patrón iOS Fotos / Material 3):
+           contador "N seleccionados" + Todos / Ninguno en lugar del selector de
+           vista — que ahí no hace falta. */''}
+      ${catalogSelectMode ? (()=>{
+          const n = sellables.filter(i=>i.inCatalog).length + sellableRecipes.filter(r=>r.inCatalog).length;
+          return `
+      <span style="display:flex;align-items:center;gap:6px;min-width:0;">
+        <span id="catalog-select-count" style="font-size:13px;font-weight:800;color:var(--basil);white-space:nowrap;font-variant-numeric:tabular-nums;">${t('catalog_select_count').replace('{n}', n)}</span>
+        <button type="button" class="exit-reason-chip" id="btn-catalog-select-all" style="padding:5px 10px;font-size:12.5px;">${t('catalog_select_all')}</button>
+        <button type="button" class="exit-reason-chip" id="btn-catalog-select-none" style="padding:5px 10px;font-size:12.5px;">${t('catalog_select_none')}</button>
+      </span>`;
+        })() : invLayoutToggleHtml()}
     </div>
     ${/* La ayuda del modo selección ya NO va en línea (verificación 2026-09-07):
          al entrar/salir del modo la nota aparecía y desaparecía empujando toda
          la grilla ~35px — un salto de layout. Ahora sale como toast al entrar
          (app-07), y la grilla no se mueve. */''}
-    ${groupRowsByCategory(sellables.map(i=>({ing:i}))).map(g=>`
+    ${/* "FALTAN FOTOS" primero (auditoría 2026-09-07, patrón de estado vacío de
+         NN/g): los productos sin foto se agrupan arriba, con su propio contador,
+         en vez de perderse como cuadrados de texto entre los que sí tienen — el
+         empujón visible para sacarlas. Con foto, cada uno en su categoría. */''}
+    ${(()=>{
+        const noPhoto = sellables.filter(i=>!catalogPhotoThumbSrc(i.photo));
+        const withPhoto = sellables.filter(i=>!!catalogPhotoThumbSrc(i.photo));
+        const gridCls = `inv-grid ${invLayout}${catalogSelectMode?' cat-selecting':''}`;
+        return `
+    ${noPhoto.length>0 ? `
+      <div class="category-group-header" style="color:var(--saffron-ink, var(--ink-soft));">📷 ${t('catalog_missing_photos')} <span>${noPhoto.length}</span></div>
+      <div class="${gridCls}" style="margin-bottom:16px;">${noPhoto.map(itemTile).join('')}</div>` : ''}
+    ${groupRowsByCategory(withPhoto.map(i=>({ing:i}))).map(g=>`
       <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
-      <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>
+      <div class="${gridCls}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>
     `).join('')}
     ${sellableRecipes.length>0 ? `
       <div class="category-group-header">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>
-      <div class="inv-grid ${invLayout}" style="margin-bottom:16px;">${sellableRecipes.map(recipeTile).join('')}</div>` : ''}`}
+      <div class="${gridCls}" style="margin-bottom:16px;">${sellableRecipes.map(recipeTile).join('')}</div>` : ''}`;
+      })()}`}
   ${/* Sin bloque de publicación en la página (el usuario lo tachó de raíz,
        captura 2026-09-06): la pestaña queda limpia — herramientas y fotos.
        Todo lo de publicar vive en el MODAL que abre la herramienta Compartir. */''}
@@ -2258,7 +2366,7 @@ function collageLayoutModal(){
   // selector de archivos — debía salir el menú de diseños): se muestran TODOS
   // los layouts agrupados por cantidad de fotos; elegir uno abre las fotos.
   return `
-  <div class="overlay" id="collage-layout-overlay">
+  <div class="overlay overlay-fast" id="collage-layout-overlay">
     <div class="modal">
       <h3 class="sky">${t('catalog_collage_pick')}</h3>
       ${[2,3,4].map(n=>`
@@ -2325,7 +2433,7 @@ async function composeCollageLayout(layoutId){
 function catalogPublishModal(){
   const url = catalogUrl();
   return `
-  <div class="overlay" id="catalog-publish-overlay">
+  <div class="overlay overlay-fast" id="catalog-publish-overlay">
     <div class="modal">
       <h3 class="sky">${t('catalog_publish_header')}</h3>
       <div class="field" style="margin-top:10px;">
@@ -2386,10 +2494,13 @@ function catalogAssignModal(){
        Cancelar quedaba escondido abajo. Ahora el modal es una columna flex a
        88vh: foto, chips y sugerencia fijos arriba, la lista toma lo que queda
        y es lo ÚNICO que scrollea, y Cancelar siempre a la vista. */''}
-  <div class="overlay" id="catalog-assign-overlay">
+  <div class="overlay overlay-fast" id="catalog-assign-overlay">
     <div class="modal" style="display:flex;flex-direction:column;overflow:hidden;">
       <h3 class="sky" style="flex-shrink:0;">${t('catalog_assign_title')}</h3>
-      ${src ? `<img src="${escapeHtml(src)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:block;flex-shrink:0;">` : ''}
+      ${/* Vista previa ENTERA (contain sobre fondo oscuro — auditoría 2026-09-07):
+           con cover una foto 4:3 se veía recortada y el usuario no sabía cómo
+           iba a quedar. */''}
+      ${src ? `<div style="width:100%;height:200px;background:#151515;border-radius:12px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><img src="${escapeHtml(src)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"></div>` : ''}
       ${/* Filtros (los 4 más usados + original): recalculan desde el original y
            la vista previa de arriba muestra el resultado al instante. */''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;flex-shrink:0;">
@@ -2408,9 +2519,20 @@ function catalogAssignModal(){
         ${row(s.kind, obj)}
       </div>`;
       })()}
-      <div style="flex:1;min-height:96px;overflow-y:auto;margin-top:10px;-webkit-overflow-scrolling:touch;">
+      ${/* BUSCADOR (auditoría 2026-09-07): con 80 productos la lista era un scroll
+           largo. Filtra en vivo sin re-render (app-07). Sin autofocus, regla de
+           la casa: el teclado lo abre el usuario. Y si nada coincide, la fila
+           "Crear «texto» con esta foto" — antes había que cancelar, ir a
+           Inventario, crear el producto y volver. */''}
+      <input id="catalog-assign-search" type="search" placeholder="${t('catalog_assign_search_ph')}" autocomplete="off" style="margin-top:10px;flex-shrink:0;">
+      <div id="catalog-assign-create" data-assign-create="1" role="button" tabindex="0" hidden style="display:none;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer;flex-shrink:0;">
+        <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;">+</span>
+        <span id="catalog-assign-create-label" style="flex:1;min-width:0;font-size:13.5px;font-weight:800;color:var(--basil-ink);overflow-wrap:anywhere;"></span>
+      </div>
+      <div id="catalog-assign-list" style="flex:1;min-height:96px;overflow-y:auto;margin-top:6px;-webkit-overflow-scrolling:touch;">
         ${inventory.filter(i=>i && !isExpenseItem(i)).map(i=>row('item', i)).join('')}
         ${recipes.filter(r=>r && r.id).map(r=>row('recipe', r)).join('')}
+        <div id="catalog-assign-empty" hidden class="helper-note" style="margin-top:10px;">${t('catalog_assign_no_match')} · ${t('catalog_assign_create_hint')}</div>
       </div>
       <div class="modal-actions" style="flex-shrink:0;">
         <button class="btn btn-ghost" id="btn-cancel-assign-photo" style="width:100%;">${t('btn_cancel')}</button>
@@ -2423,7 +2545,7 @@ function catalogAssignModal(){
    1200px y se sube en segundo plano (upload-catalog-photo) — el ítem guarda solo
    la URL (photoHiUrl) y publish-catalog la prefiere sobre el thumbnail de 300px.
    Si falla, silencio: el catálogo usa la normal como siempre. */
-async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
+async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey, forPhoto){
   try{
     if(!fullSrc || !currentUser || currentUser.isAnonymous) return;
     // Si el usuario NO tocó el encuadre ni los ajustes, la alta conserva la
@@ -2431,9 +2553,12 @@ async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
     // perdía la imagen completa; pedido del usuario 2026-09-06 de poder verla
     // entera). El cuadrado queda solo cuando el encuadre fue una decisión.
     const e = editSrc || {};
+    // Con formato "Original" y sin tocar nada, la alta es la foto tal cual
+    // (sin recorte). Con 1:1 o 4:5 el formato ya es una decisión: se hornea.
     const untouched = !e.auto && !e.bright && !e.contrast && !e.sat && !e.sharp
-      && !e.temp && !e.shadows && !e.highlights
+      && !e.temp && !e.shadows && !e.highlights && !(Number(e.tilt)||0)
       && (e.zoom||1)===1 && ((e.rot||0)%360)===0
+      && (e.ratio==='orig' || e.ratio===undefined)
       && Math.abs((e.offX!==undefined?e.offX:0.5)-0.5)<0.001
       && Math.abs((e.offY!==undefined?e.offY:0.5)-0.5)<0.001;
     let hi;
@@ -2444,13 +2569,21 @@ async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey){
       hi = await bakeCatalogEdit(1440, true, fullSrc, editSrc);
     }
     if(filterKey && filterKey!=='original') hi = await applyCatalogFilter(hi, filterKey);
+    // Miniatura de 480px para la GRILLA pública (auditoría 2026-09-07): se
+    // deriva de la alta ya terminada, así lleva la misma edición y filtro.
+    let thumbB64 = null;
+    try{ const him = await loadB64Image(hi); thumbB64 = resizeToBase64(him, 480, 0.8).base64; }catch(err){}
 
     const res = await callDustyAI('/.netlify/functions/upload-catalog-photo', {
-      imageBase64: hi.base64, mediaType: 'image/jpeg',
+      imageBase64: hi.base64, mediaType: 'image/jpeg', thumbBase64: thumbB64 || undefined,
       itemId: (kind==='recipe' ? 'r-' : 'i-') + target.id
     }, {notFoundKey:'err_function_not_found', genericKey:'err_img_process'});
     if(res && res.url){
+      // Si mientras subía el usuario tocó "Deshacer" (o puso otra foto), la alta
+      // ya no corresponde a lo que el ítem muestra: no se pisa.
+      if(forPhoto && target.photo !== forPhoto) return;
       target.photoHiUrl = res.url;
+      if(res.thumbUrl) target.photoThumbUrl = res.thumbUrl; else delete target.photoThumbUrl;
       saveState();
       // La alta llegó DESPUÉS de la auto-publicación del asignado: se agenda
       // otra para que el catálogo público apunte a la versión nítida.
@@ -2488,17 +2621,32 @@ function catalogEditorModal(){
   // lo mismo y ninguna palabra se corta.
   const tab = (key, icon, label)=>`
     <button type="button" data-edit-tab="${key}" style="flex:1;min-width:0;border:none;cursor:pointer;padding:8px 2px 7px;border-radius:9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:800;letter-spacing:.01em;white-space:nowrap;transition:background .18s, transform .18s, box-shadow .18s;background:${catalogEditTab===key?'var(--raised)':'transparent'};color:${catalogEditTab===key?'var(--ink)':'var(--ink-soft)'};${catalogEditTab===key?'transform:scale(1.04);box-shadow:var(--shadow);':''}"><span style="font-size:17px;line-height:1;">${icon}</span><span>${label}</span></button>`;
+  // Formato del lienzo de la vista previa = el del recorte (1:1, 4:5 u
+  // original); el alto se limita para que los deslizadores queden a la vista.
+  const asp = e.ratio==='4:5' ? 0.8 : e.ratio==='orig' ? (catalogEditSrcAspect||1) : 1;
+  const anyEdit = ['bright','contrast','sat','sharp','temp','shadows','highlights','tilt'].some(k=>Number(e[k])) || e.auto || e.zoom!==1 || (e.rot%360)!==0 || Math.abs(e.offX-0.5)>0.001 || Math.abs(e.offY-0.5)>0.001;
   return `
-  <div class="overlay" id="catalog-editor-overlay">
-    <div class="modal">
-      <h3 class="sky">${t('catalog_edit_title')}</h3>
-      <div id="catalog-edit-wrap" style="position:relative;width:100%;aspect-ratio:1/1;background:#151515;border-radius:12px;overflow:hidden;touch-action:none;cursor:grab;">
+  ${/* PANTALLA COMPLETA (auditoría 2026-09-07, como Snapseed/Lightroom): antes
+       era un modal donde la foto ocupaba el 37% del alto. */''}
+  <div class="overlay overlay-fast overlay-full" id="catalog-editor-overlay" role="dialog" aria-modal="true" aria-label="${t('catalog_edit_title')}">
+    <div class="modal" style="display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;margin-bottom:8px;">
+        <h3 class="sky" style="margin:0;">${t('catalog_edit_title')}</h3>
+        <button type="button" class="link-btn" id="btn-edit-reset" ${anyEdit?'':'disabled'} style="padding:6px 8px;font-weight:800;opacity:${anyEdit?1:.45};">↺ ${t('catalog_edit_reset')}</button>
+      </div>
+      <div id="catalog-edit-wrap" style="position:relative;width:100%;max-width:calc(52vh * ${asp});aspect-ratio:${asp};margin:0 auto;background:#151515;border-radius:12px;overflow:hidden;touch-action:none;cursor:grab;flex-shrink:0;">
         ${/* transition SOLO en filter (dinámica suave al mover brillo/etc); la
              transform queda sin transición — el arrastre del encuadre debe
              seguir al dedo sin lag. */''}
         ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;filter:${cssFilterForEdit()};will-change:transform,filter;transition:filter .15s ease;">` : ''}
+        ${/* Antes/después: presión larga sobre la foto muestra la base sin
+             ajustes (app-07 pone .cat-edit-compare y este badge). */''}
+        <img id="catalog-edit-original" alt="" hidden style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:2;">
+        <span id="catalog-edit-badge" class="cat-edit-badge" hidden>${t('catalog_edit_original_badge')}</span>
+        ${catalogEditGuide ? `<div class="cat-edit-guide"></div>` : ''}
         ${catalogEditBaking ? `<div style="position:absolute;bottom:8px;right:8px;"><div class="spinner"></div></div>` : ''}
       </div>
+      <div class="helper-note" style="margin:6px 0 0;font-size:12px;text-align:center;flex-shrink:0;">${t('catalog_edit_compare_hint')}</div>
       ${/* Pestañas segmentadas Luz/Color/Encuadre/PRO — cada grupo respira. */''}
       <div style="display:flex;gap:4px;background:var(--inset);border-radius:10px;padding:4px;margin-top:12px;">
         ${tab('light', '☀️', t('catalog_tab_light'))}
@@ -2520,7 +2668,15 @@ function catalogEditorModal(){
       ${slider('sharp', t('catalog_edit_sharp'), 0, 100, e.sharp)}` : ''}
       ${catalogEditTab==='frame' ? `
       <div class="helper-note" style="margin:10px 0 0;font-size:13px;">${t('catalog_edit_drag_hint')}</div>
+      ${/* FORMATO del recorte (1:1 catálogo, 4:5 Instagram, Original) + guía del
+           85% (Amazon: el producto llena al menos ese cuadro). */''}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+        <span style="font-size:13.5px;font-weight:700;color:var(--ink);">${t('catalog_edit_ratio')}</span>
+        ${[['1:1','1:1'],['4:5','4:5'],['orig',t('catalog_edit_ratio_orig')]].map(([k,l])=>`<button type="button" class="exit-reason-chip ${e.ratio===k?'on':''}" data-edit-ratio="${k}" style="font-size:13.5px;padding:8px 14px;">${l}</button>`).join('')}
+        <button type="button" class="exit-reason-chip ${catalogEditGuide?'on':''}" id="btn-edit-guide" style="font-size:13.5px;padding:8px 14px;margin-left:auto;">⌗ ${t('catalog_edit_guide')}</button>
+      </div>
       ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
+      ${slider('tilt', t('catalog_edit_tilt'), -15, 15, e.tilt||0)}
       <div style="margin-top:12px;">
         <button type="button" class="exit-reason-chip" id="btn-edit-rotate" style="font-size:14px;padding:9px 16px;">↻ ${t('catalog_edit_rotate')}</button>
       </div>` : ''}
@@ -2530,6 +2686,17 @@ function catalogEditorModal(){
         <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')}</button>
         <button type="button" class="exit-reason-chip ${catalogStageOpen?'on':''}" id="btn-stage-photo" ${catalogStaging?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogStaging ? t('catalog_stage_working') : '🏞️ '+t('catalog_stage_btn')}</button>
       </div>
+      ${/* PROGRESO + CANCELAR de la función PRO en curso (auditoría 2026-09-07:
+           antes se esperaba hasta 88 s sin barra ni salida). La barra avanza
+           con el tiempo esperado del modelo (app-07 la mueve sin re-render). */''}
+      ${catalogAiJob ? `
+      <div id="catalog-ai-job" style="margin-top:12px;background:var(--inset);border-radius:10px;padding:10px 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('catalog_ai_progress').replace('{s}', catalogAiJob.expectSec)}</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-cancel">${t('btn_cancel')}</button>
+        </div>
+        <div class="cat-ai-progress"><div id="catalog-ai-bar" style="width:${Math.min(95, Math.round(((Date.now()-catalogAiJob.startedAt)/1000)/catalogAiJob.expectSec*100))}%;"></div></div>
+      </div>` : ''}
       ${catalogEditCutout ? `
       ${/* Fondos: colores planos + ESCENARIOS incorporados (con sombra automática
            en la composición) — el "estudio de fondos" gratis. */''}
@@ -2570,9 +2737,9 @@ async function publishCatalogNow(auto){
   const items = [];
   // La versión en ALTA (photoHiUrl, 1200px ya editada) manda sobre el thumbnail
   // de 300px — es la diferencia entre una ficha de catálogo nítida y una borrosa.
-  const pushEntry = (id, name, price, unit, category, photo, hiUrl)=>{
+  const pushEntry = (id, name, price, unit, category, photo, hiUrl, thumbUrl)=>{
     const entry = {id, name, price: price>0 ? price : null, unit, category};
-    if(hiUrl) entry.photoUrl = hiUrl;
+    if(hiUrl){ entry.photoUrl = hiUrl; if(thumbUrl) entry.photoThumbUrl = thumbUrl; }
     else if(photo){
       if(photo.url) entry.photoUrl = photo.url;
       else if(photo.base64){ entry.photoB64 = photo.base64; entry.photoMediaType = photo.mediaType||'image/jpeg'; }
@@ -2581,10 +2748,10 @@ async function publishCatalogNow(auto){
   };
   inventory.filter(i=>i && i.inCatalog && !isExpenseItem(i)).forEach(i=>{
     const cat = categories.find(c=>c.id===i.categoryId);
-    pushEntry(i.id, i.name, Number(i.salePrice)||0, i.unit||null, cat?cat.name:null, i.photo, i.photoHiUrl);
+    pushEntry(i.id, i.name, Number(i.salePrice)||0, i.unit||null, cat?cat.name:null, i.photo, i.photoHiUrl, i.photoThumbUrl);
   });
   recipes.filter(r=>r && r.inCatalog).forEach(r=>{
-    pushEntry(r.id, r.name, Number(r.salePrice)||0, null, null, r.photo, r.photoHiUrl);
+    pushEntry(r.id, r.name, Number(r.salePrice)||0, null, null, r.photo, r.photoHiUrl, r.photoThumbUrl);
   });
   if(items.length===0){ showToast(t('catalog_none_selected'), 'error'); return; }
   catalogPublishing = true; render();

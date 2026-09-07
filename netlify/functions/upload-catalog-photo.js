@@ -50,17 +50,36 @@ exports.handler = async (event) => {
   if (!itemId) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta el producto' }) };
   }
+  // Miniatura para la GRILLA de la página pública (auditoría 2026-09-07: cada
+  // cuadradito de 170px descargaba la foto de 1440px). Opcional: la app la
+  // manda ya horneada a 480px; sin ella, el catálogo sigue usando la alta.
+  const thumbBase64 = typeof body.thumbBase64 === 'string' && body.thumbBase64.length <= 400000 ? body.thumbBase64 : '';
   try {
     const bucket = admin.storage().bucket();
     // Por uid del dueño: republicar la foto de un ítem PISA la anterior (sin
     // huérfanas por cada retoque) y borrar la cuenta puede barrer el prefijo.
     const file = bucket.file(`catalogHires/${ownerUid}/${itemId}.jpg`);
-    await file.save(Buffer.from(imageBase64, 'base64'), { contentType: 'image/jpeg', resumable: false });
-    await file.makePublic();
     // Cache-buster por versión: la URL cambia con cada subida para que el CDN y
-    // los navegadores no sigan mostrando la foto vieja tras un retoque.
-    const url = `https://storage.googleapis.com/${bucket.name}/${file.name}?v=${Date.now()}`;
-    return { statusCode: 200, body: JSON.stringify({ ok: true, url }) };
+    // los navegadores no sigan mostrando la foto vieja tras un retoque — y por
+    // eso mismo cada versión puede ser INMUTABLE para el navegador (un año):
+    // sin este header GCS servía max-age=3600 y la foto se re-pedía cada hora.
+    const v = Date.now();
+    const meta = { contentType: 'image/jpeg', resumable: false, metadata: { cacheControl: 'public, max-age=31536000, immutable' } };
+    await file.save(Buffer.from(imageBase64, 'base64'), meta);
+    await file.makePublic();
+    const url = `https://storage.googleapis.com/${bucket.name}/${file.name}?v=${v}`;
+    let thumbUrl = null;
+    if (thumbBase64) {
+      try {
+        const tfile = bucket.file(`catalogHires/${ownerUid}/${itemId}_t.jpg`);
+        await tfile.save(Buffer.from(thumbBase64, 'base64'), meta);
+        await tfile.makePublic();
+        thumbUrl = `https://storage.googleapis.com/${bucket.name}/${tfile.name}?v=${v}`;
+      } catch (e) {
+        console.warn('[Dusty] upload-catalog-photo: sin miniatura —', e.message);
+      }
+    }
+    return { statusCode: 200, body: JSON.stringify({ ok: true, url, thumbUrl }) };
   } catch (e) {
     console.error('[Dusty] upload-catalog-photo:', e.message);
     return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo subir la foto en alta — se usará la normal' }) };

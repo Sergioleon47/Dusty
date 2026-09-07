@@ -3604,6 +3604,9 @@ function attachViewSwipeHandlers(){
 
   document.addEventListener('pointermove',(e)=>{
     if(!s || e.pointerId!==s.pointerId) return;
+    // Arrastre de selección del Catálogo en curso (presión larga + deslizar por
+    // la grilla, app-07): ese dedo marca tarjetas, no cambia de pestaña.
+    if(typeof catSelDrag!=='undefined' && catSelDrag){ endGestureImpl(e, true); return; }
     // Si en el medio del gesto la pantalla se volvió a dibujar entera (ej. llegó un
     // cambio de otro dispositivo del equipo por Firestore mientras deslizabas), el
     // nodo .view-track de ahora ya NO es el mismo que agarramos al empezar — seguir

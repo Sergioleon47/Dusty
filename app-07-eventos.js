@@ -102,11 +102,14 @@ function promptItemPhotoUpload(item, afterSet, useCamera){
     if(!file || !/^image\//.test(file.type)) return;
     try{
       const img = await loadImageFromFile(file);
-      item.photo = resizeToBase64(img, 300, 0.75);
+      // 400px (auditoría 2026-09-07): el tile de 2 columnas mide ~168px, que en
+      // un iPhone (DPR 3) pide ~500px — a 300 se veía blando. 400 a q0.78 pesa
+      // ~35KB en base64: entra holgado en localStorage y en el doc de Firestore.
+      item.photo = resizeToBase64(img, 400, 0.78);
       // La foto cambió por FUERA del flujo del catálogo: la versión en alta que
       // hubiera quedado ya no corresponde a esta imagen — mejor sin alta que
       // con una vieja de otra foto.
-      delete item.photoHiUrl;
+      delete item.photoHiUrl; delete item.photoThumbUrl;
       saveState();
       if(item.inCatalog) scheduleCatalogAutoPublish();
       if(afterSet) afterSet();
@@ -518,7 +521,7 @@ function attachEvents(){
         if(!file || !/^image\//.test(file.type)) return;
         try{
           const img=await loadImageFromFile(file);
-          catalogPendingOriginal = resizeToBase64(img, 300, 0.75);
+          catalogPendingOriginal = resizeToBase64(img, 400, 0.78);
           catalogPendingPhoto = catalogPendingOriginal;
           catalogPendingFilter = 'original';
           catalogAssignSuggestion = null;
@@ -578,6 +581,18 @@ function attachEvents(){
       render();
       if(catalogSelectMode) showToast(t('catalog_select_hint'), 'info');
     };
+    // Todos / Ninguno (auditoría 2026-09-07, patrón iOS Fotos).
+    const setAllCatalog=(val)=>{
+      const stamp=(o)=>{ if(currentUser){ o.lastEditedBy=currentUserLabel(); o.lastEditedAt=new Date().toISOString(); } };
+      inventory.forEach(i=>{ if(i && !isExpenseItem(i) && !!i.inCatalog!==val){ i.inCatalog=val; stamp(i); } });
+      recipes.forEach(r=>{ if(r && r.id && !!r.inCatalog!==val){ r.inCatalog=val; stamp(r); } });
+      catalogHaptic();
+      saveState(); scheduleCatalogAutoPublish(); render();
+    };
+    const btnSelAll=document.getElementById('btn-catalog-select-all');
+    if(btnSelAll) btnSelAll.onclick=()=>setAllCatalog(true);
+    const btnSelNone=document.getElementById('btn-catalog-select-none');
+    if(btnSelNone) btnSelNone.onclick=()=>setAllCatalog(false);
     // Compartir = el menú NATIVO del teléfono directo (comparación del usuario
     // 2026-09-06 con la hoja de compartir de iOS: cero formularios en el medio).
     // Solo si todavía no hay catálogo publicado se abre Publicación — no hay
@@ -586,8 +601,7 @@ function attachEvents(){
     if(btnShareTop) btnShareTop.onclick=async()=>{
       const url=catalogUrl();
       if(!url){ showCatalogPublishModal=true; render(); return; }
-      if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
-      else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
+      await shareCatalogLink(url);
     };
     const publishOverlay=document.getElementById('catalog-publish-overlay');
     if(publishOverlay){
@@ -602,24 +616,77 @@ function attachEvents(){
         inp.onchange=()=>{ catalogChannels[inp.dataset.catSocial]=inp.value.trim(); saveState(); };
       });
     }
+    // Tarjetas: toque = ver la foto (o marcar, en modo selección). PRESIÓN LARGA
+    // (500 ms, Material 3 / Google Fotos) entra al modo selección marcando esa
+    // tarjeta, y sin levantar el dedo se puede ARRASTRAR por la grilla para
+    // marcar varias con el mismo estado. Cada marca vibra (Android / Capacitor).
+    const parseCat=(s)=>{ const sep=s.indexOf(':'); return {kind:s.slice(0,sep), id:s.slice(sep+1)}; };
+    const catTarget=({kind,id})=> kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
+    const setCat=(target, val)=>{
+      if(!target || !!target.inCatalog===val) return false;
+      target.inCatalog=val;
+      if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
+      return true;
+    };
+    // El estado del gesto vive FUERA de attachEvents (catSel*, arriba del todo):
+    // cada marca re-renderiza y vuelve a enganchar — una variable local se
+    // perdería a mitad del arrastre.
     document.querySelectorAll('[data-cat-toggle]').forEach(el=>{
       el.onclick=()=>{
-        const s=el.dataset.catToggle, sep=s.indexOf(':');
-        const kind=s.slice(0,sep), id=s.slice(sep+1);
-        const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
+        if(catSelLongPressed){ catSelLongPressed=false; return; } // ya lo resolvió la presión larga
+        const s=parseCat(el.dataset.catToggle);
+        const target=catTarget(s);
         if(!target) return;
         if(!catalogSelectMode){
-          catalogViewPhoto={kind, id};
+          // Vuelo miniatura → visor: el nombre de transición va en la miniatura
+          // tocada ANTES del render (estado viejo) y en la foto del visor (nuevo).
+          document.querySelectorAll('[data-cat-toggle] img').forEach(i=>{ i.style.viewTransitionName=''; });
+          const im=el.querySelector('img'); if(im) im.style.viewTransitionName='catalog-photo';
+          catalogViewPhoto=s;
           render();
           return;
         }
-        target.inCatalog=!target.inCatalog;
-        if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
+        setCat(target, !target.inCatalog);
+        catalogHaptic();
         saveState();
         scheduleCatalogAutoPublish();
         render();
       };
+      el.onpointerdown=(ev)=>{
+        if(ev.pointerType==='mouse' && ev.button!==0) return;
+        clearTimeout(catSelLongTimer);
+        catSelLongPressed=false;
+        const x0=ev.clientX, y0=ev.clientY;
+        catSelLongTimer=setTimeout(()=>{
+          const s=parseCat(el.dataset.catToggle);
+          const target=catTarget(s); if(!target) return;
+          catSelLongPressed=true;
+          const val=!target.inCatalog;
+          if(!catalogSelectMode){ catalogSelectMode=true; showToast(t('catalog_select_hint'), 'info'); }
+          setCat(target, val);
+          catalogHaptic();
+          catSelDrag={val, touched:new Set([el.dataset.catToggle])};
+          saveState(); scheduleCatalogAutoPublish(); render();
+        }, 500);
+        const cancel=()=>{ clearTimeout(catSelLongTimer); };
+        el.onpointermove=(mv)=>{ if(Math.hypot(mv.clientX-x0, mv.clientY-y0)>10) cancel(); };
+        el.onpointerup=el.onpointercancel=el.onpointerleave=cancel;
+      };
     });
+    // Arrastre de selección: el dedo pasa por otras tarjetas (elementFromPoint,
+    // porque el pointer quedó en la primera) y les copia el estado. El handler
+    // vive en el documento (sobrevive a los re-renders de cada marca).
+    document.onpointermove=(mv)=>{
+      if(!catSelDrag) return;
+      const under=document.elementFromPoint(mv.clientX, mv.clientY);
+      const tileEl=under && under.closest ? under.closest('[data-cat-toggle]') : null;
+      if(!tileEl) return;
+      const key=tileEl.dataset.catToggle;
+      if(catSelDrag.touched.has(key)) return;
+      catSelDrag.touched.add(key);
+      if(setCat(catTarget(parseCat(key)), catSelDrag.val)){ catalogHaptic(); saveState(); scheduleCatalogAutoPublish(); render(); }
+    };
+    document.onpointerup=document.onpointercancel=()=>{ catSelDrag=null; };
     // Selector de diseño del collage: elegir uno abre las fotos (la cantidad
     // que pide el diseño), y con ellas compone y entra al flujo normal.
     const collageOverlay=document.getElementById('collage-layout-overlay');
@@ -656,7 +723,7 @@ function attachEvents(){
             const composite = await composeCollageLayout(layoutId);
             catalogEditFull = composite;
             const compImg = await loadB64Image(composite);
-            catalogPendingOriginal = resizeToBase64(compImg, 300, 0.75);
+            catalogPendingOriginal = resizeToBase64(compImg, 400, 0.78);
             catalogPendingPhoto = catalogPendingOriginal;
             catalogPendingFilter='original';
             catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
@@ -668,9 +735,150 @@ function attachEvents(){
           }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
         };
     }
-    // El visor se cierra tocando en cualquier lado.
+    // ===== VISOR DE FOTO (auditoría "smooth" 2026-09-07) =====
+    // Gestos con Pointer Events sobre el escenario (la <img> no recibe eventos):
+    // un dedo suelto = tocar (foto: chrome on/off · fondo: cerrar · doble: zoom),
+    // arrastrar horizontal = foto anterior/siguiente, hacia abajo = cerrar;
+    // dos dedos = pellizco; con zoom, un dedo = mover. El fondo no scrollea
+    // (body.catalog-viewer-open) y Escape/flechas viven en el keydown global.
     const catalogViewerEl=document.getElementById('catalog-photo-viewer');
-    if(catalogViewerEl) catalogViewerEl.onclick=()=>{ catalogViewPhoto=null; render(); };
+    document.body.classList.toggle('catalog-viewer-open', !!catalogViewerEl);
+    if(catalogViewerEl){
+      const stage=document.getElementById('cv-stage');
+      const img=document.getElementById('cv-img');
+      // Placeholder → alta: la miniatura ya está; la alta la pisa apenas baja.
+      if(img && img.dataset.hi){
+        const hi=new Image(); hi.decoding='async';
+        hi.onload=()=>{ if(!document.body.contains(img) || img.dataset.hi!==hi.src) return; img.src=hi.src; img.classList.remove('cv-placeholder'); };
+        hi.src=img.dataset.hi;
+      }
+      const closeViewer=()=>{
+        catalogViewerReturnTo = catalogViewPhoto;
+        catalogViewPhoto=null;
+        render();
+        // El nombre de transición de la miniatura se consume después del vuelo.
+        setTimeout(()=>{ catalogViewerReturnTo=null; document.querySelectorAll('[data-cat-toggle] img').forEach(i=>{ i.style.viewTransitionName=''; }); }, 600);
+      };
+      const step=(dir)=>{
+        const list=catalogViewerList();
+        const idx=list.findIndex(x=>x.kind===catalogViewPhoto.kind && x.id===catalogViewPhoto.id);
+        const next=list[idx+dir];
+        if(!next){ if(img){ img.style.transition='transform .2s'; img.style.transform=''; } return; }
+        catalogViewPhoto=next; render();
+      };
+      document.getElementById('cv-close').onclick=(e)=>{ e.stopPropagation(); closeViewer(); };
+      const btnShare=document.getElementById('cv-share');
+      if(btnShare) btnShare.onclick=(e)=>{ e.stopPropagation(); shareCatalogPhoto(catalogViewPhoto); };
+      const btnToggle=document.getElementById('cv-toggle');
+      if(btnToggle) btnToggle.onclick=(e)=>{
+        e.stopPropagation();
+        const target=catalogViewerObj(catalogViewPhoto); if(!target) return;
+        target.inCatalog=!target.inCatalog;
+        if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
+        catalogHaptic();
+        saveState(); scheduleCatalogAutoPublish(); render();
+      };
+      // ----- estado del gesto -----
+      // Vive en cvGesture (nivel de módulo): un render de fondo a mitad del
+      // gesto (snapshot de Firestore, re-sync del viewport) vuelve a enganchar
+      // estos handlers, y con variables locales se perdía el zoom, el pellizco
+      // en curso y hasta el primer toque del doble tap.
+      const key=catalogViewPhoto.kind+':'+catalogViewPhoto.id;
+      if(cvGesture.key!==key){ cvGesture={key, scale:1, tx:0, ty:0, pts:new Map(), pinch:null, drag:null, lastTap:0, tapTimer:null}; }
+      const G=cvGesture;
+      const apply=(anim)=>{ if(!img) return; img.style.transition = anim ? 'transform .22s cubic-bezier(.32,.72,.25,1), opacity .22s' : 'none'; img.style.transform=`translate(${G.tx}px,${G.ty}px) scale(${G.scale})`; };
+      const clampPan=()=>{
+        if(!img) return;
+        const w=img.clientWidth*G.scale, h=img.clientHeight*G.scale;
+        const mx=Math.max(0,(w-stage.clientWidth)/2), my=Math.max(0,(h-stage.clientHeight)/2);
+        G.tx=Math.min(mx,Math.max(-mx,G.tx)); G.ty=Math.min(my,Math.max(-my,G.ty));
+      };
+      // Re-render con zoom puesto o chrome oculto: el DOM nuevo lo vuelve a mostrar.
+      if(G.scale>1 || G.tx || G.ty) apply(false);
+      catalogViewerEl.classList.toggle('cv-chrome-hidden', !!G.chromeHidden);
+      const insideImg=(x,y)=>{ if(!img) return false; const r=img.getBoundingClientRect(); return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom; };
+      const zoomAt=(x,y)=>{
+        if(G.scale>1){ G.scale=1; G.tx=0; G.ty=0; apply(true); return; }
+        const r=stage.getBoundingClientRect();
+        const px=x-(r.left+r.width/2), py=y-(r.top+r.height/2);
+        G.scale=2.5; G.tx=px*(1-G.scale); G.ty=py*(1-G.scale); clampPan(); apply(true);
+      };
+      stage.onpointerdown=(ev)=>{
+        ev.preventDefault();
+        try{ stage.setPointerCapture(ev.pointerId); }catch(e){}
+        // Un pointerup que el sistema se tragó dejaría un dedo "fantasma" y el
+        // visor creería que siempre hay pellizco: los dedos sin novedades en
+        // 1,5 s se descartan.
+        const now=Date.now();
+        G.pts.forEach((p,id)=>{ if(id!==ev.pointerId && now-(p.t||0)>1500) G.pts.delete(id); });
+        if(G.pts.size===0) G.pinch=null;
+        G.pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY,t:now});
+        if(G.pts.size===2){
+          const [a,b]=[...G.pts.values()];
+          G.pinch={d0:Math.hypot(a.x-b.x,a.y-b.y)||1, s0:G.scale, tx0:G.tx, ty0:G.ty};
+          G.drag=null;
+          if(G.tapTimer){ clearTimeout(G.tapTimer); G.tapTimer=null; }
+        } else if(G.pts.size===1){
+          G.drag={x0:ev.clientX,y0:ev.clientY,t0:Date.now(),tx0:G.tx,ty0:G.ty,moved:false};
+        }
+      };
+      stage.onpointermove=(ev)=>{
+        if(!G.pts.has(ev.pointerId)) return;
+        G.pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY,t:Date.now()});
+        if(G.pinch && G.pts.size>=2){
+          const [a,b]=[...G.pts.values()];
+          const d=Math.hypot(a.x-b.x,a.y-b.y)||1;
+          G.scale=Math.min(4,Math.max(1,G.pinch.s0*d/G.pinch.d0));
+          G.tx=G.pinch.tx0; G.ty=G.pinch.ty0; clampPan(); apply(false);
+          return;
+        }
+        if(!G.drag) return;
+        const dx=ev.clientX-G.drag.x0, dy=ev.clientY-G.drag.y0;
+        if(!G.drag.moved && Math.hypot(dx,dy)>8) G.drag.moved=true;
+        if(!G.drag.moved) return;
+        if(G.scale>1){ G.tx=G.drag.tx0+dx; G.ty=G.drag.ty0+dy; clampPan(); apply(false); return; }
+        if(Math.abs(dx)>Math.abs(dy)){ G.tx=dx; G.ty=0; }
+        else { G.tx=0; G.ty=dy<0 ? dy*0.25 : dy; }
+        if(img){ img.style.transition='none'; img.style.transform=`translate(${G.tx}px,${G.ty}px)`; img.style.opacity=String(Math.max(.3,1-Math.max(0,G.ty)/320)); }
+      };
+      const endPointer=(ev)=>{
+        G.pts.delete(ev.pointerId);
+        if(G.pinch){
+          if(G.pts.size<2){ G.pinch=null; if(G.scale<1.05){ G.scale=1; G.tx=0; G.ty=0; } clampPan(); apply(true); }
+          return;
+        }
+        if(!G.drag) return;
+        const d=G.drag; G.drag=null;
+        const dx=ev.clientX-d.x0, dy=ev.clientY-d.y0, dt=Date.now()-d.t0;
+        // Con zoom, un arrastre es un paneo (ya aplicado): solo se asienta. Un
+        // toque sin movimiento sigue abajo — el doble tap tiene que poder
+        // volver a 1x y el simple ocultar el chrome también con zoom.
+        if(G.scale>1 && d.moved){ clampPan(); apply(true); return; }
+        if(d.moved){
+          if(img) img.style.opacity='';
+          const fast = dt<250;
+          if(Math.abs(dx)>Math.abs(dy) && (Math.abs(dx)>60 || (fast && Math.abs(dx)>25))){ G.tx=0; G.ty=0; step(dx<0?1:-1); return; }
+          if(dy>90 || (fast && dy>40)){ closeViewer(); return; }
+          G.tx=0; G.ty=0; apply(true); return;
+        }
+        // Toque sin movimiento: fondo cierra; sobre la foto, doble = zoom,
+        // simple (esperando 260 ms por si viene el segundo) = chrome on/off.
+        const now=Date.now();
+        if(!insideImg(ev.clientX,ev.clientY)){ closeViewer(); return; }
+        if(now-G.lastTap<300){ G.lastTap=0; if(G.tapTimer){ clearTimeout(G.tapTimer); G.tapTimer=null; } zoomAt(ev.clientX,ev.clientY); return; }
+        G.lastTap=now;
+        G.tapTimer=setTimeout(()=>{ G.tapTimer=null; G.chromeHidden=!G.chromeHidden; const el=document.getElementById('catalog-photo-viewer'); if(el) el.classList.toggle('cv-chrome-hidden', G.chromeHidden); }, 260);
+      };
+      stage.onpointerup=endPointer; stage.onpointercancel=endPointer;
+      // Rueda del mouse (escritorio): zoom suave.
+      stage.onwheel=(ev)=>{ ev.preventDefault(); G.scale=Math.min(4,Math.max(1,G.scale*(ev.deltaY<0?1.15:0.87))); if(G.scale===1){G.tx=0;G.ty=0;} clampPan(); apply(false); };
+      // Precarga de las vecinas: el siguiente deslizamiento no espera.
+      try{
+        const list=catalogViewerList();
+        const idx=list.findIndex(x=>x.kind===catalogViewPhoto.kind && x.id===catalogViewPhoto.id);
+        [list[idx-1], list[idx+1]].forEach(s=>{ const o=catalogViewerObj(s); if(o && o.photoHiUrl){ const p=new Image(); p.src=o.photoHiUrl; } });
+      }catch(e){}
+    }
     const btnPublishCatalog=document.getElementById('btn-publish-catalog');
     if(btnPublishCatalog) btnPublishCatalog.onclick=publishCatalogNow;
     const btnUnpublishCatalog=document.getElementById('btn-unpublish-catalog');
@@ -684,8 +892,7 @@ function attachEvents(){
     const btnShareCatalogLink=document.getElementById('btn-share-catalog-link');
     if(btnShareCatalogLink) btnShareCatalogLink.onclick=async()=>{
       const url=catalogUrl(); if(!url) return;
-      if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
-      else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
+      await shareCatalogLink(url);
     };
     // Modal "¿de qué producto es esta foto?" (tras sacarla o subirla)
     const assignOverlay=document.getElementById('catalog-assign-overlay');
@@ -697,6 +904,7 @@ function attachEvents(){
         catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
         catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
         catalogEnhancing=false; catalogStaging=false; catalogStageOpen=false;
+        catalogAiEnd(); catalogEditGuide=false; catalogAssignQuery='';
         render();
       };
       assignOverlay.onmousedown=(e)=>{ if(e.target===assignOverlay) dropPending(); };
@@ -727,36 +935,93 @@ function attachEvents(){
         render();
         refreshCatalogEditPreview();
       };
+      // Asignar la foto pendiente a un producto/receta (fila de la lista, la
+      // sugerencia de la IA, o el producto recién creado desde el buscador).
+      const assignPendingTo=(kind, target)=>{
+        if(!target || !catalogPendingPhoto) return;
+        // DESHACER (auditoría 2026-09-07): si ya tenía foto, se guarda lo
+        // anterior y el toast ofrece volver atrás durante 6 s.
+        const prev = target.photo ? {photo:target.photo, hi:target.photoHiUrl, thumb:target.photoThumbUrl, inCat:target.inCatalog} : null;
+        const newPhoto = catalogPendingPhoto;
+        target.photo = newPhoto;
+        delete target.photoHiUrl; delete target.photoThumbUrl; // la alta nueva llega en segundo plano
+        // Foto sacada DESDE el Catálogo = el producto va al catálogo
+        // (verificación 2026-09-07): antes quedaba con foto nueva pero sin
+        // el ✓, y no aparecía en la página pública hasta entrar a
+        // Seleccionar y marcarlo a mano — el paso que nadie espera dar.
+        target.inCatalog = true;
+        if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
+        // Captura para la subida en ALTA (corre en segundo plano después de
+        // limpiar el estado — por eso las copias, no los globales).
+        const hiFull=catalogEditFull, hiEdit=Object.assign({}, catalogEdit), hiFilter=catalogPendingFilter;
+        catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original';
+        catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++; catalogAssignQuery='';
+        catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
+        catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
+        catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
+        saveState();
+        scheduleCatalogAutoPublish();
+        uploadCatalogHiRes(target, kind, hiFull, hiEdit, hiFilter, newPhoto);
+        // La foto de una receta viaja por Storage (meta solo lleva la referencia).
+        if(kind==='recipe') uploadRecipePhoto(target);
+        if(prev){
+          showActionToast(t('catalog_photo_replaced').replace('{name}', target.name), t('catalog_undo'), ()=>{
+            target.photo=prev.photo;
+            if(prev.hi) target.photoHiUrl=prev.hi; else delete target.photoHiUrl;
+            if(prev.thumb) target.photoThumbUrl=prev.thumb; else delete target.photoThumbUrl;
+            target.inCatalog=prev.inCat;
+            if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
+            saveState(); scheduleCatalogAutoPublish(); render();
+          });
+        } else {
+          showToast(t('catalog_photo_saved').replace('{name}', target.name));
+        }
+        render();
+      };
       document.querySelectorAll('[data-assign-photo]').forEach(el=>{
         el.onclick=()=>{
           const s=el.dataset.assignPhoto, sep=s.indexOf(':');
           const kind=s.slice(0,sep), id=s.slice(sep+1);
           const target = kind==='item' ? inventory.find(i=>i.id===id) : recipes.find(x=>x && x.id===id);
-          if(!target || !catalogPendingPhoto) return;
-          target.photo = catalogPendingPhoto;
-          // Foto sacada DESDE el Catálogo = el producto va al catálogo
-          // (verificación 2026-09-07): antes quedaba con foto nueva pero sin
-          // el ✓, y no aparecía en la página pública hasta entrar a
-          // Seleccionar y marcarlo a mano — el paso que nadie espera dar.
-          target.inCatalog = true;
-          if(currentUser){ target.lastEditedBy=currentUserLabel(); target.lastEditedAt=new Date().toISOString(); }
-          // Captura para la subida en ALTA (corre en segundo plano después de
-          // limpiar el estado — por eso las copias, no los globales).
-          const hiFull=catalogEditFull, hiEdit=Object.assign({}, catalogEdit), hiFilter=catalogPendingFilter;
-          catalogPendingPhoto=null; catalogPendingOriginal=null; catalogPendingFilter='original';
-          catalogAssignSuggestion=null; catalogAssignDetecting=false; catalogAssignReqId++;
-          catalogEditFull=null; catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS);
-          catalogEditorOpen=false; catalogEditPreviewUrl=null; catalogEditBackup=null;
-          catalogEditCutout=null; catalogEditFullBackup=null; catalogEditBg='#ffffff'; catalogRemovingBg=false;
-          saveState();
-          scheduleCatalogAutoPublish();
-          uploadCatalogHiRes(target, kind, hiFull, hiEdit, hiFilter);
-          // La foto de una receta viaja por Storage (meta solo lleva la referencia).
-          if(kind==='recipe') uploadRecipePhoto(target);
-          showToast(t('catalog_photo_saved').replace('{name}', target.name));
-          render();
+          assignPendingTo(kind, target);
         };
       });
+      // BUSCADOR (filtra en vivo, sin re-render) + "Crear «nombre» con esta foto".
+      // El texto vive en catalogAssignQuery para sobrevivir al render que trae
+      // la sugerencia de la IA (morphdom repone el value del input).
+      const searchInp=document.getElementById('catalog-assign-search');
+      const createRow=document.getElementById('catalog-assign-create');
+      if(searchInp){
+        const rows=[...assignOverlay.querySelectorAll('#catalog-assign-list [data-assign-photo]')];
+        const emptyEl=document.getElementById('catalog-assign-empty');
+        const norm=(s)=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        const applyFilter=()=>{
+          const raw=searchInp.value.trim(), q=norm(raw);
+          let shown=0;
+          rows.forEach(r=>{ const ok=!q || norm(r.textContent).indexOf(q)!==-1; r.style.display=ok?'':'none'; if(ok) shown++; });
+          if(emptyEl) emptyEl.hidden = !(q && shown===0);
+          if(createRow){
+            const show=raw.length>=2;
+            createRow.hidden=!show; createRow.style.display=show?'flex':'none';
+            const lab=document.getElementById('catalog-assign-create-label');
+            if(lab) lab.textContent=t('catalog_assign_create').replace('{name}', raw);
+          }
+        };
+        if(searchInp.value!==catalogAssignQuery) searchInp.value=catalogAssignQuery;
+        applyFilter();
+        searchInp.oninput=()=>{ catalogAssignQuery=searchInp.value; applyFilter(); };
+        searchInp.onkeydown=(e)=>{ if(e.key==='Enter' && createRow && !createRow.hidden){ e.preventDefault(); createRow.click(); } };
+      }
+      if(createRow) createRow.onclick=()=>{
+        const name=(searchInp ? searchInp.value : '').trim();
+        if(!name || !catalogPendingPhoto) return;
+        // Mismo esqueleto que draftItem (app-06): producto vendible, sin categoría.
+        const item={id:uid('i'), name, unit:mostUsedInventoryUnit('unidad'), costPerUnit:0, qtyOnHand:0, salePrice:0,
+          sku:'', supplier:'', categoryId:null, capacityFull:null, createdAt:new Date().toISOString()};
+        if(currentUser){ item.createdBy=currentUserLabel(); }
+        inventory.push(item);
+        assignPendingTo('item', item);
+      };
     }
     // Editor de foto (encima del modal de asignar)
     const editorOverlay=document.getElementById('catalog-editor-overlay');
@@ -776,7 +1041,7 @@ function attachEvents(){
           // El resultado editado pasa a ser el NUEVO original del borrador: los
           // filtros (Vívido, etc.) del modal se recalculan sobre él. Acá SÍ se
           // hornean brillo/contraste/saturación (misma matemática que el CSS).
-          const out = await bakeCatalogEdit(300, true);
+          const out = await bakeCatalogEdit(400, true);
           catalogPendingOriginal = out;
           catalogPendingPhoto = out;
           catalogPendingFilter = 'original';
@@ -790,14 +1055,15 @@ function attachEvents(){
       if(btnRemoveBg) btnRemoveBg.onclick=async ()=>{
         if(catalogRemovingBg || !catalogEditFull) return;
         if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
-        catalogRemovingBg=true; render();
+        catalogRemovingBg=true; catalogAiBegin('rembg', 12); render();
         try{
           const opts={notFoundKey:'err_function_not_found', genericKey:'catalog_rembg_error'};
           const start=await callDustyAI('/.netlify/functions/remove-bg', {action:'start', imageBase64:catalogEditFull.base64, mediaType:catalogEditFull.mediaType||'image/jpeg'}, opts);
           let result=null;
           for(let i=0;i<55 && !result;i++){
             await new Promise(r=>setTimeout(r,1600));
-            if(!catalogEditorOpen || !catalogEditFull){ catalogRemovingBg=false; return; } // canceló mientras tanto
+            if(!catalogEditorOpen || !catalogEditFull){ catalogRemovingBg=false; catalogAiEnd(); return; } // canceló mientras tanto
+            if(catalogAiCancelled()){ catalogRemovingBg=false; catalogAiEnd(); render(); showToast(t('catalog_ai_cancelled'), 'info'); return; }
             const st=await callDustyAI('/.netlify/functions/remove-bg', {action:'status', id:start.id}, opts);
             if(st.status==='succeeded') result=st;
             else if(st.status==='failed') throw new Error(st.error || t('catalog_rembg_error'));
@@ -807,12 +1073,12 @@ function attachEvents(){
           catalogEditCutout={base64:result.imageBase64, mediaType:result.mediaType||'image/png'};
           catalogEditBg='#ffffff';
           await composeCatalogCutout();
-          catalogRemovingBg=false;
+          catalogRemovingBg=false; catalogAiEnd();
           render();
           refreshCatalogEditPreview();
           showToast(t('catalog_rembg_done'));
         }catch(err){
-          catalogRemovingBg=false;
+          catalogRemovingBg=false; catalogAiEnd();
           render();
           showToast(err.message || t('catalog_rembg_error'), 'error');
         }
@@ -824,7 +1090,7 @@ function attachEvents(){
       if(btnEnhance) btnEnhance.onclick=async ()=>{
         if(catalogEnhancing || catalogRemovingBg || !catalogEditFull) return;
         if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
-        catalogEnhancing=true; render();
+        catalogEnhancing=true; catalogAiBegin('enhance', 25); render();
         try{
           const srcImg = await loadB64Image(catalogEditFull);
           const small = resizeToBase64(srcImg, 800, 0.9);
@@ -833,7 +1099,8 @@ function attachEvents(){
           let result=null;
           for(let i=0;i<55 && !result;i++){
             await new Promise(r=>setTimeout(r,1600));
-            if(!catalogEditorOpen || !catalogEditFull){ catalogEnhancing=false; return; }
+            if(!catalogEditorOpen || !catalogEditFull){ catalogEnhancing=false; catalogAiEnd(); return; }
+            if(catalogAiCancelled()){ catalogEnhancing=false; catalogAiEnd(); render(); showToast(t('catalog_ai_cancelled'), 'info'); return; }
             const st=await callDustyAI('/.netlify/functions/enhance-photo', {action:'status', id:start.id}, opts);
             if(st.status==='succeeded') result=st;
             else if(st.status==='failed') throw new Error(st.error || t('catalog_enhance_error'));
@@ -845,12 +1112,12 @@ function attachEvents(){
           // La foto mejorada reemplaza a la base: si había recorte de fondo, ya no
           // corresponde a esta imagen nueva.
           catalogEditCutout=null;
-          catalogEnhancing=false;
+          catalogEnhancing=false; catalogAiEnd();
           render();
           refreshCatalogEditPreview();
           showToast(t('catalog_enhance_done'));
         }catch(err){
-          catalogEnhancing=false;
+          catalogEnhancing=false; catalogAiEnd();
           render();
           showToast(err.message || t('catalog_enhance_error'), 'error');
         }
@@ -868,7 +1135,7 @@ function attachEvents(){
       const runStage=async (prompt)=>{
         if(catalogStaging || !catalogEditFull) return;
         if(!currentUser || currentUser.isAnonymous){ openUpgradeModal(t('catalog_needs_account_note')); return; }
-        catalogStaging=true; catalogStageOpen=false; render();
+        catalogStaging=true; catalogStageOpen=false; catalogAiBegin('stage', 30); render();
         try{
           const srcImg = await loadB64Image(catalogEditFull);
           const small = resizeToBase64(srcImg, 1024, 0.9);
@@ -877,7 +1144,8 @@ function attachEvents(){
           let result=null;
           for(let i=0;i<55 && !result;i++){
             await new Promise(r=>setTimeout(r,1600));
-            if(!catalogEditorOpen || !catalogEditFull){ catalogStaging=false; return; }
+            if(!catalogEditorOpen || !catalogEditFull){ catalogStaging=false; catalogAiEnd(); return; }
+            if(catalogAiCancelled()){ catalogStaging=false; catalogAiEnd(); render(); showToast(t('catalog_ai_cancelled'), 'info'); return; }
             const st=await callDustyAI('/.netlify/functions/stage-photo', {action:'status', id:start.id}, opts);
             if(st.status==='succeeded') result=st;
             else if(st.status==='failed') throw new Error(st.error || t('catalog_stage_error'));
@@ -887,12 +1155,12 @@ function attachEvents(){
           if(!catalogEditFullBackup) catalogEditFullBackup=catalogEditFull;
           catalogEditFull = resizeToBase64(staged, 1600, 0.9);
           catalogEditCutout=null;
-          catalogStaging=false;
+          catalogStaging=false; catalogAiEnd();
           render();
           refreshCatalogEditPreview();
           showToast(t('catalog_stage_done'));
         }catch(err){
-          catalogStaging=false;
+          catalogStaging=false; catalogAiEnd();
           render();
           showToast(err.message || t('catalog_stage_error'), 'error');
         }
@@ -926,7 +1194,39 @@ function attachEvents(){
       const btnEditAuto=document.getElementById('btn-edit-auto');
       if(btnEditAuto) btnEditAuto.onclick=()=>{ catalogEdit.auto=!catalogEdit.auto; btnEditAuto.classList.toggle('on', catalogEdit.auto); refreshCatalogEditPreview(); };
       const btnEditRotate=document.getElementById('btn-edit-rotate');
-      if(btnEditRotate) btnEditRotate.onclick=()=>{ catalogEdit.rot=(catalogEdit.rot+90)%360; refreshCatalogEditPreview(); };
+      if(btnEditRotate) btnEditRotate.onclick=()=>{ catalogEdit.rot=(catalogEdit.rot+90)%360; catalogEdit.offX=0.5; catalogEdit.offY=0.5; render(); refreshCatalogEditPreview(); };
+      // RESTABLECER todo (auditoría 2026-09-07): vuelve a los valores neutros
+      // sin tocar la base (la foto original, o la mejorada/recortada por IA).
+      const btnEditReset=document.getElementById('btn-edit-reset');
+      if(btnEditReset) btnEditReset.onclick=()=>{ catalogEdit=Object.assign({}, CATALOG_EDIT_DEFAULTS); render(); refreshCatalogEditPreview(); };
+      // FORMATO del recorte (1:1 / 4:5 / Original) y guía del 85%.
+      document.querySelectorAll('[data-edit-ratio]').forEach(rb=>{
+        rb.onclick=()=>{ catalogEdit.ratio=rb.dataset.editRatio; catalogEdit.offX=0.5; catalogEdit.offY=0.5; render(); refreshCatalogEditPreview(); };
+      });
+      const btnEditGuide=document.getElementById('btn-edit-guide');
+      if(btnEditGuide) btnEditGuide.onclick=()=>{ catalogEditGuide=!catalogEditGuide; render(); };
+      // ANTES / DESPUÉS: presión larga sobre la foto muestra la base tal cual
+      // (sin ajustes ni filtro CSS) con el badge "Original"; soltar vuelve.
+      const wrapCompare=document.getElementById('catalog-edit-wrap');
+      const origImg=document.getElementById('catalog-edit-original');
+      const origBadge=document.getElementById('catalog-edit-badge');
+      let compareTimer=null, comparing=false;
+      const showOriginal=async ()=>{
+        if(!catalogEditFull || !origImg) return;
+        comparing=true;
+        // Misma base, MISMO encuadre pero sin luz/color/nitidez: así se compara
+        // solo la edición, no el recorte.
+        try{
+          const neutral=Object.assign({}, CATALOG_EDIT_DEFAULTS, {rot:catalogEdit.rot, tilt:catalogEdit.tilt, ratio:catalogEdit.ratio, zoom:catalogEdit.zoom, offX:catalogEdit.offX, offY:catalogEdit.offY});
+          const out=await bakeCatalogEdit(480, false, null, neutral);
+          if(!comparing) return;
+          origImg.src='data:image/jpeg;base64,'+out.base64;
+          origImg.hidden=false; if(origBadge) origBadge.hidden=false;
+        }catch(e){}
+      };
+      const hideOriginal=()=>{ clearTimeout(compareTimer); compareTimer=null; if(!comparing) return; comparing=false; if(origImg) origImg.hidden=true; if(origBadge) origBadge.hidden=true; };
+      const btnAiCancel=document.getElementById('btn-ai-cancel');
+      if(btnAiCancel) btnAiCancel.onclick=()=>{ if(catalogAiJob) catalogAiJob.cancelled=true; };
       // FLUIDEZ (reporte del usuario: "no se siente al ritmo de la foto"):
       // - brillo/contraste/saturación se aplican como CSS filter sobre el <img>
       //   en CADA tick del deslizador — GPU, instantáneo, sin hornear nada.
@@ -936,7 +1236,9 @@ function attachEvents(){
       // - nitidez es el único que hornea con debounce (no existe en CSS).
       const previewImg=()=>document.getElementById('catalog-edit-preview');
       let bakeTimer=null;
-      const scheduleBake=()=>{ clearTimeout(bakeTimer); bakeTimer=setTimeout(refreshCatalogEditPreview, 150); };
+      // Mientras se arrastra: horneado a 320px (menos de la mitad del costo del
+      // de 480 — sigue al dedo); el de 480 nítido llega al soltar (onchange).
+      const scheduleBake=()=>{ clearTimeout(bakeTimer); bakeTimer=setTimeout(()=>refreshCatalogEditPreview(320), 120); };
       const liveTransform=()=>{
         const img=previewImg();
         if(img) img.style.transform='scale('+(catalogEdit.zoom/catalogEditBakedZoom)+')';
@@ -946,6 +1248,18 @@ function attachEvents(){
         tb.onclick=()=>{ catalogEditTab=tb.dataset.editTab; render(); };
       });
       document.querySelectorAll('[data-edit-slider]').forEach(sl=>{
+        // DOBLE TAP en el deslizador = volver al neutro (Lightroom Mobile).
+        // dblclick cubre mouse; en touch se detectan dos pointerdown en 300 ms.
+        const resetSlider=()=>{
+          const k=sl.dataset.editSlider;
+          const neutral = k==='zoom' ? 100 : 0;
+          sl.value=String(neutral);
+          sl.dispatchEvent(new Event('input', {bubbles:true}));
+          sl.dispatchEvent(new Event('change', {bubbles:true}));
+        };
+        let lastDown=0;
+        sl.onpointerdown=()=>{ const now=Date.now(); if(now-lastDown<300){ lastDown=0; resetSlider(); } else lastDown=now; };
+        sl.ondblclick=(e)=>{ e.preventDefault(); resetSlider(); };
         sl.oninput=()=>{
           const k=sl.dataset.editSlider, v=parseInt(sl.value,10)||0;
           // El numerito junto al deslizador acompaña en vivo, sin re-render — y
@@ -956,6 +1270,9 @@ function attachEvents(){
             const neutral=parseInt(valEl.dataset.editNeutral,10)||0;
             valEl.style.color = (parseInt(sl.value,10)||0)!==neutral ? 'var(--sky-ink)' : 'var(--ink-soft)';
           }
+          // "Restablecer" se enciende con el primer ajuste (sin esperar un render).
+          const rb=document.getElementById('btn-edit-reset');
+          if(rb && rb.disabled){ rb.disabled=false; rb.style.opacity='1'; }
           if(k==='zoom'){
             catalogEdit.zoom = Math.max(1, v/100);
             liveTransform();
@@ -963,14 +1280,14 @@ function attachEvents(){
           }
           // Sombras/luces/temperatura no existen en CSS filter: hornean con el
           // mismo debounce corto que la nitidez (el preview de 480px es rápido).
-          if(k==='sharp' || k==='temp' || k==='shadows' || k==='highlights'){ catalogEdit[k]=v; scheduleBake(); return; }
+          if(k==='sharp' || k==='temp' || k==='shadows' || k==='highlights' || k==='tilt'){ catalogEdit[k]=v; scheduleBake(); return; }
           catalogEdit[k] = v;
           const img=previewImg();
           if(img) img.style.filter = cssFilterForEdit();
         };
         sl.onchange=()=>{
           const k=sl.dataset.editSlider;
-          if(k==='zoom' || k==='sharp' || k==='temp' || k==='shadows' || k==='highlights') refreshCatalogEditPreview();
+          if(k==='zoom' || k==='sharp' || k==='temp' || k==='shadows' || k==='highlights' || k==='tilt'){ clearTimeout(bakeTimer); refreshCatalogEditPreview(480); }
           // b/c/s: nada que hornear — viven en el CSS hasta "Listo".
         };
       });
@@ -985,17 +1302,28 @@ function attachEvents(){
           try{ wrap.setPointerCapture(ev.pointerId); }catch(e){}
           const startX=ev.clientX, startY=ev.clientY;
           const startOffX=catalogEdit.offX, startOffY=catalogEdit.offY;
-          const disp=wrap.getBoundingClientRect().width || 1;
+          const rect=wrap.getBoundingClientRect();
+          const dispW=rect.width || 1, dispH=rect.height || 1;
+          let moved=false;
+          // Presión larga quieta (350 ms) = ver el original; mover = encuadrar.
+          clearTimeout(compareTimer);
+          compareTimer=setTimeout(()=>{ if(!moved) showOriginal(); }, 350);
           wrap.onpointermove=(mv)=>{
             const dx=mv.clientX-startX, dy=mv.clientY-startY;
-            catalogEdit.offX = Math.min(1, Math.max(0, startOffX - (dx/disp)/catalogEdit.zoom));
-            catalogEdit.offY = Math.min(1, Math.max(0, startOffY - (dy/disp)/catalogEdit.zoom));
+            if(!moved && Math.hypot(dx,dy)<6) return;
+            if(comparing) return;
+            if(!moved){ moved=true; clearTimeout(compareTimer); }
+            catalogEdit.offX = Math.min(1, Math.max(0, startOffX - (dx/dispW)/catalogEdit.zoom));
+            catalogEdit.offY = Math.min(1, Math.max(0, startOffY - (dy/dispH)/catalogEdit.zoom));
             const img=previewImg();
             if(img) img.style.transform='translate('+dx+'px,'+dy+'px) scale('+(catalogEdit.zoom/catalogEditBakedZoom)+')';
           };
           wrap.onpointerup=wrap.onpointercancel=()=>{
             wrap.onpointermove=null; wrap.onpointerup=null; wrap.onpointercancel=null;
-            refreshCatalogEditPreview();
+            const wasComparing=comparing;
+            hideOriginal();
+            // Sin movimiento no hay nada que hornear (antes cada toque re-horneaba).
+            if(moved && !wasComparing) refreshCatalogEditPreview();
           };
         };
       }
@@ -2012,8 +2340,109 @@ function addDayNote(){
   render();
 }
 
+/* ===== Catálogo — helpers compartidos (auditoría "smooth" 2026-09-07) ===== */
+// Estado del gesto de selección (presión larga + arrastre) — fuera de
+// attachEvents porque cada marca re-renderiza y vuelve a enganchar.
+let catSelDrag=null, catSelLongTimer=null, catSelLongPressed=false;
+// Estado del gesto del visor de fotos (zoom, pellizco, doble tap, chrome) —
+// también fuera de attachEvents, por el mismo motivo.
+let cvGesture={key:null};
+// Texto del buscador del modal de asignar (sobrevive a los renders).
+let catalogAssignQuery='';
+// Vibración corta al marcar (Capacitor en la app nativa; navigator.vibrate en
+// Android web; iOS Safari no expone hápticos — ahí queda el feedback visual).
+function catalogHaptic(){
+  try{
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if(H){ H.impact({style:'LIGHT'}).catch(()=>{}); return; }
+    if(navigator.vibrate) navigator.vibrate(10);
+  }catch(e){}
+}
+// Progreso/cancelar de las funciones PRO: la barra avanza contra el tiempo
+// esperado del modelo (sin re-render — se mueve el ancho del div directo).
+let catalogAiTimer=null;
+function catalogAiBegin(kind, expectSec){
+  catalogAiJob={kind, startedAt:Date.now(), expectSec, cancelled:false};
+  clearInterval(catalogAiTimer);
+  catalogAiTimer=setInterval(()=>{
+    const bar=document.getElementById('catalog-ai-bar');
+    if(!bar || !catalogAiJob) return;
+    const pct=Math.min(95, ((Date.now()-catalogAiJob.startedAt)/1000)/catalogAiJob.expectSec*100);
+    bar.style.width=pct.toFixed(0)+'%';
+  }, 800);
+}
+function catalogAiCancelled(){ return !!(catalogAiJob && catalogAiJob.cancelled); }
+function catalogAiEnd(){ catalogAiJob=null; clearInterval(catalogAiTimer); catalogAiTimer=null; }
+// Compartir el LINK del catálogo: título + texto + url (antes iba la url pelada
+// y en Mensajes/WhatsApp llegaba un link sin explicación). Sin hoja nativa:
+// copia el link y abre WhatsApp con el mensaje armado.
+async function shareCatalogLink(url){
+  const text = businessName ? t('catalog_share_text').replace('{biz}', businessName) : t('catalog_share_text_nobiz');
+  if(navigator.share){
+    try{ await navigator.share({title: businessName || 'Dusty', text, url}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){}
+  try{ window.open('https://wa.me/?text='+encodeURIComponent(text+' '+url), '_blank', 'noopener'); }catch(e){}
+}
+// Compartir la FOTO de un producto como archivo (el caso número uno del que
+// vende por WhatsApp). Orden: la alta por la URL de descarga de Firebase (la
+// pública de storage.googleapis.com no manda CORS), si no la miniatura local.
+// En iOS Safari, files + url comparte la URL de la página — por eso el link
+// va DENTRO del texto y nunca como url.
+async function shareCatalogPhoto(s){
+  const obj=catalogViewerObj(s); if(!obj) return;
+  const url=catalogUrl();
+  const text = obj.name + (obj.salePrice>0 ? ' · '+money(obj.salePrice) : '') + (businessName ? ' · '+businessName : '') + (url ? '\n'+url : '');
+  let blob=null;
+  try{
+    if(obj.photoHiUrl && currentUser && !currentUser.isAnonymous && window.firebase && firebase.storage){
+      const uid=syncUid();
+      const path='catalogHires/'+uid+'/'+(s.kind==='recipe'?'r-':'i-')+obj.id+'.jpg';
+      const dl=await firebase.storage().ref(path).getDownloadURL();
+      const r=await fetch(dl); if(r.ok) blob=await r.blob();
+    }
+  }catch(e){}
+  if(!blob && obj.photo && obj.photo.base64){
+    try{ const r=await fetch(cachedPhotoUrl(obj.photo.base64, obj.photo.mediaType)); blob=await r.blob(); }catch(e){}
+  }
+  if(!blob && obj.photo && obj.photo.url){
+    try{ const r=await fetch(obj.photo.url); if(r.ok) blob=await r.blob(); }catch(e){}
+  }
+  if(!blob){ showToast(t('catalog_share_no_photo'), 'info'); return; }
+  const safe=(obj.name||'foto').replace(/[^\w\- ]+/g,'').trim().slice(0,40) || 'foto';
+  const file=new File([blob], safe+'.jpg', {type: blob.type || 'image/jpeg'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title: obj.name, text}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  if(navigator.share){
+    try{ await navigator.share({title: obj.name, text, url: url||undefined}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  // Escritorio sin hoja de compartir: texto al portapapeles y WhatsApp web.
+  try{ await navigator.clipboard.writeText(text); showToast(t('catalog_share_photo_ready')); }catch(e){}
+  try{ window.open('https://wa.me/?text='+encodeURIComponent(text), '_blank', 'noopener'); }catch(e){}
+}
+
 document.addEventListener('keydown', (e)=>{
+  // Visor de foto del Catálogo: flechas = anterior/siguiente (escritorio).
+  if(catalogViewPhoto && (e.key==='ArrowLeft' || e.key==='ArrowRight')){
+    const list=catalogViewerList();
+    const idx=list.findIndex(x=>x.kind===catalogViewPhoto.kind && x.id===catalogViewPhoto.id);
+    const next=list[idx + (e.key==='ArrowRight' ? 1 : -1)];
+    if(next){ catalogViewPhoto=next; render(); }
+    e.preventDefault();
+    return;
+  }
   if(e.key !== 'Escape') return;
+  // Modales del Catálogo (auditoría 2026-09-07: ninguno cerraba con Escape).
+  // De adentro hacia afuera: el editor está encima del modal de asignar.
+  if(catalogViewPhoto){ const btn=document.getElementById('cv-close'); if(btn) btn.click(); else { catalogViewPhoto=null; render(); } return; }
+  if(catalogEditorOpen){ const btn=document.getElementById('btn-cancel-edit'); if(btn) btn.click(); return; }
+  if(catalogPendingPhoto){ const btn=document.getElementById('btn-cancel-assign-photo'); if(btn) btn.click(); return; }
+  if(showCollageLayoutModal){ const btn=document.getElementById('btn-cancel-collage'); if(btn) btn.click(); return; }
+  if(showCatalogPublishModal){ showCatalogPublishModal=false; render(); return; }
   if(showItemModal){ closeItemModal(); return; }
   if(showScanModal){ closeScanModal(); return; }
   if(showPriceHistoryModal){ closePriceHistoryModal(); return; }
