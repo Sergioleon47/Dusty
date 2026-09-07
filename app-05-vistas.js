@@ -2126,9 +2126,11 @@ function catalogoView(){
              teléfono ofrece Tomar foto y Fototeca en la misma hoja nativa. */''}
         ${tool('btn-catalog-collage', ring(collageSvg, 'linear-gradient(145deg, var(--tomato-soft, #4a2a28), var(--panel))', 'var(--tomato)'), t('catalog_tool_collage'))}
         ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
-        <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
+        <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:76px;">
+          ${/* Mismo porte que los escáneres (76px de .shelf-scan-fab, ícono 32 —
+               pedido del usuario 2026-09-07): sin el override de 64px de antes. */''}
           <span class="shelf-fab-wrap" style="display:inline-block;">
-            <span class="shelf-scan-fab" style="width:64px;height:64px;display:flex;">${lineIcon('camera',30)}</span>
+            <span class="shelf-scan-fab" style="display:flex;">${lineIcon('camera',32)}</span>
             <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
           </span>
           <span style="font-size:12.5px;font-weight:800;color:var(--ink);">${t('catalog_tool_camera')}</span>

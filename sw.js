@@ -174,7 +174,9 @@
 // mientras se desliza/asienta (.vt-live), las páginas a 2+ pestañas no se
 // rasterizan (content-visibility) y las fotos decodifican async; de paso el
 // total del recibo pasa al verde de dinero fijo.
-const CACHE_NAME = 'patron-shell-v64';
+// v65: la Cámara del Catálogo al mismo porte que los escáneres (76px, ícono 32)
+// — sin el override de 64px que la dejaba más chica — app-05.
+const CACHE_NAME = 'patron-shell-v65';
 
 const PRECACHE_URLS = [
   '/',
