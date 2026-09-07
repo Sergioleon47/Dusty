@@ -229,6 +229,11 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Una de las imágenes es demasiado grande — volvé a intentar desde la app', code: 'image_too_big' }) };
   }
   let reservation;
+  // Resumen del cupo que viaja con el resultado (extra = recibos de más contados
+  // en modo mesa). Solo números; si la reserva no trajo datos, null.
+  const scanQuotaInfo = (res, extra) => (res && Number.isFinite(res.limit) && Number.isFinite(res.used))
+    ? { limit: res.limit, used: res.used + (extra || 0) }
+    : null;
   try {
     const hasAccess = await callerCanUseAccount(callerUid, ownerUid);
     if (!hasAccess) {
@@ -355,10 +360,12 @@ exports.handler = async (event) => {
       // salió de la foto (si no, subir varios recibos juntos sería gratis), así que
       // acá se suma solo lo que excede la reserva.
       if (list.length > 1) await recordScanUsage(ownerUid, list.length - 1, reservation.period);
-      return { statusCode: 200, body: JSON.stringify({ receipts: list }) };
+      return { statusCode: 200, body: JSON.stringify({ receipts: list, quota: scanQuotaInfo(reservation, list.length - 1) }) };
     }
 
-    return { statusCode: 200, body: JSON.stringify(receiptData) };
+    // quota: {limit, used} para que la app le diga al trial cuántos escaneos
+    // gratis le quedan (festejo del primer escaneo) en vez de dejarlo chocar el tope.
+    return { statusCode: 200, body: JSON.stringify(Object.assign({}, receiptData, { quota: scanQuotaInfo(reservation, 0) })) };
   } catch (err) {
     // Si el fetch a Claude reventó por red, lo más probable es que no se haya
     // cobrado nada — se devuelve la unidad reservada. Los 502 de más arriba

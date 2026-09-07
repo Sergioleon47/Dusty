@@ -69,6 +69,17 @@ let activeTab = 'dashboard';
 try{ activeTab = localStorage.getItem('patron_active_tab') || 'dashboard'; }catch(e){}
 const TAB_ORDER = ['dashboard','inventario','recibos','catalogo'];
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
+/* Auditoría de primer minuto 2026-09-07 (ver helpModal, teamIntroModal, itemModal
+   y celebrateFirstScan en app-06):
+   - showHelpModal: la hoja de ayuda detrás del "?" del encabezado.
+   - showTeamIntroModal + teamIntroContinue: la tarjeta "Mejor en equipo" salió del
+     tutorial y se muestra UNA vez, al primer toque de Compartir; al cerrarla sigue
+     con lo que el toque iba a hacer (continuación guardada acá).
+   - itemModalExpanded: la ficha de producto nuevo arranca como ALTA RÁPIDA (nombre,
+     costo, cantidad) y "Más detalles" la despliega entera. Editar abre completa.
+   - lastScanQuota: {limit, used} que devuelve el servidor con cada escaneo — para
+     decirle al trial cuántos escaneos gratis le quedan, antes de que choque el tope. */
+let showHelpModal=false, showTeamIntroModal=false, teamIntroContinue=null, itemModalExpanded=false, lastScanQuota=null;
 // Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
 let welcomeStep = 0;
 // Dirección del último cambio de paso (1 = avanzando, -1 = retrocediendo) — decide si

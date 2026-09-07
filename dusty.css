@@ -850,6 +850,83 @@
   /* Corta cualquier animation: de entrada — se usa en redibujados de fondo que NO
      son un cambio real de pantalla (ver welcomeStepAnimated), para que no "parpadeen". */
   .no-anim{animation:none !important;}
+
+  /* ===== AUDITORÍA DE PRIMER MINUTO 2026-09-07 ===== */
+  /* Botón final del tutorial: abre la cámara. El ícono late una vez al aparecer
+     para que se lea como "acción", no como "siguiente". */
+  .welcome-cta-final{display:flex;align-items:center;justify-content:center;gap:8px;}
+  .welcome-cta-final svg{animation:ctaCamPulse 1.6s ease-in-out 2;}
+  @keyframes ctaCamPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+  .welcome-final-links{display:flex;justify-content:center;gap:6px;margin:8px 0 -4px;}
+  .welcome-dashboard-link{background:none;border:none;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;padding:8px 10px;border-radius:8px;}
+  .welcome-dashboard-link:active{background:var(--bg);}
+
+  /* Píldora del encabezado: etiqueta larga en pantallas normales, corta en
+     angostas (así el encabezado no se parte en dos filas); rebote al pasar a
+     "Guardar" (recién cuando hay algo que guardar). */
+  .cloud-signin-btn .cta-short{display:none;}
+  @media (max-width:400px){
+    .cloud-signin-btn .cta-long{display:none;}
+    .cloud-signin-btn .cta-short{display:inline;}
+  }
+  .cloud-signin-btn.cta-save{animation:ctaPop .55s var(--ease-spring);}
+  @keyframes ctaPop{0%{transform:scale(0.8);}60%{transform:scale(1.08);}100%{transform:scale(1);}}
+
+  /* Primeros pasos (tablero vacío): lista de 3 con el primero ya tildado. */
+  .first-steps-card{display:flex;flex-direction:column;}
+  .fs-progress{display:flex;align-items:center;gap:8px;margin:8px 0 12px;}
+  .fs-count{font-family:'IBM Plex Mono';font-size:11px;font-weight:700;color:var(--basil-ink);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .fs-track{flex:1;height:4px;border-radius:99px;background:var(--bg);overflow:hidden;}
+  .fs-fill{height:100%;border-radius:99px;background:var(--basil);transition:width .6s var(--ease-soft);}
+  .first-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .fs-step{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--ink);line-height:1.3;}
+  .fs-step[role="button"]{cursor:pointer;border-radius:8px;margin:0 -6px;padding:3px 6px;transition:background .15s ease;}
+  .fs-step[role="button"]:active{background:var(--bg);}
+  .fs-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;color:var(--on-accent);}
+  .fs-step.done .fs-check{background:var(--basil);border-color:var(--basil);animation:fsCheckPop .45s var(--ease-spring);}
+  .fs-step.done .fs-label{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:color-mix(in srgb, var(--ink-soft) 50%, transparent);}
+  .fs-step.now .fs-check{border-color:var(--saffron);box-shadow:0 0 0 0 color-mix(in srgb, var(--saffron) 55%, transparent);animation:fsNowPulse 1.8s ease-out infinite;}
+  .fs-step.now .fs-label{color:var(--ink);}
+  @keyframes fsCheckPop{0%{transform:scale(0.4);}70%{transform:scale(1.2);}100%{transform:scale(1);}}
+  @keyframes fsNowPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--saffron) 55%, transparent);}100%{box-shadow:0 0 0 9px transparent;}}
+
+  /* Botones de los estados vacíos (Inventario, Recibos). */
+  .empty-state-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px;}
+
+  /* Hoja de ayuda: preguntas plegadas, se abren de a una con el chevron girando
+     y la respuesta entrando desde arriba. Entran escalonadas (--hq-delay). */
+  .help-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .help-q{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;animation:helpQIn .4s var(--ease-soft) both;animation-delay:var(--hq-delay,0ms);}
+  .help-q summary{list-style:none;display:flex;align-items:center;gap:10px;padding:11px 12px;cursor:pointer;font-size:13.5px;font-weight:700;color:var(--ink);}
+  .help-q summary::-webkit-details-marker{display:none;}
+  .help-q summary:active{background:var(--bg);}
+  .help-q-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .help-q-text{flex:1;min-width:0;}
+  .help-q-chev{color:var(--ink-soft);display:flex;transition:transform .25s var(--ease-soft);}
+  .help-q[open] .help-q-chev{transform:rotate(180deg);}
+  .help-a{padding:0 12px 12px 52px;font-size:13px;line-height:1.5;color:var(--ink-mid);animation:helpAIn .25s var(--ease-soft);}
+  @keyframes helpQIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes helpAIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+
+  /* Alta rápida de producto: tarjeta única + botón "Más detalles". */
+  .quick-add-card{animation:helpAIn .3s var(--ease-soft);}
+  .quick-add-more{width:100%;display:flex;align-items:center;gap:8px;background:var(--bg);border:1px dashed var(--line);border-radius:12px;padding:11px 14px;cursor:pointer;color:var(--ink);font-size:13px;font-weight:700;text-align:left;margin-top:4px;}
+  .quick-add-more small{flex:1;min-width:0;font-size:11.5px;font-weight:500;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .quick-add-more-chev{color:var(--ink-soft);display:flex;}
+  .quick-add-more:active{background:var(--panel);}
+
+  /* Confeti del primer escaneo: partículas con los colores de la marca cayendo
+     desde arriba; puro CSS, se borra solo (ver confettiBurst). */
+  .confetti-root{position:fixed;inset:0;z-index:70;pointer-events:none;overflow:hidden;}
+  .confetti-root i{position:absolute;top:-14px;display:block;opacity:0;animation:confettiFall 1.8s cubic-bezier(.25,.6,.4,1) forwards;}
+  @keyframes confettiFall{
+    0%{opacity:1;transform:translateY(0) rotate(0deg);}
+    80%{opacity:1;}
+    100%{opacity:0;transform:translateY(105vh) rotate(var(--cf-rot,360deg));}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .welcome-cta-final svg, .cloud-signin-btn.cta-save, .fs-step.done .fs-check, .fs-step.now .fs-check, .help-q, .help-a, .quick-add-card{animation:none;}
+  }
   /* Escenas animadas del tutorial de bienvenida (ver welcomeScene()): cada paso
      reemplaza su icono estático por una mini-ilustración en movimiento de lo que
      ese paso promete. Son ambientales y en loop — a propósito NO las corta

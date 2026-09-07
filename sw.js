@@ -204,7 +204,12 @@
 // "tapa"): las cuatro cámaras abren el MISMO modal con título, la línea que
 // explica el escáner, la caja punteada (cámara directo) y el link de galería.
 // Fuera la hoja nativa/propia y las burbujas — app-03/04/05/06/07/08 + css.
-const CACHE_NAME = 'patron-shell-v73';
+// v74: auditoría de primer minuto (onboarding). Tutorial de 2 pasos que termina
+// abriendo la cámara; "Mejor en equipo" al primer Compartir; encabezado estable
+// (Entrar hasta tener datos, luego Guardar); tarjeta Primeros pasos en vez de los
+// ceros; "?" = ayuda con reporte al pie; estados vacíos con botón; alta rápida;
+// confeti + toast al primer escaneo — app-01/03/04/05/06/07 + css + extract-receipt.
+const CACHE_NAME = 'patron-shell-v74';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

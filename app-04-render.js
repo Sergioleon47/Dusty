@@ -217,6 +217,8 @@ function renderApp(){
     ${showAuthModal ? authModal() : ''}
     ${showTeamModal ? teamModal() : ''}
     ${showFeedbackModal ? feedbackModal() : ''}
+    ${showHelpModal ? helpModal() : ''}
+    ${showTeamIntroModal ? teamIntroModal() : ''}
     ${showRecipeModal ? recipeModal() : ''}
     ${showProduceModal ? produceModal() : ''}
     ${showShelfModal ? shelfScanModal() : ''}
@@ -381,7 +383,9 @@ function topbar(){
       </div>
     </div>
     <div class="topbar-actions" style="display:flex;gap:8px;">
-      <button class="lang-toggle" id="btn-feedback" title="${t('btn_feedback')}">
+      ${/* El "?" abre AYUDA (auditoría de primer minuto 2026-09-07); "Reportar un
+           problema" vive al pie de esa hoja. El id se conserva por el color CSS. */''}
+      <button class="lang-toggle" id="btn-feedback" title="${t('btn_help')}" aria-label="${t('btn_help')}">
         <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </button>
       ${currentUser && !currentUser.isAnonymous ? `
@@ -392,10 +396,22 @@ function topbar(){
         <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="9.5 14 11.5 16 15 12.5"/></svg>
       </button>
       ` : `
-      <button class="cloud-signin-btn" id="btn-cloud-sign-in" title="${currentUser ? t('trial_upgrade_title') : t('cloud_sync_signed_out')}">
+      ${/* Auditoría de primer minuto 2026-09-07: "Guardar mi cuenta" aparecía en el
+           PRIMER toque (al crearse la cuenta anónima), sin que hubiera nada que
+           guardar, y su largo partía el encabezado en dos filas. Ahora el trial
+           sigue viendo "Entrar" hasta tener algo cargado; recién ahí la píldora
+           cambia a "Guardar mi cuenta" (o "Guardar" en pantallas angostas, ver
+           .cta-short) y entra con un pequeño rebote (.cta-save). */''}
+      ${(()=>{
+        const hasData = inventory.length>0 || receipts.length>0;
+        const saveMode = !!(currentUser && hasData);
+        return `
+      <button class="cloud-signin-btn${saveMode ? ' cta-save' : ''}" id="btn-cloud-sign-in" title="${currentUser ? t('trial_upgrade_title') : t('cloud_sync_signed_out')}">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.5A4 4 0 0 0 6.5 16"/></svg>
-        <span>${currentUser ? t('trial_save_account_cta') : t('btn_account_cta')}</span>
-      </button>
+        <span class="cta-long">${saveMode ? t('trial_save_account_cta') : t('btn_account_cta')}</span>
+        <span class="cta-short">${saveMode ? t('trial_save_short') : t('btn_account_cta')}</span>
+      </button>`;
+      })()}
       `}
       <button class="lang-toggle" id="btn-alert-settings" title="${t('btn_alert_settings')}">
         <svg viewBox="0 0 24 24" style="width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>

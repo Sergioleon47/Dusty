@@ -158,8 +158,43 @@ function attachEvents(){
       render(); // re-pinta el selector con el circulito activo nuevo
     };
   });
+  // El "?" abre la hoja de AYUDA; el reporte de problemas está al pie de esa hoja.
   const btnFeedback=document.getElementById('btn-feedback');
-  if(btnFeedback) btnFeedback.onclick=()=>openFeedbackModal();
+  if(btnFeedback) btnFeedback.onclick=()=>openHelpModal();
+  const helpOverlay=document.getElementById('help-overlay');
+  if(helpOverlay){
+    helpOverlay.onmousedown=(e)=>{ if(e.target===helpOverlay) closeHelpModal(); };
+    const btnCloseHelp=document.getElementById('btn-close-help');
+    if(btnCloseHelp) btnCloseHelp.onclick=closeHelpModal;
+    const btnHelpReport=document.getElementById('btn-help-report');
+    if(btnHelpReport) btnHelpReport.onclick=()=>{ closeHelpModal(); openFeedbackModal(); };
+    // Acordeón: abrir una pregunta cierra las demás (una respuesta a la vez).
+    helpOverlay.querySelectorAll('details.help-q').forEach(d=>{
+      d.ontoggle=()=>{ if(d.open) helpOverlay.querySelectorAll('details.help-q').forEach(o=>{ if(o!==d) o.open=false; }); };
+    });
+  }
+  // Tarjeta "Mejor en equipo" (una vez, al primer Compartir).
+  const teamIntroOverlay=document.getElementById('team-intro-overlay');
+  if(teamIntroOverlay){
+    teamIntroOverlay.onmousedown=(e)=>{ if(e.target===teamIntroOverlay) closeTeamIntroModal(false); };
+    const btnTeamIntroGo=document.getElementById('btn-team-intro-go');
+    if(btnTeamIntroGo) btnTeamIntroGo.onclick=()=>closeTeamIntroModal(true);
+  }
+  // Primeros pasos del tablero vacío.
+  const fsScan=document.getElementById('fs-scan');
+  if(fsScan){ fsScan.onclick=openScanModal; fsScan.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openScanModal(); } }; }
+  const fsBudget=document.getElementById('fs-budget');
+  if(fsBudget){ fsBudget.onclick=openBudgetModal; fsBudget.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openBudgetModal(); } }; }
+  // Botones de los estados vacíos de Inventario y Recibos.
+  const btnInvEmptyScan=document.getElementById('btn-inv-empty-scan');
+  if(btnInvEmptyScan) btnInvEmptyScan.onclick=openScanModal;
+  const btnInvEmptyManual=document.getElementById('btn-inv-empty-manual');
+  if(btnInvEmptyManual) btnInvEmptyManual.onclick=()=>openItemModal(null);
+  const btnRecEmptyScan=document.getElementById('btn-rec-empty-scan');
+  if(btnRecEmptyScan) btnRecEmptyScan.onclick=openScanModal;
+  // Alta rápida → ficha completa.
+  const btnItemMore=document.getElementById('btn-item-more');
+  if(btnItemMore) btnItemMore.onclick=expandItemModal;
   const feedbackOverlay=document.getElementById('feedback-overlay');
   if(feedbackOverlay){
     feedbackOverlay.onmousedown=(e)=>{ if(e.target===feedbackOverlay) closeFeedbackModal(); };
@@ -313,6 +348,8 @@ function attachEvents(){
     if(welcomeBackBtn) welcomeBackBtn.onclick = retreatWelcomeStep;
     const welcomeSkipBtn = document.getElementById('btn-welcome-skip');
     if(welcomeSkipBtn) welcomeSkipBtn.onclick = closeWelcomeModal;
+    const welcomeDashBtn = document.getElementById('btn-welcome-dashboard');
+    if(welcomeDashBtn) welcomeDashBtn.onclick = closeWelcomeModal;
     document.querySelectorAll('[data-jump-step]').forEach(dot=>{
       dot.onclick = ()=> jumpToWelcomeStep(+dot.dataset.jumpStep);
     });
@@ -341,12 +378,14 @@ function attachEvents(){
   // equipo directo; trial anónimo → guardar la cuenta primero; sin sesión →
   // login. Mismo criterio que los botones de nube del topbar.
   const btnShareAccount=document.getElementById('btn-share-account');
-  if(btnShareAccount) btnShareAccount.onclick=()=>{
+  // La tarjeta "Mejor en equipo" (ex paso 3 del tutorial) se muestra acá, la
+  // primera vez — en el momento en que sirve — y después sigue con lo de siempre.
+  if(btnShareAccount) btnShareAccount.onclick=()=>openTeamIntroOrContinue(()=>{
     if(currentUser && !currentUser.isAnonymous){ openTeamModal(); return; }
     ensurePatronFirebaseReady().catch(()=>{});
     if(currentUser && currentUser.isAnonymous) openUpgradeModal();
     else openAuthModal();
-  };
+  });
   document.querySelectorAll('[data-open-category]').forEach(btn=>{
     btn.onclick=()=>{
       inventoryCategoryFilter = btn.dataset.openCategory;

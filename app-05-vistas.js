@@ -18,6 +18,9 @@ const LINE_ICONS = {
   barcode: `<line x1="4" y1="5" x2="4" y2="19"/><line x1="8" y1="5" x2="8" y2="19"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/><line x1="20" y1="5" x2="20" y2="19"/>`,
   bolt: `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`,
   tag: `<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/>`,
+  // Hoja de ayuda y alta rápida (auditoría de primer minuto 2026-09-07).
+  edit: `<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>`,
+  'chevron-down': `<polyline points="6 9 12 15 18 9"/>`,
 };
 function lineIcon(name, size){
   const s = size||18;
@@ -394,7 +397,11 @@ function dashboardView(){
   return `
 
   <div class="grid-summary">
-    <div class="stat-card">
+    ${/* Primer día (auditoría de primer minuto 2026-09-07): sin nada cargado, la
+         tarjeta de Inversión mostraba tres ceros y una palabra sin significado
+         todavía. En su lugar va la tarjeta de PRIMEROS PASOS (ver firstStepsCard);
+         la de Inversión vuelve sola con el primer recibo o producto. */''}
+    ${(inventory.length===0 && receipts.length===0 && !cloudSyncPending) ? firstStepsCard() : `<div class="stat-card">
       ${/* Rediseño 2026-09-03 (pedido del usuario): el número grande es la
            INVERSIÓN del mes (recibos de mercadería — verde, se convierte en
            Valor); abajo los GASTOS OPERATIVOS (comida, gasolina, luz, agua,
@@ -437,7 +444,7 @@ function dashboardView(){
           <span style="font-size:16px;font-weight:800;color:var(--navy);">${money(0)}</span>
         </button>`}
       <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')}</button>
-    </div>
+    </div>`}
     <div class="scan-card" id="btn-scan-fab" title="${t('dash_scan_receipt')}" style="display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
       <!-- Órbita decorativa: todo lo que Dusty puede escanear girando despacio
            alrededor del botón (recibos, productos, códigos de barras, servicios,
@@ -513,6 +520,33 @@ function categoryChipsRow(){
     }).join('')}
   </div>
   `;
+}
+/* PRIMEROS PASOS (auditoría de primer minuto 2026-09-07): reemplaza la tarjeta de
+   Inversión mientras no hay nada cargado. Tres pasos con el primero YA tildado
+   (elegir idioma) — el "efecto de progreso dotado": empezar con ventaja motiva a
+   terminar. El paso actual late; el de presupuesto se puede tildar desde acá. */
+function firstStepsCard(){
+  const budgetDone = !!monthlyBudget;
+  const done = 1 + (budgetDone ? 1 : 0);
+  const total = 3;
+  const step = (cls, id, label, checked)=>`
+      <li class="fs-step ${cls}" ${id?`id="${id}" role="button" tabindex="0"`:''}>
+        <span class="fs-check" aria-hidden="true">${checked ? '✓' : ''}</span>
+        <span class="fs-label">${label}</span>
+      </li>`;
+  return `
+    <div class="stat-card first-steps-card">
+      <div class="stat-label">${t('first_steps_title')}</div>
+      <div class="fs-progress">
+        <div class="fs-track"><div class="fs-fill" style="width:${Math.round(done/total*100)}%;"></div></div>
+        <span class="fs-count">${done}/${total}</span>
+      </div>
+      <ol class="first-steps">
+        ${step('done', null, t('first_step_lang'), true)}
+        ${step('now', 'fs-scan', t('first_step_scan'), false)}
+        ${step(budgetDone ? 'done' : '', 'fs-budget', t('first_step_budget'), budgetDone)}
+      </ol>
+    </div>`;
 }
 // Primer día: nada escaneado, nada cargado a mano. Sin esto, el Dashboard quedaba
 // con solo la tarjeta de gasto ($0.00) y el botón de escanear — funcional, pero sin
@@ -882,7 +916,9 @@ function inventarioView(){
     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg>
     <span>${t('cc_banner_text').replace('{n}', cycleCountBatch().length)}</span>
   </div>` : '')}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))) : (
+  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
+      `<button type="button" class="btn btn-primary" id="btn-inv-empty-scan">${t('dash_empty_scan_btn')}</button>
+       <button type="button" class="btn btn-ghost" id="btn-inv-empty-manual">${t('dash_empty_manual_btn')}</button>`)) : (
     // Sin la caja .stock-card alrededor: las tarjetas ya son cajas por sí
     // mismas — caja dentro de caja era redundante (captura del usuario). La
     // lupa a la izquierda (margin-right:auto de .inv-search-wrap) y el selector
@@ -1152,13 +1188,18 @@ function recibosView(){
     <div><h2>${t('rec_title')}</h2><p>${t('rec_sub')}</p></div>
     ${/* Sin el botón "Scan receipt" (lo tachó el usuario): escanear ya vive en el
          botón grande del Dashboard — acá duplicaba y apretaba el buscador. */''}
+    ${/* Sin recibos todavía no hay nada que buscar ni que pintar en el calendario
+         (auditoría de primer minuto 2026-09-07): buscador y calendario recién
+         aparecen con el primer recibo (o con una nota de calendario). */''}
+    ${receipts.length>0 ? `
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
-    </div>
+    </div>` : ''}
   </div>
-  ${receiptCalendarWidget()}
+  ${(receipts.length>0 || (typeof calNotes!=='undefined' && calNotes.length>0)) ? receiptCalendarWidget() : ''}
   ${receipts.length>0 ? `<div class="field" style="max-width:340px;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div>` : ''}
-  ${receipts.length===0 ? emptyState('receipt',t('empty_receipts_title'),'',true) :
+  ${receipts.length===0 ? emptyState('receipt',t('empty_receipts_title'),'',true,
+      `<button type="button" class="btn btn-primary" id="btn-rec-empty-scan">${t('dash_empty_scan_btn')}</button>`) :
     (sorted.length===0 ? `<div class="helper-note" style="margin:4px 0 0;">${t('rec_no_matches')}</div>` :
     groups.map(g=>`
       <div class="section-head" style="margin-top:22px;margin-bottom:10px;">

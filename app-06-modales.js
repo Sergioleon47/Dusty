@@ -247,8 +247,11 @@ function receiptDetailModal(){
   </div>`;
 }
 
-function emptyState(iconName,title,sub,compact){
-  return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}</div>`;
+/* actionsHtml (auditoría de primer minuto 2026-09-07): botones debajo del texto —
+   un estado vacío sin acción es un callejón sin salida (Inventario decía "agregá
+   tu primer producto" y el botón vivía en otra pestaña). */
+function emptyState(iconName,title,sub,compact,actionsHtml){
+  return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}${actionsHtml?`<div class="empty-state-actions">${actionsHtml}</div>`:''}</div>`;
 }
 
 /* ================= MODAL: IDIOMA (primera pantalla que ve un usuario nuevo) ================= */
@@ -269,7 +272,10 @@ function langChoiceModal(){
   return `
   <div class="overlay" id="lang-choice-overlay">
     <div class="modal" style="text-align:center;">
-      <div style="font-size:34px;margin-bottom:14px;">🌐</div>
+      <div style="font-size:34px;margin-bottom:8px;">🌐</div>
+      ${/* Una línea bilingüe, FIJA (nunca traducida): sin ella el globo solo se
+           sentía frío (auditoría de primer minuto 2026-09-07). */''}
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;">Choose your language · Elegí tu idioma</div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         ${/* Inglés primero: es el idioma principal de la app. */''}
         <button type="button" data-choose-lang="en" class="btn btn-primary" style="padding:14px;font-size:15px;">English</button>
@@ -289,11 +295,16 @@ function langChoiceModal(){
 // para lo poco que hace falta saber antes de arrancar. Bajado a 3, agrupando por lo que
 // el usuario realmente hace ("escaneo" + "se actualiza solo" son un solo momento, igual
 // que "te avisamos" + "presupuesto" son las dos caras de "controlamos los números").
+// Auditoría de primer minuto 2026-09-07: bajado a 2 pasos. "Mejor en equipo" era
+// promoción de una función que nadie necesita el día uno (NN/g: enseñar en el
+// momento de uso, no antes) — ahora vive en TEAM_INTRO_STEP y se muestra una sola
+// vez, al primer toque de Compartir (ver openTeamIntroOrContinue). Y el botón final
+// ya no manda al tablero: abre la cámara, que es donde está el "aha" de Dusty.
 const WELCOME_STEPS = [
   {scene:'scan', icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)',        titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
-  {scene:'bell', icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'},
-  {scene:'team', icon:'share',  bg:'var(--tomato-soft)',  fg:'var(--tomato-ink)', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'}
+  {scene:'bell', icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'}
 ];
+const TEAM_INTRO_STEP = {scene:'team', icon:'share', bg:'var(--tomato-soft)', fg:'var(--tomato-ink)', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'};
 /* Mini-ilustración animada de cada paso del tutorial (estilos .ws-* en el CSS) —
    reemplaza al icono estático de antes por una escena en movimiento de lo que el
    paso promete: el recibo escaneándose, la campana sonando, el equipo presente. */
@@ -311,7 +322,13 @@ function closeWelcomeModal(){
 }
 function advanceWelcomeStep(){
   if(welcomeStep < WELCOME_STEPS.length-1){ welcomeStepDir=1; welcomeStep++; welcomeStepAnimated = false; render(); }
-  else closeWelcomeModal();
+  else {
+    // Último paso: de la promesa a la prueba en UN toque — se cierra el tutorial y
+    // se abre la cámara (el mismo modal de intro única de siempre). Quien prefiera
+    // mirar primero tiene el link "Ver el tablero primero" o Saltar.
+    closeWelcomeModal();
+    openScanModal();
+  }
 }
 function retreatWelcomeStep(){
   if(welcomeStep>0){ welcomeStepDir=-1; welcomeStep--; welcomeStepAnimated = false; render(); }
@@ -338,7 +355,7 @@ function welcomeModal(){
   return `
   <div class="overlay${animClass}" id="welcome-overlay">
     <div class="modal${animClass}">
-      ${!isLast ? `<button type="button" class="welcome-skip-btn" id="btn-welcome-skip">${t('welcome_skip_btn')}</button>` : ''}
+      <button type="button" class="welcome-skip-btn" id="btn-welcome-skip">${t('welcome_skip_btn')}</button>
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
       <div class="welcome-step-card${animClass}${dirClass}" style="background:${step.bg};">
@@ -353,12 +370,134 @@ function welcomeModal(){
       <div class="welcome-dots">
         ${WELCOME_STEPS.map((s,i)=>`<span class="welcome-dot${i===welcomeStep?' active':''}" data-jump-step="${i}" style="background:${i===welcomeStep?s.fg:'var(--line)'};"></span>`).join('')}
       </div>
+      ${/* Último paso: el CTA de la cámara ocupa la fila entera (con "Atrás" al
+           lado se partía en dos líneas); Atrás y "Ver el tablero primero" van
+           debajo, como links chicos. */''}
       <div class="modal-actions">
-        ${welcomeStep>0 ? `<button type="button" class="btn btn-ghost" id="btn-welcome-back">${t('welcome_back_btn')}</button>` : ''}
-        <button type="button" class="btn btn-primary" id="btn-welcome-next">${isLast ? t('welcome_btn') : t('welcome_next_btn')}</button>
+        ${welcomeStep>0 && !isLast ? `<button type="button" class="btn btn-ghost" id="btn-welcome-back">${t('welcome_back_btn')}</button>` : ''}
+        <button type="button" class="btn btn-primary${isLast ? ' welcome-cta-final' : ''}" id="btn-welcome-next">${isLast ? `${lineIcon('camera',18)} ` : ''}${isLast ? t('welcome_btn') : t('welcome_next_btn')}</button>
+      </div>
+      ${isLast ? `
+      <div class="welcome-final-links">
+        <button type="button" class="welcome-dashboard-link" id="btn-welcome-back">${t('welcome_back_btn')}</button>
+        <button type="button" class="welcome-dashboard-link" id="btn-welcome-dashboard">${t('welcome_go_dashboard')}</button>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ================= MODAL: "MEJOR EN EQUIPO" (una vez, al primer Compartir) =================
+   La tarjeta que antes era el paso 3 del tutorial, mostrada en el momento en que
+   sirve: el primer toque de "Compartir cuenta". cont es lo que ese toque iba a
+   hacer (abrir el panel de equipo, o pedir guardar la cuenta / login) y corre al
+   cerrar la tarjeta. Una vez por dispositivo (patron_team_intro_seen). */
+function openTeamIntroOrContinue(cont){
+  let seen = false;
+  try{ seen = !!localStorage.getItem('patron_team_intro_seen'); }catch(e){}
+  if(seen){ cont(); return; }
+  teamIntroContinue = cont;
+  showTeamIntroModal = true;
+  render();
+}
+function closeTeamIntroModal(proceed){
+  try{ localStorage.setItem('patron_team_intro_seen','1'); }catch(e){}
+  const cont = teamIntroContinue;
+  showTeamIntroModal = false; teamIntroContinue = null;
+  render();
+  if(proceed && typeof cont==='function') cont();
+}
+function teamIntroModal(){
+  const step = TEAM_INTRO_STEP;
+  return `
+  <div class="overlay overlay-fast" id="team-intro-overlay">
+    <div class="modal">
+      <div class="welcome-step-card" style="background:${step.bg};margin-top:4px;">
+        ${welcomeScene(step.scene)}
+        <strong class="welcome-step-title">${t(step.titleKey)}</strong>
+        <div class="welcome-step-sub">${t(step.subKey)}</div>
+      </div>
+      <div class="modal-actions" style="margin-top:6px;">
+        <button type="button" class="btn btn-primary" id="btn-team-intro-go">${t('team_intro_btn')}</button>
       </div>
     </div>
   </div>`;
+}
+
+/* ================= MODAL: AYUDA (el "?" del encabezado) =================
+   Auditoría de primer minuto 2026-09-07: un signo de pregunta significa ayuda en
+   cualquier app, y antes abría el formulario de quejas. Ahora abre las preguntas
+   del primer día (plegadas, se abren de a una) con "Reportar un problema" al pie. */
+function openHelpModal(){ showHelpModal = true; render(); }
+function closeHelpModal(){ showHelpModal = false; render(); }
+function helpModal(){
+  const qa = [
+    {q:'help_q1', a:'help_a1', icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)'},
+    {q:'help_q2', a:'help_a2', icon:'cloud',  bg:'var(--basil-soft)',   fg:'var(--basil-ink)'},
+    {q:'help_q3', a:'help_a3', icon:'share',  bg:'var(--tomato-soft)',  fg:'var(--tomato-ink)'},
+    {q:'help_q4', a:'help_a4', icon:'edit',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)'}
+  ];
+  return `
+  <div class="overlay overlay-fast" id="help-overlay">
+    <div class="modal">
+      <button type="button" class="modal-close-btn" id="btn-close-help" aria-label="${t('btn_cancel')}">✕</button>
+      <h3 class="basil">${t('help_title')}</h3>
+      <div class="sub">${t('help_sub')}</div>
+      <div class="help-list">
+        ${qa.map((x,i)=>`
+        <details class="help-q" style="--hq-delay:${i*60}ms;">
+          <summary>
+            <span class="help-q-icon" style="background:${x.bg};color:${x.fg};">${lineIcon(x.icon,16)}</span>
+            <span class="help-q-text">${t(x.q)}</span>
+            <span class="help-q-chev" aria-hidden="true">${lineIcon('chevron-down',16)}</span>
+          </summary>
+          <div class="help-a">${t(x.a)}</div>
+        </details>`).join('')}
+      </div>
+      <button type="button" class="btn btn-ghost" id="btn-help-report" style="width:100%;margin-top:14px;">${t('help_report_btn')}</button>
+    </div>
+  </div>`;
+}
+
+/* ================= FESTEJO DEL PRIMER ESCANEO =================
+   El "aha" de Dusty (un recibo convertido en productos) pasaba en silencio. Ahora:
+   lluvia de confeti con los colores de la marca + toast con el logro y, si es
+   trial, cuántos escaneos gratis le quedan (transparencia antes de chocar el
+   tope). Un segundo toast, más tarde, explica el ☁ Guardar que recién apareció en
+   el encabezado. Respeta prefers-reduced-motion (sin confeti, solo el toast). */
+function confettiBurst(){
+  try{
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = document.createElement('div');
+    root.className = 'confetti-root';
+    root.setAttribute('aria-hidden','true');
+    const colors = ['var(--basil)','var(--saffron)','var(--tomato)','var(--sky)','var(--navy)'];
+    for(let i=0;i<26;i++){
+      const p = document.createElement('i');
+      const left = 8 + Math.random()*84;
+      const delay = Math.random()*0.35;
+      const dur = 1.4 + Math.random()*0.9;
+      const rot = Math.round(Math.random()*720 - 360);
+      const size = 6 + Math.round(Math.random()*6);
+      p.style.cssText = `left:${left}%;background:${colors[i%colors.length]};animation-delay:${delay}s;animation-duration:${dur}s;--cf-rot:${rot}deg;width:${size}px;height:${Math.round(size*0.6)}px;border-radius:${i%3===0?'50%':'2px'};`;
+      root.appendChild(p);
+    }
+    document.body.appendChild(root);
+    setTimeout(()=>{ if(root.parentNode) root.parentNode.removeChild(root); }, 2800);
+  }catch(e){}
+}
+function celebrateFirstScan(count){
+  const n = Math.max(1, count|0);
+  let msg = n===1 ? t('first_scan_toast_one') : t('first_scan_toast_many').replace('{n}', String(n));
+  if(currentUser && currentUser.isAnonymous && lastScanQuota && Number.isFinite(lastScanQuota.limit)){
+    const left = Math.max(0, (lastScanQuota.limit|0) - (lastScanQuota.used|0));
+    if(left===1) msg += ' ' + t('trial_scans_last');
+    else if(left>1) msg += ' ' + t('trial_scans_left').replace('{n}', String(left));
+  }
+  confettiBurst();
+  showToast(msg, 'success');
+  if(currentUser && currentUser.isAnonymous){
+    setTimeout(()=>showToast(t('save_account_hint_toast'), 'info'), 2600);
+  }
 }
 
 /* ================= MODAL: INICIAR SESIÓN (Google o email/contraseña) ================= */
@@ -1311,7 +1450,20 @@ function openItemModal(item){
   // negocio), no en un 'lb' fijo — un campo menos que corregir en cada alta.
   draftItem = item ? {...item} : {id:uid('i'), name:'', unit:mostUsedInventoryUnit('lb'), costPerUnit:'', qtyOnHand:0, salePrice:'', sku:'', supplier:'', categoryId:null, capacityFull:null};
   editingItem = item ? item.id : null;
+  // Producto NUEVO: alta rápida (nombre, costo, cantidad). Editar: ficha completa.
+  itemModalExpanded = !!item;
   showItemModal = true; render();
+}
+/* "Más detalles" en la alta rápida: guarda lo tipeado en el borrador (el render
+   reconstruye el formulario desde draftItem) y despliega la ficha completa. */
+function expandItemModal(){
+  const g = id => document.getElementById(id);
+  if(g('fi-name')) draftItem.name = g('fi-name').value;
+  if(g('fi-unit')) draftItem.unit = g('fi-unit').value;
+  if(g('fi-cost')) draftItem.costPerUnit = g('fi-cost').value;
+  if(g('fi-stock')) draftItem.qtyOnHand = parseFloat(g('fi-stock').value)||0;
+  itemModalExpanded = true;
+  render();
 }
 // profitMarginPct ahora vive en patron-core.js.
 function itemModal(){
@@ -1321,6 +1473,41 @@ function itemModal(){
      precio de venta, % de ganancia, SKU, stock y capacidad (el guardado en
      app-07 conserva los campos no renderizados). */
   const isExp = isExpenseItem(draftItem);
+  /* ALTA RÁPIDA (auditoría de primer minuto 2026-09-07): quien elige "empezar
+     simple" se encontraba con nueve campos en tres secciones. Un producto nuevo
+     arranca con nombre, costo (con su unidad) y cantidad; "Más detalles" despliega
+     la ficha entera (foto, categoría, precio de venta, SKU, capacidad). El guardado
+     ya toleraba campos ausentes (ver la ficha de gasto), así que no cambia. */
+  if(!isExp && !editingItem && !itemModalExpanded){
+    return `
+  <div class="overlay" id="item-overlay">
+    <div class="modal">
+      <button type="button" class="modal-close-btn" id="btn-close-item-modal" aria-label="${t('btn_cancel')}">✕</button>
+      <h3 class="navy">${t('item_new_title')}</h3>
+      <div class="sub">${t('item_quick_sub')}</div>
+      <div class="settings-card quick-add-card">
+        <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
+        <div class="field-row">
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+          <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
+            <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
+      </div>
+      <button type="button" class="quick-add-more" id="btn-item-more">
+        <span>${t('item_quick_more_btn')}</span>
+        <small>${t('item_quick_more_hint')}</small>
+        <span class="quick-add-more-chev" aria-hidden="true">${lineIcon('chevron-down',16)}</span>
+      </button>
+      <div class="helper-note" style="margin-top:12px;">${t('item_helper')}</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-cancel-item">${t('btn_cancel')}</button>
+        <button class="btn btn-primary" id="btn-save-item">${t('btn_save')}</button>
+      </div>
+    </div>
+  </div>`;
+  }
   return `
   <div class="overlay" id="item-overlay">
     <div class="modal">
@@ -2606,6 +2793,9 @@ async function callDustyAI(path, body, opts){
     }
     throw new Error(parsed.error || t(opts.genericKey));
   }
+  // Cupo que devuelve el servidor junto con el resultado ({limit, used}) — lo usa
+  // el festejo del primer escaneo para decir cuántos escaneos gratis quedan.
+  if(parsed && parsed.quota && typeof parsed.quota==='object') lastScanQuota = parsed.quota;
   return parsed;
 }
 
@@ -2972,6 +3162,9 @@ function applyScanResults(){
 
   const appliedItems = [];
   const createdPurchaseIds = [];
+  // ¿Es el primer recibo de la vida de esta cuenta? Se decide ANTES de guardar
+  // (después receipts ya lo tiene) — dispara el festejo de más abajo.
+  const wasFirstReceipt = receipts.length===0;
   // Si el usuario borró el campo fecha (input date vacío emite ''), el recibo caía
   // con date:'' y desaparecía de TODOS los meses — gasto perdido en silencio
   // (auditoría 2026-09-04). Mismo fallback que ya usaba el gasto manual.
@@ -3118,6 +3311,9 @@ function applyScanResults(){
   }
   saveState();
   if(appliedItems.length>0) logActivity('scan_applied', '', String(appliedItems.length));
+  // Primer recibo de la vida: festejo (confeti + toast con el logro y los escaneos
+  // gratis que quedan). Solo fuera del modo lote — ahí el resumen llega al final.
+  if(appliedItems.length>0 && wasFirstReceipt && !scanBatchMode) celebrateFirstScan(appliedItems.length);
 
   // En modo lote, guardar un recibo NO cierra el escáner: pasa al siguiente de la cola
   // para que el usuario confirme los 5 seguidos sin volver a sacar fotos.
