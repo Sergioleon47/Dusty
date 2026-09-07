@@ -2048,7 +2048,12 @@ function catalogoView(){
     <div style="margin:16px 0 6px;">
       <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 8px;">${t('catalog_tools_header')}</div>
       <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:20px;padding:16px 8px 14px;box-shadow:var(--shadow);">
+        ${/* Orden (pedido del usuario 2026-09-06): la CÁMARA primera desde la
+             DERECHA — donde cae el pulgar. */''}
         ${tool('btn-catalog-gallery', ring(galSvg, 'linear-gradient(145deg, var(--navy-wash), var(--panel))', 'var(--navy-ink)'), t('catalog_tool_gallery'))}
+        ${tool('btn-catalog-collage', ring(collageSvg, 'linear-gradient(145deg, var(--tomato-soft, #4a2a28), var(--panel))', 'var(--tomato)'), t('catalog_tool_collage'))}
+        ${tool('btn-catalog-select', ring(selSvg, catalogSelectMode?'linear-gradient(145deg, var(--basil), var(--sky-bright))':'linear-gradient(145deg, var(--saffron-soft), var(--panel))', catalogSelectMode?'#fff':'var(--saffron-ink)', catalogSelectMode), catalogSelectMode?t('catalog_select_done'):t('catalog_select_btn'))}
+        ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
         <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
           <span class="shelf-fab-wrap" style="display:inline-block;">
             <span class="shelf-scan-fab" style="width:64px;height:64px;display:flex;">${lineIcon('camera',30)}</span>
@@ -2056,9 +2061,6 @@ function catalogoView(){
           </span>
           <span style="font-size:12.5px;font-weight:800;color:var(--ink);">${t('catalog_tool_camera')}</span>
         </button>
-        ${tool('btn-catalog-collage', ring(collageSvg, 'linear-gradient(145deg, var(--tomato-soft, #4a2a28), var(--panel))', 'var(--tomato)'), t('catalog_tool_collage'))}
-        ${tool('btn-catalog-select', ring(selSvg, catalogSelectMode?'linear-gradient(145deg, var(--basil), var(--sky-bright))':'linear-gradient(145deg, var(--saffron-soft), var(--panel))', catalogSelectMode?'#fff':'var(--saffron-ink)', catalogSelectMode), catalogSelectMode?t('catalog_select_done'):t('catalog_select_btn'))}
-        ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
       </div>
     </div>`;
     })()}

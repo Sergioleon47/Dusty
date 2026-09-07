@@ -124,7 +124,9 @@
 // mismo número + Instagram/Facebook/TikTok) que el cliente ve en la ficha, y
 // COLLAGE de 2-4 fotos como quinta herramienta — app-02/03/05/07 + funciones +
 // catalogo.html.
-const CACHE_NAME = 'patron-shell-v46';
+// v47: la Cámara pasa al extremo DERECHO de la tarjeta de herramientas del
+// Catálogo (primera desde la derecha, donde cae el pulgar) — app-05.
+const CACHE_NAME = 'patron-shell-v47';
 
 const PRECACHE_URLS = [
   '/',
