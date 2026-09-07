@@ -2091,7 +2091,9 @@ function catalogoView(){
     ${/* Seleccionar vive a la IZQUIERDA de esta fila (donde lo señaló el
          usuario, captura 2026-09-06), frente al selector de vista. */''}
     <div class="inv-toolbar" style="justify-content:space-between;align-items:center;gap:8px;margin-top:26px;">
-      <button type="button" class="exit-reason-chip ${catalogSelectMode?'on':''}" id="btn-catalog-select" style="font-weight:800;font-size:13.5px;padding:8px 16px;">${catalogSelectMode ? '✓ '+t('catalog_select_done') : t('catalog_select_btn')}</button>
+      ${/* Seleccionar SIN caja (pedido del usuario): texto pelado, como el
+           "Select" de iOS Fotos — verde cuando el modo está activo. */''}
+      <button type="button" id="btn-catalog-select" style="background:none;border:none;cursor:pointer;padding:8px 4px;font-weight:800;font-size:15px;color:${catalogSelectMode?'var(--basil)':'var(--ink)'};">${catalogSelectMode ? '✓ '+t('catalog_select_done') : t('catalog_select_btn')}</button>
       ${invLayoutToggleHtml()}
     </div>
     ${catalogSelectMode ? `<div class="helper-note" style="margin:2px 0 6px;">${t('catalog_select_hint')}</div>` : ''}

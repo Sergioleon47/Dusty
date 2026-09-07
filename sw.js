@@ -146,7 +146,9 @@
 // fila del selector de vista (donde lo señaló el usuario) — app-03/05/07.
 // v54: la fila Seleccionar + vista baja (margin-top) para agruparse con los
 // ítems, despegada de las herramientas — app-05.
-const CACHE_NAME = 'patron-shell-v54';
+// v55: Seleccionar sin caja — texto pelado estilo iOS Fotos, verde en modo
+// activo — app-05.
+const CACHE_NAME = 'patron-shell-v55';
 
 const PRECACHE_URLS = [
   '/',
