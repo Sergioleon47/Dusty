@@ -139,7 +139,9 @@
 // v51: collage con SELECTOR DE DISEÑOS (cuadrículas + Pinboard estilo polaroid
 // con sombra) y los ítems del inventario FLOTANDO sin caja — app-03/04/05/07 +
 // dusty.css.
-const CACHE_NAME = 'patron-shell-v51';
+// v52: Galería se fusiona en la Cámara (sin capture → la hoja nativa ofrece
+// Tomar foto y Fototeca en un toque); quedan 4 herramientas — app-03/05/07.
+const CACHE_NAME = 'patron-shell-v52';
 
 const PRECACHE_URLS = [
   '/',

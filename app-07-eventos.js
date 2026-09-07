@@ -542,10 +542,10 @@ function attachEvents(){
       };
       input.click();
     };
+    // Cámara SIN capture (fusión con Galería, pedido del usuario): la hoja
+    // nativa del teléfono ofrece "Tomar foto" y "Fototeca" en el mismo toque.
     const btnCatalogPhoto=document.getElementById('btn-catalog-photo');
-    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>openCatalogPhotoPicker(true);
-    const btnCatalogGallery=document.getElementById('btn-catalog-gallery');
-    if(btnCatalogGallery) btnCatalogGallery.onclick=()=>openCatalogPhotoPicker(false);
+    if(btnCatalogPhoto) btnCatalogPhoto.onclick=()=>openCatalogPhotoPicker(false);
     // COLLAGE (pedido del usuario 2026-09-06): 2 a 4 fotos de la galería se
     // componen en UNA imagen (lado a lado / 1+2 / 2x2 con separador blanco) y el
     // resultado entra al flujo normal — editor, filtros, IA y asignar.
