@@ -2048,7 +2048,14 @@ function catalogoView(){
     ${/* Sin tarjeta contenedora (el usuario la tachó, captura 2026-09-06): los
          círculos flotan directo sobre la página, cada uno ya trae su sombra. */''}
     <div style="margin:16px 0 6px;">
-      <div style="font-size:13px;font-weight:800;color:var(--ink);margin:0 2px 10px;">${t('catalog_tools_header')}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:0 2px 10px;">
+        <span style="font-size:13px;font-weight:800;color:var(--ink);">${t('catalog_tools_header')}</span>
+        ${/* Engranaje de Publicación SIEMPRE a mano (también sin productos):
+             WhatsApp, canales, redes, publicar/actualizar y despublicar. */''}
+        <button type="button" id="btn-catalog-publish-settings" aria-label="${t('catalog_publish_header')}" title="${t('catalog_publish_header')}" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--raised);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+          <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
       <div style="display:flex;justify-content:space-evenly;align-items:flex-start;gap:4px;padding:2px 0;">
         ${/* Orden (pedido del usuario 2026-09-06): la CÁMARA primera desde la
              DERECHA — donde cae el pulgar. */''}

@@ -128,7 +128,11 @@
 // Catálogo (primera desde la derecha, donde cae el pulgar) — app-05.
 // v48: las herramientas del Catálogo flotan sin la tarjeta contenedora (el
 // cuadro de atrás se fue de raíz) — app-05.
-const CACHE_NAME = 'patron-shell-v48';
+// v49: Compartir va DIRECTO al menú nativo del teléfono (cero formularios en
+// el medio — comparación del usuario con la hoja de iOS); los ajustes de
+// Publicación viven en un engranaje junto al encabezado, siempre visible —
+// app-05/07.
+const CACHE_NAME = 'patron-shell-v49';
 
 const PRECACHE_URLS = [
   '/',

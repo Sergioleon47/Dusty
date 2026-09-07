@@ -605,10 +605,19 @@ function attachEvents(){
     // foto completa; con modo, tocar marca/desmarca para el catálogo.
     const btnCatalogSelect=document.getElementById('btn-catalog-select');
     if(btnCatalogSelect) btnCatalogSelect.onclick=()=>{ catalogSelectMode=!catalogSelectMode; render(); };
-    // Compartir desde la tarjeta de herramientas abre el modal de Publicación
-    // (el bloque de la página se borró de raíz — pedido del usuario).
+    // Compartir = el menú NATIVO del teléfono directo (comparación del usuario
+    // 2026-09-06 con la hoja de compartir de iOS: cero formularios en el medio).
+    // Solo si todavía no hay catálogo publicado se abre Publicación — no hay
+    // nada que compartir aún. Los ajustes viven en el engranaje de al lado.
     const btnShareTop=document.getElementById('btn-catalog-share-top');
-    if(btnShareTop) btnShareTop.onclick=()=>{ showCatalogPublishModal=true; render(); };
+    if(btnShareTop) btnShareTop.onclick=async()=>{
+      const url=catalogUrl();
+      if(!url){ showCatalogPublishModal=true; render(); return; }
+      if(navigator.share){ try{ await navigator.share({url}); }catch(e){} }
+      else{ try{ await navigator.clipboard.writeText(url); showToast(t('catalog_copied_toast')); }catch(e){} }
+    };
+    const btnPublishSettings=document.getElementById('btn-catalog-publish-settings');
+    if(btnPublishSettings) btnPublishSettings.onclick=()=>{ showCatalogPublishModal=true; render(); };
     const publishOverlay=document.getElementById('catalog-publish-overlay');
     if(publishOverlay){
       publishOverlay.onmousedown=(e)=>{ if(e.target===publishOverlay){ showCatalogPublishModal=false; render(); } };
