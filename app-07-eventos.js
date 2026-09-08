@@ -48,6 +48,7 @@ function manageModalA11y(){
     if(modal){
       modal.setAttribute('role','dialog');
       modal.setAttribute('aria-modal','true');
+      ensureModalBackBtn(ov, modal);
     }
   });
   const count = overlays.length;
@@ -72,6 +73,32 @@ function manageModalA11y(){
     focusBeforeModal = null;
   }
   lastOverlayCount = count;
+}
+/* "ATRÁS" ARRIBA EN TODAS LAS PANTALLAS (pedido del usuario 2026-09-08: "a
+   veces entro y no tengo forma de darle atrás"). De 38 modales solo 4 traían
+   la ✕ arriba; el resto cerraba con un Cancelar/Cerrar al FINAL (en los
+   largos, fuera de la vista) o tocando fuera. Acá se inyecta la misma ✕
+   (.modal-close-btn) como primer hijo de cada .modal que no la tenga, y al
+   tocarla se usa el cierre PROPIO del modal, sin duplicar lógica: primero el
+   botón btn-close-* del modal, si no su btn-cancel-*, y si no hay ninguno
+   el toque fuera (mousedown sobre el overlay, que cada uno ya escucha).
+   Se salta el de idioma (hay que elegir) y los que ya traen su X propia. */
+function ensureModalBackBtn(ov, modal){
+  if(ov.id==='lang-choice-overlay') return;
+  if(modal.querySelector('.modal-close-btn')) return;
+  if(modal.querySelector('button[id$="-x"]')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'modal-close-btn modal-back-btn';
+  btn.setAttribute('aria-label', t('btn_close'));
+  btn.textContent = '✕';
+  btn.onclick = (ev)=>{
+    ev.preventDefault(); ev.stopPropagation();
+    const own = modal.querySelector('button[id^="btn-close-"]:not(.modal-back-btn)') || modal.querySelector('button[id^="btn-cancel-"]');
+    if(own){ own.click(); return; }
+    ov.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true}));
+  };
+  modal.prepend(btn);
 }
 let modalTabTrapAttached = false;
 // "Edit budget" (Dashboard) abre el modal de ajustes pidiendo foco directo en el
