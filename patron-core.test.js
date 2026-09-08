@@ -365,3 +365,47 @@ test('computeBudgetPace: porcentaje, restante, ritmo y estado', () => {
   assert.equal(computeBudgetPace({ budget:0, expense:10 }), null);
   assert.equal(computeBudgetPace({ budget:1000, expense:10, daysInMonth:30, dayOfMonth:2, isCurrent:true }).projected, null);
 });
+
+
+/* ---------- mergeReceiptPages: páginas de un mismo recibo leídas por separado ---------- */
+const { mergeReceiptPages } = require('./patron-core.js');
+
+test('mergeReceiptPages: concatena items, corrige duplicate_of y toma el total general de la última página', () => {
+  const p1 = { supplier:'ElectroSupply', date:'2026-09-01', invoice_total:150, items:[
+    { raw_name:'A', total_price:100, duplicate_of:null }, { raw_name:'B', total_price:50, duplicate_of:0 } ] };
+  const p2 = { supplier:'ElectroSupply', date:null, invoice_total:200, items:[
+    { raw_name:'C', total_price:200, duplicate_of:null } ] };
+  const p3 = { supplier:null, date:null, invoice_total:350, items:[], truncated:false };
+  const m = mergeReceiptPages([p1, p2, p3]);
+  assert.equal(m.supplier, 'ElectroSupply');
+  assert.equal(m.date, '2026-09-01');
+  assert.equal(m.items.length, 3);
+  assert.equal(m.items[1].duplicate_of, 0);   // misma página: no cambia
+  assert.equal(m.items[2].raw_name, 'C');
+  assert.equal(m.invoice_total, 350);          // el total general, no un subtotal
+  assert.equal(m.truncated, false);
+});
+
+test('mergeReceiptPages: si ninguna página vio el total general, usa la suma de los renglones', () => {
+  const m = mergeReceiptPages([
+    { supplier:'X', invoice_total:100, items:[{ total_price:60 }, { total_price:40 }] },
+    { supplier:'X', invoice_total:80,  items:[{ total_price:80 }] },
+  ]);
+  assert.equal(m.invoice_total, 180); // 100 y 80 son subtotales de página, no el total
+});
+
+test('mergeReceiptPages: duplicate_of de la segunda página se desplaza al índice global', () => {
+  const m = mergeReceiptPages([
+    { items:[{ total_price:1 }, { total_price:1 }] },
+    { items:[{ total_price:1 }, { total_price:1, duplicate_of:0 }] },
+  ]);
+  assert.equal(m.items[3].duplicate_of, 2);
+});
+
+test('mergeReceiptPages: truncated solo cuenta en la última página; páginas nulas se ignoran', () => {
+  const m = mergeReceiptPages([ { items:[{ total_price:5 }], truncated:true }, null, { items:[], truncated:false } ]);
+  assert.equal(m.truncated, false);
+  assert.equal(m.items.length, 1);
+  assert.equal(m.invoice_total, 5);
+  assert.equal(mergeReceiptPages([]).invoice_total, null);
+});

@@ -334,6 +334,47 @@ function hash53(str){
 }
 function valueHash(x){ return hash53(stableStringify(x)); }
 
+/* UNIÓN DE PÁGINAS de un mismo recibo leídas por SEPARADO (2026-09-08). Una
+   factura de 4 páginas y 80 renglones mandada entera en un solo pedido tardaba
+   más de lo que Netlify le permite a una función (26 s) y volvía como error
+   genérico ("no se pudo conectar con el lector"). Ahora la app lee cada página
+   en su propio pedido, en paralelo, y acá se juntan:
+   - supplier y date: los primeros no vacíos, en orden de página;
+   - items: concatenados en orden, corrigiendo "duplicate_of" (índice relativo a
+     la página) al índice global;
+   - invoice_total: la IA de cada página devuelve o el subtotal de su página o el
+     total general (si está impreso ahí, casi siempre en la última). Se toma el
+     mayor de los totales devueltos si alcanza a la suma de todos los renglones
+     (≥97%: es el total general, con flete/impuestos si los hay); si no, ninguna
+     página vio el total general y se usa la suma de los renglones;
+   - truncated: solo cuenta el de la última página (el papel que sigue). */
+function mergeReceiptPages(pages){
+  const merged = { supplier: null, date: null, invoice_total: null, items: [], truncated: false };
+  const totals = [];
+  let offset = 0;
+  const list = Array.isArray(pages) ? pages : [];
+  list.forEach((p, idx)=>{
+    if(!p || typeof p!=='object') return;
+    if(!merged.supplier && typeof p.supplier==='string' && p.supplier.trim()) merged.supplier = p.supplier;
+    if(!merged.date && p.date) merged.date = p.date;
+    if(typeof p.invoice_total==='number' && Number.isFinite(p.invoice_total) && p.invoice_total>0) totals.push(p.invoice_total);
+    const items = Array.isArray(p.items) ? p.items : [];
+    items.forEach(it=>{
+      const copy = Object.assign({}, it);
+      if(typeof copy.duplicate_of==='number' && Number.isFinite(copy.duplicate_of)) copy.duplicate_of += offset;
+      merged.items.push(copy);
+    });
+    offset += items.length;
+    if(idx===list.length-1 && p.truncated===true) merged.truncated = true;
+  });
+  const itemsSum = merged.items.reduce((s, it)=> s + (Number(it && it.total_price) || 0), 0);
+  const maxTotal = totals.length ? Math.max.apply(null, totals) : 0;
+  if(maxTotal>0 && maxTotal >= itemsSum*0.97) merged.invoice_total = maxTotal;
+  else if(itemsSum>0) merged.invoice_total = Math.round(itemsSum*100)/100;
+  else merged.invoice_total = maxTotal>0 ? maxTotal : null;
+  return merged;
+}
+
 // Solo se ejecuta bajo Node (para los tests) — en el navegador "module" no existe,
 // así que esto no hace nada ahí y las funciones quedan como globales normales.
 if(typeof module!=='undefined' && module.exports){
@@ -342,6 +383,7 @@ if(typeof module!=='undefined' && module.exports){
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
     profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON, hash53, valueHash,
     roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
-    formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace
+    formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
+    mergeReceiptPages
   };
 }

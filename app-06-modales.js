@@ -2893,7 +2893,9 @@ async function buildImagesForReading(){
      tickets chicos se reparten los pixeles de una sola foto, así que cada uno queda con
      una fracción del detalle que tendría solo. En modo normal (páginas de un mismo
      recibo) sigue midiendo el total, porque ahí todas van juntas en un solo pedido. */
-  const perRequest = scanBatchMode;
+  // Varias páginas de un mismo recibo también viajan una por pedido desde el
+  // 2026-09-08 (ver processReceiptImage): misma regla que el lote.
+  const perRequest = scanBatchMode || pageCount > 1;
   const measureKB = perRequest
     ? (list)=> list.reduce((max, im)=> Math.max(max, im.base64.length/1024), 0)
     : (list)=> list.reduce((sum, im)=> sum + im.base64.length/1024, 0);
@@ -2955,9 +2957,17 @@ async function callDustyAI(path, body, opts){
   try{
     parsed = await response.json();
   }catch(parseErr){
-    // La función de Netlify no devolvió JSON — lo más probable es que no esté
-    // publicada y el pedido cayó en una página de error genérica.
+    // La función de Netlify no devolvió JSON. Antes de culpar a la publicación,
+    // los dos casos reales que vimos (2026-09-08, factura de 4 páginas): el
+    // pedido pesó de más (413) o la función se pasó del tiempo que Netlify le
+    // permite (502/503/504, vuelve una página de error del gateway).
+    if(response.status===413) throw new Error(t('err_scan_too_big'));
+    if(response.status===502 || response.status===503 || response.status===504) throw new Error(t('err_scan_timeout'));
     throw new Error(t(opts.notFoundKey));
+  }
+  // Timeout de la función que SÍ vuelve como JSON ({errorMessage:"Task timed out..."}).
+  if(!response.ok && parsed && typeof parsed.errorMessage==='string' && /timed out/i.test(parsed.errorMessage)){
+    throw new Error(t('err_scan_timeout'));
   }
   if(response.status===429 && parsed.quotaExceeded){
     if(currentUser && currentUser.isAnonymous){
@@ -3045,8 +3055,20 @@ async function processReceiptImage(){
       endAiWait();
       return;
     }
-    // Modo normal: todas las páginas juntas, como un solo documento.
-    const parsed = await callReceiptReader(imagesToRead, false);
+    // Modo normal, UNA página: un solo pedido como siempre. VARIAS páginas del
+    // mismo documento (2026-09-08): cada página en su propio pedido, en
+    // paralelo, y se unen acá (mergeReceiptPages, patron-core) — mandarlas
+    // juntas en un pedido tardaba más de lo que Netlify le permite a una
+    // función y la lectura moría a mitad de camino con un error genérico.
+    // Cada página cuenta como un escaneo del cupo (es una llamada a la IA).
+    let parsed;
+    if(imagesToRead.length > 1){
+      const pages = await Promise.all(imagesToRead.map(img => callReceiptReader([img], false)));
+      if(requestId!==scanRequestId) return;
+      parsed = mergeReceiptPages(pages);
+    } else {
+      parsed = await callReceiptReader(imagesToRead, false);
+    }
     if(requestId!==scanRequestId) return;
     endAiWait();
     if(!Array.isArray(parsed.items) || parsed.items.length===0){

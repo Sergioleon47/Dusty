@@ -265,7 +265,13 @@
 // degradés derivados: profundos en oscuro, pastel en claro). Y en el Catálogo
 // la fila de herramientas (Collage, Plantillas, Compartir, Cámara) dentro del
 // mismo cuadro de color que el presupuesto — app-03/05/07 + css.
-const CACHE_NAME = 'patron-shell-v85';
+// v86: recibos de VARIAS páginas se leen una página por pedido, en paralelo, y
+// se unen en la app (mergeReceiptPages, patron-core, con tests): mandar las 4
+// páginas de una factura de 80 renglones en un solo pedido tardaba más de lo
+// que Netlify le permite a una función y volvía como "no se pudo conectar".
+// Mensajes de error por estado (413 fotos muy pesadas, 502/504 tardó demasiado)
+// — patron-core/app-03/app-06.
+const CACHE_NAME = 'patron-shell-v86';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
