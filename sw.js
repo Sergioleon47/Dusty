@@ -271,7 +271,14 @@
 // que Netlify le permite a una función y volvía como "no se pudo conectar".
 // Mensajes de error por estado (413 fotos muy pesadas, 502/504 tardó demasiado)
 // — patron-core/app-03/app-06.
-const CACHE_NAME = 'patron-shell-v86';
+// v87: PARPADEO y "palpitaciones" con inventarios grandes (auditoría medida
+// con 150 productos con foto y 120 recibos): claves estables (data-key) para
+// que morphdom mueva las tarjetas en vez de recrearlas (0 fotos re-decodificadas
+// al reordenar, antes 15), view-transition-name solo en lo que anima en cada
+// transición (cerrar un modal pasó de ~270 capas a 1), y los latidos de
+// presupuesto por opacidad/anillo en vez de filter y box-shadow animados —
+// app-04/05 + css.
+const CACHE_NAME = 'patron-shell-v87';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

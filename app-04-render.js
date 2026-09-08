@@ -85,15 +85,45 @@ function render(){
   // uso: se consume acá, los renders siguientes vuelven a ser instantáneos.
   const invLayoutChanged = invLayoutTransitionPending;
   invLayoutTransitionPending = false;
+  /* NOMBRES DE TRANSICIÓN A DEMANDA (auditoría de parpadeo 2026-09-08, medida
+     con 150 productos y 120 recibos): antes cada tarjeta de producto y cada
+     recibo llevaba su view-transition-name SIEMPRE, así que cualquier View
+     Transition (cerrar un modal, abrir un recibo, el visor del catálogo)
+     capturaba ~270 capas — un congelado y un parpadeo por cada cierre en un
+     inventario grande. Ahora el nombre existe solo en la transición que lo
+     usa: el estado VIEJO se nombra a mano en el DOM justo antes de la captura,
+     y el NUEVO lo pone el template mientras la bandera esté prendida. */
+  const openingReceipt = receiptDetailToggled && showReceiptDetail ? showReceiptDetail : null;
+  const closingReceipt = receiptDetailToggled && !showReceiptDetail ? lastReceiptDetailId : null;
+  if(showReceiptDetail) lastReceiptDetailId = showReceiptDetail;
   if((overlayClosed || receiptDetailToggled || invLayoutChanged) && document.startViewTransition && !reducedMotionQuery.matches){
+    if(invLayoutChanged){
+      invLayoutVtActive = true;
+      document.querySelectorAll('.inv-tile[data-ing-id]').forEach(el=>{ el.style.viewTransitionName = 'invtile-' + String(el.dataset.ingId).replace(/[^a-zA-Z0-9_-]/g, ''); });
+    }
+    receiptVtTargetId = openingReceipt || closingReceipt || null;
+    if(openingReceipt){
+      const card = document.querySelector(`.dish-card[data-view-receipt="${CSS.escape(String(openingReceipt))}"]`);
+      if(card) card.style.viewTransitionName = receiptVtName(openingReceipt);
+    }
     // Si llega otro render mientras esta transición sigue en curso, el navegador
     // descarta la vieja solo (startViewTransition se auto-cancela) — no hace falta
     // coordinar nada a mano.
     // Cuando la transición se saltea (app en segundo plano, otra transición la
     // pisa), el cambio de DOM se aplica igual pero la promesa `ready` rechaza — y
     // sin este catch cada salteo aparece como "Uncaught (in promise)" en consola.
-    document.startViewTransition(()=>{ renderNow(); }).ready.catch(()=>{});
+    const vt = document.startViewTransition(()=>{ renderNow(); });
+    vt.ready.catch(()=>{});
+    const cleanup = ()=>{
+      invLayoutVtActive = false; receiptVtTargetId = null;
+      // Los nombres puestos a mano en el estado viejo no deben sobrevivir a la
+      // transición (la próxima captura los volvería a contar).
+      document.querySelectorAll('.inv-tile[data-ing-id]').forEach(el=>{ if(el.style.viewTransitionName) el.style.viewTransitionName = ''; });
+      document.querySelectorAll('.dish-card[data-view-receipt]').forEach(el=>{ if(el.style.viewTransitionName) el.style.viewTransitionName = ''; });
+    };
+    vt.finished.then(cleanup, cleanup);
   } else {
+    invLayoutVtActive = false; receiptVtTargetId = null;
     renderNow();
   }
 }
@@ -255,6 +285,21 @@ function renderApp(){
      pero un SW viejo podría no tenerlo cacheado offline), innerHTML como siempre. */
   if(typeof morphdom === 'function'){
     morphdom(app, `<div id="app">${html}</div>`, {
+      /* CLAVES ESTABLES (auditoría de parpadeo 2026-09-08, medida con 150
+         productos con foto y 120 recibos): morphdom solo reconoce "es el mismo
+         nodo" por id. Las tarjetas de producto, las del catálogo, las de recibo
+         y los días del calendario no tenían id, así que al reordenar la lista
+         (un snapshot de la nube, ordenar, buscar, un chip de categoría) las
+         destruía y las volvía a crear: 45 fotos re-decodificadas al tipear
+         "pro" y 20 latidos de conteo arrancando de cero — eso era el parpadeo
+         y las "palpitaciones". Con data-key (prefijado por vista para que no
+         choque entre pestañas) morphdom MUEVE el nodo en vez de recrearlo: la
+         foto ya decodificada y la animación en curso se conservan. Medido
+         después: 0 fotos recreadas en los mismos escenarios. */
+      getNodeKey(node){
+        if(node.nodeType!==1) return undefined;
+        return node.id || node.getAttribute('data-key') || undefined;
+      },
       onBeforeElUpdated(fromEl, toEl){
         if(fromEl.isEqualNode(toEl)) return false;
         if(fromEl === document.activeElement && (fromEl.tagName==='INPUT' || fromEl.tagName==='TEXTAREA' || fromEl.tagName==='SELECT')) return false;

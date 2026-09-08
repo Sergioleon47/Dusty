@@ -662,7 +662,11 @@
      sin parar — más rápido y con brillo en rojo. */
   .budget-bar-fill.warn{animation:budgetBreath 2.4s ease-in-out infinite;}
   .budget-bar-fill.crit{animation:budgetBreath 1.3s ease-in-out infinite;box-shadow:0 0 0 0 color-mix(in srgb, var(--money-neg) 45%, transparent);}
-  @keyframes budgetBreath{0%,100%{filter:brightness(1);}50%{filter:brightness(1.4);}}
+  /* Latido de la barra de presupuesto por OPACIDAD, no por filter:brightness
+     (auditoría de parpadeo 2026-09-08): un filtro animado se vuelve a pintar
+     en el hilo principal en cada cuadro; la opacidad la anima el compositor
+     sin tocar la página. */
+  @keyframes budgetBreath{0%,100%{opacity:1;}50%{opacity:.55;}}
   .budget-line{font-size:12.5px;color:var(--ink-soft);margin-top:8px;font-variant-numeric:tabular-nums;line-height:1.35;}
   .budget-line b{color:var(--ink);font-weight:700;}
   .budget-line .budget-left{color:var(--money-pos-ink);}
@@ -677,13 +681,22 @@
   .budget-alert-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--line);border-left-width:4px;background:var(--panel);box-shadow:var(--shadow);margin-bottom:16px;cursor:pointer;animation:budgetAlertIn .45s var(--ease-spring);}
   /* La tarjeta late como un corazón (halo del color del estado + el ícono que
      bombea) y en rojo además tiembla una vez al entrar. */
-  .budget-alert-card.warn{border-left-color:var(--money-warn);--ba-glow:var(--money-warn);animation:budgetAlertIn .45s var(--ease-spring), budgetHeart 2.4s ease-in-out 1s infinite;}
-  .budget-alert-card.crit{border-left-color:var(--money-neg);--ba-glow:var(--money-neg);animation:budgetAlertIn .45s var(--ease-spring), budgetShake .5s ease-in-out .5s 1, budgetHeart 1.3s ease-in-out 1s infinite;}
+  .budget-alert-card.warn{border-left-color:var(--money-warn);--ba-glow:var(--money-warn);animation:budgetAlertIn .45s var(--ease-spring);}
+  .budget-alert-card.crit{border-left-color:var(--money-neg);--ba-glow:var(--money-neg);animation:budgetAlertIn .45s var(--ease-spring), budgetShake .5s ease-in-out .5s 1;}
   .budget-alert-card .ba-icon{font-size:20px;flex-shrink:0;animation:budgetIconBeat 1.3s ease-in-out infinite;transform-origin:center;}
   .budget-alert-card.warn .ba-icon{animation-duration:2.4s;}
+  /* Latido de la tarjeta de alerta por ANILLO (transform + opacity en un
+     ::after), no por box-shadow animado (auditoría de parpadeo 2026-09-08):
+     un box-shadow con color-mix se volvía a pintar en cada cuadro, infinito,
+     en el hilo principal; el anillo lo mueve el compositor. Mismo look: un
+     halo del color de la alerta que se expande y se apaga. */
+  .budget-alert-card{position:relative;}
+  .budget-alert-card.warn::after, .budget-alert-card.crit::after{content:'';position:absolute;inset:0;border-radius:inherit;border:2px solid var(--ba-glow);opacity:0;pointer-events:none;animation:budgetHeartRing 2.4s ease-out 1s infinite;}
+  .budget-alert-card.crit::after{animation-duration:1.3s;}
+  @keyframes budgetHeartRing{0%{transform:scale(1);opacity:.55;}100%{transform:scale(1.04);opacity:0;}}
   @keyframes budgetHeart{
-    0%,100%{box-shadow:var(--shadow), 0 0 0 0 color-mix(in srgb, var(--ba-glow) 55%, transparent);}
-    50%{box-shadow:var(--shadow), 0 0 0 7px transparent;}
+    0%,100%{box-shadow:var(--shadow);}
+    50%{box-shadow:var(--shadow);}
   }
   @keyframes budgetIconBeat{0%,100%{transform:scale(1);}14%{transform:scale(1.22);}28%{transform:scale(1);}42%{transform:scale(1.14);}56%{transform:scale(1);}}
   /* Punto que late sobre el ícono del Dashboard en la barra inferior: el aviso
@@ -703,6 +716,7 @@
   html[data-dusty-pulse="off"] .budget-alert-card .ba-icon,
   html[data-dusty-pulse="off"] .nav-alert-dot,
   html[data-dusty-pulse="off"] .nav-alert-dot::after,
+  html[data-dusty-pulse="off"] .budget-alert-card.warn::after, html[data-dusty-pulse="off"] .budget-alert-card.crit::after,
   html[data-dusty-pulse="off"] .fs-step.now .fs-check,
   html[data-dusty-pulse="off"] .stock-row-static.cc-due-blink .stock-row::after,
   html[data-dusty-pulse="off"] .stock-row-static.crit-flash .stock-row::after,

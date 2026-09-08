@@ -356,7 +356,7 @@ function stockAnalyticsCard(){
     </div>
     <div class="inv-grid ${invLayout}">
     ${rows.map(r=>`
-      <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
+      <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-key="stockgrid:${r.ing.id}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
         <div class="inv-tile-top">
           <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;width:56px;height:56px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
           <div class="inv-tile-name">${escapeHtml(invShortName(r.ing.name))}</div>
@@ -675,6 +675,13 @@ try{ const v = localStorage.getItem('patron_inv_layout'); if(['rows','cols2','co
 // app-04): con view-transition-name por tarjeta, cada una VUELA a su nueva
 // posición/tamaño en vez del redibujado seco — el morph estilo iOS que faltaba.
 let invLayoutTransitionPending = false;
+// true SOLO durante el render del cambio de vista: ahí las tarjetas llevan su
+// view-transition-name (ver stockRowHtml). Lo maneja render() en app-04.
+let invLayoutVtActive = false;
+// Id del recibo cuya tarjeta lleva view-transition-name en este render (la que
+// está abriendo o cerrando su detalle). Lo maneja render() en app-04.
+let receiptVtTargetId = null;
+let lastReceiptDetailId = null;
 /* Inventario reorganizado (maqueta aprobada 2026-09-07, pensado para 100+
    productos): orden elegible, tres filtros rápidos, grupos plegables que
    recuerdan su estado y "ver los restantes" en los grupos grandes. */
@@ -750,11 +757,17 @@ function stockRowHtml(r, ccDueIds){
   // Nombre de View Transition único y estable por tarjeta (custom-ident: solo
   // letras/números/guiones) — es lo que permite que el cambio de vista anime
   // cada tarjeta hacia su nueva celda en lugar de fundir la lista entera.
-  const vtName = 'invtile-' + String(i.id).replace(/[^a-zA-Z0-9_-]/g, '');
+  // view-transition-name SOLO durante el cambio de vista fila/2col/3col
+  // (auditoría de parpadeo 2026-09-08): con el nombre puesto siempre, CADA
+  // View Transition de la app (cerrar cualquier modal, abrir un recibo, el visor
+  // del catálogo) capturaba una capa por tarjeta — 150 productos = 150 capas
+  // por cierre de modal, el "congelado + parpadeo" con inventarios grandes.
+  // invLayoutVtActive lo prende render() (app-04) solo para ese render.
+  const vtName = invLayoutVtActive ? 'invtile-' + String(i.id).replace(/[^a-zA-Z0-9_-]/g, '') : '';
   return `
   ${/* data-status: lo usa el atajo "Alertas críticas" del Dashboard para saltar
        acá y hacer latir los críticos (ya no se listan en el Dashboard). */''}
-  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}" style="view-transition-name:${vtName};">
+  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-key="invtile:${i.id}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
     <div class="inv-tile-top">
       <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
@@ -991,7 +1004,7 @@ function inventarioView(){
       ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_more').replace('{n}', g.rows.length-INV_GROUP_PREVIEW)} ▾</button>`
       : (invExpanded.has(key) && g.rows.length > INV_GROUP_PREVIEW ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_less')} ▴</button>` : '');
     return `
-      <div class="category-group-header inv-group ${collapsed?'collapsed':''}" data-inv-group="${key}" role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${t('inv_group_toggle_aria')}">${escapeHtml(g.name)} <span>${g.rows.length}</span><span class="inv-chev">▾</span></div>
+      <div class="category-group-header inv-group ${collapsed?'collapsed':''}" data-key="invgrp:${key}" data-inv-group="${key}" role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${t('inv_group_toggle_aria')}">${escapeHtml(g.name)} <span>${g.rows.length}</span><span class="inv-chev">▾</span></div>
       ${collapsed ? '' : `<div class="inv-grid ${invLayout}" style="margin-bottom:${moreBtn ? 4 : 16}px;">${shown.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>${moreBtn}`}`;
   };
   const toolbar = invLayoutToggleHtml().replace('</div>', `
@@ -1169,7 +1182,7 @@ function receiptCalendarWidget(){
     // Tocar CUALQUIER día abre el modal unificado del día (recibos + notas +
     // compositor) — antes cada celda decidía entre 3 comportamientos distintos.
     cells.push(`
-      <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
+      <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
         ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">`
           : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
           : `<span class="cal-day-num">${day}</span>`}
@@ -1324,7 +1337,10 @@ function recibosView(){
           const imgs = receiptImages(r);
           const cover = imgs[0];
           return `
-          <div class="dish-card" style="cursor:pointer;position:relative;${showReceiptDetail===r.id?'':`view-transition-name:${receiptVtName(r.id)};`}" data-view-receipt="${r.id}">
+          ${/* view-transition-name SOLO en la tarjeta que vuela hacia/desde su
+               detalle (receiptVtTargetId, ver render() en app-04) — antes lo
+               llevaban TODAS y cada transición de la app capturaba 120 capas. */''}
+          <div class="dish-card" style="cursor:pointer;position:relative;${(receiptVtTargetId===r.id && showReceiptDetail!==r.id)?`view-transition-name:${receiptVtName(r.id)};`:''}" data-view-receipt="${r.id}" data-key="rc:${r.id}">
             ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
             ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
@@ -2429,7 +2445,7 @@ function catalogoView(){
     const vt = (catalogViewerReturnTo && catalogViewerReturnTo.kind===kind && catalogViewerReturnTo.id===id) ? 'view-transition-name:catalog-photo;' : '';
     if(invLayout==='rows'){
       return `
-    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="display:flex;flex-direction:row;align-items:center;gap:12px;padding:8px 12px 8px 8px;${border}">
+    <div class="inv-tile" data-key="cat:${kind}:${id}" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="display:flex;flex-direction:row;align-items:center;gap:12px;padding:8px 12px 8px 8px;${border}">
       <span style="width:58px;height:58px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--inset);display:flex;align-items:center;justify-content:center;">
         ${photoSrc
           ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;${vt}">`
@@ -2440,7 +2456,7 @@ function catalogoView(){
     </div>`;
     }
     return `
-    <div class="inv-tile" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${border}">
+    <div class="inv-tile" data-key="cat:${kind}:${id}" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${border}">
       ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;">${check}</span>`:''}
       ${photoSrc
         ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;${vt}">`
