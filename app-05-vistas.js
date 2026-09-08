@@ -502,13 +502,15 @@ function dashboardView(){
 
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : `
   ${/* 4. HOY + módulos, en cuadrícula de dos columnas (maqueta 2026-09-08):
-       Críticos (con la salud del stock como subtítulo) y Toca contar (con el
+       Críticos en ROSA (--tile-6, pedido del usuario 2026-09-08: el azul no
+       dice "crítico") y Actividad en el azul que dejó Críticos; Críticos
+       lleva la salud del stock como subtítulo y Toca contar el
        primer producto que toca) abren el Inventario filtrado; Pedido sugerido,
        Último recibo, Producción y Actividad son las filas de antes, ahora como
        tarjetas con ícono. Mismos ids y data-* que siempre. */''}
   <div class="dash-section-label">${t('dash_today')}</div>
   <div class="dash-grid">
-    <button type="button" class="dash-tile t1" data-dash-stat="crit">
+    <button type="button" class="dash-tile t6" data-dash-stat="crit">
       <span class="dash-tile-badge ${critRows.length>0?'crit':'ok'}">${critRows.length>0 ? t('dash_badge_alert') : t('dash_badge_ok')}</span>
       <span class="dash-tile-icon" aria-hidden="true">${critRows.length>0?'⚠️':'🛡️'}</span>
       <b class="dash-tile-num ${critRows.length>0?'crit':''}">${critRows.length}</b>
@@ -548,7 +550,7 @@ function dashboardView(){
       <span class="dash-tile-chev">›</span>
     </button>
     ${(currentUser || hadCloudSessionBefore()) ? `
-    <button type="button" class="dash-tile t6" id="btn-inventory-activity">
+    <button type="button" class="dash-tile t1" id="btn-inventory-activity">
       <span class="dash-tile-icon" aria-hidden="true">📈</span>
       <span class="dash-tile-title">${t('activity_modal_title')}</span>
       <span class="dash-tile-sub">${unread>0 ? t('dash_activity_n').replace('{n}', unread) : t('dash_activity_none')}</span>

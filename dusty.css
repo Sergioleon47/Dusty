@@ -77,10 +77,10 @@
        (--tile-drop). En oscuro las tarjetas van profundas (poco lift, más
        drop) para que la tinta blanca lea; en claro van pastel como en el App
        Store (la base clara cambia los dos porcentajes). Roles fijos:
-       1 azul (críticos / valor), 2 naranja (contar / productos), 3 verde
+       1 azul (actividad / valor), 2 naranja (contar / productos), 3 verde
        (pedido / compartir), 4 violeta (último recibo / días con recibo),
-       5 amarillo (producción / pedido / plantillas), 6 rosa (actividad /
-       a mano). --tile-ok/warn/crit salen del dinero (--money-*) para que la
+       5 amarillo (producción / pedido / plantillas), 6 rosa (críticos /
+       a mano — pedido del usuario 2026-09-08: críticos en rosa, no en azul). --tile-ok/warn/crit salen del dinero (--money-*) para que la
        tarjeta de presupuesto diga el estado con el color de siempre. */
     --tile-lift:10%; --tile-drop:22%;
     --hue-1:#5b8def; --hue-2:#ff6b35; --hue-3:#3ddc97; --hue-4:#a78bfa; --hue-5:#f5a623; --hue-6:#ff6b9d;
