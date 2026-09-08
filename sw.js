@@ -302,7 +302,13 @@
 // ::before en vez de un box-shadow difuminado — confirmado por el usuario que
 // el parpadeo sobre la barra se iba al apagar los latidos (iOS re-rasterizaba
 // la barra y su sombra en cada pulso) — css.
-const CACHE_NAME = 'patron-shell-v92';
+// v93: auditoría de rendimiento de UI 2026-09-08 — en páginas inactivas se
+// pausan SOLO las animaciones infinitas (las de entrada quedaban congeladas
+// invisibles y re-arrancaban al cambiar de pestaña: el parpadeo), barras de
+// progreso por transform (compositor) en vez de width, esqueletos que reservan
+// el alto real mientras llega el primer snapshot (sin saltos), y el resorte
+// del swipe arranca en el mismo cuadro del pointerup — css + app-03/05/06/07.
+const CACHE_NAME = 'patron-shell-v93';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
