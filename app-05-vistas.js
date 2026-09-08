@@ -1027,6 +1027,14 @@ function inventarioView(){
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
       `<button type="button" class="btn btn-primary" id="btn-inv-empty-scan">${t('dash_empty_scan_btn')}</button>
        <button type="button" class="btn btn-ghost" id="btn-inv-empty-manual">${t('dash_empty_manual_btn')}</button>`)) : `
+    ${/* Orden (pedido del usuario 2026-09-08, captura con las dos filas
+         marcadas: "estas dos hay que invertirlas"): categorías ARRIBA,
+         después los filtros rápidos, y el buscador con el selector de vista
+         ABAJO, justo sobre la lista — sigue fijo al scrollear. */''}
+    ${categories.length>0 ? categoryChipsRow() : ''}
+    <div class="inv-chips">
+      ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
+    </div>
     <div class="inv-sticky">
       <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
         <div class="inv-search-wrap">
@@ -1036,10 +1044,6 @@ function inventarioView(){
         ${toolbar}
       </div>
     </div>
-    <div class="inv-chips">
-      ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
-    </div>
-    ${categories.length>0 ? categoryChipsRow() : ''}
     ${rows.length===0
       ? (searching || invQuickFilter ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
         : (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))))
