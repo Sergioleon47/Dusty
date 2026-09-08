@@ -297,7 +297,12 @@
 // presupuesto, overlay de "toca contar" — y la barra fija como capa estable:
 // parpadeo reportado en iOS en la franja sobre la barra (su sombra de 24 px)
 // mientras el punto latía — css.
-const CACHE_NAME = 'patron-shell-v91';
+// v92: el punto de la barra late por OPACIDAD (sin escala), su anillo es un
+// halo fijo que se desvanece, y la sombra de la barra fija es un degradado
+// ::before en vez de un box-shadow difuminado — confirmado por el usuario que
+// el parpadeo sobre la barra se iba al apagar los latidos (iOS re-rasterizaba
+// la barra y su sombra en cada pulso) — css.
+const CACHE_NAME = 'patron-shell-v92';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
