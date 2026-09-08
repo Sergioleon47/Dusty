@@ -3880,6 +3880,7 @@ function commitTabSwitchLight(tab, track){
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   clearPageOffsets();
   syncViewportHeight();
+  schedulePagePrewarm(); // las que quedaron lejos se destapan en tiempo libre (app-04)
 }
 /* Cambia de pestaña animando el .view-track que YA está en el DOM, en vez de
    redibujar todo de una — un reemplazo de innerHTML no puede animar una transición

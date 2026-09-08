@@ -311,6 +311,33 @@ function renderApp(){
   }
   attachEvents();
   syncViewportHeight();
+  schedulePagePrewarm();
+}
+/* PRE-CALENTADO de las páginas lejanas (auditoría de cambio de pestaña
+   2026-09-08, medida con el inventario real: 253 productos, 51 por contar):
+   destapar una página .far (content-visibility:hidden) en el momento del toque
+   cuesta su primer layout + pintado — ~60 ms en escritorio, un tirón de
+   150-300 ms en teléfono justo al arrancar el deslizamiento hacia Recibos o
+   Catálogo. Acá se destapan en un momento MUERTO (requestIdleCallback) después
+   de cada render y de cada asentado de pestaña, así el toque las encuentra ya
+   acomodadas y el resorte arranca limpio. El template sigue poniendo .far al
+   dibujar (primer pintado rápido; un render de fondo las vuelve a tapar), y este
+   pre-calentado las destapa otra vez apenas hay tiempo libre. Nunca a mitad de
+   un gesto o del resorte: ahí se reintenta un poco después. */
+let pagePrewarmPending = false;
+function schedulePagePrewarm(){
+  if(pagePrewarmPending) return;
+  if(!document.querySelector('.view-page.far')) return;
+  pagePrewarmPending = true;
+  const run = ()=>{
+    pagePrewarmPending = false;
+    if(swipeGestureActive || trackAnimating){ setTimeout(schedulePagePrewarm, 400); return; }
+    document.querySelectorAll('.view-page.far').forEach(p=>{ p.classList.remove('far'); });
+    const track = document.querySelector('.view-track');
+    if(track) void track.offsetHeight; // el layout ocurre AHORA, en tiempo libre, no en el toque
+  };
+  if(typeof requestIdleCallback === 'function') requestIdleCallback(run, {timeout: 1500});
+  else setTimeout(run, 350);
 }
 // El alto de .view-viewport se fija al de la página activa nada más (ver nota en el
 // CSS de .view-viewport) — se llama después de cada render() y también al terminar

@@ -288,7 +288,11 @@
 // re-arma el template entero (25-55 ms en escritorio, un tirón en teléfono):
 // solo se ajustan transform/.active/.far/barra/alto del viewport; el render
 // completo queda para cuando quedó uno pospuesto durante la animación — app-06.
-const CACHE_NAME = 'patron-shell-v89';
+// v90: pre-calentado de las páginas lejanas en tiempo libre (requestIdleCallback
+// tras cada render y cada asentado): destaparlas en el toque costaba su primer
+// layout+pintado (~60 ms en escritorio, un tirón en teléfono) al arrancar el
+// deslizamiento hacia Recibos o Catálogo — app-04/06.
+const CACHE_NAME = 'patron-shell-v90';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
