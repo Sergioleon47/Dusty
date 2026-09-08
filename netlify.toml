@@ -15,3 +15,38 @@
   from = "/c/*"
   to = "/catalogo.html?c=:splat"
   status = 200
+
+# ===== Caché =====
+# Los archivos del shell (app-0*.js, dusty.css, patron-core.js) NO llevan hash en
+# el nombre: la versión la maneja el service worker por CACHE_NAME. Por eso acá no
+# se les pone caché larga — se quedarían viejos después de un deploy y ni el SW ni
+# una recarga dura los podrían refrescar. Se dejan con la revalidación por defecto
+# de Netlify.
+
+# sw.js es el que decide TODO lo demás: si el navegador se lo queda cacheado, el
+# usuario no recibe ninguna versión nueva de la app nunca más. Explícito a
+# propósito, aunque coincida con el default: es la línea que no hay que romper.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# index.html referencia a todos los scripts por nombre fijo: si se cachea, el
+# arranque sigue apuntando al juego viejo.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Íconos, imagen de compartir y fondos del editor de fotos: son los únicos
+# realmente estáticos (cambian solo con un rediseño de marca, y ahí se renombran).
+# Una semana ahorra volver a bajarlos en cada visita sin quedar atados si cambian.
+[[headers]]
+  for = "/backdrops/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
