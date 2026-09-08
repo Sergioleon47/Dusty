@@ -312,7 +312,12 @@
 // del tutorial era la única que seguía animando width (layout por cuadro en
 // la primera pantalla que ve un usuario nuevo); pasa a transform:scaleX como
 // el resto — css + app-06.
-const CACHE_NAME = 'patron-shell-v94';
+// v95: auditoría con 400 productos y 15 recibos — "Menos stock" ordenaba por
+// unidades sueltas (5 cajas vs 20 litros) en vez de por qué tan vacío está cada
+// producto, y agrupar por categoría partía el ranking en 12 por grupo; el
+// cambio de vista del inventario dejó de redibujar todo (34-61ms → 0-1ms) —
+// app-05/06/07.
+const CACHE_NAME = 'patron-shell-v95';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
