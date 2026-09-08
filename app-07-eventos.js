@@ -2022,8 +2022,20 @@ function attachEvents(){
   document.querySelectorAll('[data-inv-quick]').forEach(b=>{
     b.onclick=()=>{ const k=b.dataset.invQuick; invQuickFilter = (invQuickFilter===k) ? null : k; render(); };
   });
+  // "Todos": con un filtro de categoría puesto lo quita; ya sin filtro (pedido
+  // del usuario 2026-09-08: "cuando le doy no hace nada") PLIEGA todos los
+  // grupos, y el toque siguiente los despliega todos — misma memoria por
+  // dispositivo que el chevron de cada grupo (patron_inv_collapsed).
   const invAllChip=document.querySelector('[data-inv-all]');
-  if(invAllChip) invAllChip.onclick=()=>{ inventoryCategoryFilter=null; render(); };
+  if(invAllChip) invAllChip.onclick=()=>{
+    if(inventoryCategoryFilter){ inventoryCategoryFilter=null; render(); return; }
+    const heads=[...document.querySelectorAll('[data-inv-group]')];
+    if(heads.length===0) return;
+    const anyOpen = heads.some(h=>!h.classList.contains('collapsed'));
+    heads.forEach(h=>{ const k=h.dataset.invGroup; if(anyOpen) invCollapsed.add(k); else invCollapsed.delete(k); });
+    try{ localStorage.setItem('patron_inv_collapsed', JSON.stringify([...invCollapsed])); }catch(e){}
+    render();
+  };
   document.querySelectorAll('[data-inv-group]').forEach(h=>{
     h.onclick=()=>{
       const k=h.dataset.invGroup;
