@@ -94,11 +94,66 @@ function ensureModalBackBtn(ov, modal){
   btn.textContent = '✕';
   btn.onclick = (ev)=>{
     ev.preventDefault(); ev.stopPropagation();
-    const own = modal.querySelector('button[id^="btn-close-"]:not(.modal-back-btn)') || modal.querySelector('button[id^="btn-cancel-"]');
-    if(own){ own.click(); return; }
-    ov.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true}));
+    closeOverlayLikeBackBtn(ov);
   };
   modal.prepend(btn);
+}
+/* Cierra un modal usando SU PROPIO cierre, sin duplicar lógica: primero el
+   botón btn-close-* del modal, si no su btn-cancel-*, y si no tiene ninguno el
+   toque fuera (mousedown sobre el overlay, que cada modal ya escucha). Lo usan
+   la ✕ inyectada arriba y el botón físico "atrás" de Android (ver
+   attachHardwareBackButton), así los dos cierran exactamente igual. */
+function closeOverlayLikeBackBtn(ov){
+  const modal = ov.querySelector('.modal');
+  const own = modal && (modal.querySelector('button[id^="btn-close-"]:not(.modal-back-btn)')
+    || modal.querySelector('button[id^="btn-cancel-"]'));
+  if(own){ own.click(); return; }
+  ov.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true}));
+}
+/* BOTÓN FÍSICO "ATRÁS" DE ANDROID (auditoría 2026-09-08). No lo escuchaba nadie:
+   ni el proyecto nativo (MainActivity es el BridgeActivity pelado), ni el código
+   web (no hay pushState/popstate). Sin listener, Capacitor lo resuelve con el
+   historial del WebView, y como esta app nunca apila entradas, el historial está
+   vacío: con un modal abierto encima, "atrás" CERRABA LA APP ENTERA en vez de
+   cerrar el modal. Es el mismo problema que motivó la ✕ de arriba ("a veces
+   entro y no tengo forma de darle atrás"), pero por el gesto que un usuario de
+   Android usa primero.
+   Orden de prioridad, el estándar de Android: lo de más arriba primero, y salir
+   de la app solo desde la pantalla inicial.
+   Se cablea UNA vez; si los plugins de Capacitor todavía no cargaron, no marca
+   la bandera y el próximo render lo reintenta solo. En el navegador el plugin no
+   existe y esto es un no-op. */
+let hardwareBackAttached = false;
+function attachHardwareBackButton(){
+  if(hardwareBackAttached) return;
+  const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if(!App || !App.addListener) return;
+  hardwareBackAttached = true;
+  App.addListener('backButton', ()=>{
+    // 1. Modal abierto: se cierra el de más arriba (los modales se apilan).
+    const ov = topOverlay();
+    if(ov){
+      // El de idioma es el único que no se puede descartar (hay que elegir uno
+      // para que la app se entienda), así que ahí "atrás" sale, como en la
+      // primera pantalla de cualquier app.
+      if(ov.id==='lang-choice-overlay'){ if(App.exitApp) App.exitApp(); return; }
+      closeOverlayLikeBackBtn(ov);
+      return;
+    }
+    // 2. Hoja a página completa (calculadora de pedido, resumen del mes): no son
+    //    .overlay, viven aparte — se cierran con su propia ✕ para que guarden su
+    //    estado igual que si la tocaras.
+    const sheet = document.querySelector('.oc-sheet.open');
+    if(sheet){
+      const cerrar = sheet.querySelector('button.oc-close');
+      if(cerrar){ cerrar.click(); return; }
+    }
+    // 3. En otra pestaña: vuelve al Dashboard, animando el carrusel como
+    //    cualquier cambio de pestaña (no un salto seco).
+    if(activeTab !== TAB_ORDER[0]){ switchToTab(TAB_ORDER[0]); return; }
+    // 4. Ya en el Dashboard y sin nada abierto: recién acá sale de la app.
+    if(App.exitApp) App.exitApp();
+  });
 }
 let modalTabTrapAttached = false;
 // "Edit budget" (Dashboard) abre el modal de ajustes pidiendo foco directo en el
@@ -169,6 +224,7 @@ function attachEvents(){
   attachModalTabTrap();
   document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
+  attachHardwareBackButton();
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
