@@ -2680,7 +2680,7 @@ function catalogAiBegin(kind, expectSec){
     const bar=document.getElementById('catalog-ai-bar');
     if(!bar || !catalogAiJob) return;
     const pct=Math.min(95, ((Date.now()-catalogAiJob.startedAt)/1000)/catalogAiJob.expectSec*100);
-    bar.style.width=pct.toFixed(0)+'%';
+    bar.style.setProperty('--fill', (pct/100).toFixed(3)); // scaleX en CSS: solo compositor
   }, 800);
 }
 function catalogAiCancelled(){ return !!(catalogAiJob && catalogAiJob.cancelled); }

@@ -365,7 +365,7 @@ function stockAnalyticsCard(){
         <div class="stock-bar-track"></div>
         <div class="stock-caption stock-caption-muted" style="margin:0;">${r.ing.expenseOnly ? t('expense_only_tag') : t('stock_no_data_caption')}</div>
         ` : `
-        <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,4)}%;"></div></div>
+        <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="--fill:${(Math.min(100, Math.max(r.pct,4))/100).toFixed(3)};"></div></div>
         ${/* Sin la unidad repetida ("16 unit of 16 unit" → "16 of 16", pedido del
              usuario): el texto respira y el espacio ganado fue a la foto. La
              unidad vive en la ficha. */''}
@@ -500,7 +500,7 @@ function dashboardView(){
     </button>
   </div>
 
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : `
+  ${inventory.length===0 ? (cloudSyncPending ? loadingSkeleton('dashboard') : dashboardEmptyState()) : `
   ${/* 4. HOY + módulos, en cuadrícula de dos columnas (maqueta 2026-09-08):
        Críticos cambia de color con el estado (pedido del usuario 2026-09-08):
        azul con todo en orden, ROJO (--tile-crit, el mismo del presupuesto
@@ -627,7 +627,7 @@ function firstStepsCard(){
     <div class="stat-card first-steps-card">
       <div class="stat-label">${t('first_steps_title')}</div>
       <div class="fs-progress">
-        <div class="fs-track"><div class="fs-fill" style="width:${Math.round(done/total*100)}%;"></div></div>
+        <div class="fs-track"><div class="fs-fill" style="--fill:${(done/total).toFixed(3)};"></div></div>
         <span class="fs-count">${done}/${total}</span>
       </div>
       <ol class="first-steps">
@@ -1039,7 +1039,7 @@ function inventarioView(){
       <span class="inv-tool-label">${t('inv_tool_count')}</span>
     </button>
   </div>` : ''}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
+  ${inventory.length===0 ? (cloudSyncPending ? loadingSkeleton('inventario') : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
       `<button type="button" class="btn btn-primary" id="btn-inv-empty-scan">${t('dash_empty_scan_btn')}</button>
        <button type="button" class="btn btn-ghost" id="btn-inv-empty-manual">${t('dash_empty_manual_btn')}</button>`)) : `
     ${/* Orden (pedido del usuario 2026-09-08, captura con las dos filas
@@ -1324,8 +1324,8 @@ function recibosView(){
        Solo el buscador por monto (arriba) espera al primer recibo. */''}
   ${receiptCalendarWidget()}
   ${receipts.length>0 ? `<div class="field" style="max-width:340px;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div>` : ''}
-  ${receipts.length===0 ? emptyState('receipt',t('empty_receipts_title'),'',true,
-      `<button type="button" class="btn btn-primary" id="btn-rec-empty-scan">${t('dash_empty_scan_btn')}</button>`) :
+  ${receipts.length===0 ? (cloudSyncPending ? loadingSkeleton('recibos') : emptyState('receipt',t('empty_receipts_title'),'',true,
+      `<button type="button" class="btn btn-primary" id="btn-rec-empty-scan">${t('dash_empty_scan_btn')}</button>`)) :
     (sorted.length===0 ? `<div class="helper-note" style="margin:4px 0 0;">${t('rec_no_matches')}</div>` :
     groups.map(g=>`
       <div class="section-head" style="margin-top:22px;margin-bottom:10px;">
@@ -3339,7 +3339,7 @@ function catalogEditorModal(){
           <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('catalog_ai_progress').replace('{s}', catalogAiJob.expectSec)}</span>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-cancel">${t('btn_cancel')}</button>
         </div>
-        <div class="cat-ai-progress"><div id="catalog-ai-bar" style="width:${Math.min(95, Math.round(((Date.now()-catalogAiJob.startedAt)/1000)/catalogAiJob.expectSec*100))}%;"></div></div>
+        <div class="cat-ai-progress"><div id="catalog-ai-bar" style="--fill:${(Math.min(95, ((Date.now()-catalogAiJob.startedAt)/1000)/catalogAiJob.expectSec*100)/100).toFixed(3)};"></div></div>
       </div>` : ''}
       ${catalogEditCutout ? `
       ${/* Fondos: colores planos + ESCENARIOS incorporados (con sombra automática

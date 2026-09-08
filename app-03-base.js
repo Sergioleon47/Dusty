@@ -1821,7 +1821,7 @@ function budgetBarHtml(p){
   const w = Math.min(Math.max(p.pct,2),100);
   const ghost = (p.committed>0 && p.pct<100) ? `<div class="budget-ghost" style="left:${w.toFixed(1)}%;width:${Math.min(100-w, p.committed/p.budget*100).toFixed(1)}%;"></div>` : '';
   const mark = p.isCurrent ? `<i class="pace-mark" style="left:${p.expectedPct.toFixed(1)}%;" title="${escapeHtml(t('budget_pace_today').replace('{amount}', money(p.budget*p.day/p.daysIn)))}"></i>` : '';
-  return `<div class="budget-bar-track pace-track"><div class="budget-bar-fill ${p.status}" style="width:${w.toFixed(1)}%;"></div>${ghost}${mark}</div>`;
+  return `<div class="budget-bar-track pace-track"><div class="budget-bar-fill ${p.status}" style="--fill:${(w/100).toFixed(3)};"></div>${ghost}${mark}</div>`;
 }
 // Gasto operativo del mes agrupado por categoría de GASTO — recibos reales
 // (manuales con categoría, pagos de bills, líneas de servicio escaneadas).

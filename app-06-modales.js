@@ -253,6 +253,28 @@ function receiptDetailModal(){
 function emptyState(iconName,title,sub,compact,actionsHtml){
   return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}${actionsHtml?`<div class="empty-state-actions">${actionsHtml}</div>`:''}</div>`;
 }
+/* Esqueleto de carga por pestaña mientras cloudSyncPending (primer snapshot de
+   la nube en camino). Reserva la MISMA forma que el contenido real de cada
+   pestaña — ver la nota junto a .sk-wrap en dusty.css — para que la llegada de
+   los datos no desplace nada. Los bloques van aria-hidden; el estado lo anuncia
+   el contenedor (role=status + aria-busy) con el mismo texto de siempre. */
+function loadingSkeleton(kind){
+  const title = t('sync_loading_title');
+  const head = `<div class="sk-label"><span class="spinner"></span>${title}</div>`;
+  if(kind==='dashboard'){
+    const tile = `<div class="dash-tile sk-tile" aria-hidden="true"><i class="sk-block sk-icon"></i><i class="sk-block sk-num"></i><i class="sk-block sk-line"></i><i class="sk-block sk-line short"></i></div>`;
+    return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="${title}">${head}
+      <div class="dash-section-label" aria-hidden="true">${t('dash_today')}</div>
+      <div class="dash-grid">${tile.repeat(6)}</div></div>`;
+  }
+  if(kind==='recibos'){
+    const card = `<div class="dish-card sk-dish" aria-hidden="true"><i class="sk-block sk-card"></i><div style="padding:12px;"><i class="sk-block sk-line" style="margin-top:0;"></i><i class="sk-block sk-line short"></i></div></div>`;
+    return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="${title}" style="margin-top:22px;">${head}
+      <div class="dish-grid">${card.repeat(2)}</div></div>`;
+  }
+  const row = `<div class="stock-row-static sk-row" aria-hidden="true"><div class="stock-row"><i class="sk-block sk-ring"></i><div style="flex:1;min-width:0;"><i class="sk-block sk-line" style="margin-top:0;width:55%;"></i><i class="sk-block sk-bar"></i><i class="sk-block sk-line short"></i></div></div></div>`;
+  return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="${title}">${head}${row.repeat(6)}</div>`;
+}
 
 /* ================= MODAL: IDIOMA (primera pantalla que ve un usuario nuevo) ================= */
 // Su propia pantalla, separada del tutorial de bienvenida — antes compartían modal, así
@@ -3903,7 +3925,11 @@ function hapticTabTick(){
     if(H) H.impact({style:'LIGHT'}).catch(()=>{});
   }catch(e){}
 }
-function switchToTab(tab, initialVelocityPxPerSec){
+/* liveGesture: true cuando viene de soltar un deslice (endGestureImpl). Ahí las
+   páginas ya están destapadas y alineadas desde que el gesto enganchó el eje
+   (pointermove), así que se saltea el destape + re-medición + espera de dos
+   cuadros que sí necesita un toque en la barra — ver más abajo. */
+function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
   const track = document.querySelector('.view-track');
   if(!track){
     if(tab!==activeTab){ activeTab=tab; try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){} }
@@ -3939,18 +3965,24 @@ function switchToTab(tab, initialVelocityPxPerSec){
      mide con su alto real (con .far medía 0 y no estiraba el viewport), y el
      resorte arranca recién en el cuadro siguiente, con la página ya pintada.
      El render del asentado vuelve a poner .far a las que quedaron lejos. */
+  let uncovered = false; // ¿hubo que destapar alguna página .far recién ahora?
   {
     // Solo las que pasan por debajo del deslizamiento (de la actual a la de
     // destino, inclusive): destapar las otras sería pintar y medir de más.
     const a = TAB_ORDER.indexOf(activeTab), z = TAB_ORDER.indexOf(tab);
     const lo = Math.min(a, z), hi = Math.max(a, z);
-    document.querySelectorAll('.view-page').forEach((p, i)=>{ if(i>=lo && i<=hi) p.classList.remove('far'); });
-    void track.offsetHeight; // fuerza el layout con las páginas ya destapadas
+    document.querySelectorAll('.view-page').forEach((p, i)=>{
+      if(i>=lo && i<=hi && p.classList.contains('far')){ p.classList.remove('far'); uncovered = true; }
+    });
+    if(uncovered) void track.offsetHeight; // fuerza el layout con las páginas ya destapadas
   }
-  // Toque en la barra de abajo (sin gesto previo): las páginas se alinean ACÁ.
-  // Viniendo de un swipe ya están alineadas y volver a hacerlo es idempotente
-  // (el scroll no se movió mientras el dedo arrastraba en horizontal).
-  alignPagesForSwipe(activeTab);
+  /* Toque en la barra de abajo (sin gesto previo): las páginas se alinean ACÁ.
+     Viniendo de un deslice ya quedaron alineadas al enganchar el eje (ver
+     pointermove en attachViewSwipeHandlers) y el scroll no se movió mientras
+     el dedo iba en horizontal — repetirlo costaba un layout forzado
+     (getBoundingClientRect de las 4 páginas) justo en el pointerup, el cuadro
+     en el que el resorte tiene que arrancar (auditoría de swipe 2026-09-08). */
+  if(!liveGesture || uncovered) alignPagesForSwipe(activeTab);
   hapticTabTick();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   // Un render de fondo que caiga entre este cuadro y el arranque del resorte
@@ -3979,10 +4011,16 @@ function switchToTab(tab, initialVelocityPxPerSec){
     // el gesto ya no existe, y las dos cosas se cancelan — no se ve moverse.
     restoreScrollForTab(tab);
   });
-  // Dos rAF: el primero corre antes de pintar este cuadro; el segundo, con la
-  // página de destino ya rasterizada en pantalla. ~2 cuadros de espera (33 ms),
-  // imperceptibles — la barra de abajo ya marcó la pestaña nueva al instante.
-  requestAnimationFrame(()=>requestAnimationFrame(startSpring));
+  /* Dos rAF SOLO si hubo que destapar una página .far (toque en la barra hacia
+     una pestaña lejana): el primero corre antes de pintar este cuadro; el
+     segundo, con la página de destino ya rasterizada. Esa espera de ~2 cuadros
+     (33 ms) se aplicaba antes a TODOS los cambios, incluido soltar un deslice —
+     ahí la página vecina ya estaba pintada bajo el dedo, así que el track se
+     quedaba clavado dos cuadros donde se soltó y recién después arrancaba el
+     resorte: el "se traba al soltar" (auditoría de swipe 2026-09-08). Ahora el
+     resorte sale en el mismo cuadro del pointerup. */
+  if(uncovered) requestAnimationFrame(()=>requestAnimationFrame(startSpring));
+  else startSpring();
 }
 /* Deslizar hacia los lados entre pestañas, siguiendo el dedo en tiempo real (como
    cambiar de pantalla de apps en el iPhone) — no interfiere con un modal abierto
@@ -4072,6 +4110,11 @@ function attachViewSwipeHandlers(){
 
   document.addEventListener('pointermove',(e)=>{
     if(!s || e.pointerId!==s.pointerId) return;
+    // Eje ya decidido como vertical: es un scroll normal y este gesto no tiene
+    // nada que hacer — se sale ANTES de los chequeos de abajo (querySelector
+    // del track, etc.), que corrían en cada evento de movimiento de cada
+    // scroll de toda la app.
+    if(s.axis==='y') return;
     // Arrastre de selección del Catálogo en curso (presión larga + deslizar por
     // la grilla, app-07): ese dedo marca tarjetas, no cambia de pestaña.
     if(typeof catSelDrag!=='undefined' && catSelDrag){ endGestureImpl(e, true); return; }
@@ -4167,7 +4210,7 @@ function attachViewSwipeHandlers(){
       }
       targetIdx = Math.max(0, Math.min(TAB_ORDER.length-1, targetIdx));
     }
-    switchToTab(TAB_ORDER[targetIdx], isCancel ? 0 : velocity*1000); // px/ms -> px/s, ver animateTrackTo
+    switchToTab(TAB_ORDER[targetIdx], isCancel ? 0 : velocity*1000, true); // px/ms -> px/s, ver animateTrackTo
   }
   document.addEventListener('pointerup', (e)=>endGestureImpl(e, false));
   document.addEventListener('pointercancel', (e)=>endGestureImpl(e, true));
