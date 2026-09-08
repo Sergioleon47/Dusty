@@ -317,7 +317,11 @@
 // producto, y agrupar por categoría partía el ranking en 12 por grupo; el
 // cambio de vista del inventario dejó de redibujar todo (34-61ms → 0-1ms) —
 // app-05/06/07.
-const CACHE_NAME = 'patron-shell-v95';
+// v96: arranque — networkFirst esperaba a la red SIN tope, así que con señal
+// mala pero viva (no falla, tarda) abrir la app se quedaba colgado en los ~15
+// pedidos del shell aunque la copia guardada estuviera lista. Ahora la red
+// tiene 2,5 s y después se sirve el caché, actualizando por detrás — sw.
+const CACHE_NAME = 'patron-shell-v96';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
@@ -379,7 +383,7 @@ self.addEventListener('fetch', event => {
   // llamada a la nube quedan sin tocar: ya manejan su propio caso de "sin
   // red" en el código de la app, y no tiene sentido cachear esas respuestas.
   if (url.origin === self.location.origin) {
-    event.respondWith(networkFirst(req));
+    event.respondWith(networkFirst(req, event));
   } else if (FONT_HOSTS.includes(url.hostname)) {
     event.respondWith(cacheFirst(req));
   } else if (PHOTO_HOSTS.includes(url.hostname) && req.destination === 'image') {
@@ -408,15 +412,46 @@ async function trimPhotoCache(cache){
   await Promise.all(extra.map(k => cache.delete(k)));
 }
 
-async function networkFirst(req){
+/* Tope de espera a la red (auditoría de arranque 2026-09-08). Antes esto hacía
+   `await fetch(req)` a secas: la red solo "perdía" si FALLABA. Con señal mala
+   pero viva — el wifi de una tienda, datos en un sótano — no falla: tarda. Y
+   como el shell son ~15 pedidos al mismo origen (los 8 app-0*.js, el css,
+   patron-core, morphdom…), abrir la app se quedaba esperando a todos aunque la
+   copia guardada estuviera lista desde el primer instante.
+   Ahora, SI HAY COPIA EN CACHÉ, la red tiene 2,5 s para contestar; pasado ese
+   tiempo se sirve la copia y la respuesta de red sigue viajando por detrás
+   (event.waitUntil) para dejar el caché al día para la próxima apertura. Sin
+   copia no hay nada mejor que esperar, así que se espera como siempre.
+   Contrapartida asumida: en una red lenta, un archivo puede venir de la red y
+   otro del caché en la misma carga. El precache versiona el juego COMPLETO por
+   release (CACHE_NAME) y el SW se activa de inmediato (skipWaiting +
+   clients.claim), así que esa mezcla solo es posible en la ventana de segundos
+   entre un deploy y la actualización del SW — a cambio de sacar un bloqueo que
+   hoy se sufre en cada apertura con mala señal. */
+const NETWORK_TIMEOUT_MS = 2500;
+async function networkFirst(req, event){
   const cache = await caches.open(CACHE_NAME);
-  try {
-    const fresh = await fetch(req);
+  const red = fetch(req).then(fresh => {
     if (fresh && fresh.ok) cache.put(req, fresh.clone());
     return fresh;
+  });
+  const cached = await cache.match(req);
+  if (cached) {
+    let temporizador;
+    const espera = new Promise(r => { temporizador = setTimeout(() => r(null), NETWORK_TIMEOUT_MS); });
+    // red.catch(...) => null: un fallo de red también "pierde" la carrera y cae
+    // a la copia guardada, igual que antes.
+    const ganador = await Promise.race([red.catch(() => null), espera]);
+    clearTimeout(temporizador);
+    if (ganador) return ganador;
+    // La red no llegó a tiempo (o falló): se sirve lo guardado y se deja que la
+    // actualización termine sola, sin que nadie la espere.
+    if (event && event.waitUntil) event.waitUntil(red.catch(() => {}));
+    return cached;
+  }
+  try {
+    return await red;
   } catch (err) {
-    const cached = await cache.match(req);
-    if (cached) return cached;
     // Navegación (recarga/abrir la app) sin red y sin esa URL exacta en
     // caché: se sirve el shell de todos modos, la SPA arranca desde ahí.
     if (req.mode === 'navigate') {

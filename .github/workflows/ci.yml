@@ -1,0 +1,35 @@
+# Las 59 pruebas de patron-core/nudgy-core existían desde siempre pero no las
+# corría nadie: los únicos chequeos en un PR eran los de Netlify (redirecciones
+# y cabeceras), que no miran el código. Acá corren en cada push y en cada PR.
+#
+# El paso de sintaxis cubre lo que las pruebas NO alcanzan: app-01..08 y sw.js
+# son scripts de navegador cargados con <script src>, sin exports ni pruebas
+# propias, así que un paréntesis de más solo se notaba abriendo la app. `node
+# --check` los compila sin ejecutarlos y falla el build si alguno no parsea.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # node --test (el corredor de pruebas propio de Node, sin dependencias)
+          # necesita 18+; se fija 20 LTS para no depender de lo que traiga el runner.
+          node-version: '20'
+
+      # Sin `npm ci`: las dependencias de la raíz son solo Capacitor y morphdom
+      # (herramientas de empaquetado), y ni las pruebas ni el chequeo de sintaxis
+      # las necesitan. Instalarlas sería un minuto de CI por nada.
+      - name: Pruebas unitarias
+        run: npm test
+
+      - name: Sintaxis de los archivos del navegador
+        run: node --check patron-core.js && node --check nudgy-core.js && for f in app-0*.js sw.js; do node --check "$f" || exit 1; done
