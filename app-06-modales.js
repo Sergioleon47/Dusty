@@ -4058,6 +4058,13 @@ function attachViewSwipeHandlers(){
   // sesgo, horizontal gana hasta ~63° de inclinación (|dx| > |dy|*0.5) — el scroll
   // vertical de verdad (casi recto para abajo) sigue andando normal, pero un
   // deslice apenas diagonal para cambiar de pestaña ahora sí "agarra".
+  // OJO, LÍMITE REAL ~43°, NO 63° (medido con gestos táctiles reales, 2026-09-08):
+  // #app declara touch-action:pan-y, que autoriza al navegador a quedarse el gesto
+  // para scrollear sin consultar a JS. Desde ~45° el compositor lo hace: llegan 2
+  // pointermove y después pointercancel, así que este código nunca ve el arrastre
+  // y el tramo 45°-63° del sesgo es inalcanzable. Bajar MOVE_LOCK a 4px para
+  // decidir antes tampoco lo rescata (probado). Ampliarlo exigiría sacar el
+  // pan-y, que rompe el scroll vertical de toda la app — no vale la pena.
   const AXIS_BIAS = 0.5;
   let s = null; // estado del gesto en curso, o null si no hay ninguno
 

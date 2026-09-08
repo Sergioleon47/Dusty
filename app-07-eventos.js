@@ -2034,8 +2034,7 @@ function attachEvents(){
       if(invLayout===b.dataset.invLayout) return;
       invLayout=b.dataset.invLayout;
       try{ localStorage.setItem('patron_inv_layout', invLayout); }catch(e){}
-      invLayoutTransitionPending=true; // este render anima (View Transition, app-04)
-      render();
+      applyInvLayoutLight();
     };
   });
   // Inventario reorganizado (maqueta 2026-09-07): orden, filtros rápidos, chip

@@ -695,10 +695,53 @@ const INV_GROUP_PREVIEW = 12;
 function invGroupKey(g){ return g.id || '__none'; }
 function invSortRows(rows){
   const arr = rows.slice();
-  if(invSort==='stock') arr.sort((a,b)=>(a.ing.qtyOnHand||0)-(b.ing.qtyOnHand||0) || String(a.ing.name).localeCompare(String(b.ing.name)));
+  /* "Menos stock" ordena por PORCENTAJE de llenado (r.pct), no por unidades
+     sueltas (auditoría con 400 productos 2026-09-08). Comparar qtyOnHand entre
+     productos distintos es comparar 5 cajas contra 20 litros: no dice cuál se
+     está acabando. Con el orden viejo, un producto con 5 de 5 (100%, sano)
+     quedaba ARRIBA de uno con 20 de 200 (10%, crítico) — por eso la lista
+     mostraba anillos verdes entre los rojos y parecía desordenada. pct es el
+     mismo número que pinta el anillo de cada tarjeta, así color y orden ahora
+     dicen lo mismo. Las filas siempre traen pct (ver stockRowsData). */
+  if(invSort==='stock') arr.sort((a,b)=>a.pct-b.pct || String(a.ing.name).localeCompare(String(b.ing.name)));
   else if(invSort==='value') arr.sort((a,b)=>((b.ing.qtyOnHand||0)*(b.ing.costPerUnit||0))-((a.ing.qtyOnHand||0)*(a.ing.costPerUnit||0)) || String(a.ing.name).localeCompare(String(b.ing.name)));
   else arr.sort((a,b)=>String(a.ing.name).localeCompare(String(b.ing.name), undefined, {sensitivity:'base'}));
   return arr;
+}
+/* CAMBIO DE VISTA SIN REDIBUJAR TODO (auditoría con 400 productos 2026-09-08).
+   Tocar fila/2/3/4 columnas disparaba un render() completo: plantilla entera de
+   las 4 páginas + morphdom, medido en 34-61 ms de escritorio (el triple en un
+   teléfono) — un tirón en cada toque. Pero del layout solo dependen DOS cosas:
+   la clase de cada .inv-grid (el marcado de la tarjeta es idéntico en las cuatro
+   vistas, lo diferencia el CSS) y qué botón del selector queda marcado. Se
+   escriben a mano, igual que commitTabSwitchLight hace con el cambio de pestaña.
+   La animación NO se pierde: los nombres de View Transition se ponen sobre los
+   nodos vivos antes de la captura, y como son los MISMOS nodos antes y después,
+   el navegador anima cada tarjeta hacia su posición nueva igual que antes. */
+function applyInvLayoutLight(){
+  const grids = [...document.querySelectorAll('.inv-grid')];
+  if(!grids.length){ render(); return; }
+  const aplicar = ()=>{
+    grids.forEach(g=>{
+      g.classList.remove('rows','cols2','cols3','cols4');
+      g.classList.add(invLayout);
+    });
+    document.querySelectorAll('[data-inv-layout]').forEach(b=>{
+      const on = b.dataset.invLayout===invLayout;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    syncViewportHeight(); // el alto de la grilla cambia con la cantidad de columnas
+  };
+  if(!document.startViewTransition || reducedMotionQuery.matches){ aplicar(); return; }
+  const nombrados = [...document.querySelectorAll('.inv-tile[data-ing-id]')];
+  nombrados.forEach(el=>{
+    el.style.viewTransitionName = 'invtile-' + String(el.dataset.ingId).replace(/[^a-zA-Z0-9_-]/g, '');
+  });
+  const limpiar = ()=>{ nombrados.forEach(el=>{ el.style.viewTransitionName = ''; }); };
+  const vt = document.startViewTransition(aplicar);
+  vt.ready.catch(()=>{}); // una transición salteada rechaza ready — no es un error
+  vt.finished.then(limpiar, limpiar);
 }
 function invLayoutToggleHtml(){
   const opt = (val, label, icon)=>`<button type="button" data-inv-layout="${val}" class="${invLayout===val?'on':''}" aria-label="${label}" aria-pressed="${invLayout===val}" title="${label}">${icon}</button>`;
@@ -983,7 +1026,16 @@ function inventarioView(){
   let rows = filterCategory ? allRows.filter(r=>r.ing.categoryId===filterCategory.id) : allRows;
   if(invQuickFilter && quick[invQuickFilter]){ const ids = new Set(quick[invQuickFilter].map(r=>r.ing.id)); rows = rows.filter(r=>ids.has(r.ing.id)); }
   rows = invSortRows(rows.filter(r=>invMatches(r.ing.name, invSearch)));
-  const groups = groupRowsByCategory(rows);
+  /* Agrupar por categoría SOLO en el orden por nombre (auditoría 2026-09-08).
+     Agrupar y ordenar se peleaban: con 400 productos en 5 categorías, "Menos
+     stock" mostraba los 12 más vacíos DE CADA grupo (60 tarjetas) en vez de
+     los 12 más vacíos de todos — un producto crítico de Bebidas quedaba
+     escondido bajo un grupo sin abrir, y la lista visible no era monótona.
+     Por nombre, agrupar es navegar (tiene sentido); por urgencia o por valor,
+     lo que se quiere es un ranking, así que va lista plana. */
+  const groups = invSort==='name'
+    ? groupRowsByCategory(rows)
+    : [{id:'__rank', name: invSort==='stock' ? t('inv_sort_stock') : t('inv_sort_value'), rows}];
   const total = sellRows.length;
   const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   const fmt = (n)=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
