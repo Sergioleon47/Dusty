@@ -418,54 +418,68 @@ function dashboardView(){
   const unread = (currentUser || hadCloudSessionBefore()) ? unreadActivityCount() : 0;
   const scanSvg = '<svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
   return `
-  ${/* 2. Bloque único de presupuesto (o Primeros pasos el primer día). */''}
-  ${empty ? firstStepsCard() : `
-  <div class="stat-card dash-month">
-    ${(()=>{
-      const sp = spendSplitForMonth(currentMonthKey);
-      return `
-    <div class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="stat-value" style="color:var(--money-pos);margin:0;">${money(sp.invested)}</div>
-      <button type="button" class="dash-pencil-btn dash-plus-btn" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">
-        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-    </div>`;
-    })()}
-    ${(()=>{
-      const p = budgetPace(currentMonthKey);
-      const canEdit = canSeeFinancials();
-      const pencil = canEdit ? `
+  ${/* 2. Bloque único de presupuesto (o Primeros pasos el primer día).
+       Maqueta "anillo + cuadrícula" (aprobada 2026-09-08): anillo con el %
+       gastado + cuatro cifras; la tarjeta toma el color del estado del
+       presupuesto en los temas App Store (--tile-ok/warn/crit). */''}
+  ${empty ? firstStepsCard() : (()=>{
+    const sp = spendSplitForMonth(currentMonthKey);
+    const p = budgetPace(currentMonthKey);
+    const canEdit = canSeeFinancials();
+    const addChip = `<button type="button" class="dash-chip" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">${t('dash_add_spend_chip')}</button>`;
+    const pencil = canEdit ? `
         <button type="button" class="dash-pencil-btn" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>` : '';
-      // Presupuesto, barra y las líneas de resumen (gastos / quedan / ritmo)
-      // TODAS en esta tarjeta — antes la franja de abajo repetía el número.
-      if(p) return `
-      <div class="budget-block budget-strip ${p.status}" style="margin:10px -4px 0;padding:8px 4px 0;border:none;background:none;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')} <strong style="font-size:14px;color:var(--ink);">${money(p.budget)}</strong> (${Math.round(p.pct)}%)</span>
-          ${pencil}
-        </div>
-        ${budgetBarHtml(p)}
-        ${budgetSummaryHtml(p)}${cogsRatioHtml(currentMonthKey)}
-      </div>`;
-      if(!canEdit) return '';
+    const seeAll = `<button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')} ›</button>`;
+    if(!p){
+      // Sin presupuesto fijado: la inversión del mes grande y el "Fijalo →".
       return `
-      <button id="btn-edit-budget" class="budget-set-cta" type="button">
-        <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
-        <span class="budget-set-link">${t('budget_set_cta')}</span>
-      </button>`;
-    })()}
-    <button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')} ›</button>
-  </div>`}
+  <div class="stat-card dash-month dash-budget">
+    <div class="dash-budget-head"><span class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</span>${addChip}</div>
+    <div class="stat-value" style="color:var(--money-pos);margin-top:4px;">${money(sp.invested)}</div>
+    ${canEdit ? `
+    <button id="btn-edit-budget" class="budget-set-cta" type="button">
+      <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
+      <span class="budget-set-link">${t('budget_set_cta')}</span>
+    </button>` : ''}
+    ${seeAll}
+  </div>`;
+    }
+    // Anillo: r=40 → circunferencia 251.3; el trazo avanza con el % gastado
+    // (tope 100). Mismos estados ok/warn/crit que la barra de siempre.
+    const CIRC = 251.3;
+    const pctShown = Math.min(Math.max(p.pct, 0), 100);
+    const dash = (CIRC * (1 - pctShown/100)).toFixed(1);
+    return `
+  <div class="stat-card dash-month dash-budget ${p.status}">
+    <div class="dash-budget-head"><span class="stat-label">${monthLabel(currentMonthKey, uiLang)}</span>${addChip}${pencil}</div>
+    <div class="dash-budget-body">
+      <div class="dash-ring" role="img" aria-label="${Math.round(p.pct)}% ${t('dash_ring_spent')}">
+        <svg viewBox="0 0 96 96"><circle class="dash-ring-track" cx="48" cy="48" r="40" stroke-width="10" fill="none"/><circle class="dash-ring-fill ${p.status}" cx="48" cy="48" r="40" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="${CIRC}" stroke-dashoffset="${dash}"/></svg>
+        <div class="dash-ring-center"><b>${Math.round(p.pct)}%</b><small>${t('dash_ring_spent')}</small></div>
+      </div>
+      <div class="dash-kv">
+        <div><span>${t('dash_kv_expenses')}</span><b>${money(p.expense)}</b></div>
+        <div><span>${t('dash_kv_budget')}</span><b>${money(p.budget)}</b></div>
+        <div><span>${t('dash_kv_invest')}</span><b class="pos">${money(sp.invested)}</b></div>
+        ${p.left>=0
+          ? `<div><span>${t('dash_kv_left')}</span><b class="pos">${money(p.left)}</b></div>`
+          : `<div><span>${t('dash_kv_over')}</span><b class="neg">${money(-p.left)}</b></div>`}
+      </div>
+    </div>
+    ${budgetNotesHtml(p)}${cogsRatioHtml(currentMonthKey)}
+    ${seeAll}
+  </div>`;
+  })()}
   ${budgetAlertCard()}
 
   ${/* 3. Herramientas con nombre (mismos ids de siempre: btn-scan-products,
-       btn-scan-fab, btn-new-item — attachEvents los encuentra igual). */''}
+       btn-scan-fab, btn-new-item — attachEvents los encuentra igual). Los
+       anillos toman su color de --tool-* (degradés en los temas App Store). */''}
   <div class="inv-tools" style="margin:4px 0 16px;">
     <button type="button" class="inv-tool" id="btn-scan-products" title="${t('pb_open_btn')}">
-      <span class="inv-tool-ring" style="background:var(--saffron-soft);color:var(--saffron-ink);">${lineIcon('box',24)}</span>
+      <span class="inv-tool-ring tool-products">${lineIcon('box',24)}</span>
       <span class="inv-tool-label">${t('dash_tool_products')}</span>
     </button>
     <div class="inv-tool" style="min-width:76px;">
@@ -477,40 +491,66 @@ function dashboardView(){
       <span class="inv-tool-label" style="font-weight:800;">${t('dash_scan_receipt')}</span>
     </div>
     <button type="button" class="inv-tool" id="btn-new-item" title="${t('btn_add_manually')}">
-      <span class="inv-tool-ring" style="background:var(--navy-wash);color:var(--navy-ink);font-size:26px;font-weight:700;">＋</span>
+      <span class="inv-tool-ring tool-manual">＋</span>
       <span class="inv-tool-label">${t('dash_tool_manual')}</span>
     </button>
   </div>
 
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : `
-  ${/* 4. HOY: tres números que se tocan (abren el Inventario filtrado). */''}
+  ${/* 4. HOY + módulos, en cuadrícula de dos columnas (maqueta 2026-09-08):
+       Críticos (con la salud del stock como subtítulo) y Toca contar (con el
+       primer producto que toca) abren el Inventario filtrado; Pedido sugerido,
+       Último recibo, Producción y Actividad son las filas de antes, ahora como
+       tarjetas con ícono. Mismos ids y data-* que siempre. */''}
   <div class="dash-section-label">${t('dash_today')}</div>
-  <div class="dash-stats">
-    <button type="button" class="dash-stat" data-dash-stat="crit"><b style="color:${critRows.length>0?'var(--stock-crit)':'var(--ink)'};">${critRows.length}</b><small>${t('dash_stat_crit')}</small></button>
-    <button type="button" class="dash-stat" data-dash-stat="count"><b style="color:${ccDueIds.size>0?'var(--saffron-ink)':'var(--ink)'};">${ccDueIds.size}</b><small>${t('dash_stat_count')}</small></button>
-    <button type="button" class="dash-stat" data-dash-stat="health"><b style="color:${healthPct===null?'var(--ink-soft)':(healthPct>=60?'var(--stock-ok)':healthPct>=20?'var(--stock-warn)':'var(--stock-crit)')};">${healthPct===null?'—':healthPct+'%'}</b><small>${t('dash_stat_health')}</small></button>
-  </div>
-  ${/* 5. Pedido sugerido como fila (mismo id btn-suggested-order). */''}
-  <button type="button" class="dash-row" id="btn-suggested-order">
-    <span><span class="dash-row-title">${t('stock_suggested_order').replace(/:$/,'')}</span><span class="dash-row-sub" style="display:block;">${critRows.length>0 ? t('dash_suggested_n').replace('{n}', critRows.length) : t('dash_suggested_none')}</span></span>
-    <span class="dash-row-chev">›</span>
-  </button>`}
-  ${/* 6. Último recibo (abre su ficha), Producción y Cambios. */''}
-  ${inventory.length>0 || receipts.length>0 ? `
-  <${lastReceipt?'div':'div'} class="dash-row" ${lastReceipt ? `data-view-receipt="${lastReceipt.id}" role="button" tabindex="0"` : 'style="cursor:default;"'}>
-    <span><span class="dash-row-title">${t('dash_last_receipt')}</span><span class="dash-row-sub" style="display:block;">${lastReceipt ? `${escapeHtml(lastReceipt.supplier)||t('no_supplier_name')} · ${money(lastReceipt.total)} · ${escapeHtml(lastReceipt.date||'')}` : t('dash_last_receipt_none')}</span></span>
-    ${lastReceipt ? '<span class="dash-row-chev">›</span>' : ''}
-  </div>` : ''}
-  ${inventory.length>0 ? `
-  <button type="button" class="dash-row" id="btn-production-hub">
-    <span><span class="dash-row-title">${t('prod_section_title')}</span><span class="dash-row-sub" style="display:block;">${t('dash_production_sub')}</span></span>
-    <span class="dash-row-chev">›</span>
-  </button>
-  ${(currentUser || hadCloudSessionBefore()) ? `
-  <button type="button" class="dash-row" id="btn-inventory-activity">
-    <span><span class="dash-row-title">${t('activity_modal_title')}</span><span class="dash-row-sub" style="display:block;">${unread>0 ? t('dash_activity_n').replace('{n}', unread) : t('dash_activity_none')}</span></span>
-    ${unread>0 ? `<span class="dash-row-badge">${unread>99?'99+':unread}</span>` : '<span class="dash-row-chev">›</span>'}
-  </button>` : ''}` : ''}
+  <div class="dash-grid">
+    <button type="button" class="dash-tile t1" data-dash-stat="crit">
+      <span class="dash-tile-badge ${critRows.length>0?'crit':'ok'}">${critRows.length>0 ? t('dash_badge_alert') : t('dash_badge_ok')}</span>
+      <span class="dash-tile-icon" aria-hidden="true">${critRows.length>0?'⚠️':'🛡️'}</span>
+      <b class="dash-tile-num ${critRows.length>0?'crit':''}">${critRows.length}</b>
+      <span class="dash-tile-title">${t('dash_stat_crit')}</span>
+      <span class="dash-tile-sub">${healthPct===null ? t('dash_tile_health_none') : t('dash_tile_health').replace('{p}', healthPct)}</span>
+    </button>
+    ${(()=>{
+      const dueNames = inventory.filter(i=>ccDueIds.has(i.id)).map(i=>invShortName(i.name));
+      const sub = dueNames.length===0 ? t('dash_tile_count_none') : escapeHtml(dueNames[0]) + (dueNames.length>1 ? ` +${dueNames.length-1}` : '');
+      return `
+    <button type="button" class="dash-tile t2" data-dash-stat="count">
+      <span class="dash-tile-badge ${ccDueIds.size>0?'warn':'ok'}">${ccDueIds.size>0 ? t('dash_badge_due') : t('dash_badge_ok')}</span>
+      <span class="dash-tile-icon" aria-hidden="true">🔢</span>
+      <b class="dash-tile-num ${ccDueIds.size>0?'warn':''}">${ccDueIds.size}</b>
+      <span class="dash-tile-title">${t('dash_stat_count')}</span>
+      <span class="dash-tile-sub">${sub}</span>
+    </button>`;
+    })()}
+    ${/* 5. Pedido sugerido (mismo id btn-suggested-order). */''}
+    <button type="button" class="dash-tile t3" id="btn-suggested-order">
+      <span class="dash-tile-icon" aria-hidden="true">🛒</span>
+      <span class="dash-tile-title">${t('stock_suggested_order').replace(/:$/,'')}</span>
+      <span class="dash-tile-sub">${critRows.length>0 ? t('dash_suggested_n').replace('{n}', critRows.length) : t('dash_suggested_none')}</span>
+      <span class="dash-tile-chev">›</span>
+    </button>
+    ${/* 6. Último recibo (abre su ficha), Producción y Cambios. */''}
+    <div class="dash-tile t4 ${lastReceipt?'':'static'}" ${lastReceipt ? `data-view-receipt="${lastReceipt.id}" role="button" tabindex="0"` : ''}>
+      <span class="dash-tile-icon" aria-hidden="true">🧾</span>
+      <span class="dash-tile-title">${t('dash_last_receipt')}</span>
+      <span class="dash-tile-sub">${lastReceipt ? `${escapeHtml(lastReceipt.supplier)||t('no_supplier_name')} · ${money(lastReceipt.total)} · ${escapeHtml(lastReceipt.date||'')}` : t('dash_last_receipt_none')}</span>
+      ${lastReceipt ? '<span class="dash-tile-chev">›</span>' : ''}
+    </div>
+    <button type="button" class="dash-tile t5" id="btn-production-hub">
+      <span class="dash-tile-icon" aria-hidden="true">🍳</span>
+      <span class="dash-tile-title">${t('prod_section_title')}</span>
+      <span class="dash-tile-sub">${t('dash_production_sub')}</span>
+      <span class="dash-tile-chev">›</span>
+    </button>
+    ${(currentUser || hadCloudSessionBefore()) ? `
+    <button type="button" class="dash-tile t6" id="btn-inventory-activity">
+      <span class="dash-tile-icon" aria-hidden="true">📈</span>
+      <span class="dash-tile-title">${t('activity_modal_title')}</span>
+      <span class="dash-tile-sub">${unread>0 ? t('dash_activity_n').replace('{n}', unread) : t('dash_activity_none')}</span>
+      ${unread>0 ? `<span class="dash-tile-count">${unread>99?'99+':unread}</span>` : '<span class="dash-tile-chev">›</span>'}
+    </button>` : ''}
+  </div>`}
   ${priceAlertsCard()}
   `;
 }
@@ -1575,6 +1615,10 @@ const DUSTY_THEMES = [
   // Pedidos por captura 2026-09-07 (Robinhood / App Store):
   {id:'robin',      es:'Robin',      en:'Robin',    bg:'#ffffff', accent:'#00c805'},
   {id:'cupertino',  es:'Cupertino',  en:'Cupertino', bg:'#f2f2f7', accent:'#007aff'},
+  // "App Store" (pedido por captura 2026-09-08): tarjetas del Dashboard con los
+  // degradados pastel de la pestaña Buscar del App Store, claro y sobre oscuro.
+  {id:'appstore',       es:'App Store',   en:'App Store',  bg:'#ffffff', accent:'#71a3e9'},
+  {id:'appstore-noche', es:'Store noche', en:'Store dark', bg:'#0f1115', accent:'#71a3e9'},
 ];
 let dustyTheme = 'night';
 try{ const v = localStorage.getItem('patron_theme'); if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v; }catch(e){}

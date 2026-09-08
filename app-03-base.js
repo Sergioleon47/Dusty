@@ -646,6 +646,11 @@ const I18N = {
     dash_suggested_none:'Nada por reponer esta semana', dash_suggested_n:'{n} producto(s) por reponer',
     dash_last_receipt:'Último recibo', dash_last_receipt_none:'Todavía no escaneaste ninguno',
     dash_activity_none:'Sin cambios nuevos', dash_activity_n:'{n} cambio(s) sin ver', dash_production_sub:'Recetas, producir y salidas',
+    // Dashboard "anillo + cuadrícula" (maqueta aprobada 2026-09-08).
+    dash_badge_ok:'OK', dash_badge_alert:'Alerta', dash_badge_due:'Toca',
+    dash_tile_health:'{p}% salud del stock', dash_tile_health_none:'Sin datos todavía', dash_tile_count_none:'Nada pendiente',
+    dash_ring_spent:'gastado', dash_kv_expenses:'Gastos', dash_kv_budget:'Presupuesto', dash_kv_invest:'Inversión', dash_kv_left:'Quedan', dash_kv_over:'Excedido',
+    dash_add_spend_chip:'＋ Gasto',
     settings_help_btn:'❓ Ayuda y reportar un problema',
     theme_title:'Tema de colores',
     pulse_label:'Latidos de aviso', pulse_helper:'Las palpitaciones de Inventario (conteo pendiente, stock crítico) y de Presupuesto (barra, alerta, punto del Dashboard). Apagalas si te distraen o para ahorrar batería.',
@@ -1268,6 +1273,10 @@ const I18N = {
     dash_suggested_none:'Nothing to restock this week', dash_suggested_n:'{n} product(s) to restock',
     dash_last_receipt:'Last receipt', dash_last_receipt_none:'None scanned yet',
     dash_activity_none:'No new changes', dash_activity_n:'{n} unseen change(s)', dash_production_sub:'Recipes, produce and outflows',
+    dash_badge_ok:'OK', dash_badge_alert:'Alert', dash_badge_due:'Due',
+    dash_tile_health:'{p}% stock health', dash_tile_health_none:'No data yet', dash_tile_count_none:'Nothing pending',
+    dash_ring_spent:'spent', dash_kv_expenses:'Expenses', dash_kv_budget:'Budget', dash_kv_invest:'Investment', dash_kv_left:'Left', dash_kv_over:'Over',
+    dash_add_spend_chip:'＋ Expense',
     settings_help_btn:'❓ Help and report a problem',
     theme_title:'Color theme',
     pulse_label:'Alert pulses', pulse_helper:'The pulsing in Inventory (count due, critical stock) and Budget (bar, alert card, Dashboard dot). Turn them off if they distract you or to save battery.',
@@ -1781,6 +1790,12 @@ function budgetSummaryHtml(p){
   const line1 = `<div class="budget-line">${t('budget_line').replace('{spent}', `<b>${money(p.expense)}</b>`).replace('{budget}', money(p.budget))} · ${p.left>=0
     ? `<b class="budget-left">${t('budget_left').replace('{amount}', money(p.left))}</b>`
     : `<b class="budget-over">${t('budget_over').replace('{amount}', money(-p.left))}</b>`}</div>`;
+  return line1 + budgetNotesHtml(p);
+}
+// Solo las notas (ritmo, comprometido, arrastre) sin la línea de "Gastos $X de
+// $Y": la tarjeta del Dashboard con anillo (2026-09-08) ya muestra esas cifras
+// grandes a la derecha del anillo y no las repite.
+function budgetNotesHtml(p){
   let pace='';
   if(p.pct>=100) pace = t('budget_pace_over');
   else if(p.fast) pace = t('budget_pace_fast').replace('{proj}', money(p.projected));
@@ -1795,7 +1810,7 @@ function budgetSummaryHtml(p){
   // Arrastre: aclarar que el presupuesto de este mes incluye lo que sobró del anterior.
   const carry = p.carry>0 ? t('budget_carry_note').replace('{amount}', money(p.carry)).replace('{month}', monthLabel(shiftMonthStr(p.key||localMonthStr(), -1), uiLang)) : '';
   const notes = [pace, committed, carry].filter(Boolean);
-  return line1 + (notes.length ? `<div class="budget-pace ${p.status}">${notes.join(' · ')}</div>` : '');
+  return notes.length ? `<div class="budget-pace ${p.status}">${notes.join(' · ')}</div>` : '';
 }
 // Barra con la marca de "hoy deberías ir por acá" y el tramo fantasma de lo comprometido.
 function budgetBarHtml(p){

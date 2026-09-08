@@ -252,7 +252,13 @@
 // vean las maquetas con sus productos antes de elegir) y diseño nuevo "Por
 // categorías" con banda de color y tarjetas con foto redonda (su referencia),
 // que sirve para menús y catálogos — app-03/05/07 + css.
-const CACHE_NAME = 'patron-shell-v84';
+// v85: DASHBOARD "anillo + cuadrícula" (maqueta aprobada 2026-09-08): la
+// tarjeta de presupuesto con anillo del % gastado y cuatro cifras, y los
+// módulos (Críticos, Toca contar, Pedido, Último recibo, Producción,
+// Actividad) como tarjetas en dos columnas con ícono y badge. Dos temas
+// nuevos "App Store" (claro y noche) con los degradados pastel muestreados
+// de la captura del usuario — app-03/05 + css.
+const CACHE_NAME = 'patron-shell-v85';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

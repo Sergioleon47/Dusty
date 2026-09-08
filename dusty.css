@@ -69,6 +69,22 @@
     --shadow-sm:0 1px 2px rgba(0,0,0,0.45);
     --shadow:0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.35);
     --shadow-lg:0 12px 20px rgba(0,0,0,0.5), 0 24px 64px rgba(0,0,0,0.6);
+    /* ===== TARJETAS DEL DASHBOARD (maqueta aprobada 2026-09-08, "anillo +
+       cuadrícula" con los colores del App Store). Los temas de siempre dejan
+       las tarjetas NEUTRAS (panel + tinta normal, como el resto de la app); los
+       dos temas "App Store" (abajo) llenan estos tokens con los degradados
+       pastel muestreados de la captura del usuario y ponen la tinta en blanco.
+       --tile-1..6: fondo de cada tarjeta de la cuadrícula (críticos, contar,
+       pedido, último recibo, producción, actividad); --tile-ok/warn/crit: fondo
+       de la tarjeta de presupuesto según su estado; --tile-scan: el botón de
+       escanear; --tool-*: los dos anillos de la fila de herramientas. */
+    --tile-ink:var(--ink); --tile-sub:var(--ink-soft); --tile-border:var(--line);
+    --tile-1:var(--panel); --tile-2:var(--panel); --tile-3:var(--panel);
+    --tile-4:var(--panel); --tile-5:var(--panel); --tile-6:var(--panel);
+    --tile-ok:var(--panel); --tile-warn:var(--panel); --tile-crit:var(--panel);
+    --tile-scan:linear-gradient(145deg, var(--sky-bright), var(--basil) 65%);
+    --tool-products-bg:var(--saffron-soft); --tool-products-ink:var(--saffron-ink);
+    --tool-manual-bg:var(--navy-wash); --tool-manual-ink:var(--navy-ink);
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
@@ -143,7 +159,7 @@
   /* Base compartida de los temas CLAROS. */
   html[data-dusty-theme="claro"], html[data-dusty-theme="crema"], html[data-dusty-theme="menta"],
   html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"], html[data-dusty-theme="coral"], html[data-dusty-theme="miel"],
-  html[data-dusty-theme="robin"], html[data-dusty-theme="cupertino"]{
+  html[data-dusty-theme="robin"], html[data-dusty-theme="cupertino"], html[data-dusty-theme="appstore"]{
     color-scheme:light;
     --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
     --tomato:#e04545; --saffron:#c8860d; --basil:#0e9f6e; --sky-bright:#0a8f63;
@@ -223,6 +239,39 @@
     --saffron:var(--navy);
     --bg:#f2f2f7; --panel:#ffffff; --inset:#e9e9ee; --raised:#f2f2f7; --raised-2:#e5e5ea; --line:#e0e0e5;
     --ink:#1c1c1e; --ink-soft:#8e8e93; --ink-mid:#48484a;
+  }
+  /* --- "App Store" (pedido del usuario 2026-09-08, captura de la pestaña
+     Buscar del App Store de iOS): las tarjetas del Dashboard toman los
+     degradados pastel de esa pantalla — cada color se MUESTREÓ de la captura
+     (arriba y abajo de cada tarjeta) en vez de aproximarse a ojo — con la tinta
+     en blanco, como allá. Dos variantes: "App Store" claro (fondo blanco puro
+     como la referencia) y "Store noche" (mismas tarjetas sobre el fondo oscuro
+     de Dusty). El acento (--navy) es el azul de "Productivity"; el dinero sigue
+     por --money-*, aparte. --- */
+  html[data-dusty-theme="appstore"], html[data-dusty-theme="appstore-noche"]{
+    --tile-ink:#ffffff; --tile-sub:rgba(255,255,255,.85); --tile-border:transparent;
+    --tile-1:linear-gradient(170deg, #b3cef2, #71a3e9);   /* Top Downloaded Apps */
+    --tile-2:linear-gradient(170deg, #f3be87, #f0964c);   /* Top Downloaded Games */
+    --tile-3:linear-gradient(170deg, #9ade93, #5cc05e);   /* Top-Selling Apps */
+    --tile-4:linear-gradient(170deg, #b7acfe, #826bfe);   /* Top-Selling Games */
+    --tile-5:linear-gradient(170deg, #f3cd84, #ecb048);   /* Photo & Video */
+    --tile-6:linear-gradient(170deg, #ffa9eb, #f280c2);   /* Walking */
+    --tile-ok:var(--tile-3);
+    --tile-warn:linear-gradient(170deg, #ffde86, #e8b55d); /* Media Readers */
+    --tile-crit:linear-gradient(170deg, #fea391, #fd7c6a); /* Lifestyle */
+    --tile-scan:linear-gradient(170deg, #accff6, #60a7ef); /* Productivity */
+    --tool-products-bg:var(--tile-2); --tool-products-ink:#ffffff;
+    --tool-manual-bg:var(--tile-6); --tool-manual-ink:#ffffff;
+  }
+  html[data-dusty-theme="appstore"]{
+    --navy:#3f8fe3; --navy-soft:#71a3e9;
+    --saffron:var(--navy);
+    --bg:#ffffff; --panel:#ffffff; --inset:#f2f2f7; --raised:#f2f2f7; --raised-2:#e5e5ea; --line:#e5e5ea;
+    --ink:#1c1c1e; --ink-soft:#8e8e93; --ink-mid:#48484a;
+  }
+  html[data-dusty-theme="appstore-noche"]{
+    --navy:#71a3e9; --navy-soft:#8db8ec;
+    --bg:#0f1115; --panel:#181b21; --inset:#12151b; --raised:#20242c; --raised-2:#272c35; --line:#262b34;
   }
   html[data-dusty-theme="miel"]{ /* 50K: E38C4C/F6C561/FCF1DA/977B60 */
     /* saffron = acento, mismo pedido: fuera el mostaza de Guardar y compañía. */
@@ -1279,7 +1328,7 @@
   .shelf-scan-fab{
     position:relative;flex-shrink:0;width:76px;height:76px;border-radius:50%;
     border:none;cursor:pointer;
-    background:linear-gradient(145deg, var(--sky-bright), var(--basil) 65%);
+    background:var(--tile-scan);
     color:var(--on-accent);
     display:flex;align-items:center;justify-content:center;
     box-shadow:var(--shadow);
@@ -1377,6 +1426,78 @@
   .dash-row-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;overflow-wrap:anywhere;}
   .dash-row-chev{color:var(--ink-soft);font-size:18px;flex-shrink:0;}
   .dash-row-badge{background:var(--tomato);color:var(--on-accent);font-size:11px;font-weight:800;border-radius:9px;padding:1px 7px;flex-shrink:0;}
+  /* ===== DASHBOARD "anillo + cuadrícula" (maqueta aprobada 2026-09-08) =====
+     Presupuesto: anillo con el % gastado a la izquierda y cuatro cifras
+     (Gastos / Presupuesto / Inversión / Quedan) a la derecha. Módulos: tarjetas
+     en dos columnas con ícono grande arriba a la derecha, badge de estado y
+     subtítulo — el look de la pestaña Buscar del App Store. Los colores salen
+     de los tokens --tile-* (neutros salvo en los temas App Store). */
+  .dash-budget{position:relative;overflow:hidden;--bi:var(--ink);--bs:var(--ink-soft);color:var(--bi);}
+  /* Solo con presupuesto fijado la tarjeta toma color (y con él la tinta de
+     tarjeta): sin presupuesto queda panel normal con tinta normal — si no, en
+     App Store claro el rótulo salía blanco sobre blanco. */
+  .dash-budget.ok, .dash-budget.warn, .dash-budget.crit{--bi:var(--tile-ink);--bs:var(--tile-sub);border-color:var(--tile-border);}
+  .dash-budget.ok{background:var(--tile-ok);}
+  .dash-budget.warn{background:var(--tile-warn);}
+  .dash-budget.crit{background:var(--tile-crit);}
+  .dash-budget .stat-label{color:var(--bs);}
+  .dash-budget-head{display:flex;align-items:center;gap:8px;}
+  .dash-budget-head .stat-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dash-chip{border:1px solid var(--line);background:var(--raised);color:var(--ink-mid);font-family:inherit;font-size:12px;font-weight:700;border-radius:99px;padding:5px 11px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+  .dash-chip:active{transform:scale(.95);}
+  .dash-budget-body{display:flex;align-items:center;gap:16px;margin-top:10px;}
+  .dash-ring{position:relative;width:96px;height:96px;flex-shrink:0;}
+  .dash-ring svg{width:96px;height:96px;transform:rotate(-90deg);display:block;}
+  .dash-ring-track{stroke:var(--line);}
+  .dash-ring-fill{transition:stroke-dashoffset .5s var(--ease-soft);}
+  .dash-ring-fill.ok{stroke:var(--stock-ok);}
+  .dash-ring-fill.warn{stroke:var(--stock-warn);}
+  .dash-ring-fill.crit{stroke:var(--stock-crit);}
+  .dash-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;}
+  .dash-ring-center b{font-family:'Space Grotesk',sans-serif;font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .dash-ring-center small{font-size:10px;color:var(--bs);margin-top:2px;}
+  .dash-kv{flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;}
+  .dash-kv span{display:block;font-size:11px;color:var(--bs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dash-kv b{display:block;font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;overflow-wrap:anywhere;}
+  .dash-kv b.pos{color:var(--money-pos-ink);}
+  .dash-kv b.neg{color:var(--money-neg-ink);}
+  .dash-budget .budget-pace{color:var(--bs);margin-top:8px;}
+  .dash-budget.ok .link-btn, .dash-budget.warn .link-btn, .dash-budget.crit .link-btn{color:var(--tile-ink);opacity:.85;}
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .dash-tile{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:122px;padding:14px;border-radius:18px;border:1px solid var(--tile-border);background:var(--panel);color:var(--tile-ink);text-align:left;font-family:inherit;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s;}
+  .dash-tile:active{transform:scale(.97);}
+  .dash-tile.static{cursor:default;}
+  .dash-tile.t1{background:var(--tile-1);} .dash-tile.t2{background:var(--tile-2);} .dash-tile.t3{background:var(--tile-3);}
+  .dash-tile.t4{background:var(--tile-4);} .dash-tile.t5{background:var(--tile-5);} .dash-tile.t6{background:var(--tile-6);}
+  .dash-tile-icon{position:absolute;top:8px;right:10px;font-size:38px;line-height:1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.22));pointer-events:none;}
+  .dash-tile-badge{font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;background:var(--raised-2);color:var(--ink-mid);margin-bottom:14px;}
+  .dash-tile-badge.ok{background:var(--money-pos-soft);color:var(--money-pos-ink);}
+  .dash-tile-badge.warn{background:var(--money-warn-soft);color:var(--money-warn-ink);}
+  .dash-tile-badge.crit{background:var(--money-neg-soft);color:var(--money-neg-ink);}
+  .dash-tile-num{display:block;font-family:'Space Grotesk',sans-serif;font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
+  .dash-tile-num.warn{color:var(--money-warn-ink);} .dash-tile-num.crit{color:var(--money-neg-ink);}
+  .dash-tile-title{margin-top:auto;padding-top:6px;font-weight:800;font-size:15px;line-height:1.15;letter-spacing:-.01em;padding-right:22px;}
+  .dash-tile-sub{font-size:12px;color:var(--tile-sub);line-height:1.3;overflow-wrap:anywhere;padding-right:22px;}
+  .dash-tile-chev{position:absolute;right:14px;bottom:12px;font-size:18px;color:var(--tile-sub);}
+  .dash-tile-count{position:absolute;right:12px;bottom:12px;background:var(--tomato);color:var(--on-accent);font-size:11px;font-weight:800;border-radius:9px;padding:1px 7px;}
+  .inv-tool-ring.tool-products{background:var(--tool-products-bg);color:var(--tool-products-ink);}
+  .inv-tool-ring.tool-manual{background:var(--tool-manual-bg);color:var(--tool-manual-ink);font-size:26px;font-weight:700;}
+  /* En los temas App Store TODO lo de adentro de una tarjeta de color va en
+     blanco: badges, números de estado, cifras de dinero, anillo y botoncitos —
+     el color de la tarjeta ya dice el estado. */
+  html[data-dusty-theme^="appstore"] .dash-tile{box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  html[data-dusty-theme^="appstore"] .dash-budget.ok, html[data-dusty-theme^="appstore"] .dash-budget.warn, html[data-dusty-theme^="appstore"] .dash-budget.crit{box-shadow:0 10px 30px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.35);}
+  html[data-dusty-theme^="appstore"] .dash-tile-badge, html[data-dusty-theme^="appstore"] .dash-tile-badge.ok, html[data-dusty-theme^="appstore"] .dash-tile-badge.warn, html[data-dusty-theme^="appstore"] .dash-tile-badge.crit{background:rgba(255,255,255,.28);color:#fff;}
+  html[data-dusty-theme^="appstore"] .dash-tile-num, html[data-dusty-theme^="appstore"] .dash-tile-count{color:#fff;}
+  html[data-dusty-theme^="appstore"] .dash-tile-count{background:rgba(255,255,255,.28);}
+  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-kv b, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-kv b, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-kv b{color:#fff;}
+  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-ring-track, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-ring-track, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-ring-track{stroke:rgba(255,255,255,.28);}
+  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-ring-fill, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-ring-fill, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-ring-fill{stroke:#fff;}
+  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-chip, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-chip, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-chip,
+  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-pencil-btn, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-pencil-btn, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-pencil-btn{background:rgba(255,255,255,.22);border-color:transparent;color:#fff;}
+  html[data-dusty-theme^="appstore"] .dash-budget .budget-pace, html[data-dusty-theme^="appstore"] .dash-budget .budget-pace.warn, html[data-dusty-theme^="appstore"] .dash-budget .budget-pace.crit{color:var(--bs);}
+  html[data-dusty-theme^="appstore"] .shelf-scan-fab, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-products, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-manual{color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.35);}
+  html[data-dusty-theme^="appstore"] .scan-fab-ring{background:rgba(96,167,239,.28);}
   /* ===== INVENTARIO reorganizado (maqueta aprobada 2026-09-07, "exactamente así") ===== */
   /* 1. Franja de números: Valor y Potencial lado a lado. */
   .inv-stats{display:flex;gap:8px;margin:4px 0 14px;}
