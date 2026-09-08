@@ -344,7 +344,8 @@ function schedulePagePrewarm(){
 // la animación de switchToTab(), porque ahí el DOM no se vuelve a dibujar de cero
 // pero la página visible sí puede haber cambiado de alto.
 let viewportSyncedContentH = -1, viewportSyncedInnerH = -1; // lo último medido (ver scheduleViewportSync)
-function syncViewportHeight(){
+let viewportShrinkFrame = null;
+function syncViewportHeight(diferirEncogido){
   const viewport = document.querySelector('.view-viewport');
   const pages = document.querySelectorAll('.view-page');
   const idx = TAB_ORDER.indexOf(activeTab);
@@ -366,9 +367,10 @@ function syncViewportHeight(){
   const viewportDocTop = viewport.getBoundingClientRect().top + window.scrollY;
   const fillHeight = Math.max(0, window.innerHeight - viewportDocTop - navHeight);
   const totalHeight = Math.max(contentHeight, fillHeight);
-  viewportSyncedContentH = Math.round(contentHeight);
-  viewportSyncedInnerH = window.innerHeight;
-  viewport.style.height = totalHeight + 'px';
+  const aplicar = ()=>{
+    viewportSyncedContentH = Math.round(contentHeight);
+    viewportSyncedInnerH = window.innerHeight;
+    viewport.style.height = totalHeight + 'px';
   // El fondo gris solo arranca EXACTO donde termina el contenido real (contentHeight)
   // — arriba de esa línea queda transparente, tal como estaba siempre, para no tapar
   // el degradé verde de marca del <body> que se sigue viendo (a propósito) en los
@@ -376,9 +378,42 @@ function syncViewportHeight(){
   // punta a punta (como se probó antes) tapaba también esa parte de arriba y dejaba
   // un corte feo justo donde arranca el contenido — acá el corte cae exactamente
   // donde el contenido real ya terminó, así no se nota.
-  viewport.style.background = totalHeight>contentHeight
-    ? `linear-gradient(to bottom, transparent ${contentHeight}px, var(--bg) ${contentHeight}px)`
-    : 'none';
+    viewport.style.background = totalHeight>contentHeight
+      ? `linear-gradient(to bottom, transparent ${contentHeight}px, var(--bg) ${contentHeight}px)`
+      : 'none';
+  };
+  /* ENCOGER EL DOCUMENTO, UN CUADRO DESPUÉS (reporte del usuario 2026-09-08:
+     "parpadea toda esa zona al deslizar de Inventario al Dashboard", y "empezó
+     desde que le metí muchos datos").
+     Al asentarse un cambio de pestaña pasan tres cosas EN EL MISMO CUADRO: se le
+     quita el translateY a las páginas vecinas (clearPageOffsets), el documento
+     se lleva al scroll recordado (restoreScrollForTab) y acá el alto se ajusta a
+     la página nueva. Las tres están pensadas para cancelarse y lo logran —el
+     contenido no se mueve— pero el navegador igual re-rasteriza la página
+     entera, y eso se ve como un destello justo en el pie del contenido, donde
+     se juntan las tarjetas de color, el borde del fondo y la sombra de la barra.
+     Medido: yendo de Inventario al Dashboard el alto cae de golpe 490 px con 10
+     productos (imperceptible) pero 36.692 px con 400 — 43 pantallas en un
+     cuadro. Por eso "empezó" al cargar datos: el mecanismo estuvo siempre, los
+     datos lo hicieron visible.
+     Solo se difiere ENCOGER. Crecer se aplica ya mismo porque restoreScrollForTab
+     corre en este mismo cuadro y necesita el documento largo para poder llevar el
+     scroll a donde estaba (si no, se recorta). Un documento 2 cuadros más largo de
+     la cuenta no se nota; uno más corto sí. */
+  const altoActual = parseFloat(viewport.style.height) || 0;
+  if(diferirEncogido && altoActual > totalHeight + 1){
+    if(viewportShrinkFrame) cancelAnimationFrame(viewportShrinkFrame);
+    viewportShrinkFrame = requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      viewportShrinkFrame = null;
+      // Pudo haber otro cambio de pestaña mientras tanto: ese render ya ajustó
+      // el alto a SU página y pisar con esta medida vieja sería el salto que se
+      // quiere evitar.
+      if(TAB_ORDER.indexOf(activeTab)!==idx) return;
+      aplicar();
+    }));
+    return;
+  }
+  aplicar();
 }
 /* El alto fijo de arriba se medía UNA vez por render y nada lo volvía a
    medir (auditoría de scroll 2026-09-07). Todo lo que cambia el alto de la

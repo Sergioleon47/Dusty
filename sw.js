@@ -329,7 +329,12 @@
 // tarjeta — había quedado solo en Ajustes › Cuenta, a tres toques, cuando la
 // fila del inventario que también lo traía dejó de dibujarse; se borra esa
 // función muerta — app-03 + app-05.
-const CACHE_NAME = 'patron-shell-v98';
+// v99: destello en el pie del Dashboard al deslizar desde Inventario (reporte
+// del usuario 2026-09-08, "empezó desde que le metí muchos datos"): el alto
+// del documento se encogía en el MISMO cuadro en que se quita el offset del
+// carrusel y salta el scroll — con 400 productos son 36.692 px de golpe.
+// Ahora encoger espera un cuadro; crecer sigue siendo inmediato — app-04/06.
+const CACHE_NAME = 'patron-shell-v99';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

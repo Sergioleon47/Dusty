@@ -3901,7 +3901,11 @@ function commitTabSwitchLight(tab, track){
   });
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   clearPageOffsets();
-  syncViewportHeight();
+  // true = si el documento tiene que ENCOGER, que lo haga un cuadro después: en
+  // este mismo cuadro ya se quitó el offset de las páginas y enseguida corre
+  // restoreScrollForTab, y hacer las tres cosas juntas re-rasteriza la página
+  // entera — el destello del pie del contenido (ver la nota en syncViewportHeight).
+  syncViewportHeight(true);
   schedulePagePrewarm(); // las que quedaron lejos se destapan en tiempo libre (app-04)
 }
 /* Cambia de pestaña animando el .view-track que YA está en el DOM, en vez de
