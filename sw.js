@@ -292,7 +292,12 @@
 // tras cada render y cada asentado): destaparlas en el toque costaba su primer
 // layout+pintado (~60 ms en escritorio, un tirón en teléfono) al arrancar el
 // deslizamiento hacia Recibos o Catálogo — app-04/06.
-const CACHE_NAME = 'patron-shell-v90';
+// v91: capa de composición propia (will-change) para todo lo que late — punto y
+// anillo de la barra de abajo, anillo del escáner, anillo de la alerta de
+// presupuesto, overlay de "toca contar" — y la barra fija como capa estable:
+// parpadeo reportado en iOS en la franja sobre la barra (su sombra de 24 px)
+// mientras el punto latía — css.
+const CACHE_NAME = 'patron-shell-v91';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
