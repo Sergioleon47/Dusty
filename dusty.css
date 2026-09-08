@@ -256,7 +256,10 @@
     --tile-4:linear-gradient(170deg, #b7acfe, #826bfe);   /* Top-Selling Games */
     --tile-5:linear-gradient(170deg, #f3cd84, #ecb048);   /* Photo & Video */
     --tile-6:linear-gradient(170deg, #ffa9eb, #f280c2);   /* Walking */
-    --tile-ok:var(--tile-3);
+    /* La tarjeta de presupuesto en verde un punto MÁS OSCURO que la de Pedido
+       sugerido (pedido del usuario 2026-09-08): con el verde pastel las letras
+       blancas de las cifras se lavaban. */
+    --tile-ok:linear-gradient(170deg, #7ec97a, #3ea64b);
     --tile-warn:linear-gradient(170deg, #ffde86, #e8b55d); /* Media Readers */
     --tile-crit:linear-gradient(170deg, #fea391, #fd7c6a); /* Lifestyle */
     --tile-scan:linear-gradient(170deg, #accff6, #60a7ef); /* Productivity */
