@@ -1016,13 +1016,15 @@ function inventarioView(){
       ${ocTotal>0 ? `<span class="inv-tool-badge">${money(ocTotal)}</span>` : ''}
       <span class="inv-tool-label">${t('inv_tool_order')}</span>
     </button>
+    ${/* Escanear estante en el MEDIO (pedido del usuario 2026-09-08, "ponla en
+         el medio"), como el escáner de recibos del Dashboard. */''}
+    ${shelfScanFab()}
     ${/* Conteo: mismo id cc-banner que la línea roja vieja — abre el conteo cíclico. */''}
     <button type="button" class="inv-tool" id="cc-banner" title="${t('cc_btn')}">
       <span class="inv-tool-ring tool-count">${countSvg}</span>
       ${ccDue ? '<span class="inv-tool-dot"></span>' : ''}
       <span class="inv-tool-label">${t('inv_tool_count')}</span>
     </button>
-    ${shelfScanFab()}
   </div>` : ''}
   ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
       `<button type="button" class="btn btn-primary" id="btn-inv-empty-scan">${t('dash_empty_scan_btn')}</button>
