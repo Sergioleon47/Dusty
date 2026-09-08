@@ -110,7 +110,8 @@
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
   /* ================= TEMAS DE COLOR (Ajustes → Tema de colores) =================
-     10 temas elegibles por el usuario (pedido 2026-09-06). Cada uno es SOLO un
+     Temas elegibles por el usuario (pedido 2026-09-06; Bosque, Uva, Rosa y
+     Dorado se quitaron el 2026-09-08). Cada uno es SOLO un
      bloque de variables sobre html[data-dusty-theme] — todo lo derivado con
      color-mix() en :root (softs, washes, tintas, resplandor del fondo, degradé
      de botones) se recalcula solo. El atributo lo pone un mini-script inline en
@@ -122,22 +123,6 @@
   html[data-dusty-theme="oceano"]{
     --navy:#4da3ff; --navy-soft:#7db9ff;
     --bg:#0d1220; --panel:#161c2b; --inset:#101624; --raised:#1e2536; --raised-2:#252d41; --line:#242c40;
-  }
-  html[data-dusty-theme="bosque"]{
-    --navy:#2fd08c; --navy-soft:#63e0ad;
-    --bg:#0d1411; --panel:#151f1a; --inset:#0f1713; --raised:#1c2822; --raised-2:#233029; --line:#24322b;
-  }
-  html[data-dusty-theme="uva"]{
-    --navy:#a78bfa; --navy-soft:#c3aefc;
-    --bg:#120f1d; --panel:#1a1629; --inset:#140f22; --raised:#221d33; --raised-2:#2a243f; --line:#2a2440;
-  }
-  html[data-dusty-theme="rosa"]{
-    --navy:#ff6b9d; --navy-soft:#ff94b8;
-    --bg:#160f14; --panel:#20171e; --inset:#180f16; --raised:#291d27; --raised-2:#32242f; --line:#332430;
-  }
-  html[data-dusty-theme="dorado"]{
-    --navy:#f0b429; --navy-soft:#f6c95e;
-    --bg:#14110a; --panel:#1d1910; --inset:#16130b; --raised:#262114; --raised-2:#2e2819; --line:#2e2817;
   }
   html[data-dusty-theme="medianoche"]{
     --navy:#22d3ee; --navy-soft:#5ce1f2;
@@ -271,18 +256,6 @@
      App Store tienen sus degradés muestreados aparte. */
   html[data-dusty-theme="oceano"]{ /* azules fríos: el naranja se enfría a coral y el verde a teal */
     --hue-1:#4da3ff; --hue-2:#f58a5a; --hue-3:#2fd0a8; --hue-4:#8b7cff; --hue-5:#f0c04a; --hue-6:#ff7bb0;
-  }
-  html[data-dusty-theme="bosque"]{ /* verdes de bosque: amarillo a oro-oliva, violeta apagado */
-    --hue-1:#4fa3d8; --hue-2:#e8964a; --hue-3:#2fd08c; --hue-4:#9c8be0; --hue-5:#d9b84a; --hue-6:#e07ab0;
-  }
-  html[data-dusty-theme="uva"]{ /* uva: azul tirando a índigo, rosa tirando a orquídea */
-    --hue-1:#6f8cff; --hue-2:#f28b6b; --hue-3:#4ecf9d; --hue-4:#a78bfa; --hue-5:#f0c05a; --hue-6:#f07acb;
-  }
-  html[data-dusty-theme="rosa"]{ /* rosa: el acento ocupa el rol rosa, el resto suave */
-    --hue-1:#6b9df0; --hue-2:#ff8f5f; --hue-3:#3ecf9a; --hue-4:#b08bf5; --hue-5:#f4bd52; --hue-6:#ff6b9d;
-  }
-  html[data-dusty-theme="dorado"]{ /* dorado: el acento ocupa el rol amarillo */
-    --hue-1:#5f9ae0; --hue-2:#f09a3e; --hue-3:#4cc98a; --hue-4:#a58cf0; --hue-5:#f0b429; --hue-6:#e57ab0;
   }
   html[data-dusty-theme="medianoche"]{ /* medianoche: neones sobre negro puro, azul = cian del acento */
     --hue-1:#22d3ee; --hue-2:#ff8a5b; --hue-3:#34d399; --hue-4:#a78bfa; --hue-5:#fbbf24; --hue-6:#f472b6;

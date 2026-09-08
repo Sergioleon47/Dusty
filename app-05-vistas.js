@@ -1605,36 +1605,43 @@ function monthlySpendModal(){
    Preferencia del DISPOSITIVO (localStorage, como la vista del inventario) —
    no viaja por sync. index.html re-aplica el atributo al abrir, sin parpadeo. */
 const DUSTY_THEMES = [
-  {id:'night',      es:'Noche',      en:'Night',    bg:'#0f1115', accent:'#ff6b35'},
-  {id:'oceano',     es:'Océano',     en:'Ocean',    bg:'#0d1220', accent:'#4da3ff'},
-  {id:'bosque',     es:'Bosque',     en:'Forest',   bg:'#0d1411', accent:'#2fd08c'},
-  {id:'uva',        es:'Uva',        en:'Grape',    bg:'#120f1d', accent:'#a78bfa'},
-  {id:'rosa',       es:'Rosa',       en:'Rose',     bg:'#160f14', accent:'#ff6b9d'},
-  {id:'dorado',     es:'Dorado',     en:'Gold',     bg:'#14110a', accent:'#f0b429'},
-  {id:'medianoche', es:'Medianoche', en:'Midnight', bg:'#000000', accent:'#22d3ee'},
+  // Orden (pedido del usuario 2026-09-08): primero los OSCUROS, después los
+  // CLAROS. Bosque, Uva, Rosa y Dorado se quitaron a pedido (sus bloques de
+  // CSS también); un dispositivo que los tenía guardados vuelve a Noche.
+  {id:'night',          es:'Noche',       en:'Night',     bg:'#0f1115', accent:'#ff6b35'},
+  {id:'oceano',         es:'Océano',      en:'Ocean',     bg:'#0d1220', accent:'#4da3ff'},
+  {id:'medianoche',     es:'Medianoche',  en:'Midnight',  bg:'#000000', accent:'#22d3ee'},
   // Paletas de referencia del usuario (2026-09-06) — oscuras:
-  {id:'esmeralda',  es:'Esmeralda',  en:'Emerald',  bg:'#0C3B2E', accent:'#FFBA00'},
-  {id:'indigo',     es:'Índigo',     en:'Indigo',   bg:'#2a2645', accent:'#F0C38E'},
-  {id:'rubi',       es:'Rubí',       en:'Ruby',     bg:'#181B24', accent:'#CC324C'},
-  {id:'zafiro',     es:'Zafiro',     en:'Sapphire', bg:'#232e4a', accent:'#73B7F1'},
-  {id:'claro',      es:'Claro',      en:'Light',    bg:'#f3f4f8', accent:'#e85d24'},
-  {id:'crema',      es:'Crema',      en:'Cream',    bg:'#f6f1e7', accent:'#c65b2e'},
-  {id:'menta',      es:'Menta',      en:'Mint',     bg:'#eef6f1', accent:'#0fa37f'},
-  // — y claras:
-  {id:'pastel',     es:'Pastel',     en:'Pastel',   bg:'#e7f8ff', accent:'#87AEEE'},
-  {id:'electrico',  es:'Eléctrico',  en:'Electric', bg:'#f7f2ff', accent:'#752FFF'},
-  {id:'coral',      es:'Coral',      en:'Coral',    bg:'#fdf7e8', accent:'#FF5844'},
-  {id:'miel',       es:'Miel',       en:'Honey',    bg:'#FCF1DA', accent:'#E38C4C'},
-  // Pedidos por captura 2026-09-07 (Robinhood / App Store):
-  {id:'robin',      es:'Robin',      en:'Robin',    bg:'#ffffff', accent:'#00c805'},
-  {id:'cupertino',  es:'Cupertino',  en:'Cupertino', bg:'#f2f2f7', accent:'#007aff'},
-  // "App Store" (pedido por captura 2026-09-08): tarjetas del Dashboard con los
-  // degradados pastel de la pestaña Buscar del App Store, claro y sobre oscuro.
-  {id:'appstore',       es:'App Store',   en:'App Store',  bg:'#ffffff', accent:'#71a3e9'},
+  {id:'esmeralda',      es:'Esmeralda',   en:'Emerald',   bg:'#0C3B2E', accent:'#FFBA00'},
+  {id:'indigo',         es:'Índigo',      en:'Indigo',    bg:'#2a2645', accent:'#F0C38E'},
+  {id:'rubi',           es:'Rubí',        en:'Ruby',      bg:'#181B24', accent:'#CC324C'},
+  {id:'zafiro',         es:'Zafiro',      en:'Sapphire',  bg:'#232e4a', accent:'#73B7F1'},
+  // "Store noche" (2026-09-08): las tarjetas del App Store sobre el oscuro.
   {id:'appstore-noche', es:'Store noche', en:'Store dark', bg:'#0f1115', accent:'#71a3e9'},
+  // — y claros:
+  {id:'claro',          es:'Claro',       en:'Light',     bg:'#f3f4f8', accent:'#e85d24'},
+  {id:'crema',          es:'Crema',       en:'Cream',     bg:'#f6f1e7', accent:'#c65b2e'},
+  {id:'menta',          es:'Menta',       en:'Mint',      bg:'#eef6f1', accent:'#0fa37f'},
+  {id:'pastel',         es:'Pastel',      en:'Pastel',    bg:'#e7f8ff', accent:'#87AEEE'},
+  {id:'electrico',      es:'Eléctrico',   en:'Electric',  bg:'#f7f2ff', accent:'#752FFF'},
+  {id:'coral',          es:'Coral',       en:'Coral',     bg:'#fdf7e8', accent:'#FF5844'},
+  {id:'miel',           es:'Miel',        en:'Honey',     bg:'#FCF1DA', accent:'#E38C4C'},
+  // Pedidos por captura 2026-09-07 (Robinhood / App Store):
+  {id:'robin',          es:'Robin',       en:'Robin',     bg:'#ffffff', accent:'#00c805'},
+  {id:'cupertino',      es:'Cupertino',   en:'Cupertino', bg:'#f2f2f7', accent:'#007aff'},
+  // "App Store" (pedido por captura 2026-09-08): tarjetas del Dashboard con los
+  // degradados pastel de la pestaña Buscar del App Store, en claro.
+  {id:'appstore',       es:'App Store',   en:'App Store', bg:'#ffffff', accent:'#71a3e9'},
 ];
 let dustyTheme = 'night';
-try{ const v = localStorage.getItem('patron_theme'); if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v; }catch(e){}
+try{
+  const v = localStorage.getItem('patron_theme');
+  if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v;
+  // Tema guardado que ya no existe (Bosque/Uva/Rosa/Dorado, quitados el
+  // 2026-09-08): se limpia el atributo que puso index.html y la preferencia,
+  // para que el dispositivo quede en Noche de verdad y no en un tema fantasma.
+  else if(v && v!=='night'){ document.documentElement.removeAttribute('data-dusty-theme'); localStorage.removeItem('patron_theme'); }
+}catch(e){}
 /* LATIDOS de aviso (pedido del usuario 2026-09-07): un interruptor en Ajustes apaga
    o prende las palpitaciones de Inventario (conteo pendiente, stock crítico, días
    del calendario) y de Presupuesto (barra, tarjeta de alerta, punto del Dashboard).
