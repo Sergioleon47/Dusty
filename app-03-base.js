@@ -651,6 +651,9 @@ const I18N = {
     dash_tile_health:'{p}% salud del stock', dash_tile_health_none:'Sin datos todavía', dash_tile_count_none:'Nada pendiente',
     dash_ring_spent:'gastado', dash_kv_expenses:'Gastos', dash_kv_budget:'Presupuesto', dash_kv_invest:'Inversión', dash_kv_left:'Quedan', dash_kv_over:'Excedido',
     dash_add_spend_chip:'＋ Gasto',
+    // Tarjeta de resumen del Catálogo (2026-09-08).
+    catalog_ring_listed:'en catálogo', catalog_kv_listed:'En catálogo', catalog_kv_nophoto:'Sin foto', catalog_kv_cats:'Categorías',
+    catalog_kv_status:'Estado', catalog_status_live:'Publicado', catalog_status_off:'Sin publicar', catalog_card_open:'Ver catálogo', catalog_card_publish:'Publicar',
     settings_help_btn:'❓ Ayuda y reportar un problema',
     theme_title:'Tema de colores',
     pulse_label:'Latidos de aviso', pulse_helper:'Las palpitaciones de Inventario (conteo pendiente, stock crítico) y de Presupuesto (barra, alerta, punto del Dashboard). Apagalas si te distraen o para ahorrar batería.',
@@ -1277,6 +1280,8 @@ const I18N = {
     dash_tile_health:'{p}% stock health', dash_tile_health_none:'No data yet', dash_tile_count_none:'Nothing pending',
     dash_ring_spent:'spent', dash_kv_expenses:'Expenses', dash_kv_budget:'Budget', dash_kv_invest:'Investment', dash_kv_left:'Left', dash_kv_over:'Over',
     dash_add_spend_chip:'＋ Expense',
+    catalog_ring_listed:'listed', catalog_kv_listed:'Listed', catalog_kv_nophoto:'No photo', catalog_kv_cats:'Categories',
+    catalog_kv_status:'Status', catalog_status_live:'Live', catalog_status_off:'Not published', catalog_card_open:'View catalog', catalog_card_publish:'Publish',
     settings_help_btn:'❓ Help and report a problem',
     theme_title:'Color theme',
     pulse_label:'Alert pulses', pulse_helper:'The pulsing in Inventory (count due, critical stock) and Budget (bar, alert card, Dashboard dot). Turn them off if they distract you or to save battery.',

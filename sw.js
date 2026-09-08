@@ -262,7 +262,9 @@
 // en color, chip activo en color, tarjetas blancas), Recibos (mes, días con
 // recibo y Cierre de mes en color) y Catálogo (anillos en color). Y los 21
 // temas de siempre con su PROPIA paleta de tarjetas (seis tonos por tema,
-// degradés derivados: profundos en oscuro, pastel en claro) — app-03/05 + css.
+// degradés derivados: profundos en oscuro, pastel en claro). Y el Catálogo con
+// su tarjeta de resumen arriba (anillo de publicados, en catálogo / sin foto /
+// categorías / estado, Compartir y Ver catálogo) — app-03/05/07 + css.
 const CACHE_NAME = 'patron-shell-v85';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.

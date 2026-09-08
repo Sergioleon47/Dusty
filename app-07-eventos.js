@@ -768,6 +768,21 @@ function attachEvents(){
       if(!url){ showCatalogPublishModal=true; render(); return; }
       await shareCatalogLink(url);
     };
+    // Tarjeta de resumen del Catálogo (2026-09-08): Compartir hace lo mismo que
+    // el anillo de la fila; "Ver catálogo" abre el link público (o Publicación
+    // si todavía no hay link).
+    const btnCardShare=document.getElementById('btn-catalog-card-share');
+    if(btnCardShare) btnCardShare.onclick=async()=>{
+      const url=catalogUrl();
+      if(!url){ showCatalogPublishModal=true; render(); return; }
+      await shareCatalogLink(url);
+    };
+    const btnCardOpen=document.getElementById('btn-catalog-card-open');
+    if(btnCardOpen) btnCardOpen.onclick=()=>{
+      const url=catalogUrl();
+      if(!url){ showCatalogPublishModal=true; render(); return; }
+      window.open(url, '_blank', 'noopener');
+    };
     const publishOverlay=document.getElementById('catalog-publish-overlay');
     if(publishOverlay){
       publishOverlay.onmousedown=(e)=>{ if(e.target===publishOverlay) closeCatalogPublishModal(); };
