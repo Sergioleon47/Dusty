@@ -321,7 +321,11 @@
 // mala pero viva (no falla, tarda) abrir la app se quedaba colgado en los ~15
 // pedidos del shell aunque la copia guardada estuviera lista. Ahora la red
 // tiene 2,5 s y después se sirve el caché, actualizando por detrás — sw.
-const CACHE_NAME = 'patron-shell-v96';
+// v97: compartir una foto hacia Dusty (share_target) — el POST de Android se
+// atiende en el SW, la foto va a un caché aparte y la app la levanta al
+// arrancar y abre el escaneo con ella; accesos directos del ícono; caché de
+// íconos y fondos por una semana — manifest + sw + app-07 + netlify.toml.
+const CACHE_NAME = 'patron-shell-v97';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
@@ -367,14 +371,53 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(names => Promise.all(
-        names.filter(name => name !== CACHE_NAME && name !== PHOTO_CACHE).map(name => caches.delete(name))
+        names.filter(name => name !== CACHE_NAME && name !== PHOTO_CACHE && name !== SHARE_CACHE).map(name => caches.delete(name))
       ))
       .then(() => self.clients.claim())
   );
 });
 
+/* COMPARTIR UNA FOTO HACIA DUSTY (manifest.json → share_target). Android manda
+   la foto como POST multipart a /?compartir=1; ese POST no existe como ruta en
+   Netlify, así que si llegara a la red devolvería un error. Se atiende acá:
+   la foto se guarda en un caché aparte y se responde con una redirección a la
+   app, que al arrancar la levanta y abre el escaneo con ella (ver
+   tomarFotoCompartida en app-07). Sin esto, el flujo entero no existe. */
+const SHARE_CACHE = 'patron-compartido';
+const SHARE_SLOT = '/__compartido__';
+async function recibirCompartido(req){
+  try{
+    const form = await req.formData();
+    const fotos = form.getAll('fotos').filter(f => f && f.size > 0);
+    if(fotos.length){
+      const cache = await caches.open(SHARE_CACHE);
+      // Se guarda UNA entrada por foto, numerada, para conservar el orden en que
+      // las eligió (un recibo largo puede venir en varias páginas).
+      await cache.put(SHARE_SLOT, new Response(String(fotos.length), {
+        headers: {'Content-Type':'text/plain'} }));
+      for(let i=0;i<fotos.length;i++){
+        await cache.put(SHARE_SLOT + '/' + i, new Response(fotos[i], {
+          headers: {'Content-Type': fotos[i].type || 'image/jpeg'} }));
+      }
+    }
+  }catch(err){
+    console.error('[Dusty] no se pudo recibir la foto compartida:', err);
+  }
+  // 303: el navegador cambia el POST por un GET a la app, así recargar no
+  // reenvía la foto.
+  return Response.redirect('/?compartir=listo', 303);
+}
+
 self.addEventListener('fetch', event => {
   const req = event.request;
+
+  const urlCompartir = new URL(req.url);
+  if (req.method === 'POST' && urlCompartir.origin === self.location.origin
+      && urlCompartir.searchParams.get('compartir') === '1') {
+    event.respondWith(recibirCompartido(req));
+    return;
+  }
+
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);

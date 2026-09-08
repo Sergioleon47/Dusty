@@ -2965,6 +2965,70 @@ try{
     setTimeout(()=>{ if(cloudSyncPending){ cloudSyncPending = false; render(); } }, 8000);
   }
 }catch(e){}
+/* ===== FOTO COMPARTIDA HACIA DUSTY (share_target del manifest) =====
+   Android deja elegir Dusty en la hoja de "Compartir" de la galería o de la
+   cámara. El service worker atiende ese POST, guarda las fotos en un caché
+   aparte y redirige acá con ?compartir=listo (ver recibirCompartido en sw.js).
+   Este arranque las levanta, abre el escaneo y las mete como páginas con
+   addScanPage(), el mismo camino que si las hubiera elegido del selector — así
+   no hay dos rutas distintas para lo mismo.
+   Sin sesión de escaneo previa: openScanModal() deja el estado limpio primero.
+   El caché se vacía siempre, incluso si algo falla, para que la próxima apertura
+   de la app no vuelva a abrir el escaneo con una foto vieja. */
+const SHARE_CACHE_APP = 'patron-compartido';
+const SHARE_SLOT_APP = '/__compartido__';
+async function tomarFotoCompartida(){
+  let cache = null;
+  try{
+    if(!('caches' in window)) return;
+    cache = await caches.open(SHARE_CACHE_APP);
+    const conteo = await cache.match(SHARE_SLOT_APP);
+    if(!conteo) return;
+    const n = parseInt(await conteo.text(), 10) || 0;
+    const archivos = [];
+    for(let i=0;i<n;i++){
+      const res = await cache.match(SHARE_SLOT_APP + '/' + i);
+      if(!res) continue;
+      const blob = await res.blob();
+      if(!blob || !blob.size) continue;
+      archivos.push(new File([blob], 'compartida-' + (i+1) + '.jpg',
+        {type: blob.type || 'image/jpeg'}));
+    }
+    if(!archivos.length) return;
+    openScanModal();
+    // En orden y de a una (await), igual que el selector de galería: así las
+    // páginas quedan en el orden en que las eligió, no en el que terminan.
+    for(const f of archivos) await addScanPage(f);
+  }catch(err){
+    console.error('[Dusty] no se pudo abrir la foto compartida:', err);
+    reportClientError(err, 'compartir');
+  }finally{
+    try{
+      if(cache){
+        const claves = await cache.keys();
+        await Promise.all(claves.map(k=>cache.delete(k)));
+      }
+    }catch(e){}
+    // La URL vuelve a la normal: recargar no debe re-disparar el escaneo.
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+  }
+}
+/* Accesos directos del ícono (shortcuts del manifest): ?ir=escanear / ?ir=inventario. */
+function aplicarAccesoDirecto(destino){
+  if(destino === 'escanear'){ openScanModal(); }
+  else if(TAB_ORDER.includes(destino)){
+    activeTab = destino;
+    try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){}
+    render();
+  }
+  try{ history.replaceState(null, '', location.pathname); }catch(e){}
+}
+try{
+  const params = new URLSearchParams(location.search);
+  if(params.get('compartir') === 'listo') tomarFotoCompartida();
+  else if(params.get('ir')) aplicarAccesoDirecto(params.get('ir'));
+}catch(e){}
+
 // Avisos de presupuesto (auditoría 2026-09-07): se arman recién después del
 // arranque (y de la posible bajada de la nube) para no gritar con datos a medio
 // cargar; el primer chequeo cubre el caso de abrir la app ya pasado el umbral.
