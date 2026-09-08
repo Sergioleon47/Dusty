@@ -2429,45 +2429,9 @@ function catalogoView(){
   const recipeTile = (r)=> tile('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), !!r.inCatalog);
   const url = catalogUrl();
   return `
-  ${/* TARJETA DE RESUMEN arriba (pedido del usuario 2026-09-08, captura del
-       Dashboard con la tarjeta de presupuesto marcada: "a esta solo hay que
-       ponerle esa parte de arriba"). Misma pieza que la del presupuesto
-       (.dash-budget): anillo con el % de productos publicados y cuatro cifras
-       — en catálogo, sin foto, categorías y estado — chip Compartir y el link
-       "Ver catálogo" (o "Publicar" si todavía no hay link). Verde publicado,
-       ámbar sin publicar. (Reemplaza al encabezado que se había quitado el
-       2026-09-06; la lista sigue abriendo justo debajo de las herramientas.)
-       Lo operativo (WhatsApp, publicar, despublicar) sigue al FINAL. */''}
-  ${(()=>{
-    const total = sellables.length + sellableRecipes.length;
-    if(total===0) return '';
-    const listed = sellables.filter(i=>i.inCatalog).length + sellableRecipes.filter(r=>r.inCatalog).length;
-    const noPhoto = sellables.filter(i=>!catalogPhotoThumbSrc(i.photo)).length;
-    const cats = groupRowsByCategory(sellables.map(i=>({ing:i}))).length;
-    const pct = Math.round(listed/total*100);
-    const CIRC = 251.3;
-    const dash = (CIRC * (1 - pct/100)).toFixed(1);
-    return `
-  <div class="stat-card dash-month dash-budget catalog-card ${url ? 'ok' : 'warn'}">
-    <div class="dash-budget-head">
-      <span class="stat-label">${t('settings_catalog_title')}${businessName ? ' · ' + escapeHtml(businessName) : ''}</span>
-      <button type="button" class="dash-chip" id="btn-catalog-card-share" title="${t('catalog_share_btn')}">${lineIcon('share',13)} ${t('catalog_share_btn')}</button>
-    </div>
-    <div class="dash-budget-body">
-      <div class="dash-ring" role="img" aria-label="${pct}% ${t('catalog_ring_listed')}">
-        <svg viewBox="0 0 96 96"><circle class="dash-ring-track" cx="48" cy="48" r="40" stroke-width="10" fill="none"/><circle class="dash-ring-fill ${url ? 'ok' : 'warn'}" cx="48" cy="48" r="40" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="${CIRC}" stroke-dashoffset="${dash}"/></svg>
-        <div class="dash-ring-center"><b>${pct}%</b><small>${t('catalog_ring_listed')}</small></div>
-      </div>
-      <div class="dash-kv">
-        <div><span>${t('catalog_kv_listed')}</span><b>${listed} / ${total}</b></div>
-        <div><span>${t('catalog_kv_nophoto')}</span><b>${noPhoto}</b></div>
-        <div><span>${t('catalog_kv_cats')}</span><b>${cats}</b></div>
-        <div><span>${t('catalog_kv_status')}</span><b>${url ? t('catalog_status_live') : t('catalog_status_off')}</b></div>
-      </div>
-    </div>
-    <button class="link-btn" id="btn-catalog-card-open" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${url ? t('catalog_card_open') : t('catalog_card_publish')} ›</button>
-  </div>`;
-  })()}
+  ${/* Sin encabezado ni tarjeta de link arriba (el usuario lo tachó de raíz,
+       captura 2026-09-06). Lo operativo (WhatsApp, publicar, despublicar)
+       vive compacto al FINAL, después de la lista. */''}
   ${/* FILA DE HERRAMIENTAS con etiqueta (referencia del usuario 2026-09-06:
        una app de edición "bien organizada" — botones grandes redondos con su
        nombre debajo, parejos): Galería · CÁMARA (la protagonista, más grande,
@@ -2478,7 +2442,7 @@ function catalogoView(){
       const tool = (id, inner, label, extra)=>`
         <button type="button" id="${id}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
           ${inner}
-          <span style="font-size:12.5px;font-weight:700;color:var(--ink);${extra||''}">${label}</span>
+          <span class="cat-tool-label" style="${extra||''}">${label}</span>
         </button>`;
       const ring = (svg, cls, on)=>`
         <span class="cat-tool-ring ${cls}" style="${on?'outline:3px solid var(--sky);outline-offset:2px;':''}">${svg}</span>`;
@@ -2490,7 +2454,12 @@ function catalogoView(){
          tarjeta redondeada — la casa de las herramientas del catálogo. */''}
     ${/* Sin tarjeta contenedora (el usuario la tachó, captura 2026-09-06): los
          círculos flotan directo sobre la página, cada uno ya trae su sombra. */''}
-    <div style="margin:16px 0 6px;">
+    ${/* CUADRO DE COLOR (pedido del usuario 2026-09-08, captura del Dashboard
+         con la tarjeta verde marcada: "solo poner en el cuadro la cámara y lo
+         demás"): la fila de herramientas vive dentro de la misma tarjeta de
+         color que el presupuesto (.dash-budget.ok), con los anillos ribeteados
+         en blanco para que ninguno se pierda contra el fondo. */''}
+    <div class="stat-card dash-month dash-budget ok catalog-tools-card">
       ${/* SIN engranaje (el usuario lo borró de raíz): la publicación es
            AUTOMÁTICA — cada cambio del catálogo se publica solo (ver
            scheduleCatalogAutoPublish). La config de una vez vive en la primera
@@ -2519,7 +2488,7 @@ function catalogoView(){
             <span class="shelf-scan-fab" style="display:flex;">${lineIcon('camera',32)}</span>
             <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
           </span>
-          <span style="font-size:12.5px;font-weight:800;color:var(--ink);">${t('catalog_tool_camera')}</span>
+          <span class="cat-tool-label" style="font-weight:800;">${t('catalog_tool_camera')}</span>
         </button>
       </div>
     </div>`;
