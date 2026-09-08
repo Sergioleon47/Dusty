@@ -3864,6 +3864,23 @@ function animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, onSettled)
   }
   trackSpringFrame = requestAnimationFrame(frame);
 }
+/* Lo que render() haría al asentarse un cambio de pestaña, sin volver a armar
+   el template: track a su posición en % (así el próximo render no lo mueve),
+   .active en la página nueva y .far en las que quedan a 2+ (mismo criterio que
+   renderApp), barra de abajo, offsets de alineación fuera y alto del viewport
+   medido contra la página nueva. */
+function commitTabSwitchLight(tab, track){
+  const idx = TAB_ORDER.indexOf(tab);
+  track.style.transition = '';
+  track.style.transform = `translateX(-${idx*(100/TAB_ORDER.length)}%)`;
+  document.querySelectorAll('.view-page').forEach((p, i)=>{
+    p.classList.toggle('active', i===idx);
+    p.classList.toggle('far', Math.abs(i-idx)>1);
+  });
+  document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
+  clearPageOffsets();
+  syncViewportHeight();
+}
 /* Cambia de pestaña animando el .view-track que YA está en el DOM, en vez de
    redibujar todo de una — un reemplazo de innerHTML no puede animar una transición
    (el elemento nuevo no tiene "posición anterior" de la cual partir), pero mover el
@@ -3942,8 +3959,20 @@ function switchToTab(tab, initialVelocityPxPerSec){
   const startSpring = ()=> animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
     activeTab = tab;
     try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){}
-    renderPendingAfterGesture = false; // este render ya va a mostrar todo al día
-    render();
+    /* ASENTADO LIVIANO (auditoría 2026-09-08): el render completo de acá
+       (template entero + morphdom, 25-55 ms en escritorio, un tirón de
+       100-250 ms en un teléfono con inventario grande) no cambiaba nada del
+       contenido — las cuatro páginas ya estaban al día. Lo único que depende
+       de la pestaña activa es el transform del track (a %), las clases
+       .active/.far de las páginas, la barra de abajo y el alto del viewport:
+       se ajustan a mano. Solo si un render quedó pospuesto durante la
+       animación (snapshot de la nube, latido) se hace el render completo. */
+    if(renderPendingAfterGesture){
+      renderPendingAfterGesture = false; // este render ya va a mostrar todo al día
+      render();
+    } else {
+      commitTabSwitchLight(tab, track);
+    }
     // Mismo cuadro que el render (síncrono): el documento se lleva al scroll
     // recordado de la pestaña nueva; el offset con el que se la mostró durante
     // el gesto ya no existe, y las dos cosas se cancelan — no se ve moverse.

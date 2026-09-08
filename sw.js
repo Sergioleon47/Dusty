@@ -284,7 +284,11 @@
 // durante todo el resorte y aparecía de golpe al asentarse. Ahora se destapan
 // las páginas que pasan por debajo del deslizamiento antes de medir, y el
 // resorte arranca un cuadro después, con la página ya pintada — app-06.
-const CACHE_NAME = 'patron-shell-v88';
+// v89: asentado LIVIANO del cambio de pestaña: al terminar el resorte ya no se
+// re-arma el template entero (25-55 ms en escritorio, un tirón en teléfono):
+// solo se ajustan transform/.active/.far/barra/alto del viewport; el render
+// completo queda para cuando quedó uno pospuesto durante la animación — app-06.
+const CACHE_NAME = 'patron-shell-v89';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
