@@ -550,6 +550,26 @@ function dashboardView(){
       <span class="dash-tile-sub">${t('dash_production_sub')}</span>
       <span class="dash-tile-chev">›</span>
     </button>
+    ${/* EQUIPO: compartir la cuenta para que un empleado escanee y cuente.
+         Quedó SOLO en Ajustes › Cuenta —a tres toques, entre la copia de
+         seguridad y la política de privacidad— cuando la fila del inventario
+         que también lo traía dejó de dibujarse (ver el borrado de
+         inventoryMenuRow). Para el dueño que acaba de contratar a alguien ese
+         no es un lugar donde se le ocurra buscar, así que vuelve al Dashboard.
+         Mismo id que usaba aquella fila: attachEvents ya lo cablea a
+         shareAccountFlow, no hay lógica nueva.
+         VA ANTES de Actividad a propósito: esa tarjeta es condicional (pide
+         sesión o haberla tenido), así que sin sesión quedan seis tarjetas —
+         tres filas parejas— en vez de una suelta al final.
+         Reusa t1 (azul) porque solo hay seis tonos definidos por tema y una de
+         las siete tiene que repetir; Críticos, el otro t1, casi siempre está en
+         rojo cuando hay alertas y queda arriba del todo, lejos de esta. */''}
+    <button type="button" class="dash-tile t1" id="btn-share-account">
+      <span class="dash-tile-icon" aria-hidden="true">👥</span>
+      <span class="dash-tile-title">${t('dash_team_title')}</span>
+      <span class="dash-tile-sub">${t('dash_team_sub')}</span>
+      <span class="dash-tile-chev">›</span>
+    </button>
     ${(currentUser || hadCloudSessionBefore()) ? `
     <button type="button" class="dash-tile t6" id="btn-inventory-activity">
       <span class="dash-tile-icon" aria-hidden="true">📈</span>
@@ -562,32 +582,14 @@ function dashboardView(){
   `;
 }
 
-/* INTERCAMBIO 2026-09-04 (pedido del usuario): el menú de acciones del
-   inventario (escanear productos, alta manual, producción, conteo, actividad,
-   categorías) vive en el DASHBOARD — donde estaban los chips de categoría — y
-   los chips se mudaron a la pestaña Inventario, junto a los productos que
-   filtran. Los ids no cambian: attachEvents los encuentra igual en cualquier
-   pestaña (las tres páginas del carrusel se renderizan siempre). */
-function inventoryMenuRow(){
-  return `
-  <div class="inv-header-actions" style="margin-bottom:16px;">
-    ${/* Orden pedido por el usuario 2026-09-04: Escanear primero y en amarillo
-         (EL camino recomendado), Alta manual, COMPARTIR CUENTA tercero (abre
-         el modal de equipo; sin sesión real, primero login/guardar cuenta),
-         Actividad, y Producción DE ÚLTIMO. "Crear categoría" salió de raíz:
-         vive en Ajustes → Categorías. Producción sigue acá — sin este botón,
-         el hub entero (recetas, producir, historial de salidas) es inalcanzable. */''}
-    <button class="btn btn-primary inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
-    <button class="btn btn-ghost inv-row-btn" id="btn-new-item">${t('btn_add_manually')}</button>
-    <button class="btn btn-ghost inv-row-btn" id="btn-share-account">${t('share_account_btn')}</button>
-    ${(currentUser || hadCloudSessionBefore()) ? `
-    <button class="btn btn-ghost inv-row-btn" id="btn-inventory-activity">
-      ${t('btn_inventory_activity')}${unreadActivityCount()>0?`<span class="count-badge">${unreadActivityCount()>99?'99+':unreadActivityCount()}</span>`:''}
-    </button>
-    ` : ''}
-    <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
-  </div>`;
-}
+/* La fila de acciones del inventario (inventoryMenuRow) se borró acá el
+   2026-09-08: quedó definida pero SIN NINGUNA LLAMADA tras una reorganización
+   anterior, así que no se dibujaba en ninguna pantalla mientras su comentario
+   seguía afirmando que "el botón del menú del Dashboard sigue". Sus cinco
+   botones viven todos en el Dashboard con los mismos ids —Escanear productos y
+   Alta manual en .inv-tools, Actividad y Producción como tarjetas, y Compartir
+   cuenta en la tarjeta de Equipo que reemplaza a este bloque—, así que no se
+   perdió ningún acceso: se sacó código que confundía al leer el archivo. */
 /* Fila de chips de categoría — vive en INVENTARIO (antes en el Dashboard):
    tocar uno filtra la lista a esa categoría (data-open-category en attachEvents
    y el filtro inventoryCategoryFilter). El número es cuántos productos tiene

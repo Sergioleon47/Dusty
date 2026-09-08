@@ -325,7 +325,11 @@
 // atiende en el SW, la foto va a un caché aparte y la app la levanta al
 // arrancar y abre el escaneo con ella; accesos directos del ícono; caché de
 // íconos y fondos por una semana — manifest + sw + app-07 + netlify.toml.
-const CACHE_NAME = 'patron-shell-v97';
+// v98: Equipo (compartir la cuenta con un empleado) vuelve al Dashboard como
+// tarjeta — había quedado solo en Ajustes › Cuenta, a tres toques, cuando la
+// fila del inventario que también lo traía dejó de dibujarse; se borra esa
+// función muerta — app-03 + app-05.
+const CACHE_NAME = 'patron-shell-v98';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
