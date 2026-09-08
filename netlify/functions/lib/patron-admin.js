@@ -71,7 +71,10 @@ async function verifyCallerInfo(event) {
       // Cuenta "real" pero con email nunca verificado: crear una cuesta lo mismo
       // que una anónima (cero — cualquier email inventado sirve), así que su cupo
       // por defecto es más chico (ver reserveScanQuota). Firma del token, no body.
-      emailVerified: !!decoded.email_verified
+      emailVerified: !!decoded.email_verified,
+      // Para la lista de cuentas sin límite (UNLIMITED_EMAILS, abajo). Sale de la
+      // firma del token, no del body.
+      email: typeof decoded.email === 'string' ? decoded.email.toLowerCase() : null
     };
   } catch (e) {
     return null;
@@ -105,6 +108,18 @@ const UNVERIFIED_SCAN_LIMIT = 15;
 // son gratis, las IPs no. Generoso para un negocio real (hasta un lote de recibos
 // grande por hora), asfixiante para un script.
 const IP_RATE_LIMIT_PER_HOUR = 30;
+// PASE DEL DUEÑO (pedido del usuario 2026-09-08: "me dice que ya usé el límite,
+// dame un pase para seguir probando"): cuentas que NO descuentan cupo — la del
+// dueño de la app, para probar sin toparse con el tope del plan. Lista de
+// correos separados por coma en la variable de entorno DUSTY_UNLIMITED_EMAILS
+// de Netlify; sin la variable, queda el correo del dueño. Solo aplica a cuentas
+// con email (no al trial anónimo) y el correo sale del token de Firebase, no
+// del body. El tope por IP (arriba) sigue aplicando igual.
+const UNLIMITED_EMAILS = String(process.env.DUSTY_UNLIMITED_EMAILS || 'sergioleon47@hotmail.com')
+  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+function isUnlimitedCaller(caller) {
+  return !!(caller && !caller.isAnonymous && caller.email && UNLIMITED_EMAILS.includes(caller.email));
+}
 
 function currentBillingPeriod() {
   const d = new Date();
@@ -129,6 +144,9 @@ async function callerCanUseAccount(callerUid, ownerUid) {
    transacción, no llama a Claude. Si Claude después falla sin llegar a cobrar
    (error de red), refundScanUsage() devuelve la unidad. */
 async function reserveScanQuota(ownerUid, caller, count = 1) {
+  // Pase del dueño: ni chequea ni descuenta (limit/used en null → el cliente no
+  // muestra "quedan N"; period en null → refundScanUsage no devuelve nada).
+  if (isUnlimitedCaller(caller)) return { allowed: true, limit: null, used: null, period: null, unlimited: true };
   const db = admin.firestore();
   const ref = db.doc(`users/${ownerUid}/meta/billing`);
   const period = currentBillingPeriod();
@@ -164,6 +182,8 @@ async function reserveScanQuota(ownerUid, caller, count = 1) {
 // cobrarse (fetch que revienta por red). Los 502 de "Claude contestó basura" NO se
 // refundan a propósito: esa llamada sí costó plata real.
 async function refundScanUsage(ownerUid, count, period) {
+  // Reserva del pase del dueño (period null): no se descontó nada, nada que devolver.
+  if (!period) return;
   try {
     const db = admin.firestore();
     const ref = db.doc(`users/${ownerUid}/meta/billing`);
@@ -226,6 +246,8 @@ async function checkIpRateLimit(event) {
 // plata en la llamada a Claude, perder el conteo de UN uso no vale la pena comparado
 // con mostrarle un error después de que todo salió bien.
 async function recordScanUsage(ownerUid, count, period) {
+  // Reserva del pase del dueño (period null): tampoco se cuentan los extras del lote.
+  if (!period) return;
   try {
     const db = admin.firestore();
     const ref = db.doc(`users/${ownerUid}/meta/billing`);
