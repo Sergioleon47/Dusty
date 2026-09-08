@@ -426,10 +426,14 @@ function dashboardView(){
     const sp = spendSplitForMonth(currentMonthKey);
     const p = budgetPace(currentMonthKey);
     const canEdit = canSeeFinancials();
-    const addChip = `<button type="button" class="dash-chip" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">${t('dash_add_spend_chip')}</button>`;
+    const addChip = `<button type="button" class="dash-chip primary" id="btn-add-manual-spend" title="${t('manual_spend_title')}" aria-label="${t('manual_spend_title')}">${t('dash_add_spend_chip')}</button>`;
+    // El lápiz va PEGADO a la cifra del presupuesto (pedido del usuario
+    // 2026-09-08: arriba, junto a "+ Gasto", las dos pastillas se parecían y
+    // no se sabía cuál era cuál) — edita lo que tiene al lado. "+ Gasto" queda
+    // solo arriba como acción principal (chip blanco sólido).
     const pencil = canEdit ? `
-        <button type="button" class="dash-pencil-btn" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        <button type="button" class="dash-kv-edit" id="btn-edit-budget" title="${t('dash_edit_budget')}" aria-label="${t('dash_edit_budget')}">
+          <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>` : '';
     const seeAll = `<button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')} ›</button>`;
     if(!p){
@@ -453,7 +457,7 @@ function dashboardView(){
     const dash = (CIRC * (1 - pctShown/100)).toFixed(1);
     return `
   <div class="stat-card dash-month dash-budget ${p.status}">
-    <div class="dash-budget-head"><span class="stat-label">${monthLabel(currentMonthKey, uiLang)}</span>${addChip}${pencil}</div>
+    <div class="dash-budget-head"><span class="stat-label">${monthLabel(currentMonthKey, uiLang)}</span>${addChip}</div>
     <div class="dash-budget-body">
       <div class="dash-ring" role="img" aria-label="${Math.round(p.pct)}% ${t('dash_ring_spent')}">
         <svg viewBox="0 0 96 96"><circle class="dash-ring-track" cx="48" cy="48" r="40" stroke-width="10" fill="none"/><circle class="dash-ring-fill ${p.status}" cx="48" cy="48" r="40" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="${CIRC}" stroke-dashoffset="${dash}"/></svg>
@@ -461,7 +465,7 @@ function dashboardView(){
       </div>
       <div class="dash-kv">
         <div><span>${t('dash_kv_expenses')}</span><b>${money(p.expense)}</b></div>
-        <div><span>${t('dash_kv_budget')}</span><b>${money(p.budget)}</b></div>
+        <div><span>${t('dash_kv_budget')}</span><b>${money(p.budget)}${pencil}</b></div>
         <div><span>${t('dash_kv_invest')}</span><b class="pos">${money(sp.invested)}</b></div>
         ${p.left>=0
           ? `<div><span>${t('dash_kv_left')}</span><b class="pos">${money(p.left)}</b></div>`

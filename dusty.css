@@ -1539,6 +1539,14 @@
   .dash-budget-head .stat-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .dash-chip{border:1px solid var(--line);background:var(--raised);color:var(--ink-mid);font-family:inherit;font-size:12px;font-weight:700;border-radius:99px;padding:5px 11px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
   .dash-chip:active{transform:scale(.95);}
+  /* "+ Gasto" como acción principal de la tarjeta: blanco sólido con el texto
+     del color del estado. El lápiz vive junto a la cifra del presupuesto. */
+  .dash-budget.ok .dash-chip.primary, .dash-budget.warn .dash-chip.primary, .dash-budget.crit .dash-chip.primary{background:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(0,0,0,.14);}
+  .dash-budget.ok .dash-chip.primary{color:color-mix(in oklch, var(--money-pos), black 38%);}
+  .dash-budget.warn .dash-chip.primary{color:color-mix(in oklch, var(--money-warn), black 38%);}
+  .dash-budget.crit .dash-chip.primary{color:color-mix(in oklch, var(--money-neg), black 30%);}
+  .dash-kv-edit{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin-left:4px;vertical-align:middle;border:none;border-radius:50%;background:color-mix(in srgb, currentColor 18%, transparent);color:inherit;cursor:pointer;padding:0;opacity:.9;}
+  .dash-kv-edit:active{transform:scale(.9);}
   .dash-budget-body{display:flex;align-items:center;gap:16px;margin-top:10px;}
   .dash-ring{position:relative;width:96px;height:96px;flex-shrink:0;}
   .dash-ring svg{width:96px;height:96px;transform:rotate(-90deg);display:block;}
@@ -1587,7 +1595,7 @@
   html .dash-budget.ok .dash-kv b, html .dash-budget.warn .dash-kv b, html .dash-budget.crit .dash-kv b{color:#fff;}
   html .dash-budget.ok .dash-ring-track, html .dash-budget.warn .dash-ring-track, html .dash-budget.crit .dash-ring-track{stroke:rgba(255,255,255,.28);}
   html .dash-budget.ok .dash-ring-fill, html .dash-budget.warn .dash-ring-fill, html .dash-budget.crit .dash-ring-fill{stroke:#fff;}
-  html .dash-budget.ok .dash-chip, html .dash-budget.warn .dash-chip, html .dash-budget.crit .dash-chip,
+  html .dash-budget.ok .dash-chip:not(.primary), html .dash-budget.warn .dash-chip:not(.primary), html .dash-budget.crit .dash-chip:not(.primary),
   html .dash-budget.ok .dash-pencil-btn, html .dash-budget.warn .dash-pencil-btn, html .dash-budget.crit .dash-pencil-btn{background:rgba(255,255,255,.22);border-color:transparent;color:#fff;}
   html .dash-budget .budget-pace, html .dash-budget .budget-pace.warn, html .dash-budget .budget-pace.crit{color:var(--bs);}
   html .shelf-scan-fab, html .inv-tool-ring.tool-products, html .inv-tool-ring.tool-manual{color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.35);}
