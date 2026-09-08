@@ -85,6 +85,13 @@
     --tile-scan:linear-gradient(145deg, var(--sky-bright), var(--basil) 65%);
     --tool-products-bg:var(--saffron-soft); --tool-products-ink:var(--saffron-ink);
     --tool-manual-bg:var(--navy-wash); --tool-manual-ink:var(--navy-ink);
+    /* Inventario (Pedido, Conteo) y Catálogo (Collage, Plantillas, Compartir):
+       mismos colores de siempre por defecto; los temas App Store los pintan. */
+    --tool-order-bg:var(--saffron-soft); --tool-order-ink:var(--saffron-ink);
+    --tool-count-bg:var(--tomato-soft); --tool-count-ink:var(--tomato);
+    --cat-collage-bg:linear-gradient(145deg, var(--tomato-soft), var(--panel)); --cat-collage-ink:var(--tomato);
+    --cat-templates-bg:linear-gradient(145deg, var(--saffron-soft), var(--panel)); --cat-templates-ink:var(--saffron-ink);
+    --cat-share-bg:linear-gradient(145deg, var(--sky-soft), var(--panel)); --cat-share-ink:var(--sky-ink);
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
@@ -265,6 +272,11 @@
     --tile-scan:linear-gradient(170deg, #accff6, #60a7ef); /* Productivity */
     --tool-products-bg:var(--tile-2); --tool-products-ink:#ffffff;
     --tool-manual-bg:var(--tile-6); --tool-manual-ink:#ffffff;
+    --tool-order-bg:var(--tile-5); --tool-order-ink:#ffffff;
+    --tool-count-bg:var(--tile-crit); --tool-count-ink:#ffffff;
+    --cat-collage-bg:var(--tile-crit); --cat-collage-ink:#ffffff;
+    --cat-templates-bg:var(--tile-5); --cat-templates-ink:#ffffff;
+    --cat-share-bg:var(--tile-3); --cat-share-ink:#ffffff;
   }
   html[data-dusty-theme="appstore"]{
     --navy:#3f8fe3; --navy-soft:#71a3e9;
@@ -1501,6 +1513,35 @@
   html[data-dusty-theme^="appstore"] .dash-budget .budget-pace, html[data-dusty-theme^="appstore"] .dash-budget .budget-pace.warn, html[data-dusty-theme^="appstore"] .dash-budget .budget-pace.crit{color:var(--bs);}
   html[data-dusty-theme^="appstore"] .shelf-scan-fab, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-products, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-manual{color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.35);}
   html[data-dusty-theme^="appstore"] .scan-fab-ring{background:rgba(96,167,239,.28);}
+  .inv-tool-ring.tool-order{background:var(--tool-order-bg);color:var(--tool-order-ink);}
+  .inv-tool-ring.tool-count{background:var(--tool-count-bg);color:var(--tool-count-ink);}
+  .cat-tool-ring{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform .15s;}
+  .cat-tool-ring.cat-collage{background:var(--cat-collage-bg);color:var(--cat-collage-ink);}
+  .cat-tool-ring.cat-templates{background:var(--cat-templates-bg);color:var(--cat-templates-ink);}
+  .cat-tool-ring.cat-share{background:var(--cat-share-bg);color:var(--cat-share-ink);}
+  /* ===== Temas App Store en las OTRAS pestañas (pedido del usuario 2026-09-08:
+     "que se vean similar a la primera sin romper funciones"). Solo CSS sobre
+     las mismas clases: Inventario — Valor y Potencial como tarjetas verde y
+     azul, anillos de Pedido/Conteo/Escanear en amarillo/coral/azul, el chip
+     activo en color y las tarjetas de producto blancas (el color queda para
+     lo que pide atención). Recibos — mes, días con recibo y Cierre de mes en
+     color. Catálogo — anillos de herramientas en color. ===== */
+  html[data-dusty-theme^="appstore"] .inv-stat{border:0;border-radius:18px;padding:12px 14px;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.35);}
+  html[data-dusty-theme^="appstore"] .inv-stat:first-child{background:var(--tile-ok);}
+  html[data-dusty-theme^="appstore"] .inv-stat:last-child{background:var(--tile-1);}
+  html[data-dusty-theme^="appstore"] .inv-stat-label, html[data-dusty-theme^="appstore"] .inv-stat-note{color:rgba(255,255,255,.85);}
+  html[data-dusty-theme^="appstore"] .inv-stat-value{color:#fff;}
+  html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-order, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-count, html[data-dusty-theme^="appstore"] .cat-tool-ring{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  html[data-dusty-theme^="appstore"] .inv-chips .category-chip.on{background:var(--tile-1);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
+  html[data-dusty-theme^="appstore"] .inv-chips .category-chip.quick.on{background:var(--tile-2);border-color:transparent;color:#fff;}
+  html[data-dusty-theme^="appstore"] .inv-chips .category-chip.on span, html[data-dusty-theme^="appstore"] .inv-chips .category-chip.quick.on span{background:rgba(255,255,255,.3);color:#fff;}
+  html[data-dusty-theme^="appstore"] .inv-tile{background:var(--panel);border-color:var(--line);border-radius:18px;box-shadow:var(--shadow);}
+  html[data-dusty-theme^="appstore"] .cal-month-label{background:var(--tile-1);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
+  html[data-dusty-theme^="appstore"] .cal-weekday{color:var(--navy);}
+  html[data-dusty-theme^="appstore"] .cal-day.has-receipt{background:var(--tile-4);}
+  html[data-dusty-theme^="appstore"] .cal-day.has-receipt .cal-day-receipt-icon{color:#fff;}
+  html[data-dusty-theme^="appstore"] .cal-recap-btn{background:var(--tile-ok);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(0,0,0,.12);}
+  html[data-dusty-theme^="appstore"] .cal-widget, html[data-dusty-theme^="appstore"] .dish-card{border-radius:18px;}
   /* ===== INVENTARIO reorganizado (maqueta aprobada 2026-09-07, "exactamente así") ===== */
   /* 1. Franja de números: Valor y Potencial lado a lado. */
   .inv-stats{display:flex;gap:8px;margin:4px 0 14px;}

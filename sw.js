@@ -257,7 +257,10 @@
 // módulos (Críticos, Toca contar, Pedido, Último recibo, Producción,
 // Actividad) como tarjetas en dos columnas con ícono y badge. Dos temas
 // nuevos "App Store" (claro y noche) con los degradados pastel muestreados
-// de la captura del usuario — app-03/05 + css.
+// de la captura del usuario. Y las otras pestañas con el mismo estilo en esos
+// temas: Inventario (Valor/Potencial en verde y azul, anillos de Pedido/Conteo
+// en color, chip activo en color, tarjetas blancas), Recibos (mes, días con
+// recibo y Cierre de mes en color) y Catálogo (anillos en color) — app-03/05 + css.
 const CACHE_NAME = 'patron-shell-v85';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.

@@ -1005,13 +1005,13 @@ function inventarioView(){
   <div class="inv-tools">
     ${/* Pedido: mismo id oc-card que la tarjeta vieja — attachOrderCalcEvents lo abre. */''}
     <button type="button" class="inv-tool" id="oc-card" aria-expanded="${orderCalcOpen}" title="${t('oc_card_label')}">
-      <span class="inv-tool-ring" style="background:var(--saffron-soft);color:var(--saffron-ink);">🧮</span>
+      <span class="inv-tool-ring tool-order">🧮</span>
       ${ocTotal>0 ? `<span class="inv-tool-badge">${money(ocTotal)}</span>` : ''}
       <span class="inv-tool-label">${t('inv_tool_order')}</span>
     </button>
     ${/* Conteo: mismo id cc-banner que la línea roja vieja — abre el conteo cíclico. */''}
     <button type="button" class="inv-tool" id="cc-banner" title="${t('cc_btn')}">
-      <span class="inv-tool-ring" style="background:var(--tomato-soft);color:var(--tomato);">${countSvg}</span>
+      <span class="inv-tool-ring tool-count">${countSvg}</span>
       ${ccDue ? '<span class="inv-tool-dot"></span>' : ''}
       <span class="inv-tool-label">${t('inv_tool_count')}</span>
     </button>
@@ -2446,8 +2446,8 @@ function catalogoView(){
           ${inner}
           <span style="font-size:12.5px;font-weight:700;color:var(--ink);${extra||''}">${label}</span>
         </button>`;
-      const ring = (svg, bg, fg, on)=>`
-        <span style="width:54px;height:54px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform .15s;${on?'outline:3px solid var(--sky);outline-offset:2px;':''}">${svg}</span>`;
+      const ring = (svg, cls, on)=>`
+        <span class="cat-tool-ring ${cls}" style="${on?'outline:3px solid var(--sky);outline-offset:2px;':''}">${svg}</span>`;
       const shareSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>';
       const collageSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>';
       return `
@@ -2473,11 +2473,11 @@ function catalogoView(){
              DERECHA — donde cae el pulgar. Galería se FUSIONÓ en la Cámara
              (pedido del usuario: "eso ahí está demasiado"): sin capture, el
              teléfono ofrece Tomar foto y Fototeca en la misma hoja nativa. */''}
-        ${tool('btn-catalog-collage', ring(collageSvg, 'linear-gradient(145deg, var(--tomato-soft, #4a2a28), var(--panel))', 'var(--tomato)'), t('catalog_tool_collage'))}
+        ${tool('btn-catalog-collage', ring(collageSvg, 'cat-collage'), t('catalog_tool_collage'))}
         ${/* PLANTILLAS (pedido del usuario 2026-09-07): catálogo en grilla, lista
              de precios, menú de restaurante u oferta, como imagen para compartir. */''}
-        ${tool('btn-catalog-templates', ring('<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>', 'linear-gradient(145deg, var(--saffron-soft), var(--panel))', 'var(--saffron-ink)'), t('catalog_tool_templates'))}
-        ${tool('btn-catalog-share-top', ring(shareSvg, 'linear-gradient(145deg, var(--sky-soft), var(--panel))', 'var(--sky-ink)'), t('catalog_share_btn'))}
+        ${tool('btn-catalog-templates', ring('<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>', 'cat-templates'), t('catalog_tool_templates'))}
+        ${tool('btn-catalog-share-top', ring(shareSvg, 'cat-share'), t('catalog_share_btn'))}
         <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:76px;">
           ${/* Mismo porte que los escáneres (76px de .shelf-scan-fab, ícono 32 —
                pedido del usuario 2026-09-07): sin el override de 64px de antes. */''}
