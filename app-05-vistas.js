@@ -2454,12 +2454,9 @@ function catalogoView(){
          tarjeta redondeada — la casa de las herramientas del catálogo. */''}
     ${/* Sin tarjeta contenedora (el usuario la tachó, captura 2026-09-06): los
          círculos flotan directo sobre la página, cada uno ya trae su sombra. */''}
-    ${/* CUADRO DE COLOR (pedido del usuario 2026-09-08, captura del Dashboard
-         con la tarjeta verde marcada: "solo poner en el cuadro la cámara y lo
-         demás"): la fila de herramientas vive dentro de la misma tarjeta de
-         color que el presupuesto (.dash-budget.ok), con los anillos ribeteados
-         en blanco para que ninguno se pierda contra el fondo. */''}
-    <div class="stat-card dash-month dash-budget ok catalog-tools-card">
+    ${/* Sin cuadro alrededor de las herramientas (el usuario lo quitó de raíz,
+         2026-09-08): los círculos flotan directo sobre la página. */''}
+    <div style="margin:16px 0 6px;">
       ${/* SIN engranaje (el usuario lo borró de raíz): la publicación es
            AUTOMÁTICA — cada cambio del catálogo se publica solo (ver
            scheduleCatalogAutoPublish). La config de una vez vive en la primera
