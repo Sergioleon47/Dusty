@@ -1904,6 +1904,16 @@ function budgetModal(){
         return `
       <div class="settings-card" style="margin-top:14px;">
         ${settingsCardHeader('chart','var(--saffron-soft)','var(--saffron-ink)',t('budget_exp_title'))}
+        ${/* Los botones de alta PRIMERO, bajo el título (pedido del usuario
+             2026-09-08: "vamos a subirlo de primero"): la foto de la boleta se
+             toma con el ESCÁNER DE RECIBOS de siempre — la IA detecta el
+             servicio y lo trae acá solo, la foto queda en el recibo — y
+             "+ Servicio" crea una cuenta recurrente a mano (antes decía
+             "+ A mano" y se confundía con el "+ Gasto" del Dashboard). */''}
+        <div style="display:flex;gap:8px;margin:0 0 12px;">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-scan-bill" style="flex:1.2;">${t('budget_exp_scan_btn')}</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-expense-item" style="flex:1;">${t('budget_exp_add_btn')}</button>
+        </div>
         ${/* Mismo resumen que el tablero (barra con marca de ritmo + "Gastos X de
              Y · Quedan Z") y el gasto real del mes por categoría con mini-barras
              (auditoría 2026-09-07). Sin presupuesto, la línea de siempre. */''}
@@ -1942,14 +1952,6 @@ function budgetModal(){
              quiera marca 150%") — se aclara de dónde sale el monto. */''}
         ${spent>0 && exp.length===0 ? `<div class="helper-note" style="margin:0 0 8px;color:var(--saffron-ink);">${t('budget_spent_no_bills_note')}</div>` : ''}
         ${body}
-        ${/* La foto de la boleta se toma con el ESCÁNER DE RECIBOS de siempre
-             (pregunta del usuario 2026-09-05): la IA detecta el servicio y lo
-             trae acá solo; la foto queda en el recibo (calendario de Recibos).
-             Este botón lo abre sin salir a buscar la cámara del Dashboard. */''}
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button type="button" class="btn btn-primary btn-sm" id="btn-scan-bill" style="flex:1.2;">${t('budget_exp_scan_btn')}</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-expense-item" style="flex:1;">${t('budget_exp_add_btn')}</button>
-        </div>
       </div>`;
       })()}
       <button type="button" class="link-btn" id="btn-budget-open-recap" style="width:100%;text-align:center;margin-top:12px;">${t('budget_open_recap')}</button>
