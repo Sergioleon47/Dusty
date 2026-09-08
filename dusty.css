@@ -1137,9 +1137,9 @@
      vea corriendo suave incluso si el usuario salta varios pasos de una. */
   .welcome-progress-row{display:flex;align-items:center;gap:10px;margin:14px 0 16px;}
   .welcome-progress-track{flex:1;height:4px;border-radius:99px;background:var(--bg);overflow:hidden;}
-  /* La transición de width la define la regla de más abajo (junto a la encuesta
-     de salida) — antes estaba duplicada acá y la de abajo la pisaba igual. */
-  .welcome-progress-fill{height:100%;border-radius:99px;background:var(--basil);}
+  /* La transición la define la regla de más abajo (junto a la encuesta de
+     salida) — antes estaba duplicada acá y la de abajo la pisaba igual. */
+  .welcome-progress-fill{height:100%;width:100%;border-radius:99px;background:var(--basil);transform-origin:left center;transform:scaleX(var(--fill,0));}
   .welcome-progress-pct{font-family:'IBM Plex Mono';font-size:11.5px;font-weight:700;color:var(--basil-ink);min-width:32px;text-align:right;font-variant-numeric:tabular-nums;}
   .welcome-dots{display:flex;justify-content:center;gap:9px;margin-bottom:4px;}
   .welcome-dot{width:7px;height:7px;border-radius:50%;cursor:pointer;padding:6px;margin:-6px;background-clip:content-box;transition:transform .25s ease,background .25s ease;}
@@ -1807,7 +1807,11 @@
     color:var(--ink-mid);font-size:13px;font-weight:600;cursor:pointer;transition:border-color .2s, background .2s, transform .15s;}
   .exit-reason-chip:active{transform:scale(.96);}
   .exit-reason-chip.on{border-color:var(--saffron);background:var(--saffron-soft);color:var(--saffron-ink);}
-  .welcome-progress-fill{transition:width .45s cubic-bezier(.32,.72,.25,1);}
+  /* scaleX y no width (segunda pasada 2026-09-08): era la única barra que
+     quedó animando una propiedad de layout tras pasar las demás al compositor
+     — cada cuadro de estos 450ms recalculaba el layout del modal entero, y el
+     tutorial es justo lo primero que ve un usuario nuevo. */
+  .welcome-progress-fill{transition:transform .45s cubic-bezier(.32,.72,.25,1);}
   /* División del gasto del mes: inversión (verde) vs gastos operativos (ámbar). */
   /* Botón del cierre de mes al pie del calendario de Recibos. */
   .cal-recap-btn{width:100%;margin-top:12px;padding:10px;border-radius:10px;border:1px solid var(--line);

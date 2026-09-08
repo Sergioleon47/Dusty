@@ -308,7 +308,11 @@
 // progreso por transform (compositor) en vez de width, esqueletos que reservan
 // el alto real mientras llega el primer snapshot (sin saltos), y el resorte
 // del swipe arranca en el mismo cuadro del pointerup — css + app-03/05/06/07.
-const CACHE_NAME = 'patron-shell-v93';
+// v94: segunda pasada de la auditoría de rendimiento — la barra de progreso
+// del tutorial era la única que seguía animando width (layout por cuadro en
+// la primera pantalla que ve un usuario nuevo); pasa a transform:scaleX como
+// el resto — css + app-06.
+const CACHE_NAME = 'patron-shell-v94';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
