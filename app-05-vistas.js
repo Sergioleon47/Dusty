@@ -2457,9 +2457,11 @@ function catalogoView(){
     ${/* CUADRO DE COLOR (pedido del usuario 2026-09-08, captura del Dashboard
          con la tarjeta verde marcada: "solo poner en el cuadro la cámara y lo
          demás"): la fila de herramientas vive dentro de la misma tarjeta de
-         color que el presupuesto (.dash-budget.ok), con los anillos ribeteados
-         en blanco para que ninguno se pierda contra el fondo. */''}
-    <div class="stat-card dash-month dash-budget ok catalog-tools-card">
+         color que el presupuesto (.dash-budget), en VIOLETA (--tile-4, pedido
+         del usuario: "la cámara ya es verde, escoge un color con el que el
+         menú se vea bien") — contrasta con el coral, el amarillo, el verde y
+         la cámara en cualquier tema — con los anillos ribeteados en blanco. */''}
+    <div class="stat-card dash-month dash-budget catalog-tools-card">
       ${/* SIN engranaje (el usuario lo borró de raíz): la publicación es
            AUTOMÁTICA — cada cambio del catálogo se publica solo (ver
            scheduleCatalogAutoPublish). La config de una vez vive en la primera
