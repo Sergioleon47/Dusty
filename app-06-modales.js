@@ -3910,13 +3910,36 @@ function switchToTab(tab, initialVelocityPxPerSec){
     });
     return;
   }
+  /* PÁGINAS LEJANAS (auditoría de cambio de pestaña 2026-09-08, medida cuadro
+     a cuadro con 150 productos y 120 recibos): render() marca .far (content-
+     visibility:hidden) a las páginas a 2+ pestañas de la activa, y un toque en
+     la barra puede ir justo a una de esas (Dashboard → Recibos, Inventario →
+     Catálogo). La página de destino entraba deslizándose VACÍA los ~600 ms del
+     resorte (alto 0, sin rasterizar) y aparecía de golpe recién en el render
+     del asentado — ese era el parpadeo al cambiar de página. Acá se destapan
+     TODAS las páginas antes de medir y de arrancar: alignPagesForSwipe ya las
+     mide con su alto real (con .far medía 0 y no estiraba el viewport), y el
+     resorte arranca recién en el cuadro siguiente, con la página ya pintada.
+     El render del asentado vuelve a poner .far a las que quedaron lejos. */
+  {
+    // Solo las que pasan por debajo del deslizamiento (de la actual a la de
+    // destino, inclusive): destapar las otras sería pintar y medir de más.
+    const a = TAB_ORDER.indexOf(activeTab), z = TAB_ORDER.indexOf(tab);
+    const lo = Math.min(a, z), hi = Math.max(a, z);
+    document.querySelectorAll('.view-page').forEach((p, i)=>{ if(i>=lo && i<=hi) p.classList.remove('far'); });
+    void track.offsetHeight; // fuerza el layout con las páginas ya destapadas
+  }
   // Toque en la barra de abajo (sin gesto previo): las páginas se alinean ACÁ.
   // Viniendo de un swipe ya están alineadas y volver a hacerlo es idempotente
   // (el scroll no se movió mientras el dedo arrastraba en horizontal).
   alignPagesForSwipe(activeTab);
   hapticTabTick();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
-  animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
+  // Un render de fondo que caiga entre este cuadro y el arranque del resorte
+  // volvería a tapar la página (o a mover el track): se pospone igual que
+  // durante la animación (render() mira trackAnimating).
+  trackAnimating = true;
+  const startSpring = ()=> animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
     activeTab = tab;
     try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){}
     renderPendingAfterGesture = false; // este render ya va a mostrar todo al día
@@ -3926,6 +3949,10 @@ function switchToTab(tab, initialVelocityPxPerSec){
     // el gesto ya no existe, y las dos cosas se cancelan — no se ve moverse.
     restoreScrollForTab(tab);
   });
+  // Dos rAF: el primero corre antes de pintar este cuadro; el segundo, con la
+  // página de destino ya rasterizada en pantalla. ~2 cuadros de espera (33 ms),
+  // imperceptibles — la barra de abajo ya marcó la pestaña nueva al instante.
+  requestAnimationFrame(()=>requestAnimationFrame(startSpring));
 }
 /* Deslizar hacia los lados entre pestañas, siguiendo el dedo en tiempo real (como
    cambiar de pantalla de apps en el iPhone) — no interfiere con un modal abierto

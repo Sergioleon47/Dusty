@@ -278,7 +278,13 @@
 // transición (cerrar un modal pasó de ~270 capas a 1), y los latidos de
 // presupuesto por opacidad/anillo en vez de filter y box-shadow animados —
 // app-04/05 + css.
-const CACHE_NAME = 'patron-shell-v87';
+// v88: PARPADEO AL CAMBIAR DE PESTAÑA (medido cuadro a cuadro): al tocar una
+// pestaña a 2+ de distancia (Dashboard → Recibos, Inventario → Catálogo) la
+// página de destino, marcada .far (content-visibility:hidden), entraba VACÍA
+// durante todo el resorte y aparecía de golpe al asentarse. Ahora se destapan
+// las páginas que pasan por debajo del deslizamiento antes de medir, y el
+// resorte arranca un cuadro después, con la página ya pintada — app-06.
+const CACHE_NAME = 'patron-shell-v88';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
