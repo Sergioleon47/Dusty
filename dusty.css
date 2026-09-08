@@ -77,10 +77,10 @@
        (--tile-drop). En oscuro las tarjetas van profundas (poco lift, más
        drop) para que la tinta blanca lea; en claro van pastel como en el App
        Store (la base clara cambia los dos porcentajes). Roles fijos:
-       1 azul (actividad / valor), 2 naranja (contar / productos), 3 verde
-       (pedido / compartir), 4 violeta (último recibo / días con recibo),
-       5 amarillo (producción / pedido / plantillas), 6 rosa (críticos /
-       a mano — pedido del usuario 2026-09-08: críticos en rosa, no en azul). --tile-ok/warn/crit salen del dinero (--money-*) para que la
+       1 azul (críticos en orden / valor), 2 naranja (contar / productos),
+       3 verde (pedido / compartir), 4 violeta (último recibo / días con
+       recibo), 5 amarillo (producción / pedido / plantillas), 6 rosa
+       (actividad / a mano). Críticos pasa a --tile-crit cuando hay alguno. --tile-ok/warn/crit salen del dinero (--money-*) para que la
        tarjeta de presupuesto diga el estado con el color de siempre. */
     --tile-lift:10%; --tile-drop:22%;
     --hue-1:#5b8def; --hue-2:#ff6b35; --hue-3:#3ddc97; --hue-4:#a78bfa; --hue-5:#f5a623; --hue-6:#ff6b9d;
@@ -1571,6 +1571,8 @@
   .dash-tile.static{cursor:default;}
   .dash-tile.t1{background:var(--tile-1);} .dash-tile.t2{background:var(--tile-2);} .dash-tile.t3{background:var(--tile-3);}
   .dash-tile.t4{background:var(--tile-4);} .dash-tile.t5{background:var(--tile-5);} .dash-tile.t6{background:var(--tile-6);}
+  /* Críticos con al menos un producto crítico: rojo, como el presupuesto excedido. */
+  .dash-tile.alert{background:var(--tile-crit);}
   .dash-tile-icon{position:absolute;top:8px;right:10px;font-size:38px;line-height:1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.22));pointer-events:none;}
   .dash-tile-badge{font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;background:var(--raised-2);color:var(--ink-mid);margin-bottom:14px;}
   .dash-tile-badge.ok{background:var(--money-pos-soft);color:var(--money-pos-ink);}
