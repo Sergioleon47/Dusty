@@ -69,29 +69,43 @@
     --shadow-sm:0 1px 2px rgba(0,0,0,0.45);
     --shadow:0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.35);
     --shadow-lg:0 12px 20px rgba(0,0,0,0.5), 0 24px 64px rgba(0,0,0,0.6);
-    /* ===== TARJETAS DEL DASHBOARD (maqueta aprobada 2026-09-08, "anillo +
-       cuadrícula" con los colores del App Store). Los temas de siempre dejan
-       las tarjetas NEUTRAS (panel + tinta normal, como el resto de la app); los
-       dos temas "App Store" (abajo) llenan estos tokens con los degradados
-       pastel muestreados de la captura del usuario y ponen la tinta en blanco.
-       --tile-1..6: fondo de cada tarjeta de la cuadrícula (críticos, contar,
-       pedido, último recibo, producción, actividad); --tile-ok/warn/crit: fondo
-       de la tarjeta de presupuesto según su estado; --tile-scan: el botón de
-       escanear; --tool-*: los dos anillos de la fila de herramientas. */
-    --tile-ink:var(--ink); --tile-sub:var(--ink-soft); --tile-border:var(--line);
-    --tile-1:var(--panel); --tile-2:var(--panel); --tile-3:var(--panel);
-    --tile-4:var(--panel); --tile-5:var(--panel); --tile-6:var(--panel);
-    --tile-ok:var(--panel); --tile-warn:var(--panel); --tile-crit:var(--panel);
+    /* ===== TARJETAS DE COLOR (maqueta aprobada 2026-09-08, "anillo +
+       cuadrícula" con los colores del App Store; extendido a TODOS los temas
+       a pedido del usuario). Cada tema declara seis TONOS base (--hue-1..6,
+       ver "PALETA DE TARJETAS POR TEMA" más abajo) y de acá salen solos los
+       degradés: arriba el tono aclarado (--tile-lift), abajo oscurecido
+       (--tile-drop). En oscuro las tarjetas van profundas (poco lift, más
+       drop) para que la tinta blanca lea; en claro van pastel como en el App
+       Store (la base clara cambia los dos porcentajes). Roles fijos:
+       1 azul (críticos / valor), 2 naranja (contar / productos), 3 verde
+       (pedido / compartir), 4 violeta (último recibo / días con recibo),
+       5 amarillo (producción / pedido / plantillas), 6 rosa (actividad /
+       a mano). --tile-ok/warn/crit salen del dinero (--money-*) para que la
+       tarjeta de presupuesto diga el estado con el color de siempre. */
+    --tile-lift:10%; --tile-drop:22%;
+    --hue-1:#5b8def; --hue-2:#ff6b35; --hue-3:#3ddc97; --hue-4:#a78bfa; --hue-5:#f5a623; --hue-6:#ff6b9d;
+    --tile-ink:#ffffff; --tile-sub:rgba(255,255,255,.85); --tile-border:transparent;
+    --tile-1:linear-gradient(170deg, color-mix(in oklch, var(--hue-1), white var(--tile-lift)), color-mix(in oklch, var(--hue-1), black var(--tile-drop)));
+    --tile-2:linear-gradient(170deg, color-mix(in oklch, var(--hue-2), white var(--tile-lift)), color-mix(in oklch, var(--hue-2), black var(--tile-drop)));
+    --tile-3:linear-gradient(170deg, color-mix(in oklch, var(--hue-3), white var(--tile-lift)), color-mix(in oklch, var(--hue-3), black var(--tile-drop)));
+    --tile-4:linear-gradient(170deg, color-mix(in oklch, var(--hue-4), white var(--tile-lift)), color-mix(in oklch, var(--hue-4), black var(--tile-drop)));
+    --tile-5:linear-gradient(170deg, color-mix(in oklch, var(--hue-5), white var(--tile-lift)), color-mix(in oklch, var(--hue-5), black var(--tile-drop)));
+    --tile-6:linear-gradient(170deg, color-mix(in oklch, var(--hue-6), white var(--tile-lift)), color-mix(in oklch, var(--hue-6), black var(--tile-drop)));
+    --tile-ok:linear-gradient(170deg, color-mix(in oklch, var(--money-pos), white var(--tile-lift)), color-mix(in oklch, var(--money-pos), black var(--tile-drop)));
+    --tile-warn:linear-gradient(170deg, color-mix(in oklch, var(--money-warn), white var(--tile-lift)), color-mix(in oklch, var(--money-warn), black var(--tile-drop)));
+    --tile-crit:linear-gradient(170deg, color-mix(in oklch, var(--money-neg), white var(--tile-lift)), color-mix(in oklch, var(--money-neg), black var(--tile-drop)));
+    /* El botón de escanear conserva su verde de siempre (identidad de Dusty);
+       solo los temas App Store lo ponen azul. */
     --tile-scan:linear-gradient(145deg, var(--sky-bright), var(--basil) 65%);
-    --tool-products-bg:var(--saffron-soft); --tool-products-ink:var(--saffron-ink);
-    --tool-manual-bg:var(--navy-wash); --tool-manual-ink:var(--navy-ink);
-    /* Inventario (Pedido, Conteo) y Catálogo (Collage, Plantillas, Compartir):
-       mismos colores de siempre por defecto; los temas App Store los pintan. */
-    --tool-order-bg:var(--saffron-soft); --tool-order-ink:var(--saffron-ink);
-    --tool-count-bg:var(--tomato-soft); --tool-count-ink:var(--tomato);
-    --cat-collage-bg:linear-gradient(145deg, var(--tomato-soft), var(--panel)); --cat-collage-ink:var(--tomato);
-    --cat-templates-bg:linear-gradient(145deg, var(--saffron-soft), var(--panel)); --cat-templates-ink:var(--saffron-ink);
-    --cat-share-bg:linear-gradient(145deg, var(--sky-soft), var(--panel)); --cat-share-ink:var(--sky-ink);
+    /* Anillos de las filas de herramientas: Dashboard (Productos, A mano),
+       Inventario (Pedido, Conteo) y Catálogo (Collage, Plantillas, Compartir). */
+    --tool-products-bg:var(--tile-2); --tool-products-ink:var(--tile-ink);
+    --tool-manual-bg:var(--tile-6); --tool-manual-ink:var(--tile-ink);
+    --tool-order-bg:var(--tile-5); --tool-order-ink:var(--tile-ink);
+    --tool-count-bg:var(--tile-crit); --tool-count-ink:var(--tile-ink);
+    --cat-collage-bg:var(--tile-crit); --cat-collage-ink:var(--tile-ink);
+    --cat-templates-bg:var(--tile-5); --cat-templates-ink:var(--tile-ink);
+    --cat-share-bg:var(--tile-3); --cat-share-ink:var(--tile-ink);
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
@@ -168,6 +182,7 @@
   html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"], html[data-dusty-theme="coral"], html[data-dusty-theme="miel"],
   html[data-dusty-theme="robin"], html[data-dusty-theme="cupertino"], html[data-dusty-theme="appstore"]{
     color-scheme:light;
+    --tile-lift:26%; --tile-drop:4%;
     --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
     --tomato:#e04545; --saffron:#c8860d; --basil:#0e9f6e; --sky-bright:#0a8f63;
     /* Dinero sobre fondo claro: mismos tres significados, un punto más oscuros
@@ -246,6 +261,70 @@
     --saffron:var(--navy);
     --bg:#f2f2f7; --panel:#ffffff; --inset:#e9e9ee; --raised:#f2f2f7; --raised-2:#e5e5ea; --line:#e0e0e5;
     --ink:#1c1c1e; --ink-soft:#8e8e93; --ink-mid:#48484a;
+  }
+  /* ================= PALETA DE TARJETAS POR TEMA (2026-09-08) =================
+     Seis tonos por tema para las tarjetas de color (roles: 1 azul, 2 naranja,
+     3 verde, 4 violeta, 5 amarillo, 6 rosa — ver :root). Criterio: cada tema
+     conserva su temperatura y su acento ocupa el rol que le toca; los temas
+     que vienen de una paleta del usuario usan SOLO sus colores y vecinos
+     cercanos. "Noche" usa los de :root (la paleta propia de Dusty). Los dos
+     App Store tienen sus degradés muestreados aparte. */
+  html[data-dusty-theme="oceano"]{ /* azules fríos: el naranja se enfría a coral y el verde a teal */
+    --hue-1:#4da3ff; --hue-2:#f58a5a; --hue-3:#2fd0a8; --hue-4:#8b7cff; --hue-5:#f0c04a; --hue-6:#ff7bb0;
+  }
+  html[data-dusty-theme="bosque"]{ /* verdes de bosque: amarillo a oro-oliva, violeta apagado */
+    --hue-1:#4fa3d8; --hue-2:#e8964a; --hue-3:#2fd08c; --hue-4:#9c8be0; --hue-5:#d9b84a; --hue-6:#e07ab0;
+  }
+  html[data-dusty-theme="uva"]{ /* uva: azul tirando a índigo, rosa tirando a orquídea */
+    --hue-1:#6f8cff; --hue-2:#f28b6b; --hue-3:#4ecf9d; --hue-4:#a78bfa; --hue-5:#f0c05a; --hue-6:#f07acb;
+  }
+  html[data-dusty-theme="rosa"]{ /* rosa: el acento ocupa el rol rosa, el resto suave */
+    --hue-1:#6b9df0; --hue-2:#ff8f5f; --hue-3:#3ecf9a; --hue-4:#b08bf5; --hue-5:#f4bd52; --hue-6:#ff6b9d;
+  }
+  html[data-dusty-theme="dorado"]{ /* dorado: el acento ocupa el rol amarillo */
+    --hue-1:#5f9ae0; --hue-2:#f09a3e; --hue-3:#4cc98a; --hue-4:#a58cf0; --hue-5:#f0b429; --hue-6:#e57ab0;
+  }
+  html[data-dusty-theme="medianoche"]{ /* medianoche: neones sobre negro puro, azul = cian del acento */
+    --hue-1:#22d3ee; --hue-2:#ff8a5b; --hue-3:#34d399; --hue-4:#a78bfa; --hue-5:#fbbf24; --hue-6:#f472b6;
+  }
+  html[data-dusty-theme="esmeralda"]{ /* esmeralda (paleta hotel): solo sus colores y mezclas — tan, salvia, oro */
+    --hue-1:#4a9fb5; --hue-2:#bb8a52; --hue-3:#6d9773; --hue-4:#7d8fb0; --hue-5:#ffba00; --hue-6:#c77a8a;
+  }
+  html[data-dusty-theme="indigo"]{ /* índigo (Orix): salmón y durazno de la paleta, lavanda y malva */
+    --hue-1:#7d8ed8; --hue-2:#f1aa9b; --hue-3:#7fb8a4; --hue-4:#9b8fd8; --hue-5:#f0c38e; --hue-6:#d98fb5;
+  }
+  html[data-dusty-theme="rubi"]{ /* rubí: el rojo del acento ocupa el rol rosa, ámbar de la paleta */
+    --hue-1:#5a86d8; --hue-2:#f69e1c; --hue-3:#3fbf8a; --hue-4:#8f7fd8; --hue-5:#e8b84a; --hue-6:#cc324c;
+  }
+  html[data-dusty-theme="zafiro"]{ /* zafiro: el celeste del acento en el rol azul, resto luminoso */
+    --hue-1:#73b7f1; --hue-2:#f2a466; --hue-3:#5fd0b0; --hue-4:#9d8ff0; --hue-5:#f0cc6a; --hue-6:#f08bbf;
+  }
+  html[data-dusty-theme="claro"]{ /* claro: la paleta del App Store tal cual (naranja = marca) */
+    --hue-1:#6ea3ea; --hue-2:#f0964c; --hue-3:#5cc05e; --hue-4:#826bfe; --hue-5:#ecb048; --hue-6:#f280c2;
+  }
+  html[data-dusty-theme="crema"]{ /* crema: todo un punto más tostado y menos saturado */
+    --hue-1:#7ea6d6; --hue-2:#d97a4b; --hue-3:#7fb86a; --hue-4:#9b86cf; --hue-5:#d9a94a; --hue-6:#d98aa8;
+  }
+  html[data-dusty-theme="menta"]{ /* menta: el verde del acento en el rol verde */
+    --hue-1:#6aa6dc; --hue-2:#f0a06a; --hue-3:#3cbf9a; --hue-4:#9a8fe0; --hue-5:#e6c05a; --hue-6:#f08fbf;
+  }
+  html[data-dusty-theme="pastel"]{ /* pastel (gatito): sus cuatro colores más dos vecinos igual de suaves */
+    --hue-1:#87aeee; --hue-2:#f7b59a; --hue-3:#8fd6c8; --hue-4:#c9a4f5; --hue-5:#f5d27a; --hue-6:#f3a3d8;
+  }
+  html[data-dusty-theme="electrico"]{ /* eléctrico: saturados puros, violeta y ámbar de la paleta */
+    --hue-1:#4f7cff; --hue-2:#ff7a3a; --hue-3:#22c47a; --hue-4:#752fff; --hue-5:#ffb831; --hue-6:#ff4f8b;
+  }
+  html[data-dusty-theme="coral"]{ /* coral (Fujifilm): celeste, coral, salvia y amarillo de la paleta */
+    --hue-1:#7fb9e6; --hue-2:#ff8a70; --hue-3:#8fb890; --hue-4:#b3a5e8; --hue-5:#ecc56a; --hue-6:#f5a0b8;
+  }
+  html[data-dusty-theme="miel"]{ /* miel: naranja y amarillo de la paleta, resto empolvado */
+    --hue-1:#8fb0d0; --hue-2:#e38c4c; --hue-3:#9db87a; --hue-4:#b09ad0; --hue-5:#f6c561; --hue-6:#d99aa8;
+  }
+  html[data-dusty-theme="robin"]{ /* robin: limpios y saturados sobre blanco, verde neón en su rol */
+    --hue-1:#3b82f6; --hue-2:#ff8a3d; --hue-3:#00c805; --hue-4:#8b5cf6; --hue-5:#f5b400; --hue-6:#ff5c9a;
+  }
+  html[data-dusty-theme="cupertino"]{ /* cupertino: los seis colores de sistema de iOS */
+    --hue-1:#007aff; --hue-2:#ff9500; --hue-3:#34c759; --hue-4:#af52de; --hue-5:#ffcc00; --hue-6:#ff2d55;
   }
   /* --- "App Store" (pedido del usuario 2026-09-08, captura de la pestaña
      Buscar del App Store de iOS): las tarjetas del Dashboard toman los
@@ -1490,58 +1569,58 @@
   .dash-tile-badge.warn{background:var(--money-warn-soft);color:var(--money-warn-ink);}
   .dash-tile-badge.crit{background:var(--money-neg-soft);color:var(--money-neg-ink);}
   .dash-tile-num{display:block;font-family:'Space Grotesk',sans-serif;font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
-  .dash-tile-num.warn{color:var(--money-warn-ink);} .dash-tile-num.crit{color:var(--money-neg-ink);}
   .dash-tile-title{margin-top:auto;padding-top:6px;font-weight:800;font-size:15px;line-height:1.15;letter-spacing:-.01em;padding-right:22px;}
   .dash-tile-sub{font-size:12px;color:var(--tile-sub);line-height:1.3;overflow-wrap:anywhere;padding-right:22px;}
   .dash-tile-chev{position:absolute;right:14px;bottom:12px;font-size:18px;color:var(--tile-sub);}
   .dash-tile-count{position:absolute;right:12px;bottom:12px;background:var(--tomato);color:var(--on-accent);font-size:11px;font-weight:800;border-radius:9px;padding:1px 7px;}
   .inv-tool-ring.tool-products{background:var(--tool-products-bg);color:var(--tool-products-ink);}
   .inv-tool-ring.tool-manual{background:var(--tool-manual-bg);color:var(--tool-manual-ink);font-size:26px;font-weight:700;}
-  /* En los temas App Store TODO lo de adentro de una tarjeta de color va en
-     blanco: badges, números de estado, cifras de dinero, anillo y botoncitos —
-     el color de la tarjeta ya dice el estado. */
-  html[data-dusty-theme^="appstore"] .dash-tile{box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
-  html[data-dusty-theme^="appstore"] .dash-budget.ok, html[data-dusty-theme^="appstore"] .dash-budget.warn, html[data-dusty-theme^="appstore"] .dash-budget.crit{box-shadow:0 10px 30px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.35);}
-  html[data-dusty-theme^="appstore"] .dash-tile-badge, html[data-dusty-theme^="appstore"] .dash-tile-badge.ok, html[data-dusty-theme^="appstore"] .dash-tile-badge.warn, html[data-dusty-theme^="appstore"] .dash-tile-badge.crit{background:rgba(255,255,255,.28);color:#fff;}
-  html[data-dusty-theme^="appstore"] .dash-tile-num, html[data-dusty-theme^="appstore"] .dash-tile-count{color:#fff;}
-  html[data-dusty-theme^="appstore"] .dash-tile-count{background:rgba(255,255,255,.28);}
-  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-kv b, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-kv b, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-kv b{color:#fff;}
-  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-ring-track, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-ring-track, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-ring-track{stroke:rgba(255,255,255,.28);}
-  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-ring-fill, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-ring-fill, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-ring-fill{stroke:#fff;}
-  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-chip, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-chip, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-chip,
-  html[data-dusty-theme^="appstore"] .dash-budget.ok .dash-pencil-btn, html[data-dusty-theme^="appstore"] .dash-budget.warn .dash-pencil-btn, html[data-dusty-theme^="appstore"] .dash-budget.crit .dash-pencil-btn{background:rgba(255,255,255,.22);border-color:transparent;color:#fff;}
-  html[data-dusty-theme^="appstore"] .dash-budget .budget-pace, html[data-dusty-theme^="appstore"] .dash-budget .budget-pace.warn, html[data-dusty-theme^="appstore"] .dash-budget .budget-pace.crit{color:var(--bs);}
-  html[data-dusty-theme^="appstore"] .shelf-scan-fab, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-products, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-manual{color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.35);}
-  html[data-dusty-theme^="appstore"] .scan-fab-ring{background:rgba(96,167,239,.28);}
+  /* Dentro de una tarjeta de color TODO va en blanco (en todos los temas):
+     badges, números de estado, cifras de dinero, anillo y botoncitos — el
+     color de la tarjeta ya dice el estado. `html .x` gana a `.x` sin importar
+     el orden en el archivo. */
+  html .dash-tile{box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  html .dash-budget.ok, html .dash-budget.warn, html .dash-budget.crit{box-shadow:0 10px 30px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.35);}
+  html .dash-tile-badge, html .dash-tile-badge.ok, html .dash-tile-badge.warn, html .dash-tile-badge.crit{background:rgba(255,255,255,.28);color:#fff;}
+  html .dash-tile-num, html .dash-tile-count{color:#fff;}
+  html .dash-tile-count{background:rgba(255,255,255,.28);}
+  html .dash-budget.ok .dash-kv b, html .dash-budget.warn .dash-kv b, html .dash-budget.crit .dash-kv b{color:#fff;}
+  html .dash-budget.ok .dash-ring-track, html .dash-budget.warn .dash-ring-track, html .dash-budget.crit .dash-ring-track{stroke:rgba(255,255,255,.28);}
+  html .dash-budget.ok .dash-ring-fill, html .dash-budget.warn .dash-ring-fill, html .dash-budget.crit .dash-ring-fill{stroke:#fff;}
+  html .dash-budget.ok .dash-chip, html .dash-budget.warn .dash-chip, html .dash-budget.crit .dash-chip,
+  html .dash-budget.ok .dash-pencil-btn, html .dash-budget.warn .dash-pencil-btn, html .dash-budget.crit .dash-pencil-btn{background:rgba(255,255,255,.22);border-color:transparent;color:#fff;}
+  html .dash-budget .budget-pace, html .dash-budget .budget-pace.warn, html .dash-budget .budget-pace.crit{color:var(--bs);}
+  html .shelf-scan-fab, html .inv-tool-ring.tool-products, html .inv-tool-ring.tool-manual{color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.35);}
+  html .scan-fab-ring{background:rgba(96,167,239,.28);}
   .inv-tool-ring.tool-order{background:var(--tool-order-bg);color:var(--tool-order-ink);}
   .inv-tool-ring.tool-count{background:var(--tool-count-bg);color:var(--tool-count-ink);}
   .cat-tool-ring{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform .15s;}
   .cat-tool-ring.cat-collage{background:var(--cat-collage-bg);color:var(--cat-collage-ink);}
   .cat-tool-ring.cat-templates{background:var(--cat-templates-bg);color:var(--cat-templates-ink);}
   .cat-tool-ring.cat-share{background:var(--cat-share-bg);color:var(--cat-share-ink);}
-  /* ===== Temas App Store en las OTRAS pestañas (pedido del usuario 2026-09-08:
-     "que se vean similar a la primera sin romper funciones"). Solo CSS sobre
-     las mismas clases: Inventario — Valor y Potencial como tarjetas verde y
+  /* ===== Las OTRAS pestañas con el mismo estilo (pedido del usuario 2026-09-08:
+     "que se vean similar a la primera sin romper funciones"; hoy en todos los
+     temas, cada uno con su paleta). Solo CSS sobre las mismas clases: Inventario — Valor y Potencial como tarjetas verde y
      azul, anillos de Pedido/Conteo/Escanear en amarillo/coral/azul, el chip
      activo en color y las tarjetas de producto blancas (el color queda para
      lo que pide atención). Recibos — mes, días con recibo y Cierre de mes en
      color. Catálogo — anillos de herramientas en color. ===== */
-  html[data-dusty-theme^="appstore"] .inv-stat{border:0;border-radius:18px;padding:12px 14px;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.35);}
-  html[data-dusty-theme^="appstore"] .inv-stat:first-child{background:var(--tile-ok);}
-  html[data-dusty-theme^="appstore"] .inv-stat:last-child{background:var(--tile-1);}
-  html[data-dusty-theme^="appstore"] .inv-stat-label, html[data-dusty-theme^="appstore"] .inv-stat-note{color:rgba(255,255,255,.85);}
-  html[data-dusty-theme^="appstore"] .inv-stat-value{color:#fff;}
-  html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-order, html[data-dusty-theme^="appstore"] .inv-tool-ring.tool-count, html[data-dusty-theme^="appstore"] .cat-tool-ring{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
-  html[data-dusty-theme^="appstore"] .inv-chips .category-chip.on{background:var(--tile-1);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
-  html[data-dusty-theme^="appstore"] .inv-chips .category-chip.quick.on{background:var(--tile-2);border-color:transparent;color:#fff;}
-  html[data-dusty-theme^="appstore"] .inv-chips .category-chip.on span, html[data-dusty-theme^="appstore"] .inv-chips .category-chip.quick.on span{background:rgba(255,255,255,.3);color:#fff;}
-  html[data-dusty-theme^="appstore"] .inv-tile{background:var(--panel);border-color:var(--line);border-radius:18px;box-shadow:var(--shadow);}
-  html[data-dusty-theme^="appstore"] .cal-month-label{background:var(--tile-1);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
-  html[data-dusty-theme^="appstore"] .cal-weekday{color:var(--navy);}
-  html[data-dusty-theme^="appstore"] .cal-day.has-receipt{background:var(--tile-4);}
-  html[data-dusty-theme^="appstore"] .cal-day.has-receipt .cal-day-receipt-icon{color:#fff;}
-  html[data-dusty-theme^="appstore"] .cal-recap-btn{background:var(--tile-ok);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(0,0,0,.12);}
-  html[data-dusty-theme^="appstore"] .cal-widget, html[data-dusty-theme^="appstore"] .dish-card{border-radius:18px;}
+  html .inv-stat{border:0;border-radius:18px;padding:12px 14px;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.35);}
+  html .inv-stat:first-child{background:var(--tile-ok);}
+  html .inv-stat:last-child{background:var(--tile-1);}
+  html .inv-stat-label, html .inv-stat-note{color:rgba(255,255,255,.85);}
+  html .inv-stat-value{color:#fff;}
+  html .inv-tool-ring.tool-order, html .inv-tool-ring.tool-count, html .cat-tool-ring{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  html .inv-chips .category-chip.on{background:var(--tile-1);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
+  html .inv-chips .category-chip.quick.on{background:var(--tile-2);border-color:transparent;color:#fff;}
+  html .inv-chips .category-chip.on span, html .inv-chips .category-chip.quick.on span{background:rgba(255,255,255,.3);color:#fff;}
+  html .inv-tile{background:var(--panel);border-color:var(--line);border-radius:18px;box-shadow:var(--shadow);}
+  html .cal-month-label{background:var(--tile-1);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
+  html .cal-weekday{color:var(--navy);}
+  html .cal-day.has-receipt{background:var(--tile-4);}
+  html .cal-day.has-receipt .cal-day-receipt-icon{color:#fff;}
+  html .cal-recap-btn{background:var(--tile-ok);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(0,0,0,.12);}
+  html .cal-widget, html .dish-card{border-radius:18px;}
   /* ===== INVENTARIO reorganizado (maqueta aprobada 2026-09-07, "exactamente así") ===== */
   /* 1. Franja de números: Valor y Potencial lado a lado. */
   .inv-stats{display:flex;gap:8px;margin:4px 0 14px;}
