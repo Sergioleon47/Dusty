@@ -176,10 +176,7 @@ function promptItemPhotoUpload(item){
     if(!file || !/^image\//.test(file.type)) return;
     try{
       const img = await loadImageFromFile(file);
-      // 400px (auditoría 2026-09-07): el tile de 2 columnas mide ~168px, que en
-      // un iPhone (DPR 3) pide ~500px — a 300 se veía blando. 400 a q0.78 pesa
-      // ~35KB en base64: entra holgado en localStorage y en el doc de Firestore.
-      item.photo = resizeToBase64(img, 400, 0.78);
+      item.photo = resizeToBase64(img, ITEM_PHOTO_SIDE, ITEM_PHOTO_QUALITY);
       saveState();
       render();
     }catch(err){
@@ -1269,9 +1266,7 @@ function attachEvents(){
       if(!file || !/^image\//.test(file.type)) return;
       try{
         const img = await loadImageFromFile(file);
-        // Es solo un ícono chico en la lista — 300px/calidad 0.75 alcanza de sobra
-        // y pesa muy poco, a diferencia de las fotos de recibos.
-        draftItem.photo = resizeToBase64(img, 300, 0.75);
+        draftItem.photo = resizeToBase64(img, ITEM_PHOTO_SIDE, ITEM_PHOTO_QUALITY);
         render();
       }catch(err){
         showToast(err.message || t('err_img_process'), 'error');
@@ -1784,6 +1779,16 @@ function addDayNote(){
 
 document.addEventListener('keydown', (e)=>{
   if(e.key !== 'Escape') return;
+  /* Las HOJAS (calculadora de pedido, cierre de mes) no son .overlay y hasta la
+     auditoría 2026-09-09 solo las cerraba el botón atrás de Android: con teclado
+     —la app corre igual en el navegador— Escape cerraba cualquier modal menos
+     estas dos. Se cierran tocando su propia ✕ para que guarden su estado igual
+     que si la tocaras, exactamente como hace attachHardwareBackButton. */
+  const sheet = document.querySelector('.oc-sheet.open');
+  if(sheet){
+    const cerrar = sheet.querySelector('button.oc-close');
+    if(cerrar){ cerrar.click(); return; }
+  }
   if(showItemModal){ closeItemModal(); return; }
   if(showScanModal){ closeScanModal(); return; }
   if(showPriceHistoryModal){ closePriceHistoryModal(); return; }

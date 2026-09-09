@@ -395,7 +395,15 @@
 // reales"). Los nombres de producto son genéricos, nunca del inventario del
 // usuario. Vale para "Gasto por mes" y "Pedido sugerido"; .skel se va —
 // app-03 + app-05 + app-06 + dusty.css.
-const CACHE_NAME = 'patron-shell-v115';
+// v116: auditoría general (pedido del usuario 2026-09-09). Se van 7 funciones,
+// ~80 líneas de CSS y 18 claves de idioma que ya no usaba nadie; el calendario
+// pasa a 6 filas fijas (cambiar de mes movía todo lo de abajo hasta 88px);
+// Escape cierra las hojas (calculadora / cierre de mes) como el botón atrás;
+// el lápiz del presupuesto y otros botones chicos llegan a 44px de zona
+// tocable sin cambiar de tamaño; y la foto de un producto se guarda a 560px
+// por los tres caminos por los que puede entrar (eran 400/300/300) —
+// app-03 + app-05 + app-06 + app-07 + dusty.css.
+const CACHE_NAME = 'patron-shell-v116';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
