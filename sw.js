@@ -348,7 +348,12 @@
 // (reporte del usuario 2026-09-09: "borré los dos bills y la barra del
 // presupuesto no hizo el cálculo"). El bill es la definición; el pago es un
 // recibo aparte, y el presupuesto se calcula desde los recibos — app-03 + app-06.
-const CACHE_NAME = 'patron-shell-v103';
+// v104: un miembro del equipo no podía escanear —"topó el límite"— porque el
+// pase sin cupo del dueño era por QUIEN LLAMA, no por cuenta: los escaneos del
+// dueño salteaban la transacción sin descontar, el contador quedaba congelado
+// en su tope y el empleado chocaba con él. Ahora el pase es de la cuenta —
+// netlify/functions.
+const CACHE_NAME = 'patron-shell-v104';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

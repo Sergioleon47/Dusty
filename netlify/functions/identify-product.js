@@ -44,12 +44,12 @@ REGLAS:
 - "name" es SIEMPRE en inglés, sea cual sea el idioma del empaque (regla fija del negocio: los nombres de producto en el sistema siempre quedan en inglés).
 - "cost_per_unit" solo si hay un precio visible en la foto (etiqueta de góndola, sticker de precio, etc — no lo inventes) — es el precio por la unidad elegida, no el total de un paquete grande si se puede calcular el precio por unidad base. Si no hay ningún precio visible, "cost_per_unit": null.
 - "sku": el código de producto/artículo si aparece impreso cerca del código de barras o en la etiqueta (no inventes uno). Si no ves ninguno, null.
-- Si no podés identificar el producto con confianza razonable, hacé tu mejor estimación pero marcá "confidence": "baja".
+- Si no puedes identificar el producto con confianza razonable, hacé tu mejor estimación pero marcá "confidence": "baja".
 
 ${hasCategories ? `SOBRE "category":
 Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
 ${categoryNames.map(n => `- ${n}`).join('\n')}
-Elegí la que mejor le quede (usá tu criterio, no comparación literal). Si corresponde, poné el nombre EXACTO tal cual aparece en esa lista. Si NINGUNA de la lista le queda bien, PROPONÉ una categoría nueva vos: un nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Cleaning", "Tools". Nunca null si podés reconocer qué tipo de producto es.` : `El usuario no tiene categorías de inventario creadas todavía. PROPONÉ vos la categoría en "category": un nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Solo usá null si de verdad no se reconoce qué es.`}`;
+Elige la que mejor le quede (usá tu criterio, no comparación literal). Si corresponde, poné el nombre EXACTO tal cual aparece en esa lista. Si NINGUNA de la lista le queda bien, PROPONÉ una categoría nueva vos: un nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Cleaning", "Tools". Nunca null si puedes reconocer qué tipo de producto es.` : `El usuario no tiene categorías de inventario creadas todavía. PROPONÉ vos la categoría en "category": un nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Solo usá null si de verdad no se reconoce qué es.`}`;
 }
 
 // Modo LOTE: la misma foto puede tener VARIOS productos distintos a la vista (un
@@ -83,7 +83,7 @@ Identificá CADA producto DISTINTO que se vea con claridad razonable y devolvé 
 
 REGLAS:
 - UN objeto por producto DISTINTO. Varias unidades idénticas del mismo producto (ej. 6 latas iguales) son UN solo objeto, no seis.
-- "box": dónde está ESE producto dentro de la foto, como fracciones de 0 a 1 del ancho/alto totales (x,y = esquina superior izquierda). Es para recortar una miniatura que sirva de ícono, así que un recorte aproximado que encuadre el producto con un poco de aire alrededor es perfecto. Si no podés ubicarlo con seguridad, "box": null.
+- "box": dónde está ESE producto dentro de la foto, como fracciones de 0 a 1 del ancho/alto totales (x,y = esquina superior izquierda). Es para recortar una miniatura que sirva de ícono, así que un recorte aproximado que encuadre el producto con un poco de aire alrededor es perfecto. Si no puedes ubicarlo con seguridad, "box": null.
 - "name" es SIEMPRE en inglés, sea cual sea el idioma del empaque (regla fija del negocio).
 - "cost_per_unit" solo si ESE producto tiene un precio visible (etiqueta de góndola, sticker) — no lo inventes; si no, null.
 - "sku": solo si aparece impreso para ese producto; si no, null.
@@ -99,7 +99,7 @@ Si un producto de la foto ES el mismo que uno de esa lista (criterio: abreviatur
 ${hasCategories ? `SOBRE "category":
 Esta es la lista de categorías que el usuario ya tiene creadas en su inventario:
 ${categoryNames.map(n => `- ${n}`).join('\n')}
-Elegí para cada producto la que mejor le quede (criterio, no comparación literal), con el nombre EXACTO de esa lista. Si a un producto NINGUNA de la lista le queda bien, PROPONÉ una categoría nueva: nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Nunca null si podés reconocer qué tipo de producto es.` : `El usuario no tiene categorías de inventario creadas todavía. PROPONÉ vos la categoría de cada producto en "category": nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Solo null si no se reconoce.`}`;
+Elige para cada producto la que mejor le quede (criterio, no comparación literal), con el nombre EXACTO de esa lista. Si a un producto NINGUNA de la lista le queda bien, PROPONÉ una categoría nueva: nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Nunca null si puedes reconocer qué tipo de producto es.` : `El usuario no tiene categorías de inventario creadas todavía. PROPONÉ vos la categoría de cada producto en "category": nombre corto y genérico en inglés (1-2 palabras, tipo de producto, no marca) — ej. "Cables", "Breakers", "Lights", "Tools". Solo null si no se reconoce.`}`;
 }
 
 /* Modo STOCK: la foto es del estante/las piezas del propio negocio y el objetivo no
@@ -141,7 +141,7 @@ MÉTODO OBLIGATORIO para fotos de productos físicos (en este orden, antes de da
    - "pila": objetos apilados en grilla regular (cajas) → se cuentan caras visibles y se infiere el patrón.
    - "incontable": montón suelto e irregular (chips amontonados, objetos enredados) → count null; si están en un envase, estimá fill_percent; si no, ambos null.
 2. CONTÁ con método, no a ojo: recorré zona por zona. En pilas, contá por camadas (alto × ancho × fondo).
-3. VERIFICÁ por un segundo camino SOLO si hay ambigüedad (objetos cruzados, divisiones dudosas, encuadre justo). Si los dos caminos no coinciden, reportá el número más conservador y bajá la confianza.
+3. Verifica por un segundo camino SOLO si hay ambigüedad (objetos cruzados, divisiones dudosas, encuadre justo). Si los dos caminos no coinciden, reportá el número más conservador y bajá la confianza.
 
 REGLAS ANTI-TRAMPA (aprendidas de errores reales):
 - CINTA vs. DIVISIÓN: la cinta de embalar sobre la unión de tapas de una caja parece una división entre dos cajas. Una división REAL tiene hendidura con sombra y bordes desalineados entre camadas (patrón de ladrillo); una línea plana, brillante y perfectamente alineada de arriba a abajo es cinta — es UNA caja, no dos.
@@ -170,7 +170,7 @@ Devolvé JSON puro (sin markdown, sin backticks, sin texto extra) con este forma
 
 - "count" solo para reading "unidades" o "pila" (entero ≥ 0). Para "nivel"/"incontable": null.
 - "fill_percent" solo cuando se ve el nivel dentro de un envase. Si no aplica: null.
-- "box": fracciones 0-1 del ancho/alto (x,y = esquina superior izquierda), para recortar miniatura. Si no podés ubicarlo: null.
+- "box": fracciones 0-1 del ancho/alto (x,y = esquina superior izquierda), para recortar miniatura. Si no puedes ubicarlo: null.
 - Máximo 25 productos. Sin productos reconocibles: {"products": []}.
 
 ${hasInventory ? `SOBRE "matched_inventory_name":
@@ -207,7 +207,7 @@ exports.handler = async (event) => {
       categoryNames = parsed.categoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 50);
     }
     // Nombres del inventario actual: para que el modo individual pueda decir "este
-    // producto ES el que ya tenés cargado como X" (matched_inventory_name) — mismo
+    // producto ES el que ya tienes cargado como X" (matched_inventory_name) — mismo
     // criterio que extract-receipt.js usa para emparejar líneas de factura.
     if (Array.isArray(parsed.inventoryNames)) {
       inventoryNames = parsed.inventoryNames.filter(n => typeof n === 'string' && n.trim()).slice(0, 300);
@@ -233,27 +233,35 @@ exports.handler = async (event) => {
   // acá da un error claro en vez de viajar megas hasta la API de Claude para que
   // falle allá con un 502 confuso (el límite real de la API es 5MB por imagen).
   if (image.base64.length > 7000000) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'La imagen es demasiado grande — volvé a intentar desde la app', code: 'image_too_big' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'La imagen es demasiado grande — vuelve a intentar desde la app', code: 'image_too_big' }) };
   }
 
   let reservation;
   try {
     const hasAccess = await callerCanUseAccount(callerUid, ownerUid);
     if (!hasAccess) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta', code: 'no_access' }) };
+      return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta', code: 'no_access' }) };
     }
     if (!(await checkIpRateLimit(event))) {
-      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — esperá un rato y probá de nuevo', code: 'rate_limited' }) };
+      return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — espera un rato y prueba de nuevo', code: 'rate_limited' }) };
     }
     // Reserva el cupo ANTES de llamar a Claude (chequeo+descuento atómicos) — ver
     // reserveScanQuota en lib/patron-admin.js para el porqué.
     reservation = await reserveScanQuota(ownerUid, caller);
     if (!reservation.allowed) {
-      return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
+      // Un MIEMBRO del equipo no puede hacer nada con este error: el cupo es del
+      // dueño de la cuenta, no suyo. Decirle "tu plan" lo manda a buscar un ajuste
+      // que no existe en su pantalla (reporte del usuario 2026-09-09).
+      const esMiembro = callerUid !== ownerUid;
+      return { statusCode: 429, body: JSON.stringify({
+        error: esMiembro
+          ? 'La cuenta llegó a su límite de escaneos del mes. Avisa al dueño de la cuenta para que amplíe el plan.'
+          : 'Llegaste al límite de escaneos de tu plan este mes',
+        quotaExceeded: true }) };
     }
   } catch (e) {
     console.error('[Dusty] error verificando cupo de escaneo:', e);
-    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intentá de nuevo', code: 'quota_check_failed' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo de escaneos, intenta de nuevo', code: 'quota_check_failed' }) };
   }
 
   try {

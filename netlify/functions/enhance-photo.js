@@ -31,7 +31,7 @@ exports.handler = async (event) => {
   getFirebaseApp();
   const caller = await verifyCallerInfo(event);
   if (!caller) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Sesión inválida — volvé a entrar', code: 'bad_token' }) };
+    return { statusCode: 401, body: JSON.stringify({ error: 'Sesión inválida — vuelve a entrar', code: 'bad_token' }) };
   }
   if (caller.isAnonymous) {
     return { statusCode: 403, body: JSON.stringify({ error: 'Mejorar con IA necesita una cuenta guardada', code: 'needs_account' }) };
@@ -42,7 +42,7 @@ exports.handler = async (event) => {
   }
   const ownerUid = (typeof body.ownerUid === 'string' && body.ownerUid) ? body.ownerUid.slice(0, 128) : caller.uid;
   if (!(await callerCanUseAccount(caller.uid, ownerUid))) {
-    return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
+    return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta' }) };
   }
 
   const rHeaders = {
@@ -73,7 +73,7 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify({ status: 'processing' }) };
     } catch (e) {
       console.error('[Dusty] enhance-photo status:', e.message);
-      return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo consultar el proceso — probá de nuevo' }) };
+      return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo consultar el proceso — prueba de nuevo' }) };
     }
   }
 
@@ -85,17 +85,25 @@ exports.handler = async (event) => {
   const mediaType = (typeof body.mediaType === 'string' && /^image\/(jpeg|png|webp)$/.test(body.mediaType)) ? body.mediaType : 'image/jpeg';
 
   if (!(await checkIpRateLimit(event))) {
-    return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados pedidos seguidos desde esta conexión — esperá un rato', code: 'rate_limited' }) };
+    return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados pedidos seguidos desde esta conexión — espera un rato', code: 'rate_limited' }) };
   }
   let reservation;
   try {
     reservation = await reserveScanQuota(ownerUid, caller);
     if (!reservation.allowed) {
-      return { statusCode: 429, body: JSON.stringify({ error: 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
+      // Un MIEMBRO del equipo no puede hacer nada con este error: el cupo es del
+      // dueño de la cuenta, no suyo. Decirle "tu plan" lo manda a buscar un ajuste
+      // que no existe en su pantalla (reporte del usuario 2026-09-09).
+      const esMiembro = callerUid !== ownerUid;
+      return { statusCode: 429, body: JSON.stringify({
+        error: esMiembro
+          ? 'La cuenta llegó a su límite de escaneos del mes. Avisa al dueño de la cuenta para que amplíe el plan.'
+          : 'Llegaste al límite de escaneos de tu plan este mes',
+        quotaExceeded: true }) };
     }
   } catch (e) {
     console.error('[Dusty] enhance-photo cupo:', e);
-    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo, intentá de nuevo', code: 'quota_check_failed' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo, intenta de nuevo', code: 'quota_check_failed' }) };
   }
 
   try {
@@ -112,12 +120,12 @@ exports.handler = async (event) => {
     if (!res.ok || !pred.id) {
       console.error('[Dusty] enhance-photo start:', res.status, JSON.stringify(pred).slice(0, 300));
       await refundScanUsage(ownerUid, 1, reservation.period);
-      return { statusCode: 502, body: JSON.stringify({ error: 'El servicio de mejora no respondió — revisá el token/modelo de Replicate', code: 'esrgan_start_failed' }) };
+      return { statusCode: 502, body: JSON.stringify({ error: 'El servicio de mejora no respondió — revisa el token/modelo de Replicate', code: 'esrgan_start_failed' }) };
     }
     return { statusCode: 200, body: JSON.stringify({ id: pred.id, status: pred.status || 'starting' }) };
   } catch (e) {
     console.error('[Dusty] enhance-photo start:', e.message);
     await refundScanUsage(ownerUid, 1, reservation.period);
-    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo arrancar el proceso — probá de nuevo' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo arrancar el proceso — prueba de nuevo' }) };
   }
 };
