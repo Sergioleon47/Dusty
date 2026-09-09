@@ -958,6 +958,24 @@
   /* Hoy: el aro blanco de la maqueta, no un recuadro. */
   .cal-day.today .cal-day-num{background:var(--amber-fill);border:0;border-radius:50%;font-weight:800;box-shadow:0 3px 9px rgba(0,0,0,.20);}
   .cal-day.has-receipt:hover .cal-day-num{background:rgba(255,255,255,.16);border-radius:50%;}
+  /* Día con la foto de un recibo: una tarjetita, no un recuadro (pedido del
+     usuario 2026-09-09, "que se vea cuadrito ovalado y se relacione con los
+     cuadros de la app"). Mismo radio generoso, sombra y filo de luz arriba que
+     usan las tarjetas del Dashboard y los productos del inventario, escalado a
+     una celda de ~50px: 17px de radio —bien redondeado, como pidió el usuario:
+     "cuadrito ovalado"—, borde blanco finito para despegarla del
+     azul del bloque, y la foto recortada al centro. */
+  .cal-day.has-photo{overflow:hidden;border-radius:17px;box-shadow:0 4px 12px rgba(0,0,0,.28), inset 0 0 0 1.5px rgba(255,255,255,.55);}
+  .cal-day-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:17px;display:block;}
+  /* Cuántos recibos tiene ese día, arriba a la derecha — mismo rojo de la app. */
+  .cal-day-badge{position:absolute;top:2px;right:2px;z-index:2;background:var(--money-neg);color:#fff;
+    font-size:9.5px;font-weight:800;line-height:1;padding:2.5px 5px;border-radius:9px;font-family:'IBM Plex Mono';
+    box-shadow:0 1px 4px rgba(0,0,0,.45);}
+  /* El puntito de nota sobre la foto necesita su propio fondo para verse. */
+  .cal-day.has-photo .cal-dots{bottom:3px;}
+  .cal-day.has-photo .cal-dots i.note{box-shadow:0 0 0 2px rgba(0,0,0,.45);}
+  /* Hoy con foto: el aro ámbar rodea la tarjetita en vez del número. */
+  .cal-day.today.has-photo{box-shadow:0 4px 12px rgba(0,0,0,.28), inset 0 0 0 2.5px var(--hue-5);}
   .day-receipt-row{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px;cursor:pointer;transition:background .2s ease,transform .12s ease;}
   .day-receipt-row:hover{background:var(--raised);}
   .day-receipt-row:active{transform:scale(0.98);background:var(--raised);}
