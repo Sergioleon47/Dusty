@@ -892,13 +892,21 @@
   .dish-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;transition:transform .12s ease;}
   .dish-card:active{transform:scale(0.98);}
 
-  .cal-widget{background:var(--panel);border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow);padding:20px;margin-bottom:16px;}
-  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  /* EL CALENDARIO ES UN BLOQUE DE COLOR (maqueta del usuario 2026-09-09): un
+     solo panel con el degradé del tema, los números en blanco y puntitos debajo
+     de los días que tienen algo — en vez de 35 tarjetitas grises, cada una con
+     su miniatura. El color sale de --tile-3 — el verde de la tarjeta "Pedido
+     sugerido" del Dashboard, elegido por el usuario 2026-09-09 —, así que
+     acompaña al tema en vez de clavar un color fijo. Mismo DOM y mismos ids:
+     cambia la pintura, no el comportamiento. */
+  .cal-widget{background:var(--tile-3);border:0;border-radius:22px;box-shadow:0 12px 28px rgba(0,0,0,.20);
+    padding:18px 14px 14px;margin-bottom:16px;color:var(--tile-ink);}
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   /* Antes era texto pelado sin fondo ni borde — nada avisaba que se podía tocar para
      cambiar entre la vista de mes y la de año completo. Ahora tiene la forma de un
      botón de verdad (fondo, esquinas redondeadas, una flechita que indica que se
      despliega), en vez de depender de un cambio de color al pasar el mouse. */
-  .cal-month-label{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:15px;text-transform:capitalize;background:var(--navy-wash);border:none;color:var(--navy);font-family:'Inter';cursor:pointer;padding:8px 14px;border-radius:10px;transition:filter .2s ease, transform .15s ease;}
+  .cal-month-label{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:14.5px;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.14);border:none;color:var(--tile-ink);font-family:'Inter';cursor:pointer;padding:7px 14px;border-radius:99px;transition:filter .2s ease, transform .15s ease;}
   .cal-month-label svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
   .cal-month-label:active{transform:scale(0.96);filter:brightness(0.97);}
   .cal-year-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -914,29 +922,29 @@
      distinguirlos del ámbar de los recibos sin inventar un tercer color. */
   .mini-cal-day.has-note{background:color-mix(in srgb, var(--basil) 40%, var(--panel));color:var(--on-accent);border-radius:50%;font-weight:700;}
   .mini-cal-day.today{box-shadow:inset 0 0 0 1px var(--tomato);border-radius:50%;}
-  .cal-nav-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--raised);color:var(--ink-soft);font-size:20px;line-height:1;cursor:pointer;transition:transform .2s ease,border-color .2s ease,color .2s ease;}
-  .cal-nav-btn:hover{border-color:var(--navy);color:var(--navy);}
+  .cal-nav-btn{width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:var(--tile-ink);font-size:19px;line-height:1;cursor:pointer;transition:transform .2s ease,background .2s ease;}
+  .cal-nav-btn:hover{background:rgba(255,255,255,.26);}
   .cal-nav-btn:active{transform:scale(0.92);}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
-  .cal-grid.cal-weekdays{margin-bottom:8px;}
-  .cal-weekday{text-align:center;font-size:11.5px;font-weight:700;color:var(--basil);text-transform:uppercase;padding:2px 0;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .cal-grid.cal-weekdays{margin-bottom:4px;}
+  .cal-weekday{text-align:center;font-size:11px;font-weight:700;color:var(--tile-sub);text-transform:uppercase;padding:2px 0;}
   /* Todas las celdas con fecha son tocables (abren el modal del día con recibos +
      notas), no solo las que tienen recibo — ver dayModal() en app-05. */
-  .cal-day{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg);cursor:pointer;transition:transform .2s ease;}
-  .cal-day:active{transform:scale(0.94);}
-  .cal-day.empty{background:none;cursor:default;}
-  .cal-day.empty:active{transform:none;}
-  /* Burbujita con el emoji de la primera nota del día (parser de Nudgy) — abajo a
-     la izquierda para no chocar con la insignia ×N de recibos (arriba a la derecha). */
-  .cal-day-note-dot{position:absolute;bottom:1px;left:1px;display:flex;align-items:center;gap:1px;background:var(--raised);border-radius:9px;padding:1px 4px;font-size:9.5px;line-height:1.3;box-shadow:0 1px 3px rgba(0,0,0,.45);}
-  .cal-day-note-dot i{font-style:normal;font-size:8.5px;font-weight:700;color:var(--basil);font-family:'IBM Plex Mono';}
-  .cal-day.has-note:not(.has-receipt){box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--basil) 45%, var(--bg));}
-  .cal-day.has-note.today{box-shadow:inset 0 0 0 2px var(--saffron);}
-  .cal-day.today{box-shadow:inset 0 0 0 2px var(--saffron);}
+  .cal-day{position:relative;min-height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:none;cursor:pointer;transition:transform .2s ease;}
+  .cal-day:active{transform:scale(0.90);}
+  /* Días de los meses vecinos: se ven, no se tocan (los pinta receiptCalendarWidget
+     para que el bloque cierre parejo, como en la maqueta). */
+  .cal-day.out{cursor:default;pointer-events:none;}
+  .cal-day.out .cal-day-num{opacity:.3;}
+  /* Lo que pasa ese día, en puntitos bajo el número: uno por recibo (hasta tres)
+     y uno ámbar si además hay nota. El detalle está a un toque, en el modal. */
+  .cal-dots{position:absolute;bottom:5px;left:0;right:0;display:flex;justify-content:center;gap:3px;pointer-events:none;}
+  .cal-dots i{width:4px;height:4px;border-radius:50%;background:var(--tile-ink);opacity:.9;}
+  .cal-dots i.note{background:var(--saffron);opacity:1;}
   /* Mismo patrón composited que ccDueFade: el borde rojo se pinta una vez en un
      ::after y solo parpadea su opacity — cero repaint por frame. */
   .cal-day.blink::after{
-    content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    content:'';position:absolute;inset:3px;border-radius:50%;pointer-events:none;
     box-shadow:inset 0 0 0 2px var(--tomato);
     animation:calBlinkFade 1s ease-in-out infinite;
   }
@@ -944,13 +952,11 @@
     0%,100%{opacity:1;}
     50%{opacity:0;}
   }
-  .cal-day img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-  .cal-day-num{position:relative;font-size:13px;font-weight:600;color:var(--ink-soft);}
-  .cal-day-receipt-icon{position:relative;display:flex;color:var(--saffron-ink);}
-  .cal-day.has-receipt{cursor:pointer;transition:transform .2s ease;}
-  .cal-day.has-receipt:hover{transform:scale(1.06);}
-  .cal-day.has-receipt:active{transform:scale(0.94);}
-  .cal-day-badge{position:absolute;top:2px;right:2px;background:var(--tomato);color:var(--on-accent);font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:8px;}
+  .cal-day-num{position:relative;display:flex;align-items:center;justify-content:center;width:31px;height:31px;
+    font-size:14.5px;font-weight:600;color:var(--tile-ink);font-variant-numeric:tabular-nums;}
+  /* Hoy: el aro blanco de la maqueta, no un recuadro. */
+  .cal-day.today .cal-day-num{border:1.5px solid var(--tile-ink);border-radius:50%;font-weight:800;}
+  .cal-day.has-receipt:hover .cal-day-num{background:rgba(255,255,255,.16);border-radius:50%;}
   .day-receipt-row{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px;cursor:pointer;transition:background .2s ease,transform .12s ease;}
   .day-receipt-row:hover{background:var(--raised);}
   .day-receipt-row:active{transform:scale(0.98);background:var(--raised);}
@@ -1606,8 +1612,8 @@
      temas, cada uno con su paleta). Solo CSS sobre las mismas clases: Inventario — Valor y Potencial como tarjetas verde y
      azul, anillos de Pedido/Conteo/Escanear en amarillo/coral/azul, el chip
      activo en color y las tarjetas de producto blancas (el color queda para
-     lo que pide atención). Recibos — mes, días con recibo y Cierre de mes en
-     color. ===== */
+     lo que pide atención). Recibos — el calendario entero es un bloque de color
+     (ver .cal-widget), así que acá no le queda nada por pintar. ===== */
   html .inv-stat{border:0;border-radius:18px;padding:12px 14px;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.35);}
   html .inv-stat:first-child{background:var(--tile-ok);}
   html .inv-stat:last-child{background:var(--tile-1);}
@@ -1618,12 +1624,7 @@
   html .inv-chips .category-chip.quick.on{background:var(--tile-2);border-color:transparent;color:#fff;}
   html .inv-chips .category-chip.on span, html .inv-chips .category-chip.quick.on span{background:rgba(255,255,255,.3);color:#fff;}
   html .inv-tile{background:var(--panel);border-color:var(--line);border-radius:18px;box-shadow:var(--shadow);}
-  html .cal-month-label{background:var(--tile-1);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
-  html .cal-weekday{color:var(--navy);}
-  html .cal-day.has-receipt{background:var(--tile-4);}
-  html .cal-day.has-receipt .cal-day-receipt-icon{color:#fff;}
-  html .cal-recap-btn{background:var(--tile-ok);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(0,0,0,.12);}
-  html .cal-widget, html .dish-card{border-radius:18px;}
+  html .dish-card{border-radius:18px;}
   /* ===== INVENTARIO reorganizado (maqueta aprobada 2026-09-07, "exactamente así") ===== */
   /* 1. Franja de números: Valor y Potencial lado a lado. */
   .inv-stats{display:flex;gap:8px;margin:4px 0 14px;}
@@ -1754,8 +1755,11 @@
   .welcome-progress-fill{transition:transform .45s cubic-bezier(.32,.72,.25,1);}
   /* División del gasto del mes: inversión (verde) vs gastos operativos (ámbar). */
   /* Botón del cierre de mes al pie del calendario de Recibos. */
-  .cal-recap-btn{width:100%;margin-top:12px;padding:10px;border-radius:10px;border:1px solid var(--line);
-    background:var(--raised);color:var(--basil);font-weight:700;font-size:13.5px;cursor:pointer;}
+  /* Cierre de mes en ROSADO (--tile-6, pedido del usuario 2026-09-09): destaca
+     sobre el verde del bloque en vez de perderse como un blanco translúcido. */
+  .cal-recap-btn{width:100%;margin-top:12px;padding:11px;border-radius:12px;border:0;
+    background:var(--tile-6);color:var(--tile-ink);font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;
+    box-shadow:0 6px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.30);}
   .cal-recap-btn:active{transform:scale(.98);}
   /* Cierre de mes a página completa: chips de modo (Mes/Año) arriba y un carril
      horizontal de columnas — una tarjeta por período, la más nueva primero, con
