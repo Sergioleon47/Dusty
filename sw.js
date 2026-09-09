@@ -334,11 +334,13 @@
 // del documento se encogía en el MISMO cuadro en que se quita el offset del
 // carrusel y salta el scroll — con 400 productos son 36.692 px de golpe.
 // Ahora encoger espera un cuadro; crecer sigue siendo inmediato — app-04/06.
-// v100: deslizar entre pestañas ELIMINADO de raíz (decisión del usuario
-// 2026-09-09). 200 líneas del gesto, su bandera swipeGestureActive en los
-// guards de render, los parámetros muertos de switchToTab y los comentarios
-// que lo citaban. Se navega con la barra de abajo — app-04/05/06/07.
-const CACHE_NAME = 'patron-shell-v100';
+// v101: se restaura el deslice entre pestañas EXACTAMENTE como estaba (revert
+// de #15). Se había eliminado para ver si era la causa del destello del pie
+// del Dashboard; el usuario confirmó que con el gesto fuera el destello SEGUÍA,
+// así que el gesto queda descartado como causa y no había razón para perder la
+// función. El código de app-04/05/06/07 vuelve byte a byte al estado previo;
+// solo la versión del precache avanza, para no numerar hacia atrás.
+const CACHE_NAME = 'patron-shell-v101';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
