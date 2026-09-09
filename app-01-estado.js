@@ -66,8 +66,13 @@ let calendarBlinkDates = []; // fechas "YYYY-MM-DD" que coinciden con calendarAm
 // volver a abrir la app) te sacaba de la pestaña en la que estabas — ahora se recuerda
 // la última pestaña usada en este dispositivo.
 let activeTab = 'dashboard';
-try{ activeTab = localStorage.getItem('patron_active_tab') || 'dashboard'; }catch(e){}
-const TAB_ORDER = ['dashboard','inventario','recibos','catalogo'];
+const TAB_ORDER = ['dashboard','inventario','recibos'];
+// La pestaña recordada puede ser una que ya no existe (el Catálogo se eliminó):
+// sin este filtro, el dispositivo que quedó ahí arrancaba en una pestaña muerta.
+try{
+  const saved = localStorage.getItem('patron_active_tab');
+  if(TAB_ORDER.indexOf(saved) >= 0) activeTab = saved;
+}catch(e){}
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
 /* Auditoría de primer minuto 2026-09-07 (ver helpModal, teamIntroModal, itemModal
    y celebrateFirstScan en app-06):
@@ -88,12 +93,9 @@ let showHelpModal=false, showTeamIntroModal=false, teamIntroContinue=null, itemM
    - shelfPhotoView: recorte de una fila del estante abierto grande.
    - productScanSuggest: lo que la IA detectó en la ficha para campos que ya tenían texto.
    - barcodeLastCode: último código leído (se conserva aunque no se encuentre el producto).
-   - aiWaitStartedAt/aiWaitTimer: "sigue leyendo…" pasados 8 s en cualquier escáner.
-   - catalogSuggestOn: reconocer el producto de una foto de catálogo con IA (usa 1 escaneo). */
+   - aiWaitStartedAt/aiWaitTimer: "sigue leyendo…" pasados 8 s en cualquier escáner. */
 let scanPhotoView=null, scanTruncated=false, pbPendingImg=null, shelfPendingImg=null, shelfLastSource=null, shelfPhotoView=null, productScanSuggest=null, barcodeLastCode='', aiWaitStartedAt=0, aiWaitTimer=null;
 let pbQualityWarn=null, shelfQualityWarn=null;
-let catalogSuggestOn=true;
-try{ if(localStorage.getItem('patron_catalog_suggest')==='off') catalogSuggestOn=false; }catch(e){}
 // Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
 let welcomeStep = 0;
 // Dirección del último cambio de paso (1 = avanzando, -1 = retrocediendo) — decide si

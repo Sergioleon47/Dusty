@@ -545,9 +545,9 @@ function openShelfModal(){
   shelfRequestId++;
   shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason='sale';
   showShelfModal = true; render();
-  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos,
-  // Productos y Catálogo; la hoja de fotos recién al tocar la caja. El visor
-  // en vivo se retiró.
+  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos y
+  // Productos; la hoja de fotos recién al tocar la caja. El visor en vivo se
+  // retiró.
 }
 function shelfPhotoSource(){
   return {
@@ -762,7 +762,7 @@ function shelfScanModal(){
             ${/* Precio de venta de esta salida (solo con motivo "venta" — la
                  merma no genera ingresos): editable por línea, prellenado con el
                  salePrice del producto. Es de ESTA venta, no cambia el precio
-                 del catálogo. */''}
+                 de la ficha. */''}
             ${shelfReason==='sale' ? `
             <div class="mi-fields" style="align-items:center;margin-top:6px;">
               <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>

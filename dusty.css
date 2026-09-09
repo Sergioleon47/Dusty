@@ -105,15 +105,12 @@
     /* El botón de escanear conserva su verde de siempre (identidad de Dusty);
        solo los temas App Store lo ponen azul. */
     --tile-scan:linear-gradient(145deg, var(--sky-bright), var(--basil) 65%);
-    /* Anillos de las filas de herramientas: Dashboard (Productos, A mano),
-       Inventario (Pedido, Conteo) y Catálogo (Collage, Plantillas, Compartir). */
+    /* Anillos de las filas de herramientas: Dashboard (Productos, A mano) e
+       Inventario (Pedido, Conteo). */
     --tool-products-bg:var(--tile-2); --tool-products-ink:var(--tile-ink);
     --tool-manual-bg:var(--tile-6); --tool-manual-ink:var(--tile-ink);
     --tool-order-bg:var(--tile-5); --tool-order-ink:var(--tile-ink);
     --tool-count-bg:var(--tile-crit); --tool-count-ink:var(--tile-ink);
-    --cat-collage-bg:var(--tile-crit); --cat-collage-ink:var(--tile-ink);
-    --cat-templates-bg:var(--tile-5); --cat-templates-ink:var(--tile-ink);
-    --cat-share-bg:var(--tile-3); --cat-share-ink:var(--tile-ink);
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
@@ -334,9 +331,6 @@
     --tool-manual-bg:var(--tile-6); --tool-manual-ink:#ffffff;
     --tool-order-bg:var(--tile-5); --tool-order-ink:#ffffff;
     --tool-count-bg:var(--tile-crit); --tool-count-ink:#ffffff;
-    --cat-collage-bg:var(--tile-crit); --cat-collage-ink:#ffffff;
-    --cat-templates-bg:var(--tile-5); --cat-templates-ink:#ffffff;
-    --cat-share-bg:var(--tile-3); --cat-share-ink:#ffffff;
   }
   html[data-dusty-theme="appstore"]{
     --navy:#3f8fe3; --navy-soft:#71a3e9;
@@ -406,14 +400,14 @@
   /* will-change:transform promueve el track a su propia capa de composición…
      pero SOLO mientras se está animando (clase .vt-live, la ponen el gesto de
      swipe y el resorte, ver app-06). Tenerlo SIEMPRE, como antes, obligaba al
-     navegador a mantener rasterizada una capa GIGANTE (4 pantallas de ancho ×
+     navegador a mantener rasterizada una capa GIGANTE (3 pantallas de ancho ×
      todo el alto del contenido) — en iOS esa capa se descarta y re-rasteriza
      durante el scroll vertical y eso era el parpadeo/tembleque al deslizar. */
-  /* 4 páginas desde 2026-09-06 (se sumó Catálogo) — el ancho del track y el de
-     cada página tienen que coincidir con TAB_ORDER.length (app-01). */
-  .view-track{display:flex;align-items:flex-start;width:400%;}
+  /* 3 páginas — el ancho del track y el de cada página tienen que coincidir
+     con TAB_ORDER.length (app-01). */
+  .view-track{display:flex;align-items:flex-start;width:300%;}
   .view-track.vt-live{will-change:transform;}
-  .view-page{width:calc(100%/4);min-width:0;flex-shrink:0;}
+  .view-page{width:calc(100%/3);min-width:0;flex-shrink:0;}
   /* Las páginas LEJANAS (a más de una pestaña de distancia — nunca visibles ni
      alcanzables en un mismo gesto, el swipe compromete de a una) directamente
      no se rasterizan: menos memoria de GPU y pintado por frame. La clase la
@@ -1015,58 +1009,10 @@
   }
   .modal.wide{max-width:600px;}
 
-  /* ===== CATÁLOGO — auditoría "smooth" 2026-09-07 ===== */
-  /* Entrada corta para los modales del catálogo: un visor de fotos o un editor a
-     500/750 ms se sienten lentos — 220/300 ms es el rango de iOS Fotos y PhotoSwipe. */
+  /* Entrada corta para los modales que se abren de a muchos: 500/750 ms se
+     sienten lentos — 220/300 ms es el rango de iOS Fotos y PhotoSwipe. */
   .overlay.overlay-fast{animation-duration:.22s;}
   .overlay.overlay-fast .modal{animation-duration:.3s;}
-  /* Editor a pantalla completa: la foto manda, como en Snapseed/Lightroom. */
-  .overlay.overlay-full{padding:0;align-items:stretch;}
-  .overlay.overlay-full .modal{max-width:none;max-height:none;height:100%;border-radius:0;border:none;
-    padding:calc(12px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom));animation:none;}
-  /* Visor de foto: gestos (deslizar, pellizco, doble tap), X, y el fondo no scrollea. */
-  body.catalog-viewer-open{overflow:hidden;}
-  .catalog-viewer{background:rgba(0,0,0,.94);padding:0;align-items:center;justify-content:center;
-    touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none;cursor:default;}
-  .catalog-viewer .cv-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-  .catalog-viewer .cv-stage img{max-width:100vw;max-height:100vh;object-fit:contain;display:block;
-    transform-origin:center center;-webkit-user-drag:none;pointer-events:none;}
-  .catalog-viewer .cv-stage img.cv-placeholder{filter:blur(5px);}
-  .catalog-viewer .cv-top{position:absolute;top:calc(8px + env(safe-area-inset-top));left:8px;right:8px;
-    display:flex;align-items:center;justify-content:space-between;gap:8px;z-index:2;transition:opacity .2s;}
-  .catalog-viewer .cv-bottom{position:absolute;left:0;right:0;bottom:0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));
-    background:linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,0));color:#fff;z-index:2;transition:opacity .2s;}
-  .catalog-viewer.cv-chrome-hidden .cv-top, .catalog-viewer.cv-chrome-hidden .cv-bottom{opacity:0;pointer-events:none;}
-  .catalog-viewer .cv-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.16);color:#fff;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
-  .catalog-viewer .cv-counter{color:#fff;font-size:13px;font-weight:700;opacity:.85;font-variant-numeric:tabular-nums;}
-  .catalog-viewer .cv-name{font-weight:800;font-size:16px;overflow-wrap:anywhere;}
-  .catalog-viewer .cv-price{font-weight:700;font-size:14px;opacity:.9;margin-top:2px;}
-  .catalog-viewer .cv-actions{display:flex;gap:8px;margin-top:12px;}
-  .catalog-viewer .cv-actions button{flex:1;border:none;border-radius:12px;padding:11px 10px;font-size:13.5px;font-weight:800;
-    cursor:pointer;background:rgba(255,255,255,.16);color:#fff;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
-  .catalog-viewer .cv-actions button.on{background:var(--basil);}
-  .catalog-viewer .cv-empty{color:#fff;font-weight:800;font-size:18px;padding:24px;text-align:center;}
-  /* El vuelo miniatura ↔ visor (view-transition-name compartido, ver catalogoView
-     y catalogPhotoViewer): 333 ms con la curva de PhotoSwipe; object-fit cover en
-     las dos capturas evita el estirón cuadrado → apaisado. */
-  ::view-transition-group(catalog-photo){animation-duration:333ms;animation-timing-function:cubic-bezier(.4,0,.22,1);}
-  ::view-transition-old(catalog-photo), ::view-transition-new(catalog-photo){object-fit:cover;height:100%;width:100%;animation:none;mix-blend-mode:normal;}
-  /* Toast con acción (Deshacer) */
-  .toast-action{display:flex;align-items:center;gap:12px;}
-  .toast-action span{flex:1;}
-  .toast-action button{border:none;background:var(--sky-soft);color:var(--sky-ink);font-weight:800;font-size:13px;
-    border-radius:10px;padding:8px 12px;cursor:pointer;flex-shrink:0;}
-  /* Editor: guía de encuadre 85% (regla de Amazon), badge "Original" al comparar,
-     barra de progreso de las funciones PRO. */
-  .cat-edit-guide{position:absolute;inset:7.5%;border:1.5px dashed rgba(255,255,255,.8);border-radius:6px;pointer-events:none;z-index:2;}
-  .cat-edit-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:800;
-    padding:4px 9px;border-radius:8px;z-index:3;pointer-events:none;}
-  .cat-ai-progress{height:6px;border-radius:3px;background:var(--inset);overflow:hidden;margin-top:10px;}
-  .cat-ai-progress > div{height:100%;width:100%;background:var(--sky);border-radius:3px;transform-origin:left center;transform:scaleX(var(--fill,0));transition:transform .8s linear;}
-  /* Modo selección: arrastrar sobre la grilla marca varias (Google Fotos) —
-     pan-y deja el scroll vertical vivo; el arrastre se toma solo tras la presión larga. */
-  .inv-grid.cat-selecting .inv-tile{touch-action:pan-y;}
   /* Modo selección del Inventario (borrado en lote). El check va absoluto para no
      alterar el alto de la tarjeta: si el modo cambiara el layout, entrar y salir
      movería toda la grilla. */
@@ -1078,8 +1024,7 @@
   .inv-tile.sel .inv-tile-check{background:var(--tomato);color:var(--on-accent);}
   .inv-selbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 2px;font-size:13px;}
   @media (prefers-reduced-motion: reduce){
-    .overlay.overlay-fast, .overlay.overlay-fast .modal, .catalog-viewer{animation:none;}
-    ::view-transition-group(catalog-photo){animation-duration:0s;}
+    .overlay.overlay-fast, .overlay.overlay-fast .modal{animation:none;}
   }
   /* Botón de cerrar (X) para modales largos que se scrollean (ej. Configuración) —
      position:sticky lo deja pegado arriba a la derecha del modal aunque el usuario
@@ -1351,8 +1296,8 @@
   .drop-zone:hover{border-color:var(--sky);}
   .drop-zone:active{transform:scale(0.98);border-color:var(--sky);}
   .drop-zone .dz-icon{display:flex;justify-content:center;color:var(--sky);margin-bottom:6px;}
-  /* Link "o subí una desde la galería" bajo la caja — el MISMO en las cuatro
-     cámaras (Recibos, Productos, Estante, Catálogo): intro única. */
+  /* Link "o subí una desde la galería" bajo la caja — el MISMO en las tres
+     cámaras (Recibos, Productos, Estante): intro única. */
   .dz-gallery-link{display:block;margin:-8px auto 16px;background:none;border:none;color:var(--sky-ink);
     font-size:12.5px;font-weight:600;cursor:pointer;padding:4px 8px;font-family:inherit;}
   /* min-height (no solo max-height) reserva el espacio ANTES de que la foto termine
@@ -1454,9 +1399,6 @@
   .barcode-manual input{flex:1;min-width:0;}
   .barcode-tools{display:flex;justify-content:flex-end;margin-top:8px;}
   .shelf-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1px solid var(--line);}
-  .catalog-suggest-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-shrink:0;font-size:12.5px;color:var(--ink);}
-  .catalog-suggest-row small{color:var(--ink-soft);}
-  .catalog-suggest-row .pulse-switch{margin-left:auto;}
   .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--inset);color:var(--ink);}
 
   @media (max-width:720px){
@@ -1531,8 +1473,8 @@
   .inv-grid.rows{grid-template-columns:1fr;}
   /* Ítems FLOTANDO, sin caja (pedido del usuario 2026-09-06: "más limpia la
      app"): fondo y borde transparentes — ícono y texto directo sobre la página.
-     El borde de 1px se conserva invisible: el Catálogo lo pinta para marcar la
-     selección y el :active sigue dando feedback al toque. */
+     El borde de 1px se conserva invisible: el modo selección lo pinta para
+     marcar lo elegido y el :active sigue dando feedback al toque. */
   .inv-tile{background:transparent;border:1px solid transparent;border-radius:14px;
     padding:9px;display:flex;flex-direction:column;gap:5px;cursor:pointer;min-width:0;}
   .inv-tile:active{border-color:var(--navy);}
@@ -1560,16 +1502,6 @@
   .inv-grid.rows .inv-row-meta{font-size:14px;}
   .inv-grid.rows .stock-caption{font-size:13.5px;}
   /* Selector de vista (fila / 2 col / 3 col), a la derecha arriba de la lista. */
-  /* ===== PLANTILLAS del Catálogo: galería de miniaturas reales ===== */
-  .tpl-gallery{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-  .tpl-gallery::-webkit-scrollbar{display:none;}
-  .tpl-card{flex:0 0 auto;width:118px;background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;align-items:center;font-family:inherit;}
-  .tpl-thumb{position:relative;display:block;width:118px;background:#151515;border-radius:10px;overflow:hidden;border:2.5px solid var(--line);box-shadow:var(--shadow);transition:border-color .15s, transform .15s;}
-  .tpl-card.on .tpl-thumb{border-color:var(--sky);transform:scale(1.03);}
-  .tpl-thumb img{width:100%;height:100%;display:block;object-fit:cover;transition:opacity .2s;}
-  .tpl-thumb .spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
-  .tpl-card-label{font-size:12px;font-weight:700;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:118px;}
-  .tpl-card.on .tpl-card-label{color:var(--sky-ink);}
   /* ===== DASHBOARD reorganizado (maqueta aprobada 2026-09-07, "ármalo así mismo") ===== */
   .dash-month{margin-bottom:12px;}
   .dash-month .budget-line{margin-top:6px;}
@@ -1669,23 +1601,19 @@
   html .scan-fab-ring{background:rgba(96,167,239,.28);}
   .inv-tool-ring.tool-order{background:var(--tool-order-bg);color:var(--tool-order-ink);}
   .inv-tool-ring.tool-count{background:var(--tool-count-bg);color:var(--tool-count-ink);}
-  .cat-tool-ring{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);transition:transform .15s;}
-  .cat-tool-ring.cat-collage{background:var(--cat-collage-bg);color:var(--cat-collage-ink);}
-  .cat-tool-ring.cat-templates{background:var(--cat-templates-bg);color:var(--cat-templates-ink);}
-  .cat-tool-ring.cat-share{background:var(--cat-share-bg);color:var(--cat-share-ink);}
   /* ===== Las OTRAS pestañas con el mismo estilo (pedido del usuario 2026-09-08:
      "que se vean similar a la primera sin romper funciones"; hoy en todos los
      temas, cada uno con su paleta). Solo CSS sobre las mismas clases: Inventario — Valor y Potencial como tarjetas verde y
      azul, anillos de Pedido/Conteo/Escanear en amarillo/coral/azul, el chip
      activo en color y las tarjetas de producto blancas (el color queda para
      lo que pide atención). Recibos — mes, días con recibo y Cierre de mes en
-     color. Catálogo — anillos de herramientas en color. ===== */
+     color. ===== */
   html .inv-stat{border:0;border-radius:18px;padding:12px 14px;color:#fff;box-shadow:0 8px 22px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.35);}
   html .inv-stat:first-child{background:var(--tile-ok);}
   html .inv-stat:last-child{background:var(--tile-1);}
   html .inv-stat-label, html .inv-stat-note{color:rgba(255,255,255,.85);}
   html .inv-stat-value{color:#fff;}
-  html .inv-tool-ring.tool-order, html .inv-tool-ring.tool-count, html .cat-tool-ring{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  html .inv-tool-ring.tool-order, html .inv-tool-ring.tool-count{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
   html .inv-chips .category-chip.on{background:var(--tile-1);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
   html .inv-chips .category-chip.quick.on{background:var(--tile-2);border-color:transparent;color:#fff;}
   html .inv-chips .category-chip.on span, html .inv-chips .category-chip.quick.on span{background:rgba(255,255,255,.3);color:#fff;}
@@ -1696,12 +1624,6 @@
   html .cal-day.has-receipt .cal-day-receipt-icon{color:#fff;}
   html .cal-recap-btn{background:var(--tile-ok);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(0,0,0,.12);}
   html .cal-widget, html .dish-card{border-radius:18px;}
-  /* Catálogo: la fila de herramientas dentro del cuadro de color (2026-09-08). */
-  .cat-tool-label{font-size:12.5px;font-weight:700;color:var(--ink);}
-  .catalog-tools-card{margin:0 0 14px;padding:16px 6px 12px;background:var(--tile-4);--bi:var(--tile-ink);--bs:var(--tile-sub);border-color:var(--tile-border);}
-  .catalog-tools-card .cat-tool-label{color:var(--tile-ink);}
-  .catalog-tools-card .cat-tool-ring, .catalog-tools-card .shelf-scan-fab{box-shadow:0 0 0 3px rgba(255,255,255,.55), 0 8px 20px rgba(0,0,0,.22);}
-  .catalog-tools-card .shelf-minus-badge{border-color:transparent;}
   /* ===== INVENTARIO reorganizado (maqueta aprobada 2026-09-07, "exactamente así") ===== */
   /* 1. Franja de números: Valor y Potencial lado a lado. */
   .inv-stats{display:flex;gap:8px;margin:4px 0 14px;}
@@ -1709,7 +1631,7 @@
   .inv-stat-label{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-soft);}
   .inv-stat-value{font-size:19px;font-weight:800;color:var(--money-pos);font-variant-numeric:tabular-nums;line-height:1.2;margin-top:2px;}
   .inv-stat-note{font-size:10.5px;color:var(--ink-soft);margin-top:2px;}
-  /* 2. Fila de herramientas con nombre (mismo patrón que el Catálogo). */
+  /* 2. Fila de herramientas con nombre. */
   .inv-tools{display:flex;justify-content:space-evenly;align-items:flex-end;gap:4px;padding:2px 0;margin:0 0 12px;}
   .inv-tool{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;font-family:inherit;}
   .inv-tool-ring{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);font-size:24px;transition:transform .15s;}

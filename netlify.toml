@@ -8,14 +8,6 @@
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
 
-# Link corto del catálogo público que cada negocio comparte con sus clientes:
-# /c/<id> sirve catalogo.html con el id como query (rewrite 200, la URL bonita
-# se mantiene en la barra del navegador).
-[[redirects]]
-  from = "/c/*"
-  to = "/catalogo.html?c=:splat"
-  status = 200
-
 # ===== Caché =====
 # Los archivos del shell (app-0*.js, dusty.css, patron-core.js) NO llevan hash en
 # el nombre: la versión la maneja el service worker por CACHE_NAME. Por eso acá no
@@ -38,14 +30,9 @@
   [headers.values]
     Cache-Control = "no-cache"
 
-# Íconos, imagen de compartir y fondos del editor de fotos: son los únicos
-# realmente estáticos (cambian solo con un rediseño de marca, y ahí se renombran).
-# Una semana ahorra volver a bajarlos en cada visita sin quedar atados si cambian.
-[[headers]]
-  for = "/backdrops/*"
-  [headers.values]
-    Cache-Control = "public, max-age=604800"
-
+# Íconos e imagen de compartir: son los únicos realmente estáticos (cambian solo
+# con un rediseño de marca, y ahí se renombran). Una semana ahorra volver a
+# bajarlos en cada visita sin quedar atados si cambian.
 [[headers]]
   for = "/*.png"
   [headers.values]

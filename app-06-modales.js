@@ -1994,8 +1994,8 @@ function activityModal(){
 /* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
 /* ================= INTRO ÚNICA DE CÁMARA =================
    (decisión final del usuario 2026-09-07, tras probar la hoja nativa de iOS y una
-   hoja propia y descartarlas — "tapan" la pantalla): las cuatro cámaras grandes
-   — Recibos, Productos, Estante y Catálogo — abren el MISMO modal: título, la
+   hoja propia y descartarlas — "tapan" la pantalla): las tres cámaras grandes
+   — Recibos, Productos y Estante — abren el MISMO modal: título, la
    línea que explica qué hace ese escáner, la caja punteada "Tocá para sacar una
    foto" (abre la CÁMARA directo, input con capture) y debajo el link "o subí una
    desde la galería" (input sin capture). Nada de hojas intermedias. Después
@@ -2428,7 +2428,7 @@ function resizeToBase64(img, maxSide, quality){
      estándar de los editores: ir a la mitad en cada paso (cada píxel destino
      promedia ~4 de origen) hasta acercarse al tamaño final, con el filtro de
      suavizado del canvas en 'high'. Mejora TODAS las fotos de la app —
-     productos, recibos, recetas y el catálogo — gratis. */
+     productos, recibos y recetas — gratis. */
   let src = img, sw = img.width, sh = img.height;
   while(sw/2 >= width && sh/2 >= height && sw > 32){
     const half = document.createElement('canvas');
@@ -2518,8 +2518,8 @@ function openProductBatchModal(){
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   showProductBatchModal=true; render();
-  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos,
-  // Estante y Catálogo; la hoja de fotos recién al tocar la caja. El visor en
+  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos y
+  // Estante; la hoja de fotos recién al tocar la caja. El visor en
   // vivo se retiró: cada escáner trabaja con UNA foto quieta, y la cámara del
   // teléfono la saca mejor.
 }
@@ -3830,7 +3830,7 @@ function viewportWidthPx(){
 }
 function trackRestPx(tab, vw){ return -(TAB_ORDER.indexOf(tab) * vw); }
 /* ===== Scroll por pestaña + alineación de páginas durante el swipe =====
-   (auditoría de scroll 2026-09-07). Las 4 páginas comparten el MISMO scroll del
+   (auditoría de scroll 2026-09-07). Las 3 páginas comparten el MISMO scroll del
    documento y arrancan todas en el mismo tope (.view-track, align-items:
    flex-start). Con el Inventario scrolleado 2000px, deslizar hacia el Dashboard
    mostraba la vecina desde SU tope — o sea, 2000px abajo de su contenido: un
@@ -3863,8 +3863,8 @@ function trackRestPx(tab, vw){ return -(TAB_ORDER.indexOf(tab) * vw); }
    cancelan igual, solo que en un cuadro en el que la pantalla ya se está
    moviendo en horizontal. */
 const tabScrollMemory = {};
-// Geometría de las 4 páginas medida al alinear. Se guarda para poder re-alinear
-// en el pointerup sin volver a leer nada: un getBoundingClientRect de las cuatro
+// Geometría de las 3 páginas medida al alinear. Se guarda para poder re-alinear
+// en el pointerup sin volver a leer nada: un getBoundingClientRect de las tres
 // fuerza un layout justo en el cuadro en el que tiene que arrancar el resorte
 // (era el "se traba al soltar" de la auditoría de swipe 2026-09-08).
 let pageGeomAtAlign = null;
@@ -3876,7 +3876,7 @@ function viewportDocTop(){
   const vp = document.querySelector('.view-viewport');
   return vp ? vp.getBoundingClientRect().top + window.scrollY : 0;
 }
-/* Pone las 4 páginas en el marco de `base` (un scroll de documento). Devuelve la
+/* Pone las 3 páginas en el marco de `base` (un scroll de documento). Devuelve la
    geometría usada, para poder reusarla sin volver a medir. */
 function applyPageOffsets(base, geom){
   const pages = document.querySelectorAll('.view-page');
@@ -3892,7 +3892,7 @@ function applyPageOffsets(base, geom){
      más abajo no se ve, recortarlo no se nota, y el scroll no se mueve durante
      el resorte así que ese borde no cambia.
      Sin este techo el viewport se estiraba hasta la página MÁS LARGA de las
-     cuatro entera — incluida la del Catálogo, que ni participa del deslice.
+     tres entera.
      Medido con 400 productos, yendo de Inventario al Dashboard: el documento
      pasaba de 907 px a 37.599 px al empezar el gesto y volvía a 907 al
      asentarse. Ese cambio de tamaño del documento (36.692 px, 43 pantallas)
@@ -4086,8 +4086,8 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
   /* PÁGINAS LEJANAS (auditoría de cambio de pestaña 2026-09-08, medida cuadro
      a cuadro con 150 productos y 120 recibos): render() marca .far (content-
      visibility:hidden) a las páginas a 2+ pestañas de la activa, y un toque en
-     la barra puede ir justo a una de esas (Dashboard → Recibos, Inventario →
-     Catálogo). La página de destino entraba deslizándose VACÍA los ~600 ms del
+     la barra puede ir justo a una de esas (Dashboard → Recibos). La página
+     de destino entraba deslizándose VACÍA los ~600 ms del
      resorte (alto 0, sin rasterizar) y aparecía de golpe recién en el render
      del asentado — ese era el parpadeo al cambiar de página. Acá se destapan
      TODAS las páginas antes de medir y de arrancar: alignPagesForSwipe ya las
@@ -4109,7 +4109,7 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
      Viniendo de un deslice ya quedaron alineadas al enganchar el eje (ver
      pointermove en attachViewSwipeHandlers) y el scroll no se movió mientras
      el dedo iba en horizontal — repetirlo costaba un layout forzado
-     (getBoundingClientRect de las 4 páginas) justo en el pointerup, el cuadro
+     (getBoundingClientRect de las 3 páginas) justo en el pointerup, el cuadro
      en el que el resorte tiene que arrancar (auditoría de swipe 2026-09-08). */
   if(!liveGesture || uncovered) alignPagesForSwipe(activeTab);
   /* Acá se cambia el marco de referencia a la pestaña de destino (ver la nota
@@ -4132,7 +4132,7 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
     /* ASENTADO LIVIANO (auditoría 2026-09-08): el render completo de acá
        (template entero + morphdom, 25-55 ms en escritorio, un tirón de
        100-250 ms en un teléfono con inventario grande) no cambiaba nada del
-       contenido — las cuatro páginas ya estaban al día. Lo único que depende
+       contenido — las tres páginas ya estaban al día. Lo único que depende
        de la pestaña activa es el transform del track (a %), las clases
        .active/.far de las páginas, la barra de abajo y el alto del viewport:
        se ajustan a mano. Solo si un render quedó pospuesto durante la
@@ -4255,9 +4255,6 @@ function attachViewSwipeHandlers(){
     // del track, etc.), que corrían en cada evento de movimiento de cada
     // scroll de toda la app.
     if(s.axis==='y') return;
-    // Arrastre de selección del Catálogo en curso (presión larga + deslizar por
-    // la grilla, app-07): ese dedo marca tarjetas, no cambia de pestaña.
-    if(typeof catSelDrag!=='undefined' && catSelDrag){ endGestureImpl(e, true); return; }
     // Si en el medio del gesto la pantalla se volvió a dibujar entera (ej. llegó un
     // cambio de otro dispositivo del equipo por Firestore mientras deslizabas), el
     // nodo .view-track de ahora ya NO es el mismo que agarramos al empezar — seguir

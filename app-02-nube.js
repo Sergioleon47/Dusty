@@ -101,8 +101,6 @@ function ensurePatronFirebaseReady(){
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
               budgetMeta: JSON.parse(JSON.stringify(budgetMeta)),
-              catalogWhatsApp, catalogId,
-              catalogChannels: Object.assign({}, catalogChannels),
               profitsVisibleToMembers,
               categories: categories ? categories.slice() : categories,
               expenseCategories: expenseCategories.slice(),
@@ -331,7 +329,6 @@ function activityVerb(entry){
   if(entry.type==='recipe_created') return `${t('activity_recipe_created')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='recipe_edited') return `${t('activity_recipe_edited')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='recipe_deleted') return `${t('activity_recipe_deleted')} "${escapeHtml(entry.itemName)}"`;
-  if(entry.type==='catalog_published') return t('activity_catalog_published').replace('{n}', escapeHtml(entry.detail||''));
   return escapeHtml(entry.detail||'');
 }
 
@@ -586,8 +583,6 @@ function metaContentShape(m){
     cycleCountIntervalDays: m.cycleCountIntervalDays, cycleCountLastDate: m.cycleCountLastDate,
     cycleCountCursor: m.cycleCountCursor, businessName: m.businessName, monthlyBudget: m.monthlyBudget,
     budgetMeta: normalizeBudgetMeta(m.budgetMeta),
-    catalogWhatsApp: m.catalogWhatsApp || '', catalogId: m.catalogId || null,
-    catalogChannels: m.catalogChannels || {sms:false, call:false, instagram:'', facebook:'', tiktok:''},
     profitsVisibleToMembers: m.profitsVisibleToMembers === true,
     categories: m.categories,
     expenseCategories: m.expenseCategories || [],
@@ -601,7 +596,7 @@ function metaContentShape(m){
 function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, budgetMeta, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes,
+    businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes,
     recipes: recipesForCloud(), outflows, outflowArchive,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
   });
@@ -772,7 +767,7 @@ function syncAllToFirestore(){
     const metaHash = valueHash(metaContent);
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
-        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes,
+        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes,
         recipes: recipesForCloud(), outflows,
         // outflowArchive viaja en el mismo set con {merge:true}: Firestore mergea
         // los mapas por clave, así dos dispositivos archivando meses distintos no
@@ -1064,7 +1059,7 @@ function applyRemoteMetaSnapshot(doc){
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, catalogWhatsApp, catalogId, catalogChannels, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1139,7 +1134,10 @@ function attachFirestoreListeners(uid){
   // "saltando" la pantalla un poco. Eso es lo que se siente como que "todo brinca o
   // desaparece y reaparece" en el celular.
   unsubActivity = activityRef(uid).orderBy('at','desc').limit(100).onSnapshot(snap=>{
-    const nextActivityLog = snap.docs.map(d=>d.data());
+    // Se descartan las entradas de la zona de Catálogo, eliminada en 2026-09-09:
+    // las que ya están en la nube no tienen texto que las describa y saldrían
+    // como un número suelto en la lista (y contarían para el badge de "sin ver").
+    const nextActivityLog = snap.docs.map(d=>d.data()).filter(a=> a && a.type!=='catalog_published');
     if(sameJSON(nextActivityLog, activityLog)) return;
     activityLog = nextActivityLog;
     scheduleCloudTriggeredRender();
@@ -1611,9 +1609,6 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         budgetMeta: normalizeBudgetMeta(metaSnap.exists ? (remoteMeta.budgetMeta || localSnapshot.budgetMeta) : localSnapshot.budgetMeta),
-        catalogWhatsApp: metaSnap.exists ? (remoteMeta.catalogWhatsApp || localSnapshot.catalogWhatsApp || '') : (localSnapshot.catalogWhatsApp || ''),
-        catalogId: metaSnap.exists ? (remoteMeta.catalogId || localSnapshot.catalogId || null) : (localSnapshot.catalogId || null),
-        catalogChannels: metaSnap.exists ? (remoteMeta.catalogChannels || localSnapshot.catalogChannels) : localSnapshot.catalogChannels,
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
         expenseCategories: metaSnap.exists ? (remoteMeta.expenseCategories || localSnapshot.expenseCategories || []) : (localSnapshot.expenseCategories || []),
         calNotes: mergedCalNotes,
@@ -1686,16 +1681,6 @@ function setMonthlyBudget(value){
   budgetMeta.byMonth = freezeBudgetHistory(budgetMeta.byMonth, allMonths(), old, v, localMonthStr());
   monthlyBudget = v;
 }
-/* Catálogo público para clientes del negocio (2026-09-06): el número de WhatsApp
-   al que llegan los pedidos y el id del catálogo publicado (null = nunca publicó).
-   Viajan por meta como businessName/monthlyBudget; la SELECCIÓN de productos no
-   necesita campo propio — es inCatalog en cada ítem/receta y viaja con ellos. */
-let catalogWhatsApp = '';
-let catalogId = null;
-// Canales de pedido del catálogo (pedido del usuario 2026-09-06: "que el dueño
-// elija, y también sus redes"): SMS/llamadas usan el MISMO número de WhatsApp;
-// las redes son usuarios (sin @). Viaja entero por meta como un solo objeto.
-let catalogChannels = {sms:false, call:false, instagram:'', facebook:'', tiktok:''};
 /* Visibilidad financiera para MIEMBROS del equipo (decisión del dueño, viaja en
    meta): apagado (default), un miembro unido ve costos y stock pero NO el % de
    ganancia, ni el precio de venta, ni el Valor del inventario. El dueño (o un
