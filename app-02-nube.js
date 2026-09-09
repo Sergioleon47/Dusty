@@ -319,6 +319,7 @@ function activityVerb(entry){
   if(entry.type==='item_created') return `${t('activity_item_created')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='item_edited') return `${t('activity_item_edited')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='item_deleted') return `${t('activity_item_deleted')} "${escapeHtml(entry.itemName)}"`;
+  if(entry.type==='items_bulk_deleted') return t('activity_items_bulk_deleted').replace('{n}', escapeHtml(entry.detail||'?'));
   // entry.detail viene de logActivity y se sincroniza desde cualquier miembro del equipo,
   // así que se escapa también en la rama scan_applied (antes solo se escapaba en las otras).
   if(entry.type==='scan_applied') return t('activity_scan_applied').replace('{n}', escapeHtml(entry.detail||''));

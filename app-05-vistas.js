@@ -797,6 +797,16 @@ function invShortName(name){
   }
   return name;
 }
+/* SELECCIÓN MÚLTIPLE EN INVENTARIO (pedido del usuario 2026-09-09: "no tengo
+   forma de borrar ítems más rápido, las borradas es de uno a uno"). Con 400
+   productos, borrar de a uno —cada uno con su confirmación— no es viable.
+   Mismo lenguaje que el modo selección del Catálogo (botón "Seleccionar", tocar
+   para marcar) para no inventar una interacción nueva en la misma app.
+   invSelected guarda ids: sobrevive a que la lista se reordene, se filtre o se
+   busque mientras seleccionás, cosa que no pasaría con índices. */
+let invSelectMode = false;
+let invSelected = new Set();
+function invExitSelect(){ invSelectMode = false; invSelected.clear(); }
 function stockRowHtml(r, ccDueIds){
   const i = r.ing;
   // Nombre de View Transition único y estable por tarjeta (custom-ident: solo
@@ -812,7 +822,11 @@ function stockRowHtml(r, ccDueIds){
   return `
   ${/* data-status: lo usa el atajo "Alertas críticas" del Dashboard para saltar
        acá y hacer latir los críticos (ya no se listan en el Dashboard). */''}
-  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-key="invtile:${i.id}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
+  ${/* En modo selección la tarjeta MARCA en vez de abrir la ficha: se cambia
+       data-open-item por data-inv-select para que el handler de siempre no se
+       dispare, en vez de dejar los dos y depender del orden de los listeners. */''}
+  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}${invSelectMode && invSelected.has(i.id)?' sel':''}" data-key="invtile:${i.id}" ${invSelectMode ? `data-inv-select="${i.id}" aria-pressed="${invSelected.has(i.id)}"` : `data-open-item="${i.id}"`} role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
+    ${invSelectMode ? `<span class="inv-tile-check" aria-hidden="true">${invSelected.has(i.id)?'✓':''}</span>` : ''}
     <div class="inv-tile-top">
       <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
@@ -1103,7 +1117,22 @@ function inventarioView(){
     ${categories.length>0 ? categoryChipsRow() : ''}
     <div class="inv-chips">
       ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
+      <button type="button" class="category-chip quick ${invSelectMode?'on':''}" id="btn-inv-select">${invSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
     </div>
+    ${/* Barra de selección: reemplaza a la de búsqueda mientras el modo está
+         activo (buscar y seleccionar a la vez confunde qué queda marcado al
+         cambiar el filtro). El contador cuenta TODO lo seleccionado, incluso lo
+         que el filtro actual no muestra — por eso el borrado dice cuántos son. */''}
+    ${invSelectMode ? `
+    <div class="inv-sticky">
+      <div class="inv-selbar">
+        <strong>${t('inv_selected_n').replace('{n}', invSelected.size)}</strong>
+        <button type="button" class="link-btn" id="btn-inv-sel-all">${t('inv_select_all')}</button>
+        <button type="button" class="link-btn" id="btn-inv-sel-none">${t('inv_select_none')}</button>
+        <button type="button" class="btn btn-sm" id="btn-inv-sel-delete" ${invSelected.size?'':'disabled'}
+          style="margin-left:auto;background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
+      </div>
+    </div>` : `
     <div class="inv-sticky">
       <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
         <div class="inv-search-wrap">
@@ -1112,7 +1141,7 @@ function inventarioView(){
         </div>
         ${toolbar}
       </div>
-    </div>
+    </div>`}
     ${rows.length===0
       ? (searching || invQuickFilter ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
         : (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))))

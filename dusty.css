@@ -1059,6 +1059,16 @@
   /* Modo selección: arrastrar sobre la grilla marca varias (Google Fotos) —
      pan-y deja el scroll vertical vivo; el arrastre se toma solo tras la presión larga. */
   .inv-grid.cat-selecting .inv-tile{touch-action:pan-y;}
+  /* Modo selección del Inventario (borrado en lote). El check va absoluto para no
+     alterar el alto de la tarjeta: si el modo cambiara el layout, entrar y salir
+     movería toda la grilla. */
+  .inv-tile{position:relative;}
+  .inv-tile.sel{border-color:var(--tomato);box-shadow:inset 0 0 0 2px var(--tomato);}
+  .inv-tile-check{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;
+    border:2px solid var(--tomato);background:var(--panel);color:var(--tomato);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;line-height:1;}
+  .inv-tile.sel .inv-tile-check{background:var(--tomato);color:var(--on-accent);}
+  .inv-selbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 2px;font-size:13px;}
   @media (prefers-reduced-motion: reduce){
     .overlay.overlay-fast, .overlay.overlay-fast .modal, .catalog-viewer{animation:none;}
     ::view-transition-group(catalog-photo){animation-duration:0s;}
