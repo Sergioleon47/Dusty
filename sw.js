@@ -353,9 +353,15 @@
 // dueño salteaban la transacción sin descontar, el contador quedaba congelado
 // en su tope y el empleado chocaba con él. Ahora el pase es de la cuenta —
 // netlify/functions.
-const CACHE_NAME = 'patron-shell-v108';
-// Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
-// con tope — la app y catalogo.html las muestran sin volver a bajarlas.
+// v105: la ZONA DE CATÁLOGO se elimina de raíz (pedido del usuario 2026-09-09).
+// Se van la 4.ª pestaña y todo lo suyo — publicación, visor de fotos, editor,
+// collage, plantillas, canales de pedido, la página pública catalogo.html, el
+// link /c/<id>, los fondos de /backdrops y las funciones get-catalog,
+// publish-catalog, upload-catalog-photo, enhance-photo, remove-bg y stage-photo.
+// El carrusel vuelve a 3 páginas — app-01..07 + dusty.css + netlify + reglas.
+const CACHE_NAME = 'patron-shell-v109';
+// Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
+// la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
 const PHOTO_HOSTS = ['storage.googleapis.com', 'firebasestorage.googleapis.com'];
 const PHOTO_CACHE_MAX = 240;
