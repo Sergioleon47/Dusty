@@ -491,7 +491,12 @@
      re-rasterizaba en cada latido del punto — y caía justo sobre el pie del
      contenido. Mismo look, cero desenfoque en tiempo real. */
   .bottom-nav::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:26px;pointer-events:none;background:linear-gradient(to top, rgba(0,0,0,.42), rgba(0,0,0,.14) 45%, transparent);}
-  .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:var(--ink-soft);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
+  /* La pestaña que NO está activa va en la tinta plena, no en el gris apagado
+     (pedido del usuario 2026-09-09: "oscurece más las letras grises, ponlas
+     negras"). --ink es negro en los temas claros y casi blanco en los oscuros,
+     así que en los dos casos es el máximo contraste contra el fondo de la barra.
+     La activa se distingue igual por su color de acento y la barrita de arriba. */
+  .bottom-nav-item{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 8px;color:var(--ink);font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;position:relative;font-family:'Inter';transition:color .25s ease;}
   .bottom-nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .bottom-nav-item.active{color:var(--navy);}
   .bottom-nav-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--navy);}
