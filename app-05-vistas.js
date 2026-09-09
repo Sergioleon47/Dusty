@@ -1225,13 +1225,13 @@ function yearPickerWidget(){
   </div>`;
 }
 
-/* Calendario del mes que se muestra arriba de la lista de recibos: cada día con
-   un recibo muestra su miniatura; los días con notas (parser de Nudgy) llevan una
-   burbujita con el emoji de la primera. Tocar CUALQUIER día abre el modal
-   unificado del día (dayModal): sus recibos, sus notas y el compositor para
-   escribir una nueva — un solo modelo mental en vez de tres comportamientos
-   distintos por celda. Un día con varios recibos muestra el primero con la
-   insignia "×N"; se elige cuál abrir desde el mismo modal. */
+/* Calendario del mes, arriba de la lista de recibos. Un bloque de color con los
+   números en blanco (maqueta del usuario 2026-09-09): los días que tienen algo se
+   marcan con puntitos debajo — uno por recibo hasta tres, y uno ámbar si además
+   hay nota (parser de Nudgy). Tocar CUALQUIER día abre el modal unificado del día
+   (dayModal): sus recibos con foto, sus notas y el compositor para escribir una
+   nueva — un solo modelo mental en vez de tres comportamientos distintos por
+   celda, y el lugar donde vive el detalle que la celda ya no muestra. */
 function receiptCalendarWidget(){
   if(!calendarViewMonth) calendarViewMonth = localMonthStr();
   if(calendarShowYearPicker) return yearPickerWidget();
@@ -1248,34 +1248,44 @@ function receiptCalendarWidget(){
     receiptsByDay[day].push(r);
   });
 
+  /* Los días de los meses vecinos se dibujan atenuados en vez de dejar huecos
+     (maqueta del usuario 2026-09-09) — son SOLO decorado: sin data-cal-day no
+     son tocables y no abren nada, igual que los huecos vacíos de antes. */
   const cells = [];
-  for(let i=0;i<firstWeekday;i++) cells.push('<div class="cal-day empty"></div>');
+  const prevMonthDays = new Date(y, m-1, 0).getDate();
+  for(let i=firstWeekday; i>0; i--){
+    cells.push(`<div class="cal-day out"><span class="cal-day-num">${prevMonthDays-i+1}</span></div>`);
+  }
   for(let day=1; day<=daysInMonth; day++){
     const dateStr = calendarViewMonth+'-'+String(day).padStart(2,'0');
     const dayReceipts = receiptsByDay[day];
     const r = dayReceipts ? dayReceipts[0] : null;
     const multi = dayReceipts && dayReceipts.length>1;
     const isToday = dateStr===todayStr;
-    const cover = r ? receiptImages(r)[0] : null;
     const isBlink = calendarBlinkDates.includes(dateStr);
-    // Notas del día (fijas + recurrentes, parser de Nudgy) — se marcan con el emoji
-    // de la primera en una burbujita, sin competir con la miniatura del recibo.
+    // Notas del día (fijas + recurrentes, parser de Nudgy).
     const dayNotes = calNotesOnDate(calNotes, dateStr);
     // Tocar CUALQUIER día abre el modal unificado del día (recibos + notas +
     // compositor) — antes cada celda decidía entre 3 comportamientos distintos.
+    /* El día es SIEMPRE su número, y lo que pasa ese día se marca con puntitos
+       debajo (maqueta del usuario 2026-09-09) — antes la miniatura del recibo
+       tapaba la fecha y cada celda se veía distinta. Un punto por recibo hasta
+       tres, más uno de otro color si hay nota; el conteo exacto, la foto y el
+       texto de la nota siguen a un toque, en el modal del día. El title conserva
+       el detalle para quien pase el mouse. */
+    const dots = [];
+    if(dayReceipts) for(let d=0; d<Math.min(dayReceipts.length,3); d++) dots.push('<i></i>');
+    if(dayNotes.length) dots.push('<i class="note"></i>');
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
-        ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">`
-          : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
-          : `<span class="cal-day-num">${day}</span>`}
-        ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
-        ${/* escapeHtml en el icon: viaja por meta/settings que cualquier miembro
-             puede escribir vía SDK — sin escape era un XSS almacenado que corría
-             en la sesión de todo el equipo (auditoría 2026-09-04). */''}
-        ${dayNotes.length ? `<span class="cal-day-note-dot">${escapeHtml(dayNotes[0].icon||'📌')}${dayNotes.length>1?`<i>${dayNotes.length}</i>`:''}</span>` : ''}
+        <span class="cal-day-num">${day}</span>
+        ${dots.length ? `<span class="cal-dots">${dots.join('')}</span>` : ''}
       </div>
     `);
   }
+
+  const tail = (7 - (cells.length % 7)) % 7;
+  for(let d=1; d<=tail; d++) cells.push(`<div class="cal-day out"><span class="cal-day-num">${d}</span></div>`);
 
   return `
   <div class="cal-widget">
@@ -1389,18 +1399,16 @@ function recibosView(){
   });
 
   return `
-  <div class="section-head">
-    <div><h2>${t('rec_title')}</h2><p>${t('rec_sub')}</p></div>
-    ${/* Sin el botón "Scan receipt" (lo tachó el usuario): escanear ya vive en el
-         botón grande del Dashboard — acá duplicaba y apretaba el buscador. */''}
-    ${/* Sin recibos todavía no hay nada que buscar (auditoría de primer minuto
-         2026-09-07): el buscador por monto recién aparece con el primer recibo.
-         El calendario sí se muestra siempre (sirve para anotar recordatorios). */''}
-    ${receipts.length>0 ? `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
-    </div>` : ''}
-  </div>
+  ${/* Sin título ni bajada (pedido del usuario 2026-09-09): la pestaña abre
+       directo en el calendario — el nombre ya lo dice la barra de abajo.
+       Sin el botón "Scan receipt" tampoco: escanear vive en el botón grande del
+       Dashboard. Y sin recibos todavía no hay nada que buscar, así que el
+       buscador por monto recién aparece con el primero (el calendario sí se
+       muestra siempre: sirve para anotar recordatorios). */''}
+  ${receipts.length>0 ? `
+  <div class="section-head" style="margin-bottom:12px;">
+    <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
+  </div>` : ''}
   ${/* El calendario va SIEMPRE (corrección 2026-09-07): esconderlo sin recibos
        dejaba a un usuario nuevo sin poder anotar un recordatorio tocando un día.
        Solo el buscador por monto (arriba) espera al primer recibo. */''}
