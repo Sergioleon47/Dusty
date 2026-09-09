@@ -3733,6 +3733,37 @@ function removeInventoryItem(id){
   if(deletedItem) logActivity('item_deleted', deletedItem.name);
 }
 
+/* BORRADO EN LOTE (pedido del usuario 2026-09-09). Una sola confirmación con el
+   total, un solo saveState y UN solo registro de actividad: logActivity escribe en
+   Firestore por llamada, así que borrar 50 productos de a uno serían 50 escrituras
+   y 50 líneas en el historial del equipo para una sola acción del usuario.
+   Los bills seleccionados que tengan pagos de este mes se preguntan UNA vez para
+   todos, no uno por uno — misma decisión que deleteStockItem toma por ítem (ver
+   ahí el porqué de preguntar en vez de asumir), pero sin volverla insoportable. */
+function deleteSelectedInventory(ids){
+  const lista = ids.map(id=>inventory.find(i=>i.id===id)).filter(Boolean);
+  if(!lista.length) return 0;
+  if(!confirm(t('confirm_delete_selected').replace('{n}', lista.length))) return 0;
+  const idSet = new Set(lista.map(i=>i.id));
+  const pagosDelMes = receipts.filter(r=>r && r.manual && r.billItemId && idSet.has(r.billItemId)
+    && monthKey(r.date)===localMonthStr());
+  if(pagosDelMes.length){
+    const total = pagosDelMes.reduce((sum,r)=>sum+(r.total||0), 0);
+    if(confirm(t('confirm_delete_bill_payments')
+        .replace('{n}', pagosDelMes.length).replace('{total}', money(total)))){
+      const pagoIds = new Set(pagosDelMes.map(r=>r.id));
+      pagosDelMes.forEach(r=>{ if(!deletedReceiptIds.includes(r.id)) deletedReceiptIds.push(r.id); });
+      receipts = receipts.filter(r=>!pagoIds.has(r.id));
+    }
+  }
+  inventory = inventory.filter(i=>!idSet.has(i.id));
+  lista.forEach(i=>{ if(!deletedInventoryIds.includes(i.id)) deletedInventoryIds.push(i.id); });
+  saveState();
+  // Un solo registro para toda la acción (ver la nota de arriba).
+  if(lista.length===1) logActivity('item_deleted', lista[0].name);
+  else logActivity('items_bulk_deleted', '', String(lista.length));
+  return lista.length;
+}
 function deleteStockItem(id, triggerEl){
   const item = inventory.find(i=>i.id===id);
   if(!item) return;

@@ -2101,6 +2101,38 @@ function attachEvents(){
     try{ localStorage.setItem('patron_inv_sort', invSort); }catch(e){}
     invLayoutTransitionPending=true; render();
   };
+  /* MODO SELECCIÓN DEL INVENTARIO (borrado en lote, pedido del usuario
+     2026-09-09). Al salir del modo se limpia la selección: dejarla viva
+     invisible es la receta para borrar algo que ya no recordás haber marcado. */
+  const btnInvSelect=document.getElementById('btn-inv-select');
+  if(btnInvSelect) btnInvSelect.onclick=()=>{
+    if(invSelectMode) invExitSelect();
+    else { invSelectMode=true; invSelected.clear(); showToast(t('inv_select_hint'), 'info'); }
+    render();
+  };
+  document.querySelectorAll('[data-inv-select]').forEach(el=>{
+    el.onclick=()=>{
+      const id=el.dataset.invSelect;
+      if(invSelected.has(id)) invSelected.delete(id); else invSelected.add(id);
+      render();
+    };
+  });
+  const btnSelAll=document.getElementById('btn-inv-sel-all');
+  if(btnSelAll) btnSelAll.onclick=()=>{
+    // "Todos" = todo lo que la lista muestra AHORA (con su filtro y su búsqueda),
+    // no el inventario entero: seleccionar 400 productos invisibles de un toque es
+    // justo lo que nadie quiere que pase.
+    document.querySelectorAll('[data-inv-select]').forEach(el=>invSelected.add(el.dataset.invSelect));
+    render();
+  };
+  const btnSelNone=document.getElementById('btn-inv-sel-none');
+  if(btnSelNone) btnSelNone.onclick=()=>{ invSelected.clear(); render(); };
+  const btnSelDelete=document.getElementById('btn-inv-sel-delete');
+  if(btnSelDelete) btnSelDelete.onclick=()=>{
+    const n = deleteSelectedInventory([...invSelected]);
+    if(n>0){ invExitSelect(); showToast(t('inv_deleted_n').replace('{n}', n)); }
+    render();
+  };
   document.querySelectorAll('[data-inv-quick]').forEach(b=>{
     b.onclick=()=>{ const k=b.dataset.invQuick; invQuickFilter = (invQuickFilter===k) ? null : k; render(); };
   });
