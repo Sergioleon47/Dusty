@@ -1297,10 +1297,9 @@ function recibosView(){
        Dashboard. Y sin recibos todavía no hay nada que buscar, así que el
        buscador por monto recién aparece con el primero (el calendario sí se
        muestra siempre: sirve para anotar recordatorios). */''}
-  ${receipts.length>0 ? `
-  <div class="section-head" style="margin-bottom:12px;">
-    <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
-  </div>` : ''}
+  ${/* Sin el buscador por monto sobre el calendario (el usuario lo quitó,
+       2026-09-09): el bloque azul abre la pestaña a sangre. El buscador por
+       proveedor o producto, debajo del calendario, sigue. */''}
   ${/* El calendario va SIEMPRE (corrección 2026-09-07): esconderlo sin recibos
        dejaba a un usuario nuevo sin poder anotar un recordatorio tocando un día.
        Solo el buscador por monto (arriba) espera al primer recibo. */''}

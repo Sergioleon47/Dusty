@@ -432,7 +432,12 @@
 // v122: en el calendario de Recibos, un día con recibo muestra el ICONO de
 // recibo en lugar del número, con la foto encima cuando carga; si la foto
 // falla, queda el icono (antes la casilla quedaba vacía) — app-05 + css.
-const CACHE_NAME = 'patron-shell-v122';
+// v123: el bloque azul del calendario de Recibos va a SANGRE con los bordes de
+// la referencia del usuario (arriba recto, pegado al borde superior y a los
+// lados; solo las esquinas de abajo redondeadas) y se quita el buscador por
+// monto que iba sobre él. El margen de página pasa de #app a cada .view-page
+// (variables --page-pad-*) para que un bloque pueda salirse — css + app-05.
+const CACHE_NAME = 'patron-shell-v123';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

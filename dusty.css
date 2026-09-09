@@ -379,7 +379,12 @@
      dispare el menú de copiar/compartir de iOS a mitad de gesto — eso competía con
      el swipe y era una causa real de que a veces no arrancara. Los campos de texto
      (input/textarea) igual se pueden seleccionar y editar normal, esto no los toca. */
-  #app{max-width:1180px;margin:0 auto;padding:calc(28px + env(safe-area-inset-top)) 24px 100px;touch-action:pan-y;-webkit-touch-callout:none;user-select:none;}
+  /* El margen de página vive en CADA .view-page (variables), no en #app
+     (2026-09-09): así un bloque puede salirse de él con márgenes negativos —
+     el calendario de Recibos va a sangre, pegado al borde de arriba y a los
+     lados, como la referencia del usuario. Con el padding en #app, el
+     .view-viewport (overflow:hidden) lo recortaba. */
+  #app{max-width:1180px;margin:0 auto;padding:0 0 100px;--page-pad-top:calc(28px + env(safe-area-inset-top));--page-pad-x:24px;touch-action:pan-y;-webkit-touch-callout:none;user-select:none;}
   #app input, #app textarea, #app select{-webkit-user-select:text;user-select:text;}
 
   /* Las 3 pestañas (dashboard/inventario/recibos) viven SIEMPRE las 3 en el DOM,
@@ -413,7 +418,7 @@
      con TAB_ORDER.length (app-01). */
   .view-track{display:flex;align-items:flex-start;width:300%;}
   .view-track.vt-live{will-change:transform;}
-  .view-page{width:calc(100%/3);min-width:0;flex-shrink:0;}
+  .view-page{width:calc(100%/3);min-width:0;flex-shrink:0;padding:var(--page-pad-top) var(--page-pad-x) 0;box-sizing:border-box;}
   /* Las páginas LEJANAS (a más de una pestaña de distancia — nunca visibles ni
      alcanzables en un mismo gesto, el swipe compromete de a una) directamente
      no se rasterizan: menos memoria de GPU y pintado por frame. La clase la
@@ -897,8 +902,13 @@
      el verde de "Pedido sugerido" y volvió a este el 2026-09-09), así que
      acompaña al tema en vez de clavar un color fijo. Mismo DOM y mismos ids:
      cambia la pintura, no el comportamiento. */
-  .cal-widget{background:var(--tile-1);border:0;border-radius:22px;box-shadow:0 12px 28px rgba(0,0,0,.20);
-    padding:18px 14px 14px;margin-bottom:16px;color:var(--tile-ink);}
+  /* Bloque azul a SANGRE con los bordes de la referencia (pedido del usuario
+     2026-09-09, captura de Vecteezy): arriba recto, pegado al borde superior y
+     a los lados, y solo las esquinas de abajo redondeadas. Los márgenes
+     negativos cancelan el margen de la página (--page-pad-*, ver #app) y el
+     padding superior lo repone por dentro, más la franja de estado. */
+  .cal-widget{background:var(--tile-1);border:0;border-radius:0 0 28px 28px;box-shadow:0 12px 28px rgba(0,0,0,.20);
+    padding:calc(var(--page-pad-top) + 10px) 14px 16px;margin:calc(-1 * var(--page-pad-top)) calc(-1 * var(--page-pad-x)) 16px;color:var(--tile-ink);}
   .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   /* Antes era texto pelado sin fondo ni borde — nada avisaba que se podía tocar para
      cambiar entre la vista de mes y la de año completo. Ahora tiene la forma de un
@@ -1451,7 +1461,7 @@
   .mi-fields select, .mi-fields input{padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--inset);color:var(--ink);}
 
   @media (max-width:720px){
-    #app{padding:calc(16px + env(safe-area-inset-top)) 14px 90px;}
+    #app{padding:0 0 90px;--page-pad-top:calc(16px + env(safe-area-inset-top));--page-pad-x:14px;}
     .topbar{margin-bottom:16px;row-gap:10px;}
     .mi-fields{flex-direction:column;}
     .field-row{flex-wrap:wrap;}
