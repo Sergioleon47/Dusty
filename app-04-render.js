@@ -251,6 +251,13 @@ function renderApp(){
          condicionales) para que la transición CSS de subida/bajada pueda correr. */''}
     ${monthRecapModal()}
     ${inventory.length>0 ? orderCalcPanel() : ''}
+    ${/* Franja de SIN CONEXIÓN: fija sobre la barra de abajo para que se vea en
+         cualquier pestaña. Solo aparece sin red; no tapa nada porque #app ya
+         reserva el alto de la barra. */''}
+    ${isOffline ? `<div class="offline-bar" role="status">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="4" y1="20" x2="20" y2="4"/></svg>
+      <span>${t('offline_bar')}</span>
+    </div>` : ''}
     ${bottomNav()}
   `;
   /* Parcheo del DOM con morphdom en vez de app.innerHTML = html. El reemplazo
@@ -486,9 +493,20 @@ function topbar(){
       ${/* Nube rediseñada (pedido del usuario 2026-09-04): la silueta clásica
            cerrada (Feather "cloud") en vez del trazo abierto de antes, con el
            check adentro — se lee como nube de un vistazo a 17px. */''}
-      <button class="lang-toggle ${cloudSyncDirty ? 'pending' : 'synced'}" id="btn-cloud-sync" title="${cloudSyncDirty ? t('cloud_sync_pending') : t('cloud_sync_signed_in').replace('{email}', escapeHtml(currentUserLabel()))}">
-        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><polyline points="9.5 14 11.5 16 15 12.5"/></svg>
-      </button>
+      ${/* Tres estados, no dos (auditoría 2026-09-09): al día, subiendo, y
+           "no se pudo guardar". Sin conexión gana sobre "subiendo": decir
+           "sincronizando" sin red es mentirle al usuario. */''}
+      ${(()=>{
+        const st = isOffline ? 'offline' : cloudSyncIsFailing() ? 'failed' : cloudSyncDirty ? 'pending' : 'synced';
+        const titulo = st==='offline' ? t('cloud_sync_offline')
+          : st==='failed' ? t('cloud_sync_failed')
+          : st==='pending' ? t('cloud_sync_pending')
+          : t('cloud_sync_signed_in').replace('{email}', escapeHtml(currentUserLabel()));
+        return `
+      <button class="lang-toggle ${st}" id="btn-cloud-sync" title="${titulo}" aria-label="${titulo}">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>${st==='failed' ? '<line x1="12" y1="10.5" x2="12" y2="14"/><line x1="12" y1="16.4" x2="12" y2="16.5"/>' : st==='offline' ? '<line x1="4" y1="20" x2="20" y2="4"/>' : '<polyline points="9.5 14 11.5 16 15 12.5"/>'}</svg>
+      </button>`;
+      })()}
       ` : `
       ${/* Auditoría de primer minuto 2026-09-07: "Guardar mi cuenta" aparecía en el
            PRIMER toque (al crearse la cuenta anónima), sin que hubiera nada que

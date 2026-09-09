@@ -301,6 +301,16 @@ function attachEvents(){
   // de sincronización; tocarla dice el estado en un toast.
   const btnCloudSync=document.getElementById('btn-cloud-sync');
   if(btnCloudSync) btnCloudSync.onclick=()=>{
+    // Sin conexión y "no se pudo guardar" explican QUÉ pasó y qué se hace; el
+    // fallo además reintenta ahí mismo en vez de esperar el backoff.
+    if(isOffline){ showToast(t('cloud_sync_offline'), 'info'); return; }
+    if(cloudSyncIsFailing()){
+      showToast(t('cloud_sync_failed_retry'), 'error');
+      clearTimeout(cloudSyncRetryTimer);
+      cloudSyncRetryDelayMs = 2000;
+      if(cloudSyncDirty) syncAllToFirestore();
+      return;
+    }
     showToast(cloudSyncDirty ? t('cloud_sync_pending') : t('cloud_sync_signed_in').replace('{email}', currentUserLabel()), cloudSyncDirty ? 'info' : 'success');
   };
   const btnCloudSignIn=document.getElementById('btn-cloud-sign-in');
@@ -1828,8 +1838,13 @@ document.addEventListener('keydown', (e)=>{
 // el backoff de onCloudSyncWriteFailed() — apenas el navegador avisa que volvió la
 // conexión, se reintenta ahí mismo.
 window.addEventListener('online', ()=>{
-  if(cloudSyncDirty){ clearTimeout(cloudSyncRetryTimer); syncAllToFirestore(); }
+  isOffline = false;
+  render();
+  if(cloudSyncDirty){ clearTimeout(cloudSyncRetryTimer); cloudSyncRetryDelayMs = 2000; syncAllToFirestore(); }
 });
+// Sin conexión: se avisa en el acto (franja fija + ícono de nube). La app sigue
+// funcionando entera contra el estado local — eso es justo lo que dice la franja.
+window.addEventListener('offline', ()=>{ isOffline = true; render(); });
 
 /* Reporte de errores en producción: sin esto, si algo se rompe para un usuario real,
    el único rastro queda en SU consola del navegador — nadie más se entera salvo que

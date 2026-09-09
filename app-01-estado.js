@@ -59,6 +59,13 @@ let deletedCalNoteIds = [];
 // input para sobrevivir a un render() disparado por la nube a mitad de tipeo.
 let dayNoteDraft = '';
 let calendarShowYearPicker = false; // true cuando se tocó el mes/año arriba del calendario, para elegir otro mes del mismo año de un tirón
+/* SIN CONEXIÓN, VISIBLE (auditoría 2026-09-09): la app funciona entera offline
+   —el service worker sirve el shell y el estado vive en este teléfono— pero no
+   lo decía en ningún lado: el usuario veía todo normal hasta que tocaba
+   Escanear y recibía un error seco. navigator.onLine no aparecía ni una vez en
+   el código. Lo mantienen los listeners de app-07. */
+let isOffline = false;
+try{ isOffline = (typeof navigator!=='undefined' && navigator.onLine===false); }catch(e){}
 let calendarAmountQuery = ''; // texto del buscador por monto, al lado de "Escanear recibo"
 let calendarBlinkDates = []; // fechas "YYYY-MM-DD" que coinciden con calendarAmountQuery — esos días parpadean en el calendario
 

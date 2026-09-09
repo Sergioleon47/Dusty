@@ -470,6 +470,20 @@ function catchUpRecipePhotoUploads(){
 }
 
 let cloudSyncDirty = false;
+/* SUBIDA A LA NUBE QUE FALLA, VISIBLE (auditoría 2026-09-09): antes un fallo de
+   escritura solo se anotaba en la consola y se reintentaba callado. El ícono de
+   la nube tenía dos estados —"subiendo" y "al día"— así que un sync roto hace
+   horas se veía IGUAL que una subida en curso: el usuario creía que sus recibos
+   estaban a salvo. Ahora el fallo se cuenta y se muestra; se limpia sola en
+   cuanto una subida entra bien. Se avisa recién al 2º fallo seguido para no
+   asustar por un corte de red de un segundo (el 1º se reintenta solo). */
+let cloudSyncFailCount = 0;
+let cloudSyncLastError = '';
+function cloudSyncIsFailing(){ return cloudSyncFailCount >= 2; }
+function clearCloudSyncFailure(){
+  if(cloudSyncFailCount===0) return;
+  cloudSyncFailCount = 0; cloudSyncLastError = '';
+}
 let cloudSyncDebounceTimer = null;
 // Reintento con backoff exponencial cuando syncAllToFirestore() falla (ver más abajo):
 // arranca en 2s y se duplica en cada fallo consecutivo hasta un tope de 60s, y se
@@ -800,6 +814,7 @@ function syncAllToFirestore(){
     // Nada que subir (guardado que no cambió nada sincronizable): listo sin escribir.
     if(ops.length===0){
       cloudSyncDirty = false;
+      clearCloudSyncFailure();
       clearTimeout(cloudSyncRetryTimer);
       cloudSyncRetryDelayMs = 2000;
       render();
@@ -837,6 +852,7 @@ function syncAllToFirestore(){
       }
       persistSyncedHashes();
       cloudSyncDirty = false;
+      clearCloudSyncFailure();
       clearTimeout(cloudSyncRetryTimer);
       cloudSyncRetryDelayMs = 2000;
       // Vuelve a dibujar para que el ícono de la nube deje de mostrarse "pendiente" ya
@@ -864,6 +880,10 @@ function syncAllToFirestore(){
 //   con backoff exponencial, hasta que un intento tenga éxito.
 function onCloudSyncWriteFailed(err){
   console.error('[Dusty] cloud sync failed:', err);
+  cloudSyncFailCount++;
+  cloudSyncLastError = (err && (err.code || err.message)) ? String(err.code || err.message).slice(0,120) : '';
+  // Repintar para que el ícono pase a "no se pudo guardar" apenas se sabe.
+  if(cloudSyncFailCount===2) render();
   // El desvío a "volver a la cuenta propia" solo tiene sentido siendo MIEMBRO de
   // un equipo (te expulsaron). Un permission-denied escribiendo en el árbol
   // PROPIO (regla mal desplegada, token con reloj corrido) caía en un handler

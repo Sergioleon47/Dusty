@@ -118,6 +118,10 @@
        leerlo, así que baja al 26% de negro. Lo comparten el chip "Toca contar",
        la etiqueta del mes y el día de hoy — un solo ámbar en toda la app. */
     --amber-fill:linear-gradient(170deg, var(--hue-5), color-mix(in oklch, var(--hue-5), black 26%));
+    /* Alto del CONTENIDO de la barra de abajo (medido en la app: 56px); su
+       padding de área segura se suma aparte donde haga falta. Lo usa la franja
+       de "sin conexión" para apoyarse justo encima sin taparla. */
+    --nav-h:56px;
     --ease-spring:cubic-bezier(0.16,1,0.3,1);
     --ease-soft:cubic-bezier(0.4,0,0.2,1);
   }
@@ -485,6 +489,21 @@
      cloudSyncDirty en el listener de Firestore). */
   #btn-cloud-sync.pending{color:var(--saffron-ink);background:var(--saffron-soft);}
   #btn-cloud-sync.pending svg{animation:spin 1.1s linear infinite;}
+  /* Tercer y cuarto estado del ícono de nube (auditoría 2026-09-09): "no se pudo
+     guardar" en rojo y "sin conexión" apagado. El rojo NO late: es un aviso
+     permanente, no una alarma; latir en el encabezado cansaría en cada pantalla. */
+  #btn-cloud-sync.failed{color:var(--money-neg-ink);background:var(--money-neg-soft);}
+  #btn-cloud-sync.offline{color:var(--ink-soft);background:var(--inset);}
+  /* Franja de sin conexión, fija sobre la barra de abajo. */
+  .offline-bar{position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+    z-index:39;display:flex;align-items:center;justify-content:center;gap:8px;
+    padding:7px 14px;background:var(--raised-2);color:var(--ink-mid);
+    border-top:1px solid var(--line);font-size:12.5px;font-weight:600;
+    animation:offlineBarIn .25s var(--ease-soft) both;}
+  .offline-bar svg{width:15px;height:15px;flex-shrink:0;stroke:currentColor;fill:none;
+    stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  @keyframes offlineBarIn{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){.offline-bar{animation:none;}}
   /* Cuando no hay sesión, el botón de la nube se ve como un ícono chico más entre
      otros y pasa desapercibido — en ese estado se agranda a una píldora con texto
      para que sea obvio que ahí se crea una cuenta. */

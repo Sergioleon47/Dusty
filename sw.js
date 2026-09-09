@@ -445,7 +445,12 @@
 // corrupto, mensaje de "no se pudo conectar" reescrito para el usuario final,
 // y privacy.html + delete-account.html + html5-qrcode.min.js agregados al
 // paquete de la app instalada — app-03/06 + scripts/build-www.js.
-const CACHE_NAME = 'patron-shell-v125';
+// v126: estado de red visible (auditoria 2026-09-09). El icono de nube pasa de
+// dos estados a cuatro — al dia, subiendo, SIN CONEXION y NO SE PUDO GUARDAR —
+// y aparece una franja fija sobre la barra de abajo cuando no hay red. Antes un
+// sync roto hacia horas se veia igual que una subida en curso, y la app
+// funcionaba offline sin decirlo nunca — app-01/02/03/04/07 + css.
+const CACHE_NAME = 'patron-shell-v126';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
