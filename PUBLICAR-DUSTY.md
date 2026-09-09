@@ -108,7 +108,7 @@ dónde vive cada cosa.
 | Cosa | Dato |
 |---|---|
 | Archivo del keystore | `android/keystore/dusty-upload.jks` (NO está en git) |
-| Contraseña del keystore | `gvWhU4lZrqxnolndkKj0Z4hh` |
+| Contraseña del keystore | **NO va acá** — vive solo en `android/keystore.properties` (fuera de git) y en tu gestor de contraseñas |
 | Alias | `dusty-upload` |
 | Válido hasta | 15/08/2051 |
 | Config de firma | `android/keystore.properties` (NO está en git) — lee las credenciales de arriba |

@@ -2161,7 +2161,7 @@ function scanModal(){
         <button type="button" class="scan-cancel-reading" id="btn-cancel-reading">${t('scan_cancel_reading')}</button>`;
       })() : ''}
       ${scanPhotoView!==null && (scanCurrentImages||scanImages)[scanPhotoView] ? (()=>{ const im=(scanCurrentImages||scanImages)[scanPhotoView]; return photoViewerHtml(`data:${im.mediaType};base64,${im.base64}`, 'scan-photo-viewer'); })() : ''}
-      ${scanState==='error' ? `<div class="scan-error">⚠ ${scanErrorMsg}</div>` : ''}
+      ${scanState==='error' ? `<div class="scan-error">⚠ ${escapeHtml(scanErrorMsg)}</div>` : ''}
       ${scanState==='error' ? `<div class="helper-note" style="margin-top:-4px;">${t('scan_tip_manual')}</div>` : ''}
 
       ${scanState==='matched' && scanBatchMode && scanQueueTotal>0 ? `
@@ -2740,7 +2740,7 @@ function productBatchModal(){
         <div class="helper-note" style="background:var(--basil-soft);color:var(--basil-ink);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-weight:700;">✓ ${t('ids_found_in_inventory')}</div>
         <div class="matched-item">
           <div class="mi-top">
-            ${matchedItem.photo ? `<img src="data:${matchedItem.photo.mediaType};base64,${matchedItem.photo.base64}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span class="mi-icon" style="background:var(--basil);">${lineIcon('box',12)}</span>`}
+            ${matchedItem.photo ? `<img src="${escapeHtml(itemPhotoSrc(matchedItem))}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span class="mi-icon" style="background:var(--basil);">${lineIcon('box',12)}</span>`}
             <strong style="flex:1;">${escapeHtml(matchedItem.name)}</strong>
           </div>
           <div style="font-size:12.5px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;">

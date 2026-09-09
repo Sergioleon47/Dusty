@@ -394,7 +394,7 @@ const I18N = {
     err_generic_receipt:'Ocurrió un error leyendo el recibo',
     err_scan_too_big:'Las fotos pesan demasiado para mandarlas juntas — prueba con menos páginas por vez.',
     err_scan_timeout:'El lector tardó demasiado con este recibo — prueba de nuevo; si es muy largo, escanéalo en menos páginas por vez.',
-    err_function_not_found:'No se pudo conectar con el lector de recibos — revisa que la función esté publicada en Netlify (netlify/functions/extract-receipt.js) y que tenga la API key de Anthropic configurada.',
+    err_function_not_found:'No se pudo conectar con el lector de recibos. Revisá tu conexión y probá de nuevo; si sigue igual, podés cargar la compra a mano mientras tanto.',
     err_function_not_found_product:'No se pudo conectar con el identificador de productos — revisa que la función esté publicada en Netlify (netlify/functions/identify-product.js) y que tenga la API key de Anthropic configurada.',
     err_scan_auth_required:'Inicia sesión de nuevo para escanear recibos.',
     err_scan_quota_exceeded:'Llegaste al límite de escaneos de tu plan este mes. Espera al próximo mes o sube de plan para seguir escaneando.',
@@ -905,7 +905,7 @@ const I18N = {
     err_generic_receipt:'Something went wrong reading the receipt',
     err_scan_too_big:'The photos are too heavy to send together — try fewer pages at a time.',
     err_scan_timeout:'The reader took too long on this receipt — try again; if it is very long, scan fewer pages at a time.',
-    err_function_not_found:"Couldn't connect to the receipt reader — check that the function is published on Netlify (netlify/functions/extract-receipt.js) and has the Anthropic API key configured.",
+    err_function_not_found:"Couldn't connect to the receipt reader. Check your connection and try again; you can log the purchase by hand in the meantime.",
     err_function_not_found_product:"Couldn't connect to the product identifier — check that the function is published on Netlify (netlify/functions/identify-product.js) and has the Anthropic API key configured.",
     err_scan_auth_required:'Sign in again to scan receipts.',
     err_scan_quota_exceeded:"You've reached your plan's scan limit for this month. Wait until next month or upgrade your plan to keep scanning.",
@@ -1235,7 +1235,18 @@ function evictOldReceiptPhotos(){
   });
   return evicted;
 }
+/* true si loadState() no pudo interpretar lo guardado (ver el catch de más
+   abajo). Mientras esté en true, saveState() NO escribe: pisar la clave con el
+   estado vacío destruiría los datos que todavía se pueden rescatar de
+   `<clave>_corrupto`. Se limpia sola en cuanto el usuario carga algo real. */
+let stateLoadFailed = false;
 function saveState(){
+  if(stateLoadFailed){
+    // Un dato real nuevo (importar respaldo, un producto, un recibo) significa
+    // que el usuario ya siguió adelante: se libera el freno y se guarda normal.
+    if(inventory.length || receipts.length || purchases.length) stateLoadFailed = false;
+    else return;
+  }
   let localOk = true;
   // ETAPA A del PLAN-SYNC: sellar updatedAt/updatedBy en cada doc cuyo contenido
   // cambió desde el guardado anterior (ver stampLocalEdits en app-02) — el sello es
@@ -1351,7 +1362,19 @@ function loadState(){
     if(!raw) return;
     applyStateData(JSON.parse(raw));
   }catch(e){
+    /* AUDITORÍA 2026-09-09: antes esto solo hacía console.warn y seguía con el
+       estado VACÍO — y el primer saveState() (cualquier toque del usuario)
+       pisaba la clave con los datos vacíos. Para alguien sin cuenta en la nube
+       eso es pérdida total y silenciosa de su inventario. Ahora se marca la
+       carga como fallida: saveState() no escribe hasta que el usuario decida,
+       se conserva una copia del original en otra clave, y se avisa. */
     console.warn('No se pudo leer localStorage', e);
+    stateLoadFailed = true;
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) localStorage.setItem(STORAGE_KEY + '_corrupto', raw);
+    }catch(e2){}
+    reportClientError(e, 'loadState');
   }
 }
 /* Respaldo manual: exporta todo el estado a un .json descargable, e importa uno

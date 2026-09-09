@@ -24,6 +24,14 @@ const FILES = [
   'app-07-eventos.js',
   'app-08-produccion.js',
   'manifest.json',
+  // AUDITORÍA 2026-09-09: faltaban en el paquete. privacy.html y
+  // delete-account.html se enlazan desde Ajustes › Cuenta y daban 404 DENTRO
+  // de la app instalada (Google Play exige que la política sea accesible);
+  // html5-qrcode.min.js hacía que el escáner de códigos de barras dependiera
+  // de internet y de un CDN, en una app que se publicita como offline.
+  'privacy.html',
+  'delete-account.html',
+  'html5-qrcode.min.js',
   'sw.js',
   'icon-192.png',
   'icon-512.png',

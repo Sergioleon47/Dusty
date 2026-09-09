@@ -439,7 +439,13 @@
 // (variables --page-pad-*) para que un bloque pueda salirse — css + app-05.
 // v124: las cuatro esquinas del bloque azul del calendario iguales (el usuario
 // pidió las de arriba como las de abajo, 28px) — css.
-const CACHE_NAME = 'patron-shell-v124';
+// v125: auditoria 2026-09-09 — XSS almacenado cerrado (mediaType de una foto
+// de inventario iba sin escapar dentro de un atributo src), mensajes de error
+// de escaneo escapados, freno contra pisar los datos cuando localStorage esta
+// corrupto, mensaje de "no se pudo conectar" reescrito para el usuario final,
+// y privacy.html + delete-account.html + html5-qrcode.min.js agregados al
+// paquete de la app instalada — app-03/06 + scripts/build-www.js.
+const CACHE_NAME = 'patron-shell-v125';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
