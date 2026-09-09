@@ -408,7 +408,13 @@
 // una tarjetita redondeada de 17px con sombra y filo de luz —del mismo palo
 // que los cuadros del resto de la app, pedido del usuario 2026-09-09— con el
 // ×N cuando hay varios y el aro ámbar si además es hoy — app-05 + dusty.css.
-const CACHE_NAME = 'patron-shell-v117';
+// v118: el calendario vuelve a la CUADRÍCULA de casillas de la captura del
+// usuario (2026-09-09): cada día con su fondo redondeado de 17px, los días de
+// los meses vecinos sin casilla, y hoy con el contorno ámbar rodeando la
+// casilla entera en vez del círculo relleno. Además, cuántos recibos tiene el
+// mes a la vista, encima del Cierre de mes, a partir de dos —
+// app-03 + app-05 + dusty.css.
+const CACHE_NAME = 'patron-shell-v118';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
