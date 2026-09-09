@@ -1027,7 +1027,7 @@ function inventarioView(){
      2. fila de herramientas con nombre: Pedido, Conteo (punto
         cuando toca), Escanear estante (el FAB, con su badge "−");
      3. buscador fijo arriba al scrollear, con vista y ORDEN en la misma fila;
-     4. tres filtros rápidos: Crítico, Toca contar, Sin foto;
+     4. Seleccionar y tres filtros rápidos: Crítico, Toca contar, Sin foto;
      5. chips de categoría como filtro justo sobre la lista, con "Todos";
      6. grupos plegables (recuerdan su estado) y "ver los restantes" pasados
         los 12 — lo plegado no se dibuja, así la pestaña sigue liviana. */
@@ -1115,8 +1115,11 @@ function inventarioView(){
          ABAJO, justo sobre la lista — sigue fijo al scrollear. */''}
     ${categories.length>0 ? categoryChipsRow() : ''}
     <div class="inv-chips">
-      ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
+      ${/* Seleccionar va PRIMERO (pedido del usuario 2026-09-09): la fila se
+           desborda a lo ancho y quedaba fuera de pantalla al final, había que
+           deslizarla para encontrarlo. Los tres filtros rápidos van detrás. */''}
       <button type="button" class="category-chip quick ${invSelectMode?'on':''}" id="btn-inv-select">${invSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
+      ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
     </div>
     ${/* Barra de selección: reemplaza a la de búsqueda mientras el modo está
          activo (buscar y seleccionar a la vez confunde qué queda marcado al
