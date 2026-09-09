@@ -118,7 +118,26 @@ function suggestedOrderModal(){
     <div class="modal">
       <h3 class="basil">${t('suggested_order_title')}</h3>
       <div class="sub">${t('suggested_order_sub')}</div>
-      ${rows.length===0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('suggested_order_empty')}</div>` : `
+      ${rows.length===0 ? `
+        <div class="helper-note" style="margin:0 0 10px;">${t('suggested_order_empty')}</div>
+        ${/* SOMBRAS de cómo se va a ver con productos por pedir (pedido del
+             usuario 2026-09-09, mismo recurso que en "Gasto por mes"): la
+             pantalla vacía solo decía que no hay nada crítico y no dejaba
+             entender qué aparece acá cuando sí lo hay. No inventan nombres ni
+             cantidades —son bloques grises— y se van solas apenas un producto
+             llega a nivel crítico, porque solo se dibujan con la lista vacía. */''}
+        <div class="so-ghost-note">${t('suggested_order_ghost_note')}</div>
+        <div style="display:flex;flex-direction:column;margin-bottom:8px;">
+          ${[{w:62,o:'.5'},{w:44,o:'.34'},{w:54,o:'.2'}].map(g=>`
+            <div class="matched-item ghost" aria-hidden="true" style="opacity:${g.o};">
+              <div class="mi-top">
+                <span class="skel" style="width:${g.w}%;height:14px;"></span>
+                <span class="skel" style="width:54px;height:14px;"></span>
+              </div>
+              <span class="skel line" style="width:78%;margin-top:9px;height:10px;"></span>
+            </div>`).join('')}
+        </div>
+      ` : `
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
         ${rows.map(r=>{
           const need = Math.max(r.target - (r.ing.qtyOnHand||0), 0);

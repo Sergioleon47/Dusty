@@ -382,7 +382,13 @@
 // los temas App Store) y toman el rojo de la app, con el pulso y el ícono
 // acompañando. Como el rojo queda reservado para la cámara, "Conteo" sale
 // de ese color y se iguala con "A mano": los dos en violeta — dusty.css.
-const CACHE_NAME = 'patron-shell-v113';
+// v114: "Pedido sugerido" vacío muestra tres filas SOMBRA de cómo se va a ver
+// cuando haya productos por pedir (pedido del usuario 2026-09-09) — bloques
+// grises, sin nombres ni cantidades inventadas, que se van solas apenas un
+// producto llega a nivel crítico. El bloque gris (.ms-skel) pasó a llamarse
+// .skel porque ahora lo comparten dos pantallas — app-03 + app-05 + app-06
+// + dusty.css.
+const CACHE_NAME = 'patron-shell-v114';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

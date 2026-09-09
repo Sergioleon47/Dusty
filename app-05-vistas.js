@@ -1647,11 +1647,11 @@ function monthlySpendGhostCard(m, fill, level, opacity){
     <div class="ms-card ghost ${level}" aria-hidden="true" style="opacity:${opacity};">
       <div class="ms-card-head">
         <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}</span>
-        <span class="ms-skel amount"></span>
+        <span class="skel amount"></span>
       </div>
       <div class="ms-track"><i style="width:${fill}%;"></i></div>
-      <div class="ms-skel line"></div>
-      <div class="ms-skel line short"></div>
+      <div class="skel line"></div>
+      <div class="skel line short"></div>
     </div>`;
 }
 function monthlySpendModal(){
