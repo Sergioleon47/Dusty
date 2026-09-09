@@ -35,7 +35,7 @@ exports.handler = async (event) => {
   getFirebaseApp();
   const callerUid = await verifyCaller(event);
   if (!callerUid) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Sesión inválida — volvé a entrar', code: 'bad_token' }) };
+    return { statusCode: 401, body: JSON.stringify({ error: 'Sesión inválida — vuelve a entrar', code: 'bad_token' }) };
   }
 
   let body;
@@ -44,7 +44,7 @@ exports.handler = async (event) => {
   }
   const ownerUid = str(body.ownerUid, 128) || callerUid;
   if (!(await callerCanUseAccount(callerUid, ownerUid))) {
-    return { statusCode: 403, body: JSON.stringify({ error: 'No tenés acceso a esa cuenta' }) };
+    return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta' }) };
   }
 
   const db = admin.firestore();

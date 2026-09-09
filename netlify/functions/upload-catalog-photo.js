@@ -39,7 +39,7 @@ exports.handler = async (event) => {
     return { statusCode: 403, body: JSON.stringify({ error: 'Sin acceso a esa cuenta' }) };
   }
   if (!(await checkIpRateLimit(event))) {
-    return { statusCode: 429, body: JSON.stringify({ error: 'Demasiadas subidas seguidas — esperá un rato', code: 'rate_limited' }) };
+    return { statusCode: 429, body: JSON.stringify({ error: 'Demasiadas subidas seguidas — espera un rato', code: 'rate_limited' }) };
   }
   const imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : '';
   if (!imageBase64 || imageBase64.length > MAX_IMG_B64) {

@@ -120,6 +120,40 @@ const UNLIMITED_EMAILS = String(process.env.DUSTY_UNLIMITED_EMAILS || 'sergioleo
 function isUnlimitedCaller(caller) {
   return !!(caller && !caller.isAnonymous && caller.email && UNLIMITED_EMAILS.includes(caller.email));
 }
+/* EL PASE ES DE LA CUENTA, NO DE QUIEN LLAMA (reporte del usuario 2026-09-09:
+   "a un usuario que le compartí mi cuenta no le permite escanear, le dice que
+   topó el límite").
+   isUnlimitedCaller mira el email del que llama, así que el dueño con pase pasa
+   siempre... y como su rama sale ANTES de la transacción, sus escaneos tampoco
+   incrementan scansUsed. El contador queda congelado en lo que marcaba el día que
+   se topó el límite, y el dueño nunca más lo ve. Pero un MIEMBRO de su equipo no
+   tiene el pase: cae al chequeo normal contra users/{ownerUid}/meta/billing, se
+   encuentra ese contador agotado y queda bloqueado hasta que cambie el período.
+   O sea: el empleado pagaba un límite que el dueño llenó antes de tener el pase y
+   que ya nadie puede bajar.
+   Si la CUENTA contra la que se escanea es de un dueño con pase, todos los que
+   están autorizados en ella escanean sin cupo — que es lo que el pase quiso decir
+   siempre. El email del dueño sale de Firebase Auth por su uid, nunca del body.
+   Cache en memoria porque la Lambda se reusa entre invocaciones: evita un getUser
+   por escaneo sin guardar nada persistente. */
+const emailDeCuenta = new Map();
+async function accountOwnerEmail(ownerUid) {
+  if (emailDeCuenta.has(ownerUid)) return emailDeCuenta.get(ownerUid);
+  let email = null;
+  try {
+    const u = await admin.auth().getUser(ownerUid);
+    email = (u && u.email) ? u.email.toLowerCase() : null;
+  } catch (e) {
+    email = null; // uid inexistente o sin permiso: se trata como cuenta normal
+  }
+  emailDeCuenta.set(ownerUid, email);
+  return email;
+}
+async function isUnlimitedAccount(ownerUid) {
+  if (!ownerUid) return false;
+  const email = await accountOwnerEmail(ownerUid);
+  return !!(email && UNLIMITED_EMAILS.includes(email));
+}
 
 function currentBillingPeriod() {
   const d = new Date();
@@ -146,7 +180,11 @@ async function callerCanUseAccount(callerUid, ownerUid) {
 async function reserveScanQuota(ownerUid, caller, count = 1) {
   // Pase del dueño: ni chequea ni descuenta (limit/used en null → el cliente no
   // muestra "quedan N"; period en null → refundScanUsage no devuelve nada).
-  if (isUnlimitedCaller(caller)) return { allowed: true, limit: null, used: null, period: null, unlimited: true };
+  // isUnlimitedCaller primero: el dueño escaneando en su propia cuenta se resuelve
+  // sin ir a Auth. El miembro sí necesita la consulta (ver isUnlimitedAccount).
+  if (isUnlimitedCaller(caller) || await isUnlimitedAccount(ownerUid)) {
+    return { allowed: true, limit: null, used: null, period: null, unlimited: true };
+  }
   const db = admin.firestore();
   const ref = db.doc(`users/${ownerUid}/meta/billing`);
   const period = currentBillingPeriod();
@@ -277,6 +315,7 @@ async function recordScanUsage(ownerUid, count, period) {
 
 module.exports = {
   admin, getFirebaseApp, isAllowedOrigin, verifyCaller, verifyCallerInfo, ALLOWED_ORIGIN_PATTERNS,
+  isUnlimitedAccount,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
   checkIpRateLimit
 };
