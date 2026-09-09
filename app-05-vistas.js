@@ -590,28 +590,6 @@ function dashboardView(){
    Alta manual en .inv-tools, Actividad y Producción como tarjetas, y Compartir
    cuenta en la tarjeta de Equipo que reemplaza a este bloque—, así que no se
    perdió ningún acceso: se sacó código que confundía al leer el archivo. */
-/* Fila de chips de categoría — vive en INVENTARIO (antes en el Dashboard):
-   tocar uno filtra la lista a esa categoría (data-open-category en attachEvents
-   y el filtro inventoryCategoryFilter). El número es cuántos productos tiene
-   esa categoría ahora mismo, no un conteo fijo. Se arrastra para reordenar. */
-/* Chips de categoría como FILTRO con "Todos" primero (maqueta 2026-09-07):
-   justo sobre la lista, el activo resaltado; "Todos" quita el filtro. El
-   Dashboard usa el mismo data-open-category para saltar al Inventario filtrado. */
-/* Devuelve SOLO los chips de categoría, sin contenedor: desde 2026-09-09 comparten
-   una única fila con Seleccionar y los filtros rápidos (ver inventarioView), así que
-   el .inv-chips lo pone quien arma esa fila. */
-function categoryChipsHtml(){
-  const total = inventory.filter(i=>!isExpenseItem(i)).length;
-  return `
-    <button type="button" class="category-chip ${inventoryCategoryFilter?'':'on'}" data-inv-all="1">${t('inv_all_chip')}<span>${total}</span></button>
-    ${categories.map(c=>{
-      // Solo mercadería real: las categorías de gasto (Utilities, Eat out)
-      // viven en el botón de Presupuesto y acá ni aparecen (chips "0" fuera).
-      const count = inventory.filter(i=>i.categoryId===c.id && !isExpenseItem(i)).length;
-      if(count===0) return '';
-      return `<button type="button" class="category-chip ${inventoryCategoryFilter===c.id?'on':''}" data-open-category="${c.id}" aria-pressed="${inventoryCategoryFilter===c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
-    }).join('')}`;
-}
 /* PRIMEROS PASOS (auditoría de primer minuto 2026-09-07): reemplaza la tarjeta de
    Inversión mientras no hay nada cargado. Tres pasos con el primero YA tildado
    (elegir idioma) — el "efecto de progreso dotado": empezar con ventaja motiva a
@@ -663,11 +641,6 @@ function dashboardEmptyState(){
 }
 
 /* ---------- INVENTARIO ---------- */
-// Filtro de categoría activado desde los botones del Dashboard — al tocar una
-// categoría se guarda su id acá y se cambia a la pestaña Inventario, que lo lee y
-// muestra solo esos productos (ver inventarioView). También es preferencia de
-// sesión nomás, se resetea solo al recargar.
-let inventoryCategoryFilter = null;
 /* Vista del inventario elegida por el usuario: 'cols2', 'cols3' o 'cols4' (la más
    densa, pedida el 2026-09-06). Persiste como preferencia del dispositivo.
    La de una columna ('rows') se eliminó el 2026-09-09: con la foto llenando la
@@ -1027,19 +1000,19 @@ function inventarioView(){
      2. fila de herramientas con nombre: Pedido, Conteo (punto
         cuando toca), Escanear estante (el FAB, con su badge "−");
      3. debajo, el buscador con la vista y el ORDEN — se queda fijo al scrollear;
-     4. una sola fila de chips: Seleccionar, los tres filtros rápidos
-        (Crítico, Toca contar, Sin foto) y las categorías;
+     4. una sola fila de chips: Seleccionar y los tres filtros rápidos
+        (Crítico, Toca contar, Sin foto). Las categorías NO están: se repetían
+        con los encabezados de grupo de abajo (pedido del usuario 2026-09-09);
      5. chips de categoría como filtro justo sobre la lista, con "Todos";
      6. grupos plegables (recuerdan su estado) y "ver los restantes" pasados
         los 12 — lo plegado no se dibuja, así la pestaña sigue liviana. */
   const allRows = stockRowsData();
   const ccDue = isCycleCountDue();
   const ccDueIds = cycleCountDueIds();
-  const filterCategory = inventoryCategoryFilter ? categories.find(c=>c.id===inventoryCategoryFilter) : null;
   const sellRows = allRows.filter(r=>!isExpenseItem(r.ing));
   const quick = { crit: sellRows.filter(r=>r.status==='crit'), count: sellRows.filter(r=>ccDueIds.has(r.ing.id)), nophoto: sellRows.filter(r=>!itemPhotoSrc(r.ing)) };
   const searching = !!invSearch.trim();
-  let rows = filterCategory ? allRows.filter(r=>r.ing.categoryId===filterCategory.id) : allRows;
+  let rows = allRows;
   if(invQuickFilter && quick[invQuickFilter]){ const ids = new Set(quick[invQuickFilter].map(r=>r.ing.id)); rows = rows.filter(r=>ids.has(r.ing.id)); }
   rows = invSortRows(rows.filter(r=>invMatches(r.ing.name, invSearch)));
   /* Agrupar por categoría SOLO en el orden por nombre (auditoría 2026-09-08).
@@ -1121,7 +1094,6 @@ function inventarioView(){
     <div class="inv-chips">
       <button type="button" class="category-chip quick ${invSelectMode?'on':''}" id="btn-inv-select">${invSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
       ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
-      ${categories.length>0 ? categoryChipsHtml() : ''}
     </div>
     ${/* Barra de selección: reemplaza a la de búsqueda mientras el modo está
          activo (buscar y seleccionar a la vez confunde qué queda marcado al
@@ -1148,7 +1120,7 @@ function inventarioView(){
     </div>`}
     ${rows.length===0
       ? (searching || invQuickFilter ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
-        : (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))))
+        : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')))
       : groups.map(groupHtml).join('')}
   `}
   `;

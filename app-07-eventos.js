@@ -247,7 +247,7 @@ function attachEvents(){
     b.onclick=()=>{
       const k=b.dataset.dashStat;
       invQuickFilter = (k==='crit'||k==='count') ? k : null;
-      inventoryCategoryFilter=null; invSearch='';
+      invSearch='';
       if(activeTab==='inventario') render(); else switchToTab('inventario');
     };
   });
@@ -488,18 +488,6 @@ function attachEvents(){
   if(btnShareAccount) btnShareAccount.onclick=shareAccountFlow;
   const btnShareAccountSettings=document.getElementById('btn-share-account-settings');
   if(btnShareAccountSettings) btnShareAccountSettings.onclick=()=>{ settingsReturnPending=false; showAccountModal=false; shareAccountFlow(); };
-  document.querySelectorAll('[data-open-category]').forEach(btn=>{
-    btn.onclick=()=>{
-      inventoryCategoryFilter = btn.dataset.openCategory;
-      // Los chips viven en Inventario (intercambio 2026-09-04): estando ahí,
-      // switchToTab a la misma pestaña solo "asienta" sin redibujar — el filtro
-      // recién elegido necesita un render explícito.
-      if(activeTab==='inventario') render(); else switchToTab('inventario');
-    };
-  });
-  const btnClearCategoryFilter=document.getElementById('btn-clear-category-filter');
-  if(btnClearCategoryFilter) btnClearCategoryFilter.onclick=()=>{ inventoryCategoryFilter=null; render(); };
-
   const categoriesOverlay=document.getElementById('categories-overlay');
   if(categoriesOverlay){
     categoriesOverlay.onmousedown=(e)=>{ if(e.target===categoriesOverlay) closeCategoriesModal(); };
@@ -1205,20 +1193,6 @@ function attachEvents(){
   document.querySelectorAll('[data-inv-quick]').forEach(b=>{
     b.onclick=()=>{ const k=b.dataset.invQuick; invQuickFilter = (invQuickFilter===k) ? null : k; render(); };
   });
-  // "Todos": con un filtro de categoría puesto lo quita; ya sin filtro (pedido
-  // del usuario 2026-09-08: "cuando le doy no hace nada") PLIEGA todos los
-  // grupos, y el toque siguiente los despliega todos — misma memoria por
-  // dispositivo que el chevron de cada grupo (patron_inv_collapsed).
-  const invAllChip=document.querySelector('[data-inv-all]');
-  if(invAllChip) invAllChip.onclick=()=>{
-    if(inventoryCategoryFilter){ inventoryCategoryFilter=null; render(); return; }
-    const heads=[...document.querySelectorAll('[data-inv-group]')];
-    if(heads.length===0) return;
-    const anyOpen = heads.some(h=>!h.classList.contains('collapsed'));
-    heads.forEach(h=>{ const k=h.dataset.invGroup; if(anyOpen) invCollapsed.add(k); else invCollapsed.delete(k); });
-    try{ localStorage.setItem('patron_inv_collapsed', JSON.stringify([...invCollapsed])); }catch(e){}
-    render();
-  };
   document.querySelectorAll('[data-inv-group]').forEach(h=>{
     h.onclick=()=>{
       const k=h.dataset.invGroup;
