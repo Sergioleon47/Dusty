@@ -1784,25 +1784,15 @@
      nada pronunciado). La leyenda con el nombre responde al "para saber qué
      ítem es" — el motivo entero de abrir la foto. */
   .pv-overlay{background:rgba(6,8,11,.88);}
-  /* Columna centrada (reporte del usuario 2026-09-09: "alinea la imagen, así no
-     queda bien"): una foto más alta que ancha se achica por el ALTO y queda más
-     angosta que el contenedor, así que se pegaba a la izquierda mientras el
-     nombre y los botones se centraban en el contenedor — nada compartía eje.
-     Con la columna centrada los tres se alinean, mida lo que mida la foto. */
-  .photo-viewer{position:relative;max-width:min(92vw,560px);display:flex;flex-direction:column;align-items:center;}
+  .photo-viewer{position:relative;max-width:min(92vw,560px);}
   .photo-viewer img{display:block;max-width:100%;max-height:68vh;object-fit:contain;border-radius:16px;}
-  /* Debajo de la foto y centrados (pedido del usuario 2026-09-09): flotando
-     arriba a la derecha tapaban la esquina de la etiqueta del producto. Al no
-     estar ya encima de la imagen se les puede dar 40px, que se toca mejor. */
-  .pv-actions{display:flex;gap:12px;justify-content:center;margin-top:14px;}
-  .pv-btn{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  .pv-actions{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:2;}
+  .pv-btn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
     background:rgba(16,19,24,.55);border:1px solid rgba(255,255,255,.18);color:#fff;cursor:pointer;
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}
   .pv-btn:active{background:rgba(16,19,24,.8);}
   .pv-btn-danger{color:var(--tomato);}
-  /* Un nombre largo se salía del contenedor y era lo que más desordenaba el
-     conjunto: se acota y se parte si hace falta. */
-  .pv-caption{max-width:100%;text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:var(--ink-mid);overflow-wrap:anywhere;}
+  .pv-caption{text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:var(--ink-mid);}
   /* Encuesta de salida: pasos que entran con la animación del tutorial (el id del
      contenedor cambia por paso, morphdom lo recrea y la animación corre de nuevo);
      la barra de progreso se anima sola porque su width transiciona. */
