@@ -340,7 +340,11 @@
 // así que el gesto queda descartado como causa y no había razón para perder la
 // función. El código de app-04/05/06/07 vuelve byte a byte al estado previo;
 // solo la versión del precache avanza, para no numerar hacia atrás.
-const CACHE_NAME = 'patron-shell-v101';
+// v102: el español pasa de rioplatense (voseo) a NEUTRO LATINOAMERICANO con
+// "tú" (pedido del usuario 2026-09-09). 166 textos: imperativos (probá→prueba,
+// tocá→toca, elegí→elige), presente (tenés→tienes, contás→cuentas), pronombre
+// pegado (fijalo→fíjalo, contanos→cuéntanos) y vos→tú/ti/contigo — app-03.
+const CACHE_NAME = 'patron-shell-v102';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
