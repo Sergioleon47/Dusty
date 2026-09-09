@@ -936,15 +936,14 @@
      translúcido sobre el color del bloque, así funciona igual en los diez temas
      sin definir un color por tema, y el mismo radio de 17px de las celdas con
      foto — la grilla entera queda del mismo palo que los cuadros de la app. */
-  /* 13px de radio, no 17 (usuario 2026-09-09: "en la nueva es más redonda").
-     La casilla mide 46x42: con 17 quedaban apenas 8px de lado recto arriba y
-     abajo, así que la forma tiraba a óvalo. En las casillas de número casi no se
-     notaba —su fondo apenas contrasta— pero la de la foto es blanca sobre el
-     bloque y ahí el óvalo saltaba a la vista: misma geometría, muy distinta
-     lectura. Con 13 quedan 16px rectos y las dos se leen como el mismo cuadrito
-     redondeado. El velo va un poco más oscuro por lo mismo: si no se ve la
-     esquina de la casilla vacía, no hay con qué comparar la de la foto. */
-  .cal-day{position:relative;min-height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+  /* 8px de radio. Viene de tres pasadas con el usuario sobre capturas
+     ampliadas: 17 dejaba 8px de lado recto en una casilla de 46x42 y la forma
+     tiraba a óvalo; 13 seguía "más redonda" que la referencia que él mandó. En
+     esa captura la esquina mide ~17% del ancho de la casilla, que en 46px son
+     estos 8. Las casillas de número y la de la foto comparten el valor, para
+     que sean la misma forma. El velo va en .22 para que la esquina de la
+     casilla vacía se vea y haya con qué comparar la de la foto. */
+  .cal-day{position:relative;min-height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;
     background:rgba(0,0,0,.22);cursor:pointer;transition:transform .2s ease;}
   .cal-day:active{transform:scale(0.90);}
   /* Días de los meses vecinos: se ven, no se tocan, y SIN casilla — el bloque
@@ -987,8 +986,8 @@
      2026-09-09). Ahora es la MISMA casilla, con la foto en lugar del número;
      solo un filo de un pixel para separar una foto clara del bloque en los
      temas claros. */
-  .cal-day.has-photo{overflow:hidden;border-radius:13px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);}
-  .cal-day-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:13px;display:block;}
+  .cal-day.has-photo{overflow:hidden;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);}
+  .cal-day-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:8px;display:block;}
   /* Cuántos recibos tiene ese día, arriba a la derecha — mismo rojo de la app. */
   .cal-day-badge{position:absolute;top:2px;right:2px;z-index:2;background:var(--money-neg);color:#fff;
     font-size:9.5px;font-weight:800;line-height:1;padding:2.5px 5px;border-radius:9px;font-family:'IBM Plex Mono';

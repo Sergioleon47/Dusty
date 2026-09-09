@@ -426,7 +426,10 @@
 // blanca sobre el bloque y ahí saltaba — el usuario lo marcó con una captura
 // ampliada. Misma geometría para las dos y el velo un poco más oscuro, para
 // que la esquina de la casilla vacía también se vea — dusty.css.
-const CACHE_NAME = 'patron-shell-v120';
+// v121: la esquina de las casillas del calendario baja de 13 a 8px — la
+// proporción de la captura que mandó el usuario (~17% del ancho de la
+// casilla). Solo el radio: nada más del calendario cambia — dusty.css.
+const CACHE_NAME = 'patron-shell-v121';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
