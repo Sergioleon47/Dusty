@@ -8,6 +8,19 @@
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
 
+# ===== Versión de Node =====
+# firebase-admin 14 declara engines: {node: ">=22"}. Hasta ahora el repo no fijaba
+# ninguna versión en ningún lado (ni .nvmrc, ni engines, ni acá), así que las
+# funciones corrían con el default que le tocara a este sitio en Netlify — un
+# número que puede cambiar solo, y que nadie mira hasta que algo se rompe en
+# producción. Con firebase-admin 12 daba igual (pedía >=14); con la 14 no: un
+# runtime por debajo de 22 es un fallo en tiempo de ejecución, no de build, así
+# que aparecería recién al escanear un recibo.
+# Se fija explícito, y el CI corre en la misma versión (ver .github/workflows/ci.yml).
+[build.environment]
+  NODE_VERSION = "22"
+
+
 # Link corto del catálogo público que cada negocio comparte con sus clientes:
 # /c/<id> sirve catalogo.html con el id como query (rewrite 200, la URL bonita
 # se mantiene en la barra del navegador).

@@ -17,19 +17,28 @@ const assert = require('node:assert');
 const Module = require('module');
 const real = Module._load;
 let USUARIOS = {}, DOC = {};
-const admin = {
-  apps: [{}],
-  auth: ()=>({ getUser: async (uid)=>{ if(!USUARIOS[uid]) throw new Error('no existe'); return USUARIOS[uid]; } }),
-  firestore: ()=>({
-    doc: (path)=>({ path }),
-    runTransaction: async (fn)=>fn({
-      get: async (ref)=>({ exists: !!DOC[ref.path], data: ()=>DOC[ref.path]||{} }),
-      set: (ref, val)=>{ DOC[ref.path]=Object.assign({}, DOC[ref.path], val); }
-    })
-  }),
-  credential:{cert:()=>({})}, initializeApp:()=>({})
+// Desde firebase-admin 14 cada servicio vive en su propio subcamino y el paquete
+// raíz ya no los expone, así que se simula subcamino por subcamino — igual que los
+// requires reales de patron-admin.js. Si mañana la biblioteca vuelve a
+// require('firebase-admin') a secas, estas simulaciones dejan de aplicarse y las
+// pruebas fallan en vez de pasar contra el SDK de verdad: es lo que se quiere.
+const db = {
+  doc: (path)=>({ path }),
+  runTransaction: async (fn)=>fn({
+    get: async (ref)=>({ exists: !!DOC[ref.path], data: ()=>DOC[ref.path]||{} }),
+    set: (ref, val)=>{ DOC[ref.path]=Object.assign({}, DOC[ref.path], val); }
+  })
 };
-Module._load = function(req, ...rest){ return req==='firebase-admin' ? admin : real.call(this, req, ...rest); };
+const auth = { getUser: async (uid)=>{ if(!USUARIOS[uid]) throw new Error('no existe'); return USUARIOS[uid]; } };
+const MODULOS = {
+  'firebase-admin/app': { initializeApp:()=>({}), getApps:()=>[{}], cert:()=>({}) },
+  'firebase-admin/auth': { getAuth: ()=>auth },
+  'firebase-admin/firestore': { getFirestore: ()=>db, Timestamp:{ fromMillis:(ms)=>({ ms }) } },
+  'firebase-admin/storage': { getStorage: ()=>({ bucket: ()=>({}) }) }
+};
+Module._load = function(req, ...rest){
+  return Object.prototype.hasOwnProperty.call(MODULOS, req) ? MODULOS[req] : real.call(this, req, ...rest);
+};
 const lib = require('./patron-admin.js');
 
 (async ()=>{

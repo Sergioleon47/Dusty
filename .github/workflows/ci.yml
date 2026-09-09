@@ -22,8 +22,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           # node --test (el corredor de pruebas propio de Node, sin dependencias)
-          # necesita 18+; se fija 20 LTS para no depender de lo que traiga el runner.
-          node-version: '20'
+          # necesita 18+, pero acá se fija 22 por otra razón: es el mínimo que
+          # declara firebase-admin 14 (engines: node >=22) y el que corren las
+          # funciones en Netlify (NODE_VERSION en netlify.toml). Las pruebas y
+          # producción tienen que estar en la misma versión.
+          node-version: '22'
 
       # Sin `npm ci`: las dependencias de la raíz son solo Capacitor y morphdom
       # (herramientas de empaquetado), y ni las pruebas ni el chequeo de sintaxis

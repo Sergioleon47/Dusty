@@ -6,7 +6,33 @@
 // sumándose, factorizarlo acá evita que las copias se desincronicen con el tiempo
 // (por ejemplo, si cambia el allowlist de orígenes, hay que acordarse de tocarlo
 // en un solo lugar, no en cada función por separado).
-const admin = require('firebase-admin');
+/* firebase-admin 14 sacó los servicios del objeto por defecto: admin.firestore(),
+   admin.auth() y admin.storage() YA NO EXISTEN — el paquete ahora exporta solo lo
+   de la app (initializeApp, getApps, cert) y cada servicio vive en su propio
+   subcamino. Es un fallo en tiempo de EJECUCIÓN, no de build: con la 12 el deploy
+   pasaba igual y el error habría aparecido recién al escanear un recibo.
+   Las 8 funciones de esta carpeta llaman a esos tres servicios a través del objeto
+   `admin` que esta biblioteca re-exporta. En vez de tocar 16 llamadas repartidas
+   en 6 archivos que hoy no cubre ninguna prueba, el adaptador se arma UNA vez acá
+   y todas siguen andando igual. No esconde la API modular: cada método resuelve al
+   subcamino que le corresponde, en una sola línea legible. Migrar los llamadores a
+   getFirestore()/getAuth()/getStorage() directo es un cambio aparte y mecánico,
+   que conviene hacer cuando esas funciones tengan pruebas propias. */
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore, Timestamp } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
+
+const admin = {
+  get apps() { return getApps(); },
+  initializeApp,
+  credential: { cert },
+  auth: () => getAuth(),
+  storage: () => getStorage(),
+  // admin.firestore() y admin.firestore.Timestamp: función y espacio de nombres a
+  // la vez, igual que en la 12 (checkIpRateLimit usa el Timestamp).
+  firestore: Object.assign(() => getFirestore(), { Timestamp })
+};
 
 function getFirebaseApp() {
   if (admin.apps.length) return admin.apps[0];
