@@ -1590,89 +1590,56 @@ function priceHistoryModal(){
 function openMonthlySpendModal(){ showMonthlySpendModal = true; render(); }
 function closeMonthlySpendModal(){ showMonthlySpendModal = false; render(); }
 
-/* Gráfico APILADO (auditoría de presupuesto 2026-09-07): mercadería abajo (verde),
-   gastos operativos arriba (ámbar) y la línea punteada del presupuesto de CADA mes
-   sobre su barra — antes se graficaba el total sin presupuesto, y el presupuesto
-   mide solo gastos. Las barras crecen al abrir (animación CSS, .ms-bar). */
-function monthlySpendChartStacked(monthsAsc, currentMonthKey){
-  // Ancho según la cantidad de meses (auditoría 2026-09-07): con 2 meses en un
-  // viewBox de 560 el texto quedaba diminuto en el celular. Cada mes pide ~78px;
-  // con muchos meses el svg pide más ancho que la pantalla y el contenedor scrollea.
-  const n0 = monthsAsc.length;
-  const padL = 52, padR = 16, padT = 18, padB = 28;
-  const W = Math.max(300, padL + padR + n0*78), H = 210;
-  const innerW = W - padL - padR, innerH = H - padT - padB;
-  const splits = monthsAsc.map(m=>spendSplitForMonth(m));
-  const budgets = monthsAsc.map(m=>budgetForMonth(m)||0);
-  const max = Math.max(...splits.map(s=>s.invested+s.expense), ...budgets, 1);
-  const n = monthsAsc.length;
-  const slot = innerW / n;
-  const barW = Math.min(slot * 0.55, 26);
-  const yOf = v => padT + innerH - (v/max)*innerH;
-  const gridLines = [0,0.5,1].map(f=>{
-    const y = padT + innerH*(1-f);
-    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
-      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(max*f)}</text>`;
-  }).join('');
-  const bars = monthsAsc.map((m,i)=>{
-    const s = splits[i];
-    const x = padL + i*slot + (slot-barW)/2;
-    const invH = (s.invested/max)*innerH, expH = (s.expense/max)*innerH;
-    const yInv = padT + innerH - invH, yExp = yInv - expH;
-    const isCurrent = m===currentMonthKey;
-    const dim = isCurrent ? '' : 'opacity:.55;';
-    const total = s.invested + s.expense;
-    const b = budgets[i];
-    const budgetLine = b>0 ? `<line x1="${(x-6).toFixed(1)}" y1="${yOf(b).toFixed(1)}" x2="${(x+barW+6).toFixed(1)}" y2="${yOf(b).toFixed(1)}" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="3 3" opacity="${isCurrent?'.9':'.5'}"><title>${escapeHtml(t('ms_legend_budget'))} · ${money(b)}</title></line>` : '';
-    return `
-      <g class="ms-bar" style="animation-delay:${i*60}ms;">
-        <rect x="${x.toFixed(1)}" y="${yInv.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(invH, s.invested>0?2:0).toFixed(1)}" rx="3" fill="var(--money-pos)" style="${dim}"><title>${escapeHtml(t('ms_legend_inv'))} · ${money(s.invested)}</title></rect>
-        <rect x="${x.toFixed(1)}" y="${yExp.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(expH, s.expense>0?2:0).toFixed(1)}" rx="3" fill="var(--money-warn)" style="${dim}"><title>${escapeHtml(t('ms_legend_exp'))} · ${money(s.expense)}</title></rect>
-      </g>
-      ${budgetLine}
-      <text x="${(x+barW/2).toFixed(1)}" y="${(Math.min(yExp, b>0?yOf(b):yExp)-6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(total)}</text>
-      <text x="${(x+barW/2).toFixed(1)}" y="${(padT+innerH+16).toFixed(1)}" text-anchor="middle" font-size="10" fill="${isCurrent?'var(--ink)':'var(--ink-soft)'}" font-weight="${isCurrent?'700':'400'}" font-family="IBM Plex Mono">${escapeHtml(monthLabel(m, uiLang))}</text>
-    `;
-  }).join('');
-  // Con muchos meses el svg pide más ancho que la pantalla y el contenedor scrollea.
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${n0>5 ? n0*66 : 0}px;height:auto;display:block;">
-    ${gridLines}
-    ${bars}
-  </svg>`;
+/* Una TARJETA por mes, en frases (rediseño 2026-09-09 a pedido del usuario:
+   "que se entienda como que son niños de 12 años"). Antes esto era un gráfico
+   SVG apilado con eje de montos, línea punteada del presupuesto y una leyenda
+   de tres colores — había que saber leer un gráfico para responder algo tan
+   simple como "cuánto gasté y cuánto me quedaba", y con un solo mes sin datos
+   (el caso de recién instalado) el gráfico ocupaba media pantalla sin decir
+   nada. Ahora cada mes dice su número grande, una barra contra el tope y una
+   frase en castellano llano. Los cálculos son exactamente los mismos.
+   La barra mide GASTOS contra el presupuesto (el presupuesto mide solo gastos);
+   la mercadería va aparte, en la línea chica de abajo, porque comprar stock no
+   es gastar — es convertir plata en inventario. */
+function monthlySpendCard(m, currentMonthKey){
+  const s = spendSplitForMonth(m), b = budgetForMonth(m) || 0;
+  const pct = b ? Math.round(s.expense/b*100) : 0;
+  const over = Math.max(s.expense - b, 0), left = Math.max(b - s.expense, 0);
+  const isCurrent = m === currentMonthKey;
+  // Mismo semáforo que la barra de presupuesto del panel: 80% avisa, 100% se pasó.
+  const level = !b ? 'ok' : (pct >= 100 ? 'crit' : pct >= 80 ? 'warn' : 'ok');
+  const line = !b
+    ? t(isCurrent ? 'ms_line_nb_now' : 'ms_line_nb').replace('{exp}', `<b>${money(s.expense)}</b>`)
+    : over > 0
+      ? t('ms_line_over').replace('{exp}', `<b>${money(s.expense)}</b>`).replace('{bud}', money(b)).replace('{over}', `<b>${money(over)}</b>`)
+      : t(isCurrent ? 'ms_line_now' : 'ms_line_past').replace('{exp}', `<b>${money(s.expense)}</b>`).replace('{bud}', money(b)).replace('{left}', `<b>${money(left)}</b>`);
+  return `
+    <div class="ms-card ${isCurrent ? 'now' : ''} ${level}">
+      <div class="ms-card-head">
+        <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}${isCurrent ? `<span class="ms-card-badge">${t('ms_current_month')}</span>` : ''}</span>
+        <span class="ms-card-amount">${money(s.expense)}</span>
+      </div>
+      ${b ? `<div class="ms-track"><i style="width:${Math.min(pct, 100)}%;"></i></div>` : ''}
+      <div class="ms-card-line">${line}</div>
+      ${s.invested > 0 ? `<div class="ms-card-goods">${t('ms_card_goods').replace('{inv}', money(s.invested))}</div>` : ''}
+    </div>`;
 }
 function monthlySpendModal(){
   const currentMonthKey = localMonthStr();
   const months = allMonths();
   // El mes actual siempre está, aunque todavía no tenga recibos.
   if(!months.includes(currentMonthKey)) months.unshift(currentMonthKey);
-  const monthsAsc = [...months].reverse(); // más viejo primero, para leer izquierda a derecha en el tiempo
 
   return `
   <div class="overlay" id="monthly-spend-overlay">
     <div class="modal wide">
       <h3 class="navy">${t('ms_title')}</h3>
       <div class="sub">${t('ms_sub')}</div>
-      ${monthsAsc.length===0 ? `
+      ${months.length===0 ? `
         <div class="helper-note" style="margin:0 0 16px;">${t('ms_no_purchases')}</div>
       ` : `
-        <div style="margin:14px 0;overflow-x:auto;">${monthlySpendChartStacked(monthsAsc, currentMonthKey)}</div>
-        <div class="ms-legend">
-          <span><i style="background:var(--money-pos);"></i>${t('ms_legend_inv')}</span>
-          <span><i style="background:var(--money-warn);"></i>${t('ms_legend_exp')}</span>
-          <span><i class="ms-legend-line"></i>${t('ms_legend_budget')}</span>
-        </div>
-        <div class="ing-list-mini" style="max-height:180px;">
-          ${[...monthsAsc].reverse().map(m=>{
-            const s = spendSplitForMonth(m); const b = budgetForMonth(m);
-            const detail = b ? t('ms_row_detail').replace('{exp}', money(s.expense)).replace('{pct}', String(Math.round(s.expense/b*100)))
-                             : t('ms_row_detail_nb').replace('{exp}', money(s.expense));
-            return `
-            <div class="ing-list-mini-item">
-              <span>${escapeHtml(monthLabel(m, uiLang))} ${m===currentMonthKey?`<span class="price-updated">${t('ms_current_month')}</span>`:''}<div class="ms-row-detail">${detail}</div></span>
-              <span class="mono-cell">${money(spendForMonth(m))}</span>
-            </div>`;
-          }).join('')}
-        </div>
+        ${/* Del mes de hoy hacia atrás: lo primero que se ve es cómo vas ahora. */''}
+        <div class="ms-months">${months.map(m=>monthlySpendCard(m, currentMonthKey)).join('')}</div>
       `}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-close-monthly-spend" style="flex:1;">${t('btn_close')}</button>

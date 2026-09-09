@@ -359,7 +359,13 @@
 // link /c/<id>, los fondos de /backdrops y las funciones get-catalog,
 // publish-catalog, upload-catalog-photo, enhance-photo, remove-bg y stage-photo.
 // El carrusel vuelve a 3 páginas — app-01..07 + dusty.css + netlify + reglas.
-const CACHE_NAME = 'patron-shell-v109';
+// v110: "Gasto por mes" deja de ser un gráfico. El SVG apilado con eje de
+// montos, línea punteada del presupuesto y leyenda de tres colores pedía
+// saber leer un gráfico para responder "cuánto gasté y cuánto me quedaba";
+// ahora cada mes es una tarjeta con su número, una barra contra el tope y
+// una frase llana (pedido del usuario 2026-09-09). Mismos cálculos —
+// app-03 + app-05 + dusty.css.
+const CACHE_NAME = 'patron-shell-v110';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

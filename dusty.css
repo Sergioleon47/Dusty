@@ -427,7 +427,7 @@
      render() pone .active y siguen desde donde iban. */
   /* SOLO las infinitas (auditoría de parpadeo de pestañas 2026-09-08). Antes
      la regla era `.view-page:not(.active) *` y pausaba TAMBIÉN las animaciones
-     de ENTRADA (budgetAlertIn, helpQIn/bycatGrow/msGrow con fill "both",
+     de ENTRADA (budgetAlertIn, helpQIn/bycatGrow/msCardIn con fill "both",
      dash-empty-in, ctaPop…): una animación pausada en su tiempo 0 aplica su
      primer keyframe — opacity:0, scaleX(0) — así que esas tarjetas quedaban
      INVISIBLES en la página vecina mientras el dedo la traía, y recién al
@@ -833,16 +833,28 @@
   .bycat-bar i{display:block;height:100%;border-radius:99px;background:var(--money-warn);animation:bycatGrow .6s var(--ease-soft) both;transform-origin:left;}
   .bycat-amt{font-family:'IBM Plex Mono';font-size:11.5px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
   @keyframes bycatGrow{from{transform:scaleX(0);}to{transform:scaleX(1);}}
-  /* Gráfico de meses apilado: las barras crecen desde abajo al abrir. */
-  .ms-bar{transform-box:fill-box;transform-origin:bottom;animation:msGrow .55s var(--ease-soft) both;}
-  @keyframes msGrow{from{transform:scaleY(0);}to{transform:scaleY(1);}}
-  .ms-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-soft);margin:-6px 0 10px;}
-  .ms-legend span{display:inline-flex;align-items:center;gap:5px;}
-  .ms-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
-  .ms-legend .ms-legend-line{width:14px;height:0;border-top:2px dashed var(--ink);border-radius:0;}
-  .ms-row-detail{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+  /* Gasto por mes: una tarjeta por mes (rediseño 2026-09-09, ver monthlySpendCard).
+     La barra usa el mismo semáforo que el presupuesto del panel; el mes actual
+     lleva un aro para que se distinga sin tener que leer la etiqueta. */
+  .ms-months{display:flex;flex-direction:column;gap:10px;margin:14px 0 16px;max-height:min(46vh, 380px);overflow-y:auto;}
+  .ms-card{background:var(--inset);border-radius:14px;padding:12px 13px;animation:msCardIn .4s var(--ease-soft) both;}
+  @keyframes msCardIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .ms-card.now{box-shadow:inset 0 0 0 2px var(--money-pos);}
+  .ms-card.now.warn{box-shadow:inset 0 0 0 2px var(--money-warn);}
+  .ms-card.now.crit{box-shadow:inset 0 0 0 2px var(--money-neg);}
+  .ms-card-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:9px;}
+  .ms-card-month{font-size:16px;font-weight:800;color:var(--ink);}
+  .ms-card-badge{display:inline-block;font-size:10.5px;font-weight:700;background:var(--money-pos-soft);color:var(--money-pos);padding:2px 7px;border-radius:6px;margin-left:6px;vertical-align:middle;}
+  .ms-card-amount{font-family:'IBM Plex Mono';font-size:19px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .ms-track{height:12px;border-radius:99px;background:color-mix(in srgb, var(--ink) 12%, transparent);overflow:hidden;}
+  .ms-track i{display:block;height:100%;border-radius:99px;background:var(--money-pos);transform-origin:left;animation:bycatGrow .6s var(--ease-soft) both;}
+  .ms-card.warn .ms-track i{background:var(--money-warn);}
+  .ms-card.crit .ms-track i{background:var(--money-neg);}
+  .ms-card-line{font-size:13px;color:var(--ink);line-height:1.45;margin-top:8px;}
+  .ms-card-line b{font-weight:800;}
+  .ms-card-goods{font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.4;}
   @media (prefers-reduced-motion: reduce){
-    .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-bar{animation:none;}
+    .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-card, .ms-track i{animation:none;}
   }
   .stock-caption{font-size:11px;color:var(--ink-soft);margin-top:5px;}
   .stock-caption-muted{font-style:italic;}
