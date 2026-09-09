@@ -1182,6 +1182,8 @@ function attachEvents(){
     document.querySelectorAll('[data-inv-select]').forEach(el=>invSelected.add(el.dataset.invSelect));
     render();
   };
+  const btnSelShare=document.getElementById('btn-inv-sel-share');
+  if(btnSelShare) btnSelShare.onclick=()=>shareSelectedItemPhotos();
   const btnSelDelete=document.getElementById('btn-inv-sel-delete');
   if(btnSelDelete) btnSelDelete.onclick=()=>{
     const n = deleteSelectedInventory([...invSelected]);
@@ -1839,6 +1841,56 @@ window.addEventListener('online', ()=>{
    cada render()) genere una tormenta de escrituras a Firestore. */
 let clientErrorReportCount = 0;
 const MAX_CLIENT_ERROR_REPORTS = 15;
+/* COMPARTIR LAS FOTOS DE LO MARCADO (pedido del usuario 2026-09-09: "que de
+   inmediato aparezcan los contactos del usuario o la forma en la que quiere
+   enviar"). Abre la hoja nativa del sistema, que es la que muestra contactos y
+   apps — nosotros no vemos ni elegimos nada de eso.
+
+   SIN await antes de navigator.share(): iOS solo abre la hoja si se la llama
+   dentro del gesto del usuario, y cualquier espera intermedia rompe esa cadena.
+   Se puede porque la foto de un producto vive como base64 en el propio producto
+   (ver promptItemPhotoUpload), así que el archivo se arma en memoria al toque.
+   Un producto cuya foto solo exista como URL de Storage se saltea: bajarla
+   pediría esperar, y perderíamos la hoja. */
+function fileFromBase64(base64, mediaType, name){
+  const bin = atob(base64);
+  const arr = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+  return new File([arr], name, {type: mediaType || 'image/jpeg'});
+}
+function shareSelectedItemPhotos(){
+  const items = inventory.filter(i=>invSelected.has(i.id));
+  const files = [];
+  const shared = [];
+  items.forEach(it=>{
+    if(!it.photo || !it.photo.base64) return;
+    const safe = (it.name||'foto').replace(/[^\w\- ]+/g,'').trim().slice(0,40) || 'foto';
+    // resizeToBase64 siempre produce JPEG; la extensión igual sale del tipo real
+    // para que una foto vieja de otro formato no llegue mal nombrada.
+    const ext = /png/i.test(it.photo.mediaType||'') ? '.png' : '.jpg';
+    try{
+      files.push(fileFromBase64(it.photo.base64, it.photo.mediaType, safe + ext));
+      shared.push(it);
+    }catch(e){}
+  });
+  if(files.length===0){ showToast(t('inv_share_no_photos'), 'info'); return; }
+  // El texto acompaña a las fotos: nombre y precio de venta, que es lo que el
+  // que recibe necesita para pedir. Sin precio cargado, solo el nombre.
+  const text = shared.map(i=> i.name + (i.salePrice>0 ? ' · '+money(i.salePrice) : '')).join('\n');
+  if(navigator.canShare && navigator.canShare({files})){
+    navigator.share({files, text})
+      .then(()=>{ if(files.length < items.length) showToast(t('inv_share_partial').replace('{n}', items.length-files.length), 'info'); })
+      .catch(e=>{ if(!e || e.name!=='AbortError') showToast(t('inv_share_failed'), 'error'); });
+    return;
+  }
+  // Escritorio o navegador sin compartir archivos: al menos va el texto.
+  if(navigator.share){
+    navigator.share({text}).catch(e=>{ if(!e || e.name!=='AbortError') showToast(t('inv_share_failed'), 'error'); });
+    return;
+  }
+  showToast(t('inv_share_unsupported'), 'info');
+}
+
 function reportClientError(err, source){
   if(!currentUser || clientErrorReportCount>=MAX_CLIENT_ERROR_REPORTS) return;
   clientErrorReportCount++;

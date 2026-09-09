@@ -1109,8 +1109,12 @@ function inventarioView(){
       <div class="inv-selbar">
         <strong>${t('inv_selected_n').replace('{n}', invSelected.size)}</strong>
         <button type="button" class="link-btn" id="btn-inv-sel-all">${t('inv_select_all')}</button>
+        ${/* Compartir las fotos de lo marcado por la hoja nativa del sistema
+             (pedido del usuario 2026-09-09) — ver shareSelectedItemPhotos. */''}
+        <button type="button" class="btn btn-sm" id="btn-inv-sel-share" ${invSelected.size?'':'disabled'}
+          style="margin-left:auto;background:var(--basil);color:var(--on-accent);">${t('inv_share_selected').replace('{n}', invSelected.size)}</button>
         <button type="button" class="btn btn-sm" id="btn-inv-sel-delete" ${invSelected.size?'':'disabled'}
-          style="margin-left:auto;background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
+          style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
       </div>
     </div>` : `
     <div class="inv-sticky">
