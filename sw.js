@@ -403,7 +403,12 @@
 // tocable sin cambiar de tamaño; y la foto de un producto se guarda a 560px
 // por los tres caminos por los que puede entrar (eran 400/300/300) —
 // app-03 + app-05 + app-06 + app-07 + dusty.css.
-const CACHE_NAME = 'patron-shell-v116';
+// v117: la FOTO del recibo vuelve al día del calendario (se había ido con la
+// maqueta que puso el número en todos los días). La celda con recibo es ahora
+// una tarjetita redondeada de 17px con sombra y filo de luz —del mismo palo
+// que los cuadros del resto de la app, pedido del usuario 2026-09-09— con el
+// ×N cuando hay varios y el aro ámbar si además es hoy — app-05 + dusty.css.
+const CACHE_NAME = 'patron-shell-v117';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

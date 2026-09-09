@@ -1129,12 +1129,25 @@ function receiptCalendarWidget(){
        tres, más uno de otro color si hay nota; el conteo exacto, la foto y el
        texto de la nota siguen a un toque, en el modal del día. El title conserva
        el detalle para quien pase el mouse. */
+    /* La FOTO del recibo vuelve a la celda (pedido del usuario 2026-09-09: "los
+       escaneos ya no se ponen encima de la fecha correspondiente"). Se había ido
+       con la maqueta del calendario, que puso el número en todos los días; pero
+       reconocer el recibo de un vistazo —"el del súper fue el martes"— es
+       justamente para lo que se mira este calendario. La celda con recibo pasa a
+       ser una tarjetita redondeada, del mismo palo que los cuadros del resto de
+       la app (pedido: "que no se vean tan cuadrados"). Los días sin recibo siguen
+       mostrando su número, y el puntito ámbar de nota se mantiene en ambos. */
+    const cover = dayReceipts && Array.isArray(r.images) ? r.images.find(im=>im && (im.base64 || im.url)) : null;
+    const coverSrc = cover ? receiptImgSrc(cover) : null;
     const dots = [];
-    if(dayReceipts) for(let d=0; d<Math.min(dayReceipts.length,3); d++) dots.push('<i></i>');
+    if(dayReceipts && !coverSrc) for(let d=0; d<Math.min(dayReceipts.length,3); d++) dots.push('<i></i>');
     if(dayNotes.length) dots.push('<i class="note"></i>');
     cells.push(`
-      <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
-        <span class="cal-day-num">${day}</span>
+      <div class="cal-day ${r?'has-receipt':''} ${coverSrc?'has-photo':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
+        ${coverSrc
+          ? `<img class="cal-day-photo" src="${escapeHtml(coverSrc)}" alt="" ${imgLoadAttr(coverSrc)} decoding="async" onerror="this.remove();">
+             ${multi ? `<span class="cal-day-badge">&times;${dayReceipts.length}</span>` : ''}`
+          : `<span class="cal-day-num">${day}</span>`}
         ${dots.length ? `<span class="cal-dots">${dots.join('')}</span>` : ''}
       </div>
     `);
