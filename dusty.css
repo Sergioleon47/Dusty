@@ -853,6 +853,17 @@
   .ms-card-line{font-size:13px;color:var(--ink);line-height:1.45;margin-top:8px;}
   .ms-card-line b{font-weight:800;}
   .ms-card-goods{font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.4;}
+  /* Sombras de los meses que todavía no existen (ver monthlySpendGhostCard):
+     el mes real, y bloques grises donde van el monto y la frase — nunca un
+     número inventado. La segunda se desvanece más, como una fila que sigue. */
+  .ms-ghost-note{font-size:11.5px;color:var(--ink-soft);margin:4px 2px 0;line-height:1.4;}
+  .ms-card.ghost{opacity:.55;pointer-events:none;user-select:none;}
+  .ms-card.ghost + .ms-card.ghost{opacity:.3;}
+  .ms-card.ghost .ms-card-month{color:var(--ink-soft);}
+  .ms-skel{display:block;border-radius:6px;background:color-mix(in srgb, var(--ink) 15%, transparent);}
+  .ms-skel.amount{width:78px;height:17px;}
+  .ms-skel.line{height:11px;margin-top:11px;}
+  .ms-skel.line.short{width:58%;margin-top:7px;height:9px;}
   @media (prefers-reduced-motion: reduce){
     .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-card, .ms-track i{animation:none;}
   }

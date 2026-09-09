@@ -365,7 +365,13 @@
 // ahora cada mes es una tarjeta con su número, una barra contra el tope y
 // una frase llana (pedido del usuario 2026-09-09). Mismos cálculos —
 // app-03 + app-05 + dusty.css.
-const CACHE_NAME = 'patron-shell-v110';
+// v111: en "Gasto por mes", recién instalado se ven dos tarjetas FANTASMA
+// bajo el mes actual — los nombres reales de los dos meses anteriores con
+// bloques grises donde irán el monto y la frase, y la barra en verde/ámbar
+// apagados. Nunca inventan un número; solo muestran cómo va a quedar en vez
+// de dejar la pantalla casi en blanco (pedido del usuario 2026-09-09) —
+// app-03 + app-05 + dusty.css.
+const CACHE_NAME = 'patron-shell-v111';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

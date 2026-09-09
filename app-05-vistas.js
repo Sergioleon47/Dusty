@@ -1624,6 +1624,27 @@ function monthlySpendCard(m, currentMonthKey){
       ${s.invested > 0 ? `<div class="ms-card-goods">${t('ms_card_goods').replace('{inv}', money(s.invested))}</div>` : ''}
     </div>`;
 }
+/* Tarjetas FANTASMA (pedido del usuario 2026-09-09: "sombras imaginarias para
+   que el usuario no vea todo en blanco y pueda ver cómo quedaría"). Recién
+   instalado solo existe el mes de hoy, casi vacío, y la pantalla no dejaba
+   entender qué va a aparecer ahí. Estas dos sombras usan los nombres REALES de
+   los dos meses anteriores pero no inventan ni un número: donde va el monto y
+   la frase hay bloques grises. La barra sí lleva el color del semáforo,
+   apagado, para que se vea de entrada qué significa verde y qué ámbar. Se dibujan solo
+   cuando todavía no hay meses anteriores, y desaparecen solas con el primer
+   recibo de otro mes. */
+function monthlySpendGhostCard(m, fill, level){
+  return `
+    <div class="ms-card ghost ${level}" aria-hidden="true">
+      <div class="ms-card-head">
+        <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}</span>
+        <span class="ms-skel amount"></span>
+      </div>
+      <div class="ms-track"><i style="width:${fill}%;"></i></div>
+      <div class="ms-skel line"></div>
+      <div class="ms-skel line short"></div>
+    </div>`;
+}
 function monthlySpendModal(){
   const currentMonthKey = localMonthStr();
   const months = allMonths();
@@ -1639,7 +1660,14 @@ function monthlySpendModal(){
         <div class="helper-note" style="margin:0 0 16px;">${t('ms_no_purchases')}</div>
       ` : `
         ${/* Del mes de hoy hacia atrás: lo primero que se ve es cómo vas ahora. */''}
-        <div class="ms-months">${months.map(m=>monthlySpendCard(m, currentMonthKey)).join('')}</div>
+        <div class="ms-months">
+          ${months.map(m=>monthlySpendCard(m, currentMonthKey)).join('')}
+          ${months.length===1 ? `
+            <div class="ms-ghost-note">${t('ms_ghost_note')}</div>
+            ${monthlySpendGhostCard(shiftMonthStr(currentMonthKey, -1), 58, 'ok')}
+            ${monthlySpendGhostCard(shiftMonthStr(currentMonthKey, -2), 86, 'warn')}
+          ` : ''}
+        </div>
       `}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-close-monthly-spend" style="flex:1;">${t('btn_close')}</button>
