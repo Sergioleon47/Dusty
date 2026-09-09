@@ -123,18 +123,25 @@ function suggestedOrderModal(){
         ${/* SOMBRAS de cómo se va a ver con productos por pedir (pedido del
              usuario 2026-09-09, mismo recurso que en "Gasto por mes"): la
              pantalla vacía solo decía que no hay nada crítico y no dejaba
-             entender qué aparece acá cuando sí lo hay. No inventan nombres ni
-             cantidades —son bloques grises— y se van solas apenas un producto
-             llega a nivel crítico, porque solo se dibujan con la lista vacía. */''}
+             entender qué aparece acá cuando sí lo hay. Son filas de EJEMPLO
+             de verdad —nombre, cuánto pedir y la nota de abajo, armadas igual
+             que una fila real— pero DESENFOCADAS y desvanecidas (pedido del
+             usuario: "ejemplos reales pero que no se vean tan nítidos como
+             reales"), así se entiende la forma sin poder confundirlas con
+             datos propios. Los nombres son genéricos, nunca del inventario del
+             usuario. Se van solas apenas un producto llega a nivel crítico,
+             porque solo se dibujan con la lista vacía. */''}
         <div class="so-ghost-note">${t('suggested_order_ghost_note')}</div>
         <div style="display:flex;flex-direction:column;margin-bottom:8px;">
-          ${[{w:62,o:'.5'},{w:44,o:'.34'},{w:54,o:'.2'}].map(g=>`
-            <div class="matched-item ghost" aria-hidden="true" style="opacity:${g.o};">
+          ${[{name:t('so_ex1'), have:1,  target:20, o:'.62', blur:'1.1px'},
+             {name:t('so_ex2'), have:2,  target:25, o:'.44', blur:'1.8px'},
+             {name:t('so_ex3'), have:12, target:60, o:'.28', blur:'2.6px'}].map(g=>`
+            <div class="matched-item ghost" aria-hidden="true" style="opacity:${g.o};filter:blur(${g.blur});">
               <div class="mi-top">
-                <span class="skel" style="width:${g.w}%;height:14px;"></span>
-                <span class="skel" style="width:54px;height:14px;"></span>
+                <strong>${escapeHtml(g.name)}</strong>
+                <span>${g.target-g.have} ${escapeHtml(unitLabel('unidad'))}</span>
               </div>
-              <span class="skel line" style="width:78%;margin-top:9px;height:10px;"></span>
+              <div style="font-size:12px;color:var(--ink-soft);">${t('suggested_order_row_note')} ${g.have} ${escapeHtml(unitLabel('unidad'))} ${t('stock_of')} ${g.target} ${escapeHtml(unitLabel('unidad'))}</div>
             </div>`).join('')}
         </div>
       ` : `
