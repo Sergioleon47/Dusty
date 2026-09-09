@@ -1676,10 +1676,17 @@
   .inv-sort-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;width:29px;height:30px;border-radius:8px;color:var(--ink-soft);}
   .inv-sort-wrap.on{background:var(--raised-2);color:var(--ink);}
   .inv-sort-wrap select{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;}
-  /* 4-5. Chips: los tres filtros rápidos y las categorías con "Todos". */
-  .inv-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 4px;margin:0 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
-  .inv-chips::-webkit-scrollbar{display:none;}
-  .inv-chips .category-chip{padding:5px 11px;font-size:12.5px;}
+  /* 4. Chips: Seleccionar y los tres filtros rápidos. Los CUATRO entran en una
+     pantalla, sin deslizar (pedido del usuario 2026-09-09) — desde que las
+     categorías salieron de esta fila ya no hay nada que desborde, así que el
+     scroll horizontal se va de raíz. Cada chip se reparte el ancho por igual
+     (flex:1) y el texto se achica un punto. min-width:max-content asegura que
+     ninguno se recorte: si de verdad no entran —una pantalla de 320px— la fila
+     pasa a dos líneas, que sigue siendo ver todo sin deslizar. */
+  .inv-chips{display:flex;flex-wrap:wrap;gap:5px;padding:2px 2px 4px;margin:0 0 6px;}
+  .inv-chips .category-chip{flex:1 1 auto;min-width:max-content;justify-content:center;gap:5px;
+    padding:5px 6px;font-size:11.5px;}
+  .inv-chips .category-chip span{min-width:17px;padding:2px 5px;font-size:10.5px;}
   .inv-chips .category-chip.on{background:var(--navy-wash);border-color:var(--navy);color:var(--navy-ink);}
   .inv-chips .category-chip.quick{border-color:color-mix(in srgb, var(--tomato) 45%, var(--line));color:var(--tomato-ink);}
   .inv-chips .category-chip.quick.on{background:var(--tomato-soft);border-color:var(--tomato);}
