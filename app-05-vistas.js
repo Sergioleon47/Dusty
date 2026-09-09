@@ -1026,7 +1026,7 @@ function inventarioView(){
      exactamente así", pensado para 100+ productos):
      1. franja de números (Valor · Potencial de venta) lado a lado;
      2. fila de herramientas con nombre, como el Catálogo: Pedido, Conteo (punto
-        cuando toca), Escanear estante (el FAB, sin el badge "−");
+        cuando toca), Escanear estante (el FAB, con su badge "−");
      3. buscador fijo arriba al scrollear, con vista y ORDEN en la misma fila;
      4. tres filtros rápidos: Crítico, Toca contar, Sin foto;
      5. chips de categoría como filtro justo sobre la lista, con "Todos";

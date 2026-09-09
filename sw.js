@@ -353,7 +353,7 @@
 // dueño salteaban la transacción sin descontar, el contador quedaba congelado
 // en su tope y el empleado chocaba con él. Ahora el pase es de la cuenta —
 // netlify/functions.
-const CACHE_NAME = 'patron-shell-v106';
+const CACHE_NAME = 'patron-shell-v107';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
