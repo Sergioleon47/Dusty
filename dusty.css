@@ -1496,12 +1496,23 @@
      Solo dentro de .inv-grid: en el Dashboard y en el resto de la app el ícono
      sigue siendo el círculo de siempre, al lado del texto. */
   .inv-grid .inv-tile-top{flex-direction:column;gap:6px;align-items:stretch;text-align:center;}
-  /* El cuadro toma el MISMO acabado que los tiles del Dashboard (pedido del
-     usuario 2026-09-09): esquinas de 18px, la sombra proyectada y el filo de luz
-     de arriba. Así la tarjeta de producto y las del Dashboard se leen como
-     piezas del mismo juego. */
-  .inv-grid .stock-icon-ring{width:100% !important;height:auto !important;aspect-ratio:1;border-radius:18px;
-    box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  /* LA FOTO LLEGA AL BORDE de la tarjeta (pedido del usuario 2026-09-09: "sácalo
+     de esos bordes"). Antes quedaba enmarcada dos veces — su propio aro de color
+     más el recuadro de la tarjeta — y el resultado eran dos rectángulos
+     concéntricos. Ahora la tarjeta ES el marco: la foto la llena de lado a lado,
+     y el color del stock pasa al borde de la tarjeta, que ya sabe su estado por
+     el data-status que lleva puesto. El acabado es el de los tiles del
+     Dashboard: esquinas de 18px, sombra proyectada y filo de luz arriba. */
+  .inv-grid:not(.rows) .inv-tile{padding:0 0 9px;overflow:hidden;border-radius:18px;
+    border:2px solid var(--stock-ok);box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  .inv-grid:not(.rows) .inv-tile[data-status="warn"]{border-color:var(--stock-warn);}
+  .inv-grid:not(.rows) .inv-tile[data-status="crit"]{border-color:var(--stock-crit);}
+  .inv-grid:not(.rows) .inv-tile[data-status="none"]{border-color:#3a414b;}
+  .inv-grid:not(.rows) .inv-tile-name,
+  .inv-grid:not(.rows) .inv-row-meta,
+  .inv-grid:not(.rows) .stock-caption{padding:0 8px;}
+  .inv-grid:not(.rows) .stock-icon-ring{border:0;border-radius:0;box-shadow:none;}
+  .inv-grid .stock-icon-ring{width:100% !important;height:auto !important;aspect-ratio:1;border-radius:18px;}
   .inv-grid .stock-icon-ring svg{width:42%;height:42%;}
   .inv-grid .inv-tile-name, .inv-grid .inv-row-meta, .inv-grid .stock-caption{text-align:center;}
   /* Sin foto, el ícono suelto sobre un cuadro vacío se veía pobre: un degradé en
@@ -1512,14 +1523,14 @@
   /* 3 columnas: todo un punto más compacto y simétrico para que entren tres. */
   .inv-grid.cols3 .inv-tile{padding:7px 6px;gap:4px;}
   .inv-grid.cols3 .inv-tile-top{flex-direction:column;gap:5px;align-items:center;text-align:center;}
-  .inv-grid.cols3 .stock-icon-ring{border-radius:16px;}
+  .inv-grid.cols3 .inv-tile{border-radius:16px;}
   .inv-grid.cols3 .inv-tile-name{font-size:11.5px;text-align:center;}
   .inv-grid.cols3 .inv-row-meta{font-size:11px;text-align:center;}
   .inv-grid.cols3 .stock-caption{font-size:10.5px;text-align:center;}
   /* 4 columnas: la vista más densa — todo mini para que entren cuatro. */
   .inv-grid.cols4 .inv-tile{padding:5px 3px;gap:3px;}
   .inv-grid.cols4 .inv-tile-top{flex-direction:column;gap:4px;align-items:center;text-align:center;}
-  .inv-grid.cols4 .stock-icon-ring{border-radius:14px;}
+  .inv-grid.cols4 .inv-tile{border-radius:14px;}
   .inv-grid.cols4 .inv-tile-name{font-size:10.5px;text-align:center;}
   .inv-grid.cols4 .inv-row-meta{font-size:10px;text-align:center;}
   .inv-grid.cols4 .stock-caption{font-size:9.5px;text-align:center;}
