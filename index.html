@@ -13,13 +13,12 @@
      input; la pantalla no "salta" y la app se siente nativa (pedido del usuario).
      Los lectores de pantalla y el zoom de accesibilidad del sistema no se ven
      afectados por esta meta. -->
-<!-- Sin maximum-scale ni user-scalable=no (auditoría 2026-09-09): bloquear el
-     zoom con pinza incumple la pauta de accesibilidad WCAG 1.4.4, y duele justo
-     donde la app tiene texto chico (el mini calendario, las tarjetas a 4
-     columnas). El "zoom fantasma" al tocar un input, que es lo que ese bloqueo
-     evitaba de verdad, ya está resuelto aparte: todos los campos usan 16px o
-     más, que es el umbral con el que iOS deja de hacer zoom solo. -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- El bloqueo del zoom se probó a quitar (auditoría 2026-09-09) y se volvió
+     atrás: sin él, iOS hace zoom solo al tocar cualquier campo de menos de 16px
+     y la única forma de evitarlo es agrandar la letra de TODOS los campos, o
+     sea cambiar cómo se ve la app entera. El usuario pidió que la app no cambie
+     de aspecto, así que la meta queda como estaba. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Dusty — Inventory</title>
 <meta name="description" content="Scan receipts, track inventory, stay on budget, and catch price changes automatically — for stores, restaurants, and anyone reselling on their own.">
 <!-- theme-color = el fondo oscuro de la app (no el naranja de marca): en Android
