@@ -467,7 +467,16 @@
 // numerico donde se escriben enteros). Sin eso, en el telefono varios abrian un
 // teclado sin punto decimal para escribir un precio. No cambia nada de como se
 // ve la app — app-06/08.
-const CACHE_NAME = 'patron-shell-v131';
+// v132: pulido invisible. (a) Area de toque de 48x48 en 15 botones chicos y
+// aislados — el lapiz del presupuesto medía 22x22, la X de cerrar la ficha
+// 30x30, "Subir foto"/"Quitar foto" 29 de alto. Crece un ::after invisible, no
+// el boton: comprobado pixel a pixel que las tres pestanas, la ficha y el cierre
+// de mes quedan identicos, y que ningun boton le roba el toque a otro. Los
+// botones pegados unos a otros (los de vista, los dias del calendario, los
+// chips) quedan afuera a proposito. (b) Vibracion al confirmar: los avisos de
+// exito y de error, y cada borrado. Mismo plugin Haptics que ya usaba el cambio
+// de pestana, sin permisos nuevos; en el navegador no hace nada — css + app-03/06.
+const CACHE_NAME = 'patron-shell-v132';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

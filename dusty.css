@@ -365,6 +365,37 @@
   /* -webkit-text-size-adjust: iOS agranda texto por su cuenta al rotar/en algunos
      contenedores — otra fuente de "zoom fantasma" no nativa. 100% lo congela. */
   html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+
+  /* ÁREA DE TOQUE DE 48x48 EN LOS BOTONES CHICOS.
+     Medido en la app: el lápiz del presupuesto es de 22x22, el de la estantería
+     26x26, la X de cerrar la ficha 30x30, "Subir foto" y "Quitar foto" 29 de
+     alto. Con el pulgar eso se falla seguido. La guía de Android y la de Apple
+     piden 48x48 (44x44 en iOS) de zona sensible.
+     El botón NO cambia de tamaño ni de color: lo que crece es un ::after
+     invisible, centrado, que forma parte del mismo botón para el dedo pero no
+     dibuja nada. width/height al 100% con min de 48px, así en los botones que
+     ya son más anchos la zona nunca se achica.
+     La lista es a dedo, no automática: solo entran los botones que tienen
+     espacio libre medido alrededor. Los que están pegados unos a otros —los
+     cuatro de vista del inventario (2px entre ellos), los días del calendario y
+     los chips— quedan AFUERA a propósito: ahí agrandar la zona haría que el
+     dedo caiga en el botón de al lado, que es peor que el botón chico.
+     OJO con la posición: solo se le pone relative a los que estaban en static.
+     Ponérsela a todos rompió la pantalla de Inventario en la primera prueba —
+     #btn-shelf-info (el menos rojo sobre la cámara) era absolute, pasó al flujo
+     y empujó TODA la página 26px hacia abajo (31% de los píxeles cambiados).
+     Los que ya son relative, absolute o sticky ya sirven de referencia para su
+     ::after, así que no hay que tocarles nada. */
+  #btn-alert-settings, #btn-open-monthly-spend, #btn-cloud-sign-in, #btn-close-month-recap,
+  #btn-upload-item-photo, #btn-remove-item-photo,
+  #btn-save-item, #btn-cancel-item, #btn-delete-item-modal{position:relative;}
+  #btn-edit-budget::after, #btn-alert-settings::after, #btn-add-manual-spend::after,
+  #btn-open-monthly-spend::after, #btn-cloud-sign-in::after, #btn-shelf-info::after,
+  #btn-close-item-modal::after, #btn-close-month-recap::after, #btn-cal-prev::after,
+  #btn-cal-next::after, #btn-upload-item-photo::after, #btn-remove-item-photo::after,
+  #btn-save-item::after, #btn-cancel-item::after, #btn-delete-item-modal::after{
+    content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:100%;height:100%;min-width:48px;min-height:48px;}
   /* En oscuro el degradé de marca a toda pantalla del tema claro sería un foco
      encendido — queda solo un resplandor naranja tenue arriba, suficiente para que
      el header se sienta "de marca" sin quemar el fondo #0f1115. */

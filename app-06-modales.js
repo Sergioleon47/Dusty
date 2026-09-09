@@ -3748,6 +3748,16 @@ function removeInventoryItem(id){
    Vive solo en memoria y solo hasta el próximo borrado: es un arrepentimiento
    inmediato, no un historial. */
 let lastBulkDelete = null;
+/* Un borrado también vibra, aunque su aviso sea informativo: es de las acciones
+   que más conviene que el dedo sienta. No se le cambia el tipo de aviso para
+   conseguirlo, porque eso le cambiaría el color (pedido del usuario: el aspecto
+   no se toca). Mismo plugin que hapticTabTick, sin permisos nuevos. */
+function hapticGolpe(estilo){
+  try{
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if(H && H.impact) H.impact({style: estilo || 'MEDIUM'}).catch(()=>{});
+  }catch(e){}
+}
 function undoBulkDelete(){
   const snap = lastBulkDelete;
   if(!snap) return 0;
@@ -3792,6 +3802,7 @@ function deleteSelectedInventory(ids){
   if(lista.length===1) logActivity('item_deleted', lista[0].name);
   else logActivity('items_bulk_deleted', '', String(lista.length));
   lastBulkDelete = snapshot;
+  hapticGolpe('MEDIUM');
   return lista.length;
 }
 function deleteStockItem(id, triggerEl){
@@ -3820,6 +3831,7 @@ function deleteStockItem(id, triggerEl){
     borrarPagos = confirm(t('confirm_delete_bill_payments')
       .replace('{n}', pagosDelMes.length).replace('{total}', money(total)));
   }
+  hapticGolpe('MEDIUM');   // el borrado quedó confirmado: el dedo lo siente acá
   const borrarPagosSiCorresponde = ()=>{
     if(!borrarPagos || !pagosDelMes.length) return;
     const ids = new Set(pagosDelMes.map(r=>r.id));

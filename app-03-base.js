@@ -1123,7 +1123,26 @@ function t(key){ return (I18N[uiLang] && I18N[uiLang][key]) || I18N.en[key] || I
    ahora no existía en ninguna parte de la app. Con acción el aviso dura más (la
    decisión de deshacer necesita leerse) y NO se cierra al tocarlo en cualquier
    lado, solo con el botón o solo. */
+/* VIBRACIÓN AL CONFIRMAR (pedido del usuario 2026-09-09, lista de pulido).
+   La app ya vibraba al cambiar de pestaña (hapticTabTick en app-06) con el
+   plugin Haptics de Capacitor, que ya viene instalado — así que esto no agrega
+   ninguna dependencia ni ningún permiso nuevo, y en el navegador no hace nada.
+   Se engancha al aviso en vez de a cada botón: un aviso ES la confirmación de
+   que algo pasó, así que ahí ya están todos los momentos que importan —guardar
+   un producto, aplicar un escaneo, marcar un pago, borrar— sin tener que tocar
+   veinte manejadores y sin que se olvide ninguno el día que se agregue otro.
+   Los avisos informativos ("Armando el respaldo…") NO vibran: no confirman nada
+   todavía. */
+function hapticAviso(tipo){
+  try{
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if(!H || !H.notification) return;
+    if(tipo === 'success') H.notification({type:'SUCCESS'}).catch(()=>{});
+    else if(tipo === 'error') H.notification({type:'ERROR'}).catch(()=>{});
+  }catch(e){}
+}
 function showToast(message, type, action){
+  hapticAviso(type);
   try{
     const root = document.getElementById('toast-root');
     if(!root){ alert(message); return; } // último recurso si el shell no lo tiene
