@@ -1646,9 +1646,6 @@
   html .inv-stat-label, html .inv-stat-note{color:rgba(255,255,255,.85);}
   html .inv-stat-value{color:#fff;}
   html .inv-tool-ring.tool-order, html .inv-tool-ring.tool-count{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
-  html .inv-chips .category-chip.on{background:var(--tile-1);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12);}
-  html .inv-chips .category-chip.quick.on{background:var(--tile-2);border-color:transparent;color:#fff;}
-  html .inv-chips .category-chip.on span, html .inv-chips .category-chip.quick.on span{background:rgba(255,255,255,.3);color:#fff;}
   html .inv-tile{background:var(--panel);border-color:var(--line);border-radius:18px;box-shadow:var(--shadow);}
   html .dish-card{border-radius:18px;}
   /* ===== INVENTARIO reorganizado (maqueta aprobada 2026-09-07, "exactamente así") ===== */
@@ -1687,11 +1684,24 @@
   .inv-chips .category-chip{flex:1 1 auto;min-width:max-content;justify-content:center;gap:5px;
     padding:5px 6px;font-size:11.5px;}
   .inv-chips .category-chip span{min-width:17px;padding:2px 5px;font-size:10.5px;}
-  .inv-chips .category-chip.on{background:var(--navy-wash);border-color:var(--navy);color:var(--navy-ink);}
-  .inv-chips .category-chip.quick{border-color:color-mix(in srgb, var(--tomato) 45%, var(--line));color:var(--tomato-ink);}
-  .inv-chips .category-chip.quick.on{background:var(--tomato-soft);border-color:var(--tomato);}
-  .inv-chips .category-chip.quick.zero{opacity:.45;}
-  .inv-chips .category-chip.quick span{background:var(--tomato-soft);color:var(--tomato-ink);}
+  /* PASTILLAS LLENAS CON LETRA BLANCA (elección del usuario 2026-09-09 sobre
+     cuatro maquetas): cada filtro toma un color de las tarjetas del Dashboard,
+     así la pantalla entera usa una sola paleta. El numerito va en un círculo
+     blanco translúcido, como en esas tarjetas.
+     Los degradados —y no los colores planos— son a propósito: oscurecen hacia
+     abajo, que es lo que hace legible el texto blanco encima. El ámbar es el
+     caso justo: plano no alcanza con letra blanca, así que este va un punto más
+     oscuro que --tile-5 en vez de usarlo tal cual. */
+  .inv-chips .category-chip.quick{border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.13);}
+  .inv-chips .category-chip.quick span{background:rgba(255,255,255,.30);color:#fff;min-width:17px;}
+  .inv-chips .category-chip.quick#btn-inv-select{background:var(--tile-ok);}
+  .inv-chips .category-chip.quick[data-inv-quick="crit"]{background:var(--tile-crit);}
+  .inv-chips .category-chip.quick[data-inv-quick="count"]{
+    background:linear-gradient(170deg, var(--hue-5), color-mix(in oklch, var(--hue-5), black 26%));}
+  .inv-chips .category-chip.quick[data-inv-quick="nophoto"]{background:var(--tile-4);}
+  /* Filtro puesto: el mismo relleno con un aro blanco por dentro — se ve
+     "hundido" sin cambiar de color, que es lo que dice cuál está activo. */
+  .inv-chips .category-chip.quick.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.9), 0 3px 10px rgba(0,0,0,.20);}
   /* 6. Grupos plegables + "ver los restantes". */
   .category-group-header.inv-group{cursor:pointer;user-select:none;-webkit-user-select:none;padding:6px 4px 6px 4px;border-radius:8px;margin:6px 0 6px;}
   .category-group-header.inv-group:active{background:var(--inset);}
