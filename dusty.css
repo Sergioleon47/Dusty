@@ -931,11 +931,17 @@
   .cal-weekday{text-align:center;font-size:11px;font-weight:700;color:var(--tile-sub);text-transform:uppercase;padding:2px 0;}
   /* Todas las celdas con fecha son tocables (abren el modal del día con recibos +
      notas), no solo las que tienen recibo — ver dayModal() en app-05. */
-  .cal-day{position:relative;min-height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:none;cursor:pointer;transition:transform .2s ease;}
+  /* Cada día es una CASILLA con su propio fondo, no un número suelto (pedido del
+     usuario 2026-09-09 sobre una captura: "debe verse así"). Un velo oscuro
+     translúcido sobre el color del bloque, así funciona igual en los diez temas
+     sin definir un color por tema, y el mismo radio de 17px de las celdas con
+     foto — la grilla entera queda del mismo palo que los cuadros de la app. */
+  .cal-day{position:relative;min-height:42px;border-radius:17px;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.17);cursor:pointer;transition:transform .2s ease;}
   .cal-day:active{transform:scale(0.90);}
-  /* Días de los meses vecinos: se ven, no se tocan (los pinta receiptCalendarWidget
-     para que el bloque cierre parejo, como en la maqueta). */
-  .cal-day.out{cursor:default;pointer-events:none;}
+  /* Días de los meses vecinos: se ven, no se tocan, y SIN casilla — el bloque
+     cierra parejo pero se nota de un vistazo dónde empieza y termina el mes. */
+  .cal-day.out{cursor:default;pointer-events:none;background:none;}
   .cal-day.out .cal-day-num{opacity:.3;}
   /* Lo que pasa ese día, en puntitos bajo el número: uno por recibo (hasta tres)
      y uno ámbar si además hay nota. El detalle está a un toque, en el modal. */
@@ -955,8 +961,11 @@
   }
   .cal-day-num{position:relative;display:flex;align-items:center;justify-content:center;width:31px;height:31px;
     font-size:14.5px;font-weight:600;color:var(--tile-ink);font-variant-numeric:tabular-nums;}
-  /* Hoy: el aro blanco de la maqueta, no un recuadro. */
-  .cal-day.today .cal-day-num{background:var(--amber-fill);border:0;border-radius:50%;font-weight:800;box-shadow:0 3px 9px rgba(0,0,0,.20);}
+  /* Hoy: la casilla entera con contorno ámbar (la captura del usuario), no un
+     círculo relleno detrás del número — así hoy se lee como "esta casilla" y no
+     como un día con algo adentro, que es lo que dice una casilla con foto. */
+  .cal-day.today{box-shadow:inset 0 0 0 2px var(--hue-5);}
+  .cal-day.today .cal-day-num{font-weight:800;}
   .cal-day.has-receipt:hover .cal-day-num{background:rgba(255,255,255,.16);border-radius:50%;}
   /* Día con la foto de un recibo: una tarjetita, no un recuadro (pedido del
      usuario 2026-09-09, "que se vea cuadrito ovalado y se relacione con los
@@ -1803,6 +1812,9 @@
   /* Botón del cierre de mes al pie del calendario de Recibos. */
   /* Cierre de mes en ROSADO (--tile-6, pedido del usuario 2026-09-09): destaca
      sobre el bloque en vez de perderse como un blanco translúcido. */
+  /* Cuántos recibos tiene el mes a la vista, justo encima del Cierre de mes:
+     el resumen del bloque, en la misma tinta suave de los nombres de los días. */
+  .cal-month-count{margin:12px 2px 0;font-size:12px;font-weight:700;color:var(--tile-sub);text-align:center;}
   .cal-recap-btn{width:100%;margin-top:12px;padding:11px;border-radius:12px;border:0;
     background:var(--tile-6);color:var(--tile-ink);font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;
     box-shadow:0 6px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.30);}

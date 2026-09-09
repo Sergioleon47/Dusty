@@ -1097,8 +1097,10 @@ function receiptCalendarWidget(){
   const todayStr = localDateStr();
 
   const receiptsByDay = {};
+  let monthReceiptCount = 0;
   receipts.forEach(r=>{
     if(!r.date || r.date.slice(0,7)!==calendarViewMonth) return;
+    monthReceiptCount++;
     const day = parseInt(r.date.slice(8,10),10);
     if(!receiptsByDay[day]) receiptsByDay[day] = [];
     receiptsByDay[day].push(r);
@@ -1174,6 +1176,11 @@ function receiptCalendarWidget(){
     <div class="cal-grid">
       ${cells.join('')}
     </div>
+    ${/* Cuántos recibos tiene el mes que se está mirando (pedido del usuario
+         2026-09-09). Solo a partir de dos: con uno solo, la casilla ya lo dice
+         todo y la línea sobraría. El ×N de cada casilla sigue contando los del
+         día; este cuenta el mes entero. */''}
+    ${monthReceiptCount > 1 ? `<div class="cal-month-count">${t('cal_month_receipts').replace('{n}', monthReceiptCount)}</div>` : ''}
     ${/* Cierre de mes, ubicado acá (decisión del usuario): resume el mes que el
          calendario está mostrando — la conclusión del arco, junto a sus datos. */''}
     <button type="button" class="cal-recap-btn" id="btn-month-recap">${t('recap_btn')}</button>
