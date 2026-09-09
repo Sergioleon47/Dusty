@@ -371,7 +371,13 @@
 // apagados. Nunca inventan un número; solo muestran cómo va a quedar en vez
 // de dejar la pantalla casi en blanco (pedido del usuario 2026-09-09) —
 // app-03 + app-05 + dusty.css.
-const CACHE_NAME = 'patron-shell-v111';
+// v112: las muestras de "Gasto por mes" pasan de 2 a 7 meses y se van con el
+// PRIMER recibo (antes se iban recién al aparecer un segundo mes con datos:
+// convivían muestras con datos reales). Se desvanecen hacia abajo — la
+// opacidad no se veía porque msCardIn termina en opacity:1 y una animación
+// le gana al style inline. Probado con 12 meses reales a 320px: la lista
+// scrollea y los botones quedan siempre a la vista — app-05 + dusty.css.
+const CACHE_NAME = 'patron-shell-v112';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
