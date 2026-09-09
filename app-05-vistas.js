@@ -1026,7 +1026,7 @@ function inventarioView(){
      1. franja de números (Valor · Potencial de venta) lado a lado;
      2. fila de herramientas con nombre: Pedido, Conteo (punto
         cuando toca), Escanear estante (el FAB, con su badge "−");
-     3. buscador fijo arriba al scrollear, con vista y ORDEN en la misma fila;
+     3. buscador fijo arriba al scrollear; vista y ORDEN abajo, pegados a la lista;
      4. una sola fila de chips: Seleccionar, los tres filtros rápidos
         (Crítico, Toca contar, Sin foto) y las categorías;
      5. chips de categoría como filtro justo sobre la lista, con "Todos";
@@ -1125,12 +1125,13 @@ function inventarioView(){
       </div>
     </div>` : `
     <div class="inv-sticky">
-      <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
+      ${/* El buscador solo, a todo el ancho: el selector de vista y el orden se
+           fueron abajo, pegados a la lista (pedido del usuario 2026-09-09). */''}
+      <div class="inv-toolbar" style="align-items:center;margin:0;">
         <div class="inv-search-wrap">
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input id="inv-search" type="search" value="${escapeHtml(invSearch)}" placeholder="${t('inv_search_ph').replace('{n}', total)}" aria-label="${t('inv_search_aria')}" autocomplete="off">
         </div>
-        ${toolbar}
       </div>
     </div>`}
     ${/* UNA SOLA FILA DE CHIPS, con el buscador arriba (opción elegida por el
@@ -1145,6 +1146,10 @@ function inventarioView(){
       ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
       ${categories.length>0 ? categoryChipsHtml() : ''}
     </div>
+    ${/* Vista (fila / 2 / 3 / 4 columnas) y orden: mandan sobre CÓMO se ve la
+         lista, así que viven pegados a ella y no arriba del todo. En modo
+         selección no se muestran — ahí la barra de arriba es la de selección. */''}
+    ${invSelectMode ? '' : `<div class="inv-toolbar" style="margin:0 0 10px;">${toolbar}</div>`}
     ${rows.length===0
       ? (searching || invQuickFilter ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
         : (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))))
