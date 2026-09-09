@@ -864,10 +864,16 @@
      fuertes como una tarjeta real. Cada una trae su opacidad calculada. */
   .ms-card.ghost{animation:none;pointer-events:none;user-select:none;}
   .ms-card.ghost .ms-card-month{color:var(--ink-soft);}
-  .ms-skel{display:block;border-radius:6px;background:color-mix(in srgb, var(--ink) 15%, transparent);}
-  .ms-skel.amount{width:78px;height:17px;}
-  .ms-skel.line{height:11px;margin-top:11px;}
-  .ms-skel.line.short{width:58%;margin-top:7px;height:9px;}
+  /* Bloque gris de relleno: marca dónde va a ir un dato que todavía no existe.
+     Lo comparten las sombras de "Gasto por mes" y las del "Pedido sugerido". */
+  .skel{display:block;border-radius:6px;background:color-mix(in srgb, var(--ink) 15%, transparent);}
+  .skel.amount{width:78px;height:17px;}
+  .skel.line{height:11px;margin-top:11px;}
+  .skel.line.short{width:58%;margin-top:7px;height:9px;}
+  /* Filas fantasma del pedido sugerido (ver suggestedOrderModal). */
+  .so-ghost-note{font-size:11.5px;color:var(--ink-soft);margin:0 0 8px;line-height:1.4;}
+  .matched-item.ghost{pointer-events:none;user-select:none;}
+  .matched-item.ghost .mi-top{margin-bottom:0;}
   @media (prefers-reduced-motion: reduce){
     .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-card, .ms-track i{animation:none;}
   }
