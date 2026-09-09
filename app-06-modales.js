@@ -3737,6 +3737,36 @@ function deleteStockItem(id, triggerEl){
   const item = inventory.find(i=>i.id===id);
   if(!item) return;
   if(!confirm(t('confirm_delete_item').replace('{name}', item.name))) return;
+  /* PAGOS DE UN BILL (reporte del usuario 2026-09-09: "borré los dos bills para
+     que dejara de palpitar la alerta pero la barra del presupuesto no hizo el
+     cálculo"). Un bill es la DEFINICIÓN del gasto recurrente ("Luz, $600/mes");
+     el ＋ de la lista de presupuesto registra el PAGO creando un recibo manual
+     (manual:true, billItemId). Borrar el bill nunca tocó esos recibos, y como el
+     presupuesto se calcula desde los recibos, la barra no se movía — correcto
+     contablemente, pero desde el presupuesto el bill y su pago se ven como una
+     sola cosa y nada te avisaba dónde había quedado la plata.
+     Solo se ofrecen los pagos de ESTE MES: son los que mueven la barra que el
+     usuario está mirando. Borrar los de meses anteriores reescribiría el gasto de
+     meses ya cerrados, que es justo lo que no hay que hacer sin pedirlo aparte.
+     Se pregunta, no se asume: el pago ocurrió de verdad, y borrar el bill puede
+     significar "ya no lo pago más" sin negar lo que sí se pagó. */
+  const pagosDelMes = isExpenseItem(item)
+    ? receipts.filter(r=>r && r.manual && r.billItemId===id && monthKey(r.date)===localMonthStr())
+    : [];
+  let borrarPagos = false;
+  if(pagosDelMes.length){
+    const total = pagosDelMes.reduce((sum,r)=>sum+(r.total||0), 0);
+    borrarPagos = confirm(t('confirm_delete_bill_payments')
+      .replace('{n}', pagosDelMes.length).replace('{total}', money(total)));
+  }
+  const borrarPagosSiCorresponde = ()=>{
+    if(!borrarPagos || !pagosDelMes.length) return;
+    const ids = new Set(pagosDelMes.map(r=>r.id));
+    // Lápidas, igual que en deleteReceipt: sin esto un compañero offline los
+    // vuelve a subir al reconectar y el gasto reaparece en el presupuesto.
+    pagosDelMes.forEach(r=>{ if(!deletedReceiptIds.includes(r.id)) deletedReceiptIds.push(r.id); });
+    receipts = receipts.filter(r=>!ids.has(r.id));
+  };
   // La misma fila (mismo data-ing-id) aparece dos veces en el DOM a la vez: una en
   // la tarjeta de stock del Dashboard y otra en Inventario (las 3 pestañas viven
   // siempre las 3 en el DOM, ver la nota junto a .view-track). Antes esto buscaba
@@ -3748,7 +3778,7 @@ function deleteStockItem(id, triggerEl){
   // realmente se tocó (triggerEl) y subiendo al contenedor más cercano, se anima
   // siempre la fila correcta sin importar la pestaña.
   const wrap = triggerEl ? triggerEl.closest('.stock-row-static') : document.querySelector('.stock-row-static[data-ing-id="'+id+'"]');
-  const finish = ()=>{ removeInventoryItem(id); render(); };
+  const finish = ()=>{ borrarPagosSiCorresponde(); removeInventoryItem(id); render(); };
   if(!wrap){ finish(); return; }
   const h = wrap.getBoundingClientRect().height;
   wrap.style.maxHeight = h+'px';

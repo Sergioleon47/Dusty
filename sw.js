@@ -344,7 +344,11 @@
 // "tú" (pedido del usuario 2026-09-09). 166 textos: imperativos (probá→prueba,
 // tocá→toca, elegí→elige), presente (tenés→tienes, contás→cuentas), pronombre
 // pegado (fijalo→fíjalo, contanos→cuéntanos) y vos→tú/ti/contigo — app-03.
-const CACHE_NAME = 'patron-shell-v102';
+// v103: al borrar un bill se ofrece borrar también sus PAGOS de este mes
+// (reporte del usuario 2026-09-09: "borré los dos bills y la barra del
+// presupuesto no hizo el cálculo"). El bill es la definición; el pago es un
+// recibo aparte, y el presupuesto se calcula desde los recibos — app-03 + app-06.
+const CACHE_NAME = 'patron-shell-v103';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
