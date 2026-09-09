@@ -1688,8 +1688,6 @@
   /* 6. Grupos plegables + "ver los restantes". */
   .category-group-header.inv-group{cursor:pointer;user-select:none;-webkit-user-select:none;padding:6px 4px 6px 4px;border-radius:8px;margin:6px 0 6px;}
   .category-group-header.inv-group:active{background:var(--inset);}
-  .category-group-header.inv-group .inv-chev{margin-left:auto;color:var(--ink-soft);font-size:12px;transition:transform .18s;}
-  .category-group-header.inv-group.collapsed .inv-chev{transform:rotate(-90deg);}
   .inv-more{display:block;width:100%;background:none;border:none;color:var(--ink-soft);font-size:12.5px;font-weight:600;padding:8px 0 2px;cursor:pointer;font-family:inherit;}
   .inv-toolbar{display:flex;justify-content:flex-end;margin:0 0 8px;}
   /* Buscador del inventario: solo la lupita adentro, sin placeholder de texto —

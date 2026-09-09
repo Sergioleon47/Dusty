@@ -1072,7 +1072,7 @@ function inventarioView(){
       ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_more').replace('{n}', g.rows.length-INV_GROUP_PREVIEW)} ▾</button>`
       : (invExpanded.has(key) && g.rows.length > INV_GROUP_PREVIEW ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_less')} ▴</button>` : '');
     return `
-      <div class="category-group-header inv-group ${collapsed?'collapsed':''}" data-key="invgrp:${key}" data-inv-group="${key}" role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${t('inv_group_toggle_aria')}">${escapeHtml(g.name)} <span>${g.rows.length}</span><span class="inv-chev">▾</span></div>
+      <div class="category-group-header inv-group ${collapsed?'collapsed':''}" data-key="invgrp:${key}" data-inv-group="${key}" role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${t('inv_group_toggle_aria')}">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
       ${collapsed ? '' : `<div class="inv-grid ${invLayout}" style="margin-bottom:${moreBtn ? 4 : 16}px;">${shown.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>${moreBtn}`}`;
   };
   const toolbar = invLayoutToggleHtml().replace('</div>', `
