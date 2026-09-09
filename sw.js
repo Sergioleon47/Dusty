@@ -420,7 +420,13 @@
 // hacían flotar, y el estilo que hace a la <img> llenar la casilla pasa a ir
 // también INLINE: con un CSS viejo en caché la foto se dibujaba con su
 // proporción original y estiraba la casilla — app-05 + dusty.css.
-const CACHE_NAME = 'patron-shell-v119';
+// v120: las casillas del calendario pasan de 17 a 13px de radio. En una casilla
+// de 46x42, 17px dejaba 8px de lado recto: la forma tiraba a óvalo. En las de
+// número casi no se veía (su fondo apenas contrasta), pero la de la foto es
+// blanca sobre el bloque y ahí saltaba — el usuario lo marcó con una captura
+// ampliada. Misma geometría para las dos y el velo un poco más oscuro, para
+// que la esquina de la casilla vacía también se vea — dusty.css.
+const CACHE_NAME = 'patron-shell-v120';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
