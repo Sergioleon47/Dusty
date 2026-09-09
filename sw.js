@@ -302,7 +302,11 @@
 // ::before en vez de un box-shadow difuminado — confirmado por el usuario que
 // el parpadeo sobre la barra se iba al apagar los latidos (iOS re-rasterizaba
 // la barra y su sombra en cada pulso) — css.
-const CACHE_NAME = 'patron-shell-v92';
+// v93: en el calendario de Recibos, un día con recibo muestra SIEMPRE el
+// icono de recibo en lugar del número, con la foto encima cuando carga —
+// antes, si la foto fallaba al cargar (URL de la nube caída), la celda
+// quedaba vacía — app-05.
+const CACHE_NAME = 'patron-shell-v93';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

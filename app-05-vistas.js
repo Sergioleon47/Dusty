@@ -1183,9 +1183,13 @@ function receiptCalendarWidget(){
     // compositor) — antes cada celda decidía entre 3 comportamientos distintos.
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
-        ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">`
-          : r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>`
-          : `<span class="cal-day-num">${day}</span>`}
+        ${/* Día con recibo: SIEMPRE el icono de recibo en lugar del número, y la
+             foto encima cuando la hay y carga (pedido del usuario 2026-09-09:
+             "pon el recibo en lugar del número"). Antes, si la foto fallaba al
+             cargar (URL de la nube caída/expirada) se ocultaba sola y la celda
+             quedaba vacía: ni foto ni número ni icono. */''}
+        ${r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>` : `<span class="cal-day-num">${day}</span>`}
+        ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">` : ''}
         ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
         ${/* escapeHtml en el icon: viaja por meta/settings que cualquier miembro
              puede escribir vía SDK — sin escape era un XSS almacenado que corría
