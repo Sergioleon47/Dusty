@@ -1134,7 +1134,10 @@ function attachFirestoreListeners(uid){
   // "saltando" la pantalla un poco. Eso es lo que se siente como que "todo brinca o
   // desaparece y reaparece" en el celular.
   unsubActivity = activityRef(uid).orderBy('at','desc').limit(100).onSnapshot(snap=>{
-    const nextActivityLog = snap.docs.map(d=>d.data());
+    // Se descartan las entradas de la zona de Catálogo, eliminada en 2026-09-09:
+    // las que ya están en la nube no tienen texto que las describa y saldrían
+    // como un número suelto en la lista (y contarían para el badge de "sin ver").
+    const nextActivityLog = snap.docs.map(d=>d.data()).filter(a=> a && a.type!=='catalog_published');
     if(sameJSON(nextActivityLog, activityLog)) return;
     activityLog = nextActivityLog;
     scheduleCloudTriggeredRender();
