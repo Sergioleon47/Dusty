@@ -1626,16 +1626,25 @@ function monthlySpendCard(m, currentMonthKey){
 }
 /* Tarjetas FANTASMA (pedido del usuario 2026-09-09: "sombras imaginarias para
    que el usuario no vea todo en blanco y pueda ver cómo quedaría"). Recién
-   instalado solo existe el mes de hoy, casi vacío, y la pantalla no dejaba
-   entender qué va a aparecer ahí. Estas dos sombras usan los nombres REALES de
-   los dos meses anteriores pero no inventan ni un número: donde va el monto y
-   la frase hay bloques grises. La barra sí lleva el color del semáforo,
-   apagado, para que se vea de entrada qué significa verde y qué ámbar. Se dibujan solo
-   cuando todavía no hay meses anteriores, y desaparecen solas con el primer
-   recibo de otro mes. */
-function monthlySpendGhostCard(m, fill, level){
+   instalado solo existe el mes de hoy, vacío, y la pantalla no dejaba entender
+   qué va a aparecer ahí. Estas siete sombras usan los nombres REALES de los
+   siete meses anteriores pero no inventan ni un número: donde van el monto y
+   las frases hay bloques grises. La barra sí lleva el color del semáforo,
+   apagado, para que se vea de entrada qué significa verde, qué ámbar y qué
+   rojo. Se desvanecen hacia abajo, como una lista que sigue.
+   Se dibujan SOLO mientras no haya ni un recibo cargado: con el primero que
+   registre el usuario desaparecen todas de golpe (pedido 2026-09-09), para que
+   nunca convivan datos de verdad con muestras. */
+const MS_GHOST_MONTHS = [
+  // Anchos y colores variados a propósito: la muestra tiene que dejar ver los
+  // tres estados del semáforo, no siete barras iguales.
+  {fill:58, level:'ok'},   {fill:86, level:'warn'}, {fill:41, level:'ok'},
+  {fill:104, level:'crit'},{fill:67, level:'ok'},   {fill:92, level:'warn'},
+  {fill:35, level:'ok'}
+];
+function monthlySpendGhostCard(m, fill, level, opacity){
   return `
-    <div class="ms-card ghost ${level}" aria-hidden="true">
+    <div class="ms-card ghost ${level}" aria-hidden="true" style="opacity:${opacity};">
       <div class="ms-card-head">
         <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}</span>
         <span class="ms-skel amount"></span>
@@ -1662,10 +1671,11 @@ function monthlySpendModal(){
         ${/* Del mes de hoy hacia atrás: lo primero que se ve es cómo vas ahora. */''}
         <div class="ms-months">
           ${months.map(m=>monthlySpendCard(m, currentMonthKey)).join('')}
-          ${months.length===1 ? `
+          ${receipts.length===0 ? `
             <div class="ms-ghost-note">${t('ms_ghost_note')}</div>
-            ${monthlySpendGhostCard(shiftMonthStr(currentMonthKey, -1), 58, 'ok')}
-            ${monthlySpendGhostCard(shiftMonthStr(currentMonthKey, -2), 86, 'warn')}
+            ${MS_GHOST_MONTHS.map((g,i)=>monthlySpendGhostCard(
+                shiftMonthStr(currentMonthKey, -(i+1)), Math.min(g.fill,100), g.level,
+                (0.55 - i*0.05).toFixed(2))).join('')}
           ` : ''}
         </div>
       `}
