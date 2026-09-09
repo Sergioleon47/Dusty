@@ -3837,47 +3837,110 @@ function trackRestPx(tab, vw){ return -(TAB_ORDER.indexOf(tab) * vw); }
    hueco gris — y al asentarse el documento se achicaba de golpe y el scroll se
    recortaba: el "salto" al cambiar de pestaña. Y al volver, el Inventario
    aparecía arriba de todo, perdido el lugar.
-   Ahora: cada pestaña recuerda su scroll (tabScrollMemory). Al comprometerse un
-   gesto (o tocar la barra), cada página que NO es la actual se corre con un
-   translateY (compositor, sin layout) de modo que lo que se ve por la ventana
-   sea exactamente su scroll recordado; al asentarse, render() vuelve a dibujar
-   sin esos offsets y en el mismo cuadro el documento se lleva al scroll
-   recordado — el desplazamiento del documento y el offset que desaparece se
-   cancelan: cero movimiento visible. */
+   Ahora: cada pestaña recuerda su scroll (tabScrollMemory). Todo el juego de
+   páginas vive en un MARCO DE REFERENCIA: el scroll del documento vale para una
+   pestaña (la "base") y a cada una de las otras se le da un translateY
+   (compositor, sin layout) para que por la ventana se vea justo su scroll
+   recordado. Al enganchar un gesto la base es la pestaña actual — el dedo está
+   sobre ella y no se la puede tocar.
+
+   REBASE AL COMPROMETERSE (reporte del usuario 2026-09-08: "parpadea toda esa
+   zona al deslizar de Inventario al Dashboard"). Antes el cambio de marco se
+   hacía AL ASENTARSE: se le quitaba el translateY a la página que llegaba y en
+   el mismo cuadro el documento saltaba a su scroll recordado. Las dos cosas se
+   cancelan y el contenido no se mueve, pero quitarle el transform a un elemento
+   que está EN PANTALLA le destruye la capa de composición y obliga a
+   re-rasterizar la página entera — con el Inventario scrolleado miles de píxeles
+   esa capa es enorme y el re-rasterizado no llega en un cuadro: eso es el
+   destello. Y era justo al final, con el ojo ya quieto sobre la página que
+   llega.
+   Ahora el cambio de marco pasa al COMPROMETERSE (rebasePagesToTab), cuando
+   arranca el resorte: el documento se lleva ya al scroll de la pestaña de
+   destino y el offset se lo queda la página que SALE, que en medio segundo va a
+   estar fuera de pantalla. La que llega nunca tiene transform, así que al
+   asentarse no hay nada que quitarle: el cuadro del asentado no toca ni el
+   scroll ni los transforms. Sigue sin verse movimiento porque las dos cosas se
+   cancelan igual, solo que en un cuadro en el que la pantalla ya se está
+   moviendo en horizontal. */
 const tabScrollMemory = {};
+// Geometría de las 4 páginas medida al alinear. Se guarda para poder re-alinear
+// en el pointerup sin volver a leer nada: un getBoundingClientRect de las cuatro
+// fuerza un layout justo en el cuadro en el que tiene que arrancar el resorte
+// (era el "se traba al soltar" de la auditoría de swipe 2026-09-08).
+let pageGeomAtAlign = null;
+// Colchón sobre el borde de abajo de la ventana. La barra del navegador móvil
+// aparece y desaparece sola, y con ella innerHeight, así que el recorte no se
+// calcula al ras.
+const VIEWPORT_SLACK = 140;
 function viewportDocTop(){
   const vp = document.querySelector('.view-viewport');
   return vp ? vp.getBoundingClientRect().top + window.scrollY : 0;
 }
-function alignPagesForSwipe(fromTab){
+/* Pone las 4 páginas en el marco de `base` (un scroll de documento). Devuelve la
+   geometría usada, para poder reusarla sin volver a medir. */
+function applyPageOffsets(base, geom){
   const pages = document.querySelectorAll('.view-page');
   const vp = document.querySelector('.view-viewport');
-  if(!pages.length || !vp) return;
-  const S = window.scrollY;
-  tabScrollMemory[fromTab] = S;
+  if(!pages.length || !vp) return null;
+  const medidas = geom ? geom.heights
+    : TAB_ORDER.map((_, i)=> pages[i] ? pages[i].getBoundingClientRect().height : 0);
+  const vTop = geom ? geom.vTop : (vp.getBoundingClientRect().top + window.scrollY);
+  /* TECHO (reporte del usuario 2026-09-08: "empezó desde que le metí muchos
+     datos"). Una página corrida hacia abajo tiene que caber dentro del viewport
+     (overflow:hidden) o se recortaría justo donde termina la actual — pero solo
+     hace falta que llegue hasta el borde de abajo de la VENTANA: lo que quede
+     más abajo no se ve, recortarlo no se nota, y el scroll no se mueve durante
+     el resorte así que ese borde no cambia.
+     Sin este techo el viewport se estiraba hasta la página MÁS LARGA de las
+     cuatro entera — incluida la del Catálogo, que ni participa del deslice.
+     Medido con 400 productos, yendo de Inventario al Dashboard: el documento
+     pasaba de 907 px a 37.599 px al empezar el gesto y volvía a 907 al
+     asentarse. Ese cambio de tamaño del documento (36.692 px, 43 pantallas)
+     re-rasteriza todo y es lo que se veía como un destello en el pie del
+     contenido. Con techo, el mismo deslice lo mueve ~270 px. */
+  const techo = Math.max(0, base + window.innerHeight + VIEWPORT_SLACK - vTop);
   let needH = 0;
   TAB_ORDER.forEach((tab, i)=>{
     const page = pages[i];
     if(!page) return;
-    if(tab===fromTab){ page.style.transform = ''; return; }
-    const remembered = tabScrollMemory[tab] || 0;
-    const dy = S - remembered;
+    const dy = base - (tabScrollMemory[tab] || 0);
     page.style.transform = dy ? `translateY(${dy}px)` : '';
-    // La vecina corrida hacia abajo tiene que caber dentro del viewport
-    // (overflow:hidden): si no, se recortaría justo donde termina la actual.
-    needH = Math.max(needH, dy + page.getBoundingClientRect().height);
+    needH = Math.max(needH, Math.min(dy + (medidas[i] || 0), techo));
   });
   const cur = parseFloat(vp.style.height) || 0;
   if(needH > cur) vp.style.height = needH + 'px';
+  return {heights: medidas, vTop};
+}
+function alignPagesForSwipe(fromTab){
+  tabScrollMemory[fromTab] = window.scrollY;
+  pageGeomAtAlign = applyPageOffsets(tabScrollMemory[fromTab], null);
+}
+/* Cambio de marco: de la pestaña actual a la de destino, en un solo cuadro y sin
+   movimiento visible.
+   El alto del documento se lleva ACÁ al que le corresponde a la pestaña de
+   destino, en vez de al asentarse. Yendo del Inventario (23.178 px con 400
+   productos) al Dashboard (907 px) el documento tiene que encoger 22.271 px sí o
+   sí, y hacerlo es re-rasterizar todo: la diferencia es CUÁNDO. Al asentarse cae
+   con la pantalla ya quieta sobre la página nueva —justo el destello que se
+   reportó en el pie del contenido—; acá cae en el cuadro del pointerup, con el
+   track arrancando el resorte y todo moviéndose en horizontal.
+   El orden importa: primero el alto de destino (puede encoger), después los
+   offsets (que solo agrandan, para que la página que sale no quede recortada
+   antes del borde de la ventana) y al final el scroll, que window.scrollTo
+   recorta contra el alto que haya en ese momento. */
+function rebasePagesToTab(tab){
+  const destino = tabScrollMemory[tab] || 0;
+  tabScrollMemory[tab] = destino;
+  const i = TAB_ORDER.indexOf(tab);
+  const g = pageGeomAtAlign;
+  syncViewportHeight(false, g
+    ? {tab, contentHeight: g.heights[i], vTop: g.vTop}
+    : {tab});
+  applyPageOffsets(destino, g);
+  window.scrollTo(0, destino);
 }
 function clearPageOffsets(){
   document.querySelectorAll('.view-page').forEach(p=>{ p.style.transform = ''; });
-}
-function restoreScrollForTab(tab){
-  const remembered = tabScrollMemory[tab];
-  if(remembered===undefined) { window.scrollTo(0, 0); return; }
-  const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-  window.scrollTo(0, Math.max(0, Math.min(remembered, maxY)));
 }
 // getComputedStyle siempre devuelve la matriz resuelta en píxeles, sin importar si
 // el transform actual se escribió en % (el primer dibujado) o en px (una animación
@@ -3961,11 +4024,12 @@ function commitTabSwitchLight(tab, track){
     p.classList.toggle('far', Math.abs(i-idx)>1);
   });
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
-  clearPageOffsets();
-  // true = si el documento tiene que ENCOGER, que lo haga un cuadro después: en
-  // este mismo cuadro ya se quitó el offset de las páginas y enseguida corre
-  // restoreScrollForTab, y hacer las tres cosas juntas re-rasteriza la página
-  // entera — el destello del pie del contenido (ver la nota en syncViewportHeight).
+  // Las páginas ya quedaron en el marco de esta pestaña al comprometerse el
+  // cambio (rebasePagesToTab), así que acá no se les toca el transform: la que
+  // está en pantalla conserva su capa de composición.
+  // true = si el documento tiene que ENCOGER, que lo haga un cuadro después:
+  // encogerlo en el mismo cuadro que el resto del asentado re-rasteriza la
+  // página entera — el destello del pie del contenido (ver syncViewportHeight).
   syncViewportHeight(true);
   schedulePagePrewarm(); // las que quedaron lejos se destapan en tiempo libre (app-04)
 }
@@ -4048,6 +4112,14 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
      (getBoundingClientRect de las 4 páginas) justo en el pointerup, el cuadro
      en el que el resorte tiene que arrancar (auditoría de swipe 2026-09-08). */
   if(!liveGesture || uncovered) alignPagesForSwipe(activeTab);
+  /* Acá se cambia el marco de referencia a la pestaña de destino (ver la nota
+     larga arriba de tabScrollMemory): el documento va ya a SU scroll y el
+     translateY se lo lleva la página que sale. La que llega entra y se asienta
+     sin transform, así que el cuadro del asentado no toca nada que esté en
+     pantalla. Es una escritura de estilo por página más un scrollTo, sin leer
+     geometría (las alturas ya se midieron al alinear), así que no cuesta un
+     layout forzado en el cuadro del pointerup. */
+  rebasePagesToTab(tab);
   hapticTabTick();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   // Un render de fondo que caiga entre este cuadro y el arranque del resorte
@@ -4071,10 +4143,6 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
     } else {
       commitTabSwitchLight(tab, track);
     }
-    // Mismo cuadro que el render (síncrono): el documento se lleva al scroll
-    // recordado de la pestaña nueva; el offset con el que se la mostró durante
-    // el gesto ya no existe, y las dos cosas se cancelan — no se ve moverse.
-    restoreScrollForTab(tab);
   });
   /* Dos rAF SOLO si hubo que destapar una página .far (toque en la barra hacia
      una pestaña lejana): el primero corre antes de pintar este cuadro; el

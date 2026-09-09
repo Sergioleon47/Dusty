@@ -345,12 +345,17 @@ function schedulePagePrewarm(){
 // pero la página visible sí puede haber cambiado de alto.
 let viewportSyncedContentH = -1, viewportSyncedInnerH = -1; // lo último medido (ver scheduleViewportSync)
 let viewportShrinkFrame = null;
-function syncViewportHeight(diferirEncogido){
+/* opts (todo opcional): {tab, contentHeight, vTop}. Sirve para ajustar el alto a
+   una pestaña que TODAVÍA no es la activa —el cambio de marco lo hace al
+   comprometerse el cambio, ver rebasePagesToTab— y para hacerlo con medidas ya
+   tomadas, sin leer geometría en el cuadro del pointerup. */
+function syncViewportHeight(diferirEncogido, opts){
   const viewport = document.querySelector('.view-viewport');
   const pages = document.querySelectorAll('.view-page');
-  const idx = TAB_ORDER.indexOf(activeTab);
+  const idx = TAB_ORDER.indexOf((opts && opts.tab) || activeTab);
   if(!viewport || !pages[idx]) return;
-  const contentHeight = pages[idx].getBoundingClientRect().height;
+  const contentHeight = (opts && opts.contentHeight != null)
+    ? opts.contentHeight : pages[idx].getBoundingClientRect().height;
   // Si el contenido de la pestaña activa es corto (ej. Inventario filtrado al conteo
   // cíclico, con un solo producto) y no llega a tapar la pantalla hasta la barra de
   // abajo, se estira igual hasta ahí — si no, queda un hueco vacío mostrando el
@@ -364,7 +369,8 @@ function syncViewportHeight(diferirEncogido){
   // hecho a media página (marcar una ficha, un snapshot) estiraba el documento,
   // y el siguiente render hecho arriba lo encogía y el scroll se recortaba de
   // golpe. El relleno tiene que ser el mismo sin importar dónde esté el scroll.
-  const viewportDocTop = viewport.getBoundingClientRect().top + window.scrollY;
+  const viewportDocTop = (opts && opts.vTop != null)
+    ? opts.vTop : viewport.getBoundingClientRect().top + window.scrollY;
   const fillHeight = Math.max(0, window.innerHeight - viewportDocTop - navHeight);
   const totalHeight = Math.max(contentHeight, fillHeight);
   const aplicar = ()=>{
@@ -385,21 +391,18 @@ function syncViewportHeight(diferirEncogido){
   /* ENCOGER EL DOCUMENTO, UN CUADRO DESPUÉS (reporte del usuario 2026-09-08:
      "parpadea toda esa zona al deslizar de Inventario al Dashboard", y "empezó
      desde que le metí muchos datos").
-     Al asentarse un cambio de pestaña pasan tres cosas EN EL MISMO CUADRO: se le
-     quita el translateY a las páginas vecinas (clearPageOffsets), el documento
-     se lleva al scroll recordado (restoreScrollForTab) y acá el alto se ajusta a
-     la página nueva. Las tres están pensadas para cancelarse y lo logran —el
-     contenido no se mueve— pero el navegador igual re-rasteriza la página
-     entera, y eso se ve como un destello justo en el pie del contenido, donde
-     se juntan las tarjetas de color, el borde del fondo y la sombra de la barra.
+     Al asentarse un cambio de pestaña el alto del documento se ajusta a la
+     página nueva. Aunque el contenido visible no se mueva, cambiar el alto del
+     documento de golpe re-rasteriza la página entera, y eso se ve como un
+     destello justo en el pie del contenido, donde se juntan las tarjetas de
+     color, el borde del fondo y la sombra de la barra.
      Medido: yendo de Inventario al Dashboard el alto cae de golpe 490 px con 10
      productos (imperceptible) pero 36.692 px con 400 — 43 pantallas en un
      cuadro. Por eso "empezó" al cargar datos: el mecanismo estuvo siempre, los
      datos lo hicieron visible.
-     Solo se difiere ENCOGER. Crecer se aplica ya mismo porque restoreScrollForTab
-     corre en este mismo cuadro y necesita el documento largo para poder llevar el
-     scroll a donde estaba (si no, se recorta). Un documento 2 cuadros más largo de
-     la cuenta no se nota; uno más corto sí. */
+     Solo se difiere ENCOGER. Crecer se aplica ya mismo: un documento más corto
+     de la cuenta recorta el scroll (y con él la posición de la página que se
+     está mostrando), mientras que uno 2 cuadros más largo no se nota. */
   const altoActual = parseFloat(viewport.style.height) || 0;
   if(diferirEncogido && altoActual > totalHeight + 1){
     if(viewportShrinkFrame) cancelAnimationFrame(viewportShrinkFrame);
