@@ -39,6 +39,12 @@ function render(){
   // shelfCamStream: misma protección que scannerCamStream pero para el <video>
   // del escáner de estante (app-08).
   if(swipeGestureActive || trackAnimating || barcodeScannerInstance || scannerCamStream || shelfCamStream){ renderPendingAfterGesture = true; return; }
+  /* La franja de "sin conexión" es fija y se apoya sobre la barra de abajo, así
+     que le tiene que hacer lugar al contenido y a los avisos: esta clase es la
+     que abre ese espacio en el CSS. Va acá arriba (antes de cualquier salida
+     temprana de las de abajo) para que el estado de la clase nunca se atrase
+     respecto de lo que se está dibujando. */
+  document.documentElement.classList.toggle('sin-red', !!isOffline);
   /* CERRAR un modal (o abrir/cerrar el detalle de recibo) se anima con la View
      Transitions API del navegador: startViewTransition() saca una captura del
      estado viejo y funde hacia el nuevo. Solo al cerrar, a propósito: al ABRIR el
@@ -252,8 +258,9 @@ function renderApp(){
     ${monthRecapModal()}
     ${inventory.length>0 ? orderCalcPanel() : ''}
     ${/* Franja de SIN CONEXIÓN: fija sobre la barra de abajo para que se vea en
-         cualquier pestaña. Solo aparece sin red; no tapa nada porque #app ya
-         reserva el alto de la barra. */''}
+         cualquier pestaña. La clase .sin-red en <html> es la que le hace lugar:
+         sin ella la franja se comía la última fila de productos y se pisaba con
+         los avisos (medido 2026-09-09, 10px de solape sobre el texto). */''}
     ${isOffline ? `<div class="offline-bar" role="status">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="4" y1="20" x2="20" y2="4"/></svg>
       <span>${t('offline_bar')}</span>

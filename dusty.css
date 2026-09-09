@@ -365,6 +365,21 @@
   /* -webkit-text-size-adjust: iOS agranda texto por su cuenta al rotar/en algunos
      contenedores — otra fuente de "zoom fantasma" no nativa. 100% lo congela. */
   html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+  /* Los campos de escritura, a 16px en pantallas táctiles. No es un capricho de
+     tamaño: Safari en iPhone hace zoom SOLO al enfocar un campo de menos de 16px
+     y después NO vuelve, así que la pantalla queda torcida hasta que el usuario
+     la achica con los dedos. Antes no se notaba porque el zoom estaba prohibido
+     de raíz (user-scalable=no), y prohibirlo dejaba afuera a quien necesita
+     agrandar la letra. Con esto se puede hacer zoom a mano y ya no salta solo.
+     Los <select> quedan afuera a propósito: abren la ruedita nativa, no teclado,
+     y no provocan el salto (medido 2026-09-09: 13.5px en los buscadores). */
+  @media (pointer:coarse){
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea{font-size:16px;}
+  }
+  /* Con la letra más grande, un texto de ayuda largo (el del buscador, que lleva
+     la cuenta de productos) puede no entrar: que termine en puntos en vez de
+     cortarse a la mitad de una palabra. */
+  input::placeholder{text-overflow:ellipsis;}
   /* En oscuro el degradé de marca a toda pantalla del tema claro sería un foco
      encendido — queda solo un resplandor naranja tenue arriba, suficiente para que
      el header se sienta "de marca" sin quemar el fondo #0f1115. */
@@ -504,6 +519,13 @@
     stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
   @keyframes offlineBarIn{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:none;}}
   @media (prefers-reduced-motion:reduce){.offline-bar{animation:none;}}
+  /* La franja es fija sobre la barra de abajo, así que se comía la última fila de
+     productos y se pisaba con los avisos (medido 2026-09-09: 10px encima del
+     texto "Sin conexión"). Con .sin-red el contenido y los avisos le hacen lugar
+     exactamente su alto (--offline-h). */
+  html{--offline-h:0px;}
+  html.sin-red{--offline-h:31px;}
+  html.sin-red #app{padding-bottom:calc(100px + var(--offline-h));}
   /* Cuando no hay sesión, el botón de la nube se ve como un ícono chico más entre
      otros y pasa desapercibido — en ese estado se agranda a una píldora con texto
      para que sea obvio que ahí se crea una cuenta. */
@@ -1771,13 +1793,14 @@
   /* Chip de filtro rápido SIN resultados: se atenúa de verdad. La clase .zero se
      ponía en el markup desde siempre pero no tenía NINGUNA regla escrita, así que
      un chip con 0 se veía idéntico a uno con resultados y el usuario caía en el
-     callejón sin ninguna advertencia (auditoría 2026-09-09). */
-  .inv-chips .category-chip.quick.zero{opacity:.42;filter:saturate(.3);}
-  .inv-chips .category-chip.quick.zero.on{opacity:.8;filter:saturate(.7);}
-  /* Pantalla de "sin resultados": el mensaje real y la salida. */
-  .inv-noresults{display:flex;flex-direction:column;align-items:center;gap:13px;
-    text-align:center;padding:36px 20px 30px;}
-  .inv-noresults-msg{font-size:14px;color:var(--ink-mid);max-width:34ch;line-height:1.5;}
+     callejón sin ninguna advertencia (auditoría 2026-09-09).
+     Bajarle la opacidad y la saturación al relleno de color lo dejaba como un
+     borrón gris sucio al lado de los otros chips: parecía un error de dibujo, no
+     una decisión (revisado 2026-09-09). Se apaga sacándole el relleno: queda un
+     contorno con la misma forma, en los grises de la app. */
+  .inv-chips .category-chip.quick.zero{background:none;box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-soft);}
+  .inv-chips .category-chip.quick.zero span{background:color-mix(in srgb, var(--ink-soft) 16%, transparent);color:var(--ink-soft);}
+  .inv-chips .category-chip.quick.zero.on{box-shadow:inset 0 0 0 2px var(--ink-soft);color:var(--ink-mid);}
   /* Botón dentro de un aviso — nació con el "Deshacer" de los borrados. */
   .toast.toast-action{display:flex;align-items:center;gap:14px;}
   .toast-btn{flex-shrink:0;border:none;background:none;padding:4px 2px;cursor:pointer;
@@ -1802,7 +1825,10 @@
      derecha, y el aire en el medio. */
   .inv-search-wrap{position:relative;flex:0 1 auto;width:36%;min-width:118px;margin-right:auto;}
   .inv-search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-soft);pointer-events:none;}
-  .inv-search-wrap input{width:100%;height:36px;padding:0 10px 0 34px;border:1px solid var(--line);
+  /* Los 4px de más los pide el texto de ayuda con la cuenta de productos, que a
+     16px (el tamaño obligado en el teléfono, ver el bloque de pointer:coarse)
+     llegaba justo al borde y se veía cortado. */
+  .inv-search-wrap input{width:100%;height:36px;padding:0 8px 0 32px;border:1px solid var(--line);
     border-radius:10px;background:var(--inset);color:var(--ink);font-size:13.5px;}
   .inv-search-wrap input:focus{outline:none;border-color:var(--basil);}
   .inv-search-wrap input::-webkit-search-cancel-button{-webkit-appearance:none;}
@@ -2010,7 +2036,7 @@
   }
   /* Avisos flotantes (showToast, app-03) — arriba de la barra inferior, por encima
      de los modales (los errores tienen que verse aunque haya un modal abierto). */
-  #toast-root{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));
+  #toast-root{position:fixed;left:12px;right:12px;bottom:calc(76px + var(--offline-h, 0px) + env(safe-area-inset-bottom));
     z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;}
   .toast{pointer-events:auto;max-width:420px;width:100%;background:var(--panel);color:var(--ink);
     border:1px solid var(--line);border-left-width:4px;border-radius:12px;padding:12px 16px;

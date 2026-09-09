@@ -9,6 +9,11 @@ const LINE_ICONS = {
   box: `<path d="M12.89 1.45l8 4A2 2 0 0 1 22 7.24v9.53a2 2 0 0 1-1.11 1.79l-8 4a2 2 0 0 1-1.79 0l-8-4a2 2 0 0 1-1.1-1.8V7.24a2 2 0 0 1 1.11-1.79l8-4a2 2 0 0 1 1.78 0z"/><polyline points="2.32 6.16 12 11 21.68 6.16"/><line x1="12" y1="22.76" x2="12" y2="11"/>`,
   receipt: `<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>`,
   cloud: `<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>`,
+  /* check y search nacieron para el aviso de "no hay resultados": ahí el ícono
+     dice de qué se trata (todo en orden / no encontré nada) mejor que el box
+     genérico al que caía el fallback. */
+  check: `<circle cx="12" cy="12" r="9"/><polyline points="8.5 12.2 11 14.7 15.8 9.6"/>`,
+  search: `<circle cx="11" cy="11" r="7"/><line x1="16.2" y1="16.2" x2="21" y2="21"/>`,
   camera: `<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>`,
   bell: `<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>`,
   clock: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`,
@@ -1009,11 +1014,13 @@ function inventarioView(){
           const msg = filtroVacio
             ? t('inv_filter_none_' + (invQuickFilter==='nophoto' ? 'nophoto' : invQuickFilter))
             : t('inv_no_match_search').replace('{q}', escapeHtml(invSearch.trim()));
-          return `
-        <div class="inv-noresults">
-          <div class="inv-noresults-msg">${msg}</div>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-inv-clear-filters">${filtroVacio ? t('inv_clear_filter') : t('inv_clear_search')}</button>
-        </div>`;
+          /* Con el mismo emptyState que usa toda la app (ícono en su medallón,
+             título y botón), no un div suelto: escrito a mano quedaba un texto
+             flotando sobre 700px de negro y se leía como "se rompió algo"
+             (revisado 2026-09-09). */
+          const icono = filtroVacio ? (invQuickFilter==='crit' ? 'check' : invQuickFilter==='count' ? 'clock' : 'camera') : 'search';
+          const salida = `<button type="button" class="btn btn-ghost btn-sm" id="btn-inv-clear-filters">${filtroVacio ? t('inv_clear_filter') : t('inv_clear_search')}</button>`;
+          return emptyState(icono, msg, '', false, salida);
         })()
         : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')))
       : groups.map(groupHtml).join('')}

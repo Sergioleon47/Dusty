@@ -543,7 +543,7 @@ const I18N = {
     inv_tool_order:'Pedido', inv_tool_count:'Conteo',
     inv_quick_crit:'Crítico', inv_quick_count:'Toca contar', inv_quick_nophoto:'Sin foto',
     inv_sort_label:'Orden', inv_sort_name:'Nombre', inv_sort_stock:'Menos stock', inv_sort_value:'Mayor valor',
-    inv_search_ph:'Buscar entre {n} productos', inv_more:'ver los {n} restantes', inv_less:'ver menos',
+    inv_search_ph:'Buscar en {n} productos', inv_more:'ver los {n} restantes', inv_less:'ver menos',
     inv_group_toggle_aria:'Plegar o desplegar la categoría',
     dash_today:'Hoy', dash_tool_products:'Productos', dash_tool_manual:'A mano',
     dash_stat_crit:'Críticos', dash_stat_count:'Toca contar', dash_stat_health:'Salud del stock',
