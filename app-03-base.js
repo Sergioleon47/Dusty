@@ -51,8 +51,7 @@ const I18N = {
     dash_see_all_months:'Ver todos los meses',
     dash_budget_of:'Presupuesto:', dash_edit_budget:'Editar',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
-    stock_status_title:'Estado del inventario', stock_of:'de', stock_critical_alerts:'Alertas críticas:',
-    stock_no_data_caption:'Sin compras registradas todavía — no se puede evaluar el stock',
+    stock_of:'de', stock_critical_alerts:'Alertas críticas:',
     stock_suggested_order:'Pedido sugerido:', stock_view_detail:'Ver detalle',
     suggested_order_title:'Pedido sugerido', suggested_order_sub:'Productos en nivel crítico y cuánto haría falta pedir para volver al objetivo.',
     suggested_order_empty:'Por ahora ningún producto está en nivel crítico.', suggested_order_row_note:'Tienes',
@@ -66,8 +65,6 @@ const I18N = {
     cc_current:'Tienes registrado', cc_counted_placeholder:'Cantidad contada', cc_save_btn:'Guardar conteo',
     cc_settings_title:'Configuración del conteo', cc_pct_label:'% del inventario', cc_interval_label:'Cada cuántos días',
     cc_settings_helper:'Por ejemplo, 20% cada 3 días — así en unas dos semanas ya pasaste por todo el inventario.',
-    cc_banner_text:'Toca para contar {n} producto(s) — conteo cíclico',
-    dash_cc_empty:'✔ Nada pendiente de conteo por ahora — tu inventario completo vive en la pestaña Inventario.',
     share_account_btn:'🔗 Compartir cuenta',
     dash_team_title:'Equipo', dash_team_sub:'Comparte con tu empleado',
     settings_inventory_title:'Inventario',
@@ -105,7 +102,6 @@ const I18N = {
     inv_in_stock_suffix:'en stock',
     th_ingredient:'Producto', th_cost_unit:'Costo/unidad', lbl_stock:'Cantidad en stock',
     btn_edit:'Editar', btn_delete:'Eliminar',
-    rec_title:'Recibos', rec_sub:'Historial de recibos escaneados o subidos — cada uno alimentó el inventario automáticamente',
     no_supplier_name:'Proveedor sin nombre', product_singular:'producto', products_plural:'productos',
     rec_search_placeholder:'Buscar por proveedor o producto...', rec_no_matches:'Ningún recibo coincide con la búsqueda.',
     rec_month_total:'Total del mes', btn_print:'Imprimir', btn_share:'Enviar',
@@ -128,8 +124,7 @@ const I18N = {
     settings_account_title:'Cuenta', settings_device_note:'El tema, los latidos, el idioma y el formato se guardan en este dispositivo.',
     ms_title:'Gasto por mes', ms_sub:'Cuánto gastaste cada mes, comparado con tu presupuesto',
     ms_no_purchases:'Todavía no hay compras registradas.', ms_current_month:'este mes',
-    alert_title:'Alertas de precio', alert_sub:'Ajusta cuándo un aumento de precio al escanear un recibo se marca como algo que requiere revisión inmediata.',
-    alert_threshold_title:'Alertas de precio al escanear', alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
+    alert_threshold_label:'Umbral de alerta (%)', alert_helper:'Cualquier aumento se marca en amarillo. A partir de este % se marca en rojo, como algo que requiere revisión inmediata.',
     budget_title:'Presupuesto mensual', budget_label:'Monto ($)', budget_placeholder:'Ej. 2000',
     budget_helper:'Se repite todos los meses hasta que lo cambies. Déjalo vacío para no mostrar la barra de presupuesto.',
     /* Presupuesto con ritmo, avisos e historial (auditoría 2026-09-07). */
@@ -175,10 +170,8 @@ const I18N = {
     categories_helper:'Borrar una categoría no borra sus productos — solo dejan de estar agrupados, y pasan a "Sin categoría".',
     categories_uncategorized:'Sin categoría', lbl_category:'Categoría', category_none_option:'Sin categoría',
     btn_save:'Guardar', btn_alert_settings:'Configuración',
-    btn_feedback:'Reportar un problema',
     /* Auditoría de primer minuto 2026-09-07: el "?" abre AYUDA (las preguntas del
        primer día) y el reporte de problemas vive al pie de esa hoja. */
-    btn_help:'Ayuda',
     help_title:'¿Cómo funciona Dusty?', help_sub:'Las preguntas del primer día, respondidas cortito.',
     help_q1:'¿Qué puedo escanear?', help_a1:'Recibos y facturas de compras, boletas de luz, agua o internet, productos sueltos (foto o código de barras) y el estante entero para contar stock. Todo sale del botón de la cámara.',
     help_q2:'¿Se guarda sin cuenta?', help_a2:'Sí. Todo queda en este teléfono desde el primer segundo. Cuando quieras verlo en otro dispositivo, toca Guardar mi cuenta: nombre, email y un PIN, y no se pierde nada.',
@@ -188,7 +181,6 @@ const I18N = {
     /* Primeros pasos en el tablero vacío (efecto de progreso dotado: el primero ya
        viene tildado) y festejo del primer escaneo. */
     first_steps_title:'Primeros pasos', first_step_lang:'Elegiste tu idioma', first_step_scan:'Escanea tu primer recibo', first_step_budget:'Fija un presupuesto mensual',
-    first_steps_of:'de',
     first_scan_toast_one:'¡Listo! 1 producto cargado desde tu primer recibo.', first_scan_toast_many:'¡Listo! {n} productos cargados desde tu primer recibo.',
     trial_scans_left:'Te quedan {n} escaneos gratis.', trial_scans_last:'Te queda 1 escaneo gratis.',
     save_account_hint_toast:'Tus datos ya viven en este teléfono. Para verlos en otro, toca ☁ Guardar arriba.',
@@ -220,8 +212,6 @@ const I18N = {
     pb_low_confidence:'La IA no está segura de este — revisa el nombre antes de agregar.',
     pb_cost_ph:'Costo',
     pb_add_btn:'Agregar {n} al inventario',
-    ids_capture:'Identificar',
-    ids_use_native_camera:'📷 Usar la cámara del sistema',
     ids_found_in_inventory:'Ya está en tu inventario',
     ids_stock:'Stock',
     ids_cost:'Costo',
@@ -253,7 +243,7 @@ const I18N = {
     team_join_confirm:'Vas a empezar a ver el inventario compartido de {email}. Lo que tengas guardado en esta cuenta ahora mismo no se va a mostrar más. ¿Continuar?',
     team_viewing_shared:'Estás viendo el inventario compartido de {email}.',
     account_owner_hint:'Estás viendo el inventario compartido de esta cuenta',
-    btn_inventory_activity:'Cambios', activity_modal_title:'Actividad del inventario',
+    activity_modal_title:'Actividad del inventario',
     activity_empty:'Todavía no hay cambios registrados.',
     activity_you:'Tú',
     inv_select_btn:'Seleccionar', inv_select_done:'Listo',
@@ -319,7 +309,6 @@ const I18N = {
     barcode_scan_title:'Código de barras', barcode_scan_hint:'Apunta la cámara al código de barras del producto',
     barcode_scan_camera_error:'No se pudo acceder a la cámara — revisa los permisos del navegador.',
     barcode_scan_looking:'Buscando el producto…',
-    barcode_not_found:'No encontramos ese código — completa los datos a mano.',
     lbl_sale_price:'Precio de venta', lbl_profit_pct:'% de ganancia',
     lbl_sku:'SKU / Código', ph_sku_example:'Ej. SKU-1042', lbl_item_supplier:'Proveedor',
     lbl_name:'Nombre', ph_name_example:'Ej. Medium shrimp',
@@ -584,8 +573,7 @@ const I18N = {
     dash_see_all_months:'See all months',
     dash_budget_of:'Budget:', dash_edit_budget:'Edit',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
-    stock_status_title:'Inventory status', stock_of:'of', stock_critical_alerts:'Critical alerts:',
-    stock_no_data_caption:"No purchases logged yet — can't evaluate stock level",
+    stock_of:'of', stock_critical_alerts:'Critical alerts:',
     stock_suggested_order:'Suggested order:', stock_view_detail:'View detail',
     suggested_order_title:'Suggested order', suggested_order_sub:'Products at critical stock level and how much to order to get back to target.',
     suggested_order_empty:'No products are at a critical level right now.', suggested_order_row_note:'You have',
@@ -597,8 +585,6 @@ const I18N = {
     cc_current:'Currently on record', cc_counted_placeholder:'Counted quantity', cc_save_btn:'Save count',
     cc_settings_title:'Count settings', cc_pct_label:'% of inventory', cc_interval_label:'Every how many days',
     cc_settings_helper:"E.g. 20% every 3 days — that way you cycle through the whole inventory in about two weeks.",
-    cc_banner_text:'Tap to count {n} product(s) — cycle count',
-    dash_cc_empty:'✔ Nothing waiting to be counted right now — your full inventory lives in the Inventory tab.',
     share_account_btn:'🔗 Share account',
     dash_team_title:'Team', dash_team_sub:'Share with your staff',
     settings_inventory_title:'Inventory',
@@ -636,7 +622,6 @@ const I18N = {
     inv_in_stock_suffix:'in stock',
     th_ingredient:'Product', th_cost_unit:'Cost/unit', lbl_stock:'Quantity in stock',
     btn_edit:'Edit', btn_delete:'Delete',
-    rec_title:'Receipts', rec_sub:'History of scanned or uploaded receipts — each one automatically updated your inventory',
     no_supplier_name:'Unnamed supplier', product_singular:'product', products_plural:'products',
     rec_search_placeholder:'Search by supplier or product...', rec_no_matches:'No receipts match your search.',
     rec_month_total:'Month total', btn_print:'Print', btn_share:'Share',
@@ -659,8 +644,7 @@ const I18N = {
     settings_account_title:'Account', settings_device_note:'Theme, pulses, language and format are saved on this device.',
     ms_title:'Spending by month', ms_sub:'How much you spent each month, next to your budget',
     ms_no_purchases:'No purchases recorded yet.', ms_current_month:'this month',
-    alert_title:'Price alerts', alert_sub:'Adjust when a price increase on a scanned receipt gets flagged as something that needs immediate review.',
-    alert_threshold_title:'Price alerts when scanning', alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
+    alert_threshold_label:'Alert threshold (%)', alert_helper:"Any increase is flagged in yellow. From this % on it's flagged in red, as something that needs immediate review.",
     budget_title:'Monthly budget', budget_label:'Amount ($)', budget_placeholder:'E.g. 2000',
     budget_helper:'Repeats every month until you change it. Leave it blank to hide the budget bar.',
     budget_set_cta:'Set it →',
@@ -702,8 +686,6 @@ const I18N = {
     categories_helper:'Deleting a category doesn\'t delete its products — they just stop being grouped, and move to "Uncategorized".',
     categories_uncategorized:'Uncategorized', lbl_category:'Category', category_none_option:'Uncategorized',
     btn_save:'Save', btn_alert_settings:'Settings',
-    btn_feedback:'Report an issue',
-    btn_help:'Help',
     help_title:'How does Dusty work?', help_sub:'First-day questions, answered short.',
     help_q1:'What can I scan?', help_a1:'Purchase receipts and invoices, electricity, water or internet bills, single products (photo or barcode) and the whole shelf to count stock. All from the camera button.',
     help_q2:'Is it saved without an account?', help_a2:'Yes. Everything stays on this phone from the first second. When you want it on another device, tap Save my account: name, email and a PIN, and nothing is lost.',
@@ -711,7 +693,6 @@ const I18N = {
     help_q4:'What if I make a mistake?', help_a4:'Before saving a receipt you review and fix every line. And any product or receipt can be edited or deleted by tapping it.',
     help_report_btn:'Report an issue',
     first_steps_title:'First steps', first_step_lang:'You picked your language', first_step_scan:'Scan your first receipt', first_step_budget:'Set a monthly budget',
-    first_steps_of:'of',
     first_scan_toast_one:'Done! 1 product loaded from your first receipt.', first_scan_toast_many:'Done! {n} products loaded from your first receipt.',
     trial_scans_left:'You have {n} free scans left.', trial_scans_last:'You have 1 free scan left.',
     save_account_hint_toast:'Your data already lives on this phone. To see it on another one, tap ☁ Save up top.',
@@ -742,8 +723,6 @@ const I18N = {
     pb_low_confidence:'The AI isn\'t sure about this one — double-check the name before adding.',
     pb_cost_ph:'Cost',
     pb_add_btn:'Add {n} to inventory',
-    ids_capture:'Identify',
-    ids_use_native_camera:'📷 Use the system camera',
     ids_found_in_inventory:'Already in your inventory',
     ids_stock:'Stock',
     ids_cost:'Cost',
@@ -775,7 +754,7 @@ const I18N = {
     team_join_confirm:"You're about to start viewing {email}'s shared inventory. Whatever is saved in this account right now will no longer be shown. Continue?",
     team_viewing_shared:"You're viewing {email}'s shared inventory.",
     account_owner_hint:"You're viewing this account's shared inventory",
-    btn_inventory_activity:'Changes', activity_modal_title:'Inventory activity',
+    activity_modal_title:'Inventory activity',
     activity_empty:'No changes recorded yet.',
     activity_you:'You',
     inv_select_btn:'Select', inv_select_done:'Done',
@@ -841,7 +820,6 @@ const I18N = {
     barcode_scan_title:'Barcode', barcode_scan_hint:"Point the camera at the product's barcode",
     barcode_scan_camera_error:"Couldn't access the camera — check your browser permissions.",
     barcode_scan_looking:'Looking up the product…',
-    barcode_not_found:"Couldn't find that barcode — fill in the details by hand.",
     lbl_sale_price:'Sale price', lbl_profit_pct:'Profit %',
     lbl_sku:'SKU / Code', ph_sku_example:'e.g. SKU-1042', lbl_item_supplier:'Supplier',
     lbl_name:'Name', ph_name_example:'e.g. Medium shrimp',
@@ -1210,6 +1188,19 @@ function receiptImgSrc(img){
 function imgLoadAttr(src){
   return (src && /^https?:/.test(src)) ? 'loading="lazy"' : '';
 }
+/* Tamaño con el que se guarda la FOTO DE UN PRODUCTO, uno solo para los tres
+   caminos por los que puede entrar: asignarla a un producto existente, el alta a
+   mano y el recorte del escaneo en lote. Antes eran 400, 300 y 300 px, así que el
+   mismo producto se veía mejor o peor según cómo lo hubieras cargado.
+   560 px (auditoría 2026-09-09): desde que la foto ocupa la tarjeta entera —antes
+   era un círculo de 48 px— el tile de 2 columnas mide ~175 px de ancho, que en un
+   iPhone de DPR 3 pide ~525 px reales; a 300-400 se veía blanda. Pesa ~30-45 KB en
+   base64 (medido), así que sigue entrando en localStorage y en el documento de
+   Firestore, que se lleva la foto adentro (a diferencia de recibos y recetas, que
+   suben el archivo aparte a Storage). El visor a pantalla completa todavía la
+   agranda: subir más pediría subir las fotos de producto a Storage. */
+const ITEM_PHOTO_SIDE = 560;
+const ITEM_PHOTO_QUALITY = 0.82;
 function itemPhotoSrc(item){
   if(!item || !item.photo) return null;
   if(item.photo.base64) return cachedPhotoUrl(item.photo.base64, item.photo.mediaType);
@@ -1538,13 +1529,6 @@ function cogsRatioHtml(key){
   const ratio = fin.cogs/fin.revenue*100;
   const good = ratio<=tgt;
   return `<div class="budget-pace ${good?'ok':'warn'}" style="color:${good?'var(--money-pos-ink)':'var(--money-neg-ink)'};">${good?'✅':'⚠️'} ${t('budget_cogs_line').replace('{p}', ratio.toFixed(0)).replace('{t}', String(tgt))}</div>`;
-}
-// Franja a todo el ancho bajo la grilla del tablero (la tarjeta angosta ya no
-// aguanta seis líneas): resumen, ritmo, comprometido y costo/ventas.
-function budgetStripHtml(key){
-  const p = budgetPace(key);
-  if(!p) return '';
-  return `<div class="budget-strip ${p.status}">${budgetSummaryHtml(p)}${cogsRatioHtml(key)}</div>`;
 }
 // Las dos líneas bajo la barra: "Gastos $X de $Y · Quedan $Z" y la nota de ritmo.
 function budgetSummaryHtml(p){

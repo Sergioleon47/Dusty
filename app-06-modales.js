@@ -2016,26 +2016,6 @@ function activityModal(){
   </div>`;
 }
 
-/* ================= MODAL: COMPRA MANUAL ================= */
-/* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
-/* ================= INTRO ÚNICA DE CÁMARA =================
-   (decisión final del usuario 2026-09-07, tras probar la hoja nativa de iOS y una
-   hoja propia y descartarlas — "tapan" la pantalla): las tres cámaras grandes
-   — Recibos, Productos y Estante — abren el MISMO modal: título, la
-   línea que explica qué hace ese escáner, la caja punteada "Tocá para sacar una
-   foto" (abre la CÁMARA directo, input con capture) y debajo el link "o subí una
-   desde la galería" (input sin capture). Nada de hojas intermedias. Después
-   cada escáner hace lo suyo. Los pares de inputs (con/sin capture) existen
-   porque en algunos WebViews de Android el input sin capture salta al
-   explorador y esconde la cámara (bug reportado por un usuario real). */
-// Los inputs del escáner de recibos (con capture = cámara; sin capture y
-// multiple = galería).
-function receiptPhotoSource(){
-  return {
-    camera: ()=>{ const i=document.getElementById('receipt-file'); if(i) i.click(); },
-    gallery: ()=>{ const i=document.getElementById('receipt-file-gallery'); if(i) i.click(); }
-  };
-}
 /* ===== Compartido por los escáneres (auditoría de cámaras 2026-09-07) ===== */
 // "Sigue leyendo…" pasados 8 s de espera, en cualquier escáner: un spinner mudo
 // durante 10 s se siente colgado. beginAiWait al arrancar la lectura, endAiWait al
@@ -2486,8 +2466,8 @@ function resizeToBase64(img, maxSide, quality){
 let pbSourceImg = null;
 
 // Recorta la zona de un producto (box en fracciones 0..1) con un poco de aire
-// alrededor y la devuelve como miniatura — mismo tamaño/calidad que la foto que
-// sube "Subir foto" a mano, así el ícono queda igual que el de un alta manual.
+// alrededor — con ITEM_PHOTO_SIDE/QUALITY, los mismos que "Subir foto" y el alta
+// a mano, así un producto se ve igual sin importar por dónde entró su foto.
 function cropToBase64(img, box, maxSide, quality){
   try{
     const pad = 0.08; // 8% de aire alrededor del recorte
@@ -2548,12 +2528,6 @@ function openProductBatchModal(){
   // Estante; la hoja de fotos recién al tocar la caja. El visor en
   // vivo se retiró: cada escáner trabaja con UNA foto quieta, y la cámara del
   // teléfono la saca mejor.
-}
-function pbPhotoSource(){
-  return {
-    camera: ()=>{ const i=document.getElementById('pb-photo-file'); if(i) i.click(); },
-    gallery: ()=>{ const i=document.getElementById('pb-photo-file-gallery'); if(i) i.click(); }
-  };
 }
 function closeProductBatchModal(){ pbRequestId++; stopScannerCamera(); showProductBatchModal=false; pbSourceImg=null; render(); }
 // "Escanear otro": vuelve a la caja sin cerrar el modal — para recorrer un estante
@@ -2616,7 +2590,7 @@ async function processProductBatchSource(source){
         sku: p.sku || '',
         categoryId: catMatch ? catMatch.id : (p.category && p.category.trim() ? '__newcat__:'+p.category.trim() : null),
         confidence: p.confidence || 'baja',
-        photo: p.box ? cropToBase64(source, p.box, 300, 0.75) : null,
+        photo: p.box ? cropToBase64(source, p.box, ITEM_PHOTO_SIDE, ITEM_PHOTO_QUALITY) : null,
         // Confianza baja arranca DESTILDADA: un toque en Agregar no debe meter una
         // "lata sin etiqueta" al inventario.
         selected: !dup && (p.confidence||'baja')!=='baja',

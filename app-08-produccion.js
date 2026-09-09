@@ -549,12 +549,6 @@ function openShelfModal(){
   // Productos; la hoja de fotos recién al tocar la caja. El visor en vivo se
   // retiró.
 }
-function shelfPhotoSource(){
-  return {
-    camera: ()=>{ const i=document.getElementById('shelf-photo-file'); if(i) i.click(); },
-    gallery: ()=>{ const i=document.getElementById('shelf-photo-file-gallery'); if(i) i.click(); }
-  };
-}
 function closeShelfModal(){ shelfRequestId++; stopShelfCamera(); showShelfModal=false; render(); }
 function restartShelfCamera(){
   shelfRequestId++;

@@ -27,17 +27,6 @@ function lineIcon(name, size){
   return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${LINE_ICONS[name]||LINE_ICONS.box}</svg>`;
 }
 
-/* ---------- DASHBOARD ---------- */
-function scanIconSvg(){
-  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="48" fill="var(--sky)"/>
-    <g transform="translate(23.6,23.6) scale(2.2)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 7h1a2 2 0 0 0 2 -2a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2"/>
-      <circle cx="12" cy="13" r="3"/>
-    </g>
-  </svg>`;
-}
-
 /* Categoría de ícono por ingrediente, heurística por palabras clave en el nombre.
    Placeholder de apariencia — cuando definamos el contenido real se puede
    reemplazar por un selector manual o por categoría. */
@@ -266,49 +255,6 @@ function stockRowsData(){
   });
 }
 
-/* Esta tarjeta vive en el Dashboard. Sus filas usan .stock-row-static, igual que las
-   de Inventario — ninguna de las dos tiene gesto de deslizar propio, porque esta
-   pantalla es donde MÁS se usa el gesto de deslizar para cambiar de pestaña
-   (attachViewSwipeHandlers) y la tarjeta ocupa casi toda la pantalla: con un gesto de
-   arrastre por fila activo ahí, el dedo casi siempre caía sobre una fila y competía
-   con el cambio de pestaña. Borrar un producto se hace con la x chica de cada fila
-   (deleteStockItem), disponible tanto acá como en Inventario. */
-/* Anillo (donut) de salud del inventario: de un vistazo, qué porción está OK vs.
-   necesita atención — sin tener que leer fila por fila. Solo cuenta productos con
-   datos suficientes para juzgarlos (status !=='none', ver stockRowsData) — un
-   inventario recién cargado, todavía sin compras registradas, no se ve "crítico"
-   por falta de datos. R=15.915 y circunferencia≈100 es el truco clásico de donut en
-   SVG (viewBox 0 0 36 36): cada segmento mide su propio % directo en unidades de
-   dasharray, sin tener que convertir a grados. */
-function stockHealthRing(rows){
-  const graded = rows.filter(r=>r.status!=='none');
-  const total = graded.length;
-  if(total===0) return '';
-  const counts = {ok:0, warn:0, crit:0};
-  graded.forEach(r=>counts[r.status]++);
-  const R = 15.915, CIRC = 2*Math.PI*R;
-  let offset = 0;
-  const segments = [
-    {n:counts.crit, color:'var(--stock-crit)'},
-    {n:counts.warn, color:'var(--stock-warn)'},
-    {n:counts.ok, color:'var(--stock-ok)'},
-  ].filter(s=>s.n>0).map(s=>{
-    const len = (s.n/total)*CIRC;
-    const circle = `<circle cx="18" cy="18" r="${R}" fill="none" stroke="${s.color}" stroke-width="4" stroke-dasharray="${len.toFixed(2)} ${(CIRC-len).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
-    offset += len;
-    return circle;
-  }).join('');
-  const okPct = Math.round((counts.ok/total)*100);
-  const ringTitle = uiLang==='en' ? `${okPct}% of your inventory is at a healthy stock level` : `${okPct}% de tu inventario está en un nivel de stock saludable`;
-  return `
-  <div style="position:relative;width:46px;height:46px;flex-shrink:0;" title="${ringTitle}">
-    <svg viewBox="0 0 36 36" style="width:100%;height:100%;transform:rotate(-90deg);">
-      <circle cx="18" cy="18" r="${R}" fill="none" stroke="var(--bg)" stroke-width="4"/>
-      ${segments}
-    </svg>
-    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Space Grotesk';color:var(--ink);">${okPct}%</div>
-  </div>`;
-}
 /* Búsqueda laxa del inventario: cada letra/número filtra en vivo, sin exigir
    precisión (pedido del usuario) — se normaliza (minúsculas, sin acentos) y cada
    palabra tecleada solo tiene que APARECER en el nombre, en cualquier orden:
@@ -321,74 +267,6 @@ function invMatches(name, q){
   const nn = invSearchNorm(name);
   return nq.split(/\s+/).every(tok=>nn.includes(tok));
 }
-function stockAnalyticsCard(){
-  if(inventory.length===0) return '';
-  const allRows = stockRowsData();
-  // El anillo de salud y las alertas críticas miran el inventario ENTERO —
-  // son la foto de salud del negocio, no dependen de lo listado abajo.
-  const criticalCount = allRows.filter(r=>r.status==='crit').length;
-  const ccDueIds = cycleCountDueIds();
-  /* INVERSIÓN 2026-09-04 (pedido del usuario): el Dashboard lista SOLO los
-     productos que toca contar hoy — es la tarea del día, no el catálogo; el
-     inventario completo vive entero en su propia pestaña (que ya no se filtra).
-     Antes era al revés: el Dashboard mostraba todo e Inventario se filtraba a
-     lo pendiente. Sin conteo pendiente, acá queda una nota y los resúmenes. */
-  const rows = allRows.filter(r=>ccDueIds.has(r.ing.id));
-  // Sin la caja .stock-card alrededor (mismo criterio que en Inventario, pedido
-  // del usuario): las tarjetas ya son cajas — todo vive directo sobre el fondo.
-  return `
-  <div style="margin-top:8px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
-      ${stockHealthRing(allRows)}
-    </div>
-    ${rows.length===0 ? `<div class="helper-note" style="margin:12px 0 2px;">${t('dash_cc_empty')}</div>` : `
-    ${/* Sin banner ni buscador acá (pedido del usuario, captura 2026-09-04): la
-         lista pendiente es corta y se explica sola — el buscador vive en
-         Inventario, donde están todos los ítems. Tocar una tarjeta abre su
-         ficha y desde ahí se cuenta; el botón de conteo sigue en Inventario.
-         Mismo lenguaje que Inventario: tarjetas-botón en la grilla del MISMO
-         selector de vista compartido (invLayout). Prefijo dashtile- en el
-         view-transition-name: los tiles de Inventario ya usan invtile- y
-         nombres duplicados en el DOM abortan la transición. */''}
-    <div class="inv-toolbar" style="margin:10px 0 14px;">
-      ${invLayoutToggleHtml()}
-    </div>
-    <div class="inv-grid ${invLayout}">
-    ${rows.map(r=>`
-      <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-key="stockgrid:${r.ing.id}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
-        <div class="inv-tile-top">
-          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;width:56px;height:56px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
-          <div class="inv-tile-name">${escapeHtml(invShortName(r.ing.name))}</div>
-        </div>
-        ${r.status==='none' ? `
-        <div class="stock-bar-track"></div>
-        <div class="stock-caption stock-caption-muted" style="margin:0;">${r.ing.expenseOnly ? t('expense_only_tag') : t('stock_no_data_caption')}</div>
-        ` : `
-        <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="--fill:${(Math.min(100, Math.max(r.pct,4))/100).toFixed(3)};"></div></div>
-        ${/* Sin la unidad repetida ("16 unit of 16 unit" → "16 of 16", pedido del
-             usuario): el texto respira y el espacio ganado fue a la foto. La
-             unidad vive en la ficha. */''}
-        <div class="stock-caption" style="margin:0;"><strong style="color:var(--stock-${r.status==='ok'?'ok':r.status});">${r.pct}%</strong> · ${escapeHtml(r.ing.qtyOnHand||0)} ${t('stock_of')} ${escapeHtml(r.target)}</div>
-        `}
-      </div>
-    `).join('')}
-    </div>
-    `}
-    <div class="stock-summary">
-      <div id="btn-critical-alerts" ${criticalCount>0?'style="cursor:pointer;"':''}>
-        <div class="stock-summary-label">${t('stock_critical_alerts')}</div>
-        <div class="stock-summary-value">${criticalCount}</div>
-      </div>
-      <div class="stock-summary-right">
-        <div class="stock-summary-label">${t('stock_suggested_order')}</div>
-        <button class="btn stock-suggest-btn" id="btn-suggested-order">${t('stock_view_detail')}</button>
-      </div>
-    </div>
-  </div>
-  `;
-}
-
 function dashboardView(){
   /* DASHBOARD reorganizado (maqueta aprobada por el usuario 2026-09-07, "ármalo
      así mismo"): menos repetido, más "qué hago hoy".
@@ -885,13 +763,6 @@ function orderCalcLine(i){
     <span class="oc-line-sub">${money(sub)}</span>
   </div>`;
 }
-function orderCalcCard(){
-  return `<div class="oc-card ${orderCalcOpen?'open':''}" id="oc-card" role="button" tabindex="0" aria-expanded="${orderCalcOpen}">
-    <div class="stat-label">${t('oc_card_label')}</div>
-    <div class="oc-card-total">🧮 <span>${money(orderCalcTotal())}</span></div>
-    <div class="oc-card-hint">${t('oc_card_hint')}</div>
-  </div>`;
-}
 function orderCalcPanel(){
   // Hoja de pantalla completa que SUBE desde abajo al tocar la tarjeta (pedido del
   // usuario: "que suba la pantalla completa"). Se renderiza siempre y solo cambia
@@ -1269,7 +1140,12 @@ function receiptCalendarWidget(){
     `);
   }
 
-  const tail = (7 - (cells.length % 7)) % 7;
+  /* SIEMPRE 6 filas (42 celdas), aunque el mes entre en 4 o 5 (auditoría
+     2026-09-09): antes el calendario medía 324, 368 o 412px según el mes y al
+     pasar de febrero a marzo el widget crecía 88px de golpe — el buscador y la
+     lista de recibos daban un salto en la cara del usuario. Con alto fijo,
+     cambiar de mes solo cambia los números. */
+  const tail = 42 - cells.length;
   for(let d=1; d<=tail; d++) cells.push(`<div class="cal-day out"><span class="cal-day-num">${d}</span></div>`);
 
   return `
