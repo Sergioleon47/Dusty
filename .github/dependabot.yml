@@ -1,0 +1,27 @@
+# Avisos de actualización por PR. Dos package.json separados a propósito: el de
+# la raíz (Capacitor, morphdom) y el de netlify/functions (firebase-admin), que
+# Netlify instala aparte — ver el comentario del plugin en netlify.toml.
+#
+# El SDK web de Firebase NO entra acá: la app lo carga por <script src> desde
+# gstatic con la versión fija en app-02-nube.js, así que no hay dependencia npm
+# que Dependabot pueda ver. Esa se sube a mano.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /netlify/functions
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+
+  # Las acciones del workflow de CI (checkout, setup-node) también se quedan
+  # viejas y son las que corren con permisos sobre el repo.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

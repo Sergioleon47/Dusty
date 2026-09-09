@@ -27,17 +27,6 @@ function lineIcon(name, size){
   return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${LINE_ICONS[name]||LINE_ICONS.box}</svg>`;
 }
 
-/* ---------- DASHBOARD ---------- */
-function scanIconSvg(){
-  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="48" fill="var(--sky)"/>
-    <g transform="translate(23.6,23.6) scale(2.2)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 7h1a2 2 0 0 0 2 -2a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2"/>
-      <circle cx="12" cy="13" r="3"/>
-    </g>
-  </svg>`;
-}
-
 /* Categoría de ícono por ingrediente, heurística por palabras clave en el nombre.
    Placeholder de apariencia — cuando definamos el contenido real se puede
    reemplazar por un selector manual o por categoría. */
@@ -266,49 +255,6 @@ function stockRowsData(){
   });
 }
 
-/* Esta tarjeta vive en el Dashboard. Sus filas usan .stock-row-static, igual que las
-   de Inventario — ninguna de las dos tiene gesto de deslizar propio, porque esta
-   pantalla es donde MÁS se usa el gesto de deslizar para cambiar de pestaña
-   (attachViewSwipeHandlers) y la tarjeta ocupa casi toda la pantalla: con un gesto de
-   arrastre por fila activo ahí, el dedo casi siempre caía sobre una fila y competía
-   con el cambio de pestaña. Borrar un producto se hace con la x chica de cada fila
-   (deleteStockItem), disponible tanto acá como en Inventario. */
-/* Anillo (donut) de salud del inventario: de un vistazo, qué porción está OK vs.
-   necesita atención — sin tener que leer fila por fila. Solo cuenta productos con
-   datos suficientes para juzgarlos (status !=='none', ver stockRowsData) — un
-   inventario recién cargado, todavía sin compras registradas, no se ve "crítico"
-   por falta de datos. R=15.915 y circunferencia≈100 es el truco clásico de donut en
-   SVG (viewBox 0 0 36 36): cada segmento mide su propio % directo en unidades de
-   dasharray, sin tener que convertir a grados. */
-function stockHealthRing(rows){
-  const graded = rows.filter(r=>r.status!=='none');
-  const total = graded.length;
-  if(total===0) return '';
-  const counts = {ok:0, warn:0, crit:0};
-  graded.forEach(r=>counts[r.status]++);
-  const R = 15.915, CIRC = 2*Math.PI*R;
-  let offset = 0;
-  const segments = [
-    {n:counts.crit, color:'var(--stock-crit)'},
-    {n:counts.warn, color:'var(--stock-warn)'},
-    {n:counts.ok, color:'var(--stock-ok)'},
-  ].filter(s=>s.n>0).map(s=>{
-    const len = (s.n/total)*CIRC;
-    const circle = `<circle cx="18" cy="18" r="${R}" fill="none" stroke="${s.color}" stroke-width="4" stroke-dasharray="${len.toFixed(2)} ${(CIRC-len).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
-    offset += len;
-    return circle;
-  }).join('');
-  const okPct = Math.round((counts.ok/total)*100);
-  const ringTitle = uiLang==='en' ? `${okPct}% of your inventory is at a healthy stock level` : `${okPct}% de tu inventario está en un nivel de stock saludable`;
-  return `
-  <div style="position:relative;width:46px;height:46px;flex-shrink:0;" title="${ringTitle}">
-    <svg viewBox="0 0 36 36" style="width:100%;height:100%;transform:rotate(-90deg);">
-      <circle cx="18" cy="18" r="${R}" fill="none" stroke="var(--bg)" stroke-width="4"/>
-      ${segments}
-    </svg>
-    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Space Grotesk';color:var(--ink);">${okPct}%</div>
-  </div>`;
-}
 /* Búsqueda laxa del inventario: cada letra/número filtra en vivo, sin exigir
    precisión (pedido del usuario) — se normaliza (minúsculas, sin acentos) y cada
    palabra tecleada solo tiene que APARECER en el nombre, en cualquier orden:
@@ -321,81 +267,13 @@ function invMatches(name, q){
   const nn = invSearchNorm(name);
   return nq.split(/\s+/).every(tok=>nn.includes(tok));
 }
-function stockAnalyticsCard(){
-  if(inventory.length===0) return '';
-  const allRows = stockRowsData();
-  // El anillo de salud y las alertas críticas miran el inventario ENTERO —
-  // son la foto de salud del negocio, no dependen de lo listado abajo.
-  const criticalCount = allRows.filter(r=>r.status==='crit').length;
-  const ccDueIds = cycleCountDueIds();
-  /* INVERSIÓN 2026-09-04 (pedido del usuario): el Dashboard lista SOLO los
-     productos que toca contar hoy — es la tarea del día, no el catálogo; el
-     inventario completo vive entero en su propia pestaña (que ya no se filtra).
-     Antes era al revés: el Dashboard mostraba todo e Inventario se filtraba a
-     lo pendiente. Sin conteo pendiente, acá queda una nota y los resúmenes. */
-  const rows = allRows.filter(r=>ccDueIds.has(r.ing.id));
-  // Sin la caja .stock-card alrededor (mismo criterio que en Inventario, pedido
-  // del usuario): las tarjetas ya son cajas — todo vive directo sobre el fondo.
-  return `
-  <div style="margin-top:8px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <h3 class="stock-card-title" style="margin:0;">${t('stock_status_title')}</h3>
-      ${stockHealthRing(allRows)}
-    </div>
-    ${rows.length===0 ? `<div class="helper-note" style="margin:12px 0 2px;">${t('dash_cc_empty')}</div>` : `
-    ${/* Sin banner ni buscador acá (pedido del usuario, captura 2026-09-04): la
-         lista pendiente es corta y se explica sola — el buscador vive en
-         Inventario, donde están todos los ítems. Tocar una tarjeta abre su
-         ficha y desde ahí se cuenta; el botón de conteo sigue en Inventario.
-         Mismo lenguaje que Inventario: tarjetas-botón en la grilla del MISMO
-         selector de vista compartido (invLayout). Prefijo dashtile- en el
-         view-transition-name: los tiles de Inventario ya usan invtile- y
-         nombres duplicados en el DOM abortan la transición. */''}
-    <div class="inv-toolbar" style="margin:10px 0 14px;">
-      ${invLayoutToggleHtml()}
-    </div>
-    <div class="inv-grid ${invLayout}">
-    ${rows.map(r=>`
-      <div class="inv-tile ${ccDueIds.has(r.ing.id)?'cc-due-blink':''}" data-key="stockgrid:${r.ing.id}" data-open-item="${r.ing.id}" role="button" tabindex="0" data-ing-id="${r.ing.id}" data-status="${r.status}" title="${escapeHtml(r.ing.name)}" style="view-transition-name:dashtile-${String(r.ing.id).replace(/[^a-zA-Z0-9_-]/g,'')};">
-        <div class="inv-tile-top">
-          <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${r.ing.id}" style="cursor:pointer;width:56px;height:56px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(r.ing)}</div>
-          <div class="inv-tile-name">${escapeHtml(invShortName(r.ing.name))}</div>
-        </div>
-        ${r.status==='none' ? `
-        <div class="stock-bar-track"></div>
-        <div class="stock-caption stock-caption-muted" style="margin:0;">${r.ing.expenseOnly ? t('expense_only_tag') : t('stock_no_data_caption')}</div>
-        ` : `
-        <div class="stock-bar-track"><div class="stock-bar-fill ${r.status}" style="width:${Math.max(r.pct,4)}%;"></div></div>
-        ${/* Sin la unidad repetida ("16 unit of 16 unit" → "16 of 16", pedido del
-             usuario): el texto respira y el espacio ganado fue a la foto. La
-             unidad vive en la ficha. */''}
-        <div class="stock-caption" style="margin:0;"><strong style="color:var(--stock-${r.status==='ok'?'ok':r.status});">${r.pct}%</strong> · ${escapeHtml(r.ing.qtyOnHand||0)} ${t('stock_of')} ${escapeHtml(r.target)}</div>
-        `}
-      </div>
-    `).join('')}
-    </div>
-    `}
-    <div class="stock-summary">
-      <div id="btn-critical-alerts" ${criticalCount>0?'style="cursor:pointer;"':''}>
-        <div class="stock-summary-label">${t('stock_critical_alerts')}</div>
-        <div class="stock-summary-value">${criticalCount}</div>
-      </div>
-      <div class="stock-summary-right">
-        <div class="stock-summary-label">${t('stock_suggested_order')}</div>
-        <button class="btn stock-suggest-btn" id="btn-suggested-order">${t('stock_view_detail')}</button>
-      </div>
-    </div>
-  </div>
-  `;
-}
-
 function dashboardView(){
   /* DASHBOARD reorganizado (maqueta aprobada por el usuario 2026-09-07, "ármalo
      así mismo"): menos repetido, más "qué hago hoy".
      1. dos botones arriba (Ayuda vive en Ajustes) — ver topbar en app-04;
      2. UN solo bloque de presupuesto: inversión del mes + gastos con barra y
         "quedan" en la misma tarjeta (adiós a la franja repetida de abajo);
-     3. fila de herramientas con nombre, como Inventario y Catálogo: Productos ·
+     3. fila de herramientas con nombre, como Inventario: Productos ·
         Escanear recibo (grande) · A mano — sin la órbita de emojis; Compartir
         cuenta vive en Ajustes › Cuenta;
      4. "Hoy": Críticos / Toca contar / Salud del stock — cada número abre el
@@ -500,7 +378,7 @@ function dashboardView(){
     </button>
   </div>
 
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : dashboardEmptyState()) : `
+  ${inventory.length===0 ? (cloudSyncPending ? loadingSkeleton('dashboard') : dashboardEmptyState()) : `
   ${/* 4. HOY + módulos, en cuadrícula de dos columnas (maqueta 2026-09-08):
        Críticos cambia de color con el estado (pedido del usuario 2026-09-08):
        azul con todo en orden, ROJO (--tile-crit, el mismo del presupuesto
@@ -550,6 +428,26 @@ function dashboardView(){
       <span class="dash-tile-sub">${t('dash_production_sub')}</span>
       <span class="dash-tile-chev">›</span>
     </button>
+    ${/* EQUIPO: compartir la cuenta para que un empleado escanee y cuente.
+         Quedó SOLO en Ajustes › Cuenta —a tres toques, entre la copia de
+         seguridad y la política de privacidad— cuando la fila del inventario
+         que también lo traía dejó de dibujarse (ver el borrado de
+         inventoryMenuRow). Para el dueño que acaba de contratar a alguien ese
+         no es un lugar donde se le ocurra buscar, así que vuelve al Dashboard.
+         Mismo id que usaba aquella fila: attachEvents ya lo cablea a
+         shareAccountFlow, no hay lógica nueva.
+         VA ANTES de Actividad a propósito: esa tarjeta es condicional (pide
+         sesión o haberla tenido), así que sin sesión quedan seis tarjetas —
+         tres filas parejas— en vez de una suelta al final.
+         Reusa t1 (azul) porque solo hay seis tonos definidos por tema y una de
+         las siete tiene que repetir; Críticos, el otro t1, casi siempre está en
+         rojo cuando hay alertas y queda arriba del todo, lejos de esta. */''}
+    <button type="button" class="dash-tile t1" id="btn-share-account">
+      <span class="dash-tile-icon" aria-hidden="true">👥</span>
+      <span class="dash-tile-title">${t('dash_team_title')}</span>
+      <span class="dash-tile-sub">${t('dash_team_sub')}</span>
+      <span class="dash-tile-chev">›</span>
+    </button>
     ${(currentUser || hadCloudSessionBefore()) ? `
     <button type="button" class="dash-tile t6" id="btn-inventory-activity">
       <span class="dash-tile-icon" aria-hidden="true">📈</span>
@@ -562,54 +460,14 @@ function dashboardView(){
   `;
 }
 
-/* INTERCAMBIO 2026-09-04 (pedido del usuario): el menú de acciones del
-   inventario (escanear productos, alta manual, producción, conteo, actividad,
-   categorías) vive en el DASHBOARD — donde estaban los chips de categoría — y
-   los chips se mudaron a la pestaña Inventario, junto a los productos que
-   filtran. Los ids no cambian: attachEvents los encuentra igual en cualquier
-   pestaña (las tres páginas del carrusel se renderizan siempre). */
-function inventoryMenuRow(){
-  return `
-  <div class="inv-header-actions" style="margin-bottom:16px;">
-    ${/* Orden pedido por el usuario 2026-09-04: Escanear primero y en amarillo
-         (EL camino recomendado), Alta manual, COMPARTIR CUENTA tercero (abre
-         el modal de equipo; sin sesión real, primero login/guardar cuenta),
-         Actividad, y Producción DE ÚLTIMO. "Crear categoría" salió de raíz:
-         vive en Ajustes → Categorías. Producción sigue acá — sin este botón,
-         el hub entero (recetas, producir, historial de salidas) es inalcanzable. */''}
-    <button class="btn btn-primary inv-row-btn" id="btn-scan-products">${t('pb_open_btn')}</button>
-    <button class="btn btn-ghost inv-row-btn" id="btn-new-item">${t('btn_add_manually')}</button>
-    <button class="btn btn-ghost inv-row-btn" id="btn-share-account">${t('share_account_btn')}</button>
-    ${(currentUser || hadCloudSessionBefore()) ? `
-    <button class="btn btn-ghost inv-row-btn" id="btn-inventory-activity">
-      ${t('btn_inventory_activity')}${unreadActivityCount()>0?`<span class="count-badge">${unreadActivityCount()>99?'99+':unreadActivityCount()}</span>`:''}
-    </button>
-    ` : ''}
-    <button class="btn btn-ghost inv-row-btn" id="btn-production-hub">${t('prod_section_title')}</button>
-  </div>`;
-}
-/* Fila de chips de categoría — vive en INVENTARIO (antes en el Dashboard):
-   tocar uno filtra la lista a esa categoría (data-open-category en attachEvents
-   y el filtro inventoryCategoryFilter). El número es cuántos productos tiene
-   esa categoría ahora mismo, no un conteo fijo. Se arrastra para reordenar. */
-/* Chips de categoría como FILTRO con "Todos" primero (maqueta 2026-09-07):
-   justo sobre la lista, el activo resaltado; "Todos" quita el filtro. El
-   Dashboard usa el mismo data-open-category para saltar al Inventario filtrado. */
-function categoryChipsRow(){
-  const total = inventory.filter(i=>!isExpenseItem(i)).length;
-  return `
-  <div class="inv-chips">
-    <button type="button" class="category-chip ${inventoryCategoryFilter?'':'on'}" data-inv-all="1">${t('inv_all_chip')}<span>${total}</span></button>
-    ${categories.map(c=>{
-      // Solo mercadería real: las categorías de gasto (Utilities, Eat out)
-      // viven en el botón de Presupuesto y acá ni aparecen (chips "0" fuera).
-      const count = inventory.filter(i=>i.categoryId===c.id && !isExpenseItem(i)).length;
-      if(count===0) return '';
-      return `<button type="button" class="category-chip ${inventoryCategoryFilter===c.id?'on':''}" data-open-category="${c.id}" aria-pressed="${inventoryCategoryFilter===c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
-    }).join('')}
-  </div>
-  `;
-}
+/* La fila de acciones del inventario (inventoryMenuRow) se borró acá el
+   2026-09-08: quedó definida pero SIN NINGUNA LLAMADA tras una reorganización
+   anterior, así que no se dibujaba en ninguna pantalla mientras su comentario
+   seguía afirmando que "el botón del menú del Dashboard sigue". Sus cinco
+   botones viven todos en el Dashboard con los mismos ids —Escanear productos y
+   Alta manual en .inv-tools, Actividad y Producción como tarjetas, y Compartir
+   cuenta en la tarjeta de Equipo que reemplaza a este bloque—, así que no se
+   perdió ningún acceso: se sacó código que confundía al leer el archivo. */
 /* PRIMEROS PASOS (auditoría de primer minuto 2026-09-07): reemplaza la tarjeta de
    Inversión mientras no hay nada cargado. Tres pasos con el primero YA tildado
    (elegir idioma) — el "efecto de progreso dotado": empezar con ventaja motiva a
@@ -627,7 +485,7 @@ function firstStepsCard(){
     <div class="stat-card first-steps-card">
       <div class="stat-label">${t('first_steps_title')}</div>
       <div class="fs-progress">
-        <div class="fs-track"><div class="fs-fill" style="width:${Math.round(done/total*100)}%;"></div></div>
+        <div class="fs-track"><div class="fs-fill" style="--fill:${(done/total).toFixed(3)};"></div></div>
         <span class="fs-count">${done}/${total}</span>
       </div>
       <ol class="first-steps">
@@ -661,16 +519,13 @@ function dashboardEmptyState(){
 }
 
 /* ---------- INVENTARIO ---------- */
-// Filtro de categoría activado desde los botones del Dashboard — al tocar una
-// categoría se guarda su id acá y se cambia a la pestaña Inventario, que lo lee y
-// muestra solo esos productos (ver inventarioView). También es preferencia de
-// sesión nomás, se resetea solo al recargar.
-let inventoryCategoryFilter = null;
-/* Vista del inventario elegida por el usuario: 'rows' (una columna, todo más
-   grande — accesibilidad para quien no ve bien), 'cols2', 'cols3' o 'cols4'
-   (la más densa, pedida el 2026-09-06). Persiste como preferencia del dispositivo. */
+/* Vista del inventario elegida por el usuario: 'cols2', 'cols3' o 'cols4' (la más
+   densa, pedida el 2026-09-06). Persiste como preferencia del dispositivo.
+   La de una columna ('rows') se eliminó el 2026-09-09: con la foto llenando la
+   tarjeta quedaba un producto por pantalla. El dispositivo que la tenía guardada
+   cae en cols2 al no pasar el filtro de abajo. */
 let invLayout = 'cols2';
-try{ const v = localStorage.getItem('patron_inv_layout'); if(['rows','cols2','cols3','cols4'].includes(v)) invLayout = v; }catch(e){}
+try{ const v = localStorage.getItem('patron_inv_layout'); if(['cols2','cols3','cols4'].includes(v)) invLayout = v; }catch(e){}
 // Un solo render tras tocar el selector viaja por View Transition (ver render(),
 // app-04): con view-transition-name por tarjeta, cada una VUELA a su nueva
 // posición/tamaño en vez del redibujado seco — el morph estilo iOS que faltaba.
@@ -695,21 +550,62 @@ const INV_GROUP_PREVIEW = 12;
 function invGroupKey(g){ return g.id || '__none'; }
 function invSortRows(rows){
   const arr = rows.slice();
-  if(invSort==='stock') arr.sort((a,b)=>(a.ing.qtyOnHand||0)-(b.ing.qtyOnHand||0) || String(a.ing.name).localeCompare(String(b.ing.name)));
+  /* "Menos stock" ordena por PORCENTAJE de llenado (r.pct), no por unidades
+     sueltas (auditoría con 400 productos 2026-09-08). Comparar qtyOnHand entre
+     productos distintos es comparar 5 cajas contra 20 litros: no dice cuál se
+     está acabando. Con el orden viejo, un producto con 5 de 5 (100%, sano)
+     quedaba ARRIBA de uno con 20 de 200 (10%, crítico) — por eso la lista
+     mostraba anillos verdes entre los rojos y parecía desordenada. pct es el
+     mismo número que pinta el anillo de cada tarjeta, así color y orden ahora
+     dicen lo mismo. Las filas siempre traen pct (ver stockRowsData). */
+  if(invSort==='stock') arr.sort((a,b)=>a.pct-b.pct || String(a.ing.name).localeCompare(String(b.ing.name)));
   else if(invSort==='value') arr.sort((a,b)=>((b.ing.qtyOnHand||0)*(b.ing.costPerUnit||0))-((a.ing.qtyOnHand||0)*(a.ing.costPerUnit||0)) || String(a.ing.name).localeCompare(String(b.ing.name)));
   else arr.sort((a,b)=>String(a.ing.name).localeCompare(String(b.ing.name), undefined, {sensitivity:'base'}));
   return arr;
 }
+/* CAMBIO DE VISTA SIN REDIBUJAR TODO (auditoría con 400 productos 2026-09-08).
+   Tocar fila/2/3/4 columnas disparaba un render() completo: plantilla entera de
+   las páginas del carrusel + morphdom, medido en 34-61 ms de escritorio (el triple en un
+   teléfono) — un tirón en cada toque. Pero del layout solo dependen DOS cosas:
+   la clase de cada .inv-grid (el marcado de la tarjeta es idéntico en las cuatro
+   vistas, lo diferencia el CSS) y qué botón del selector queda marcado. Se
+   escriben a mano, igual que commitTabSwitchLight hace con el cambio de pestaña.
+   La animación NO se pierde: los nombres de View Transition se ponen sobre los
+   nodos vivos antes de la captura, y como son los MISMOS nodos antes y después,
+   el navegador anima cada tarjeta hacia su posición nueva igual que antes. */
+function applyInvLayoutLight(){
+  const grids = [...document.querySelectorAll('.inv-grid')];
+  if(!grids.length){ render(); return; }
+  const aplicar = ()=>{
+    grids.forEach(g=>{
+      g.classList.remove('cols2','cols3','cols4');
+      g.classList.add(invLayout);
+    });
+    document.querySelectorAll('[data-inv-layout]').forEach(b=>{
+      const on = b.dataset.invLayout===invLayout;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    syncViewportHeight(); // el alto de la grilla cambia con la cantidad de columnas
+  };
+  if(!document.startViewTransition || reducedMotionQuery.matches){ aplicar(); return; }
+  const nombrados = [...document.querySelectorAll('.inv-tile[data-ing-id]')];
+  nombrados.forEach(el=>{
+    el.style.viewTransitionName = 'invtile-' + String(el.dataset.ingId).replace(/[^a-zA-Z0-9_-]/g, '');
+  });
+  const limpiar = ()=>{ nombrados.forEach(el=>{ el.style.viewTransitionName = ''; }); };
+  const vt = document.startViewTransition(aplicar);
+  vt.ready.catch(()=>{}); // una transición salteada rechaza ready — no es un error
+  vt.finished.then(limpiar, limpiar);
+}
 function invLayoutToggleHtml(){
   const opt = (val, label, icon)=>`<button type="button" data-inv-layout="${val}" class="${invLayout===val?'on':''}" aria-label="${label}" aria-pressed="${invLayout===val}" title="${label}">${icon}</button>`;
   const sq = (n)=>{
-    if(n===1) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="2" y="3" width="16" height="4" rx="1.2"/><rect x="2" y="9" width="16" height="4" rx="1.2"/><rect x="2" y="15" width="16" height="3" rx="1.2"/></svg>';
     if(n===2) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="2" y="3" width="7" height="7" rx="1.5"/><rect x="11" y="3" width="7" height="7" rx="1.5"/><rect x="2" y="12" width="7" height="7" rx="1.5"/><rect x="11" y="12" width="7" height="7" rx="1.5"/></svg>';
     if(n===3) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="1" y="3" width="5" height="5" rx="1.2"/><rect x="7.5" y="3" width="5" height="5" rx="1.2"/><rect x="14" y="3" width="5" height="5" rx="1.2"/><rect x="1" y="12" width="5" height="5" rx="1.2"/><rect x="7.5" y="12" width="5" height="5" rx="1.2"/><rect x="14" y="12" width="5" height="5" rx="1.2"/></svg>';
     return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="0.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="5.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="10.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="15.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="0.6" y="11.8" width="3.8" height="3.8" rx="1"/><rect x="5.6" y="11.8" width="3.8" height="3.8" rx="1"/><rect x="10.6" y="11.8" width="3.8" height="3.8" rx="1"/><rect x="15.6" y="11.8" width="3.8" height="3.8" rx="1"/></svg>';
   };
   return `<div class="inv-layout-toggle" role="group" aria-label="${t('inv_layout_label')}">
-    ${opt('rows', t('inv_layout_rows'), sq(1))}
     ${opt('cols2', t('inv_layout_cols2'), sq(2))}
     ${opt('cols3', t('inv_layout_cols3'), sq(3))}
     ${opt('cols4', t('inv_layout_cols4'), sq(4))}
@@ -752,6 +648,15 @@ function invShortName(name){
   }
   return name;
 }
+/* SELECCIÓN MÚLTIPLE EN INVENTARIO (pedido del usuario 2026-09-09: "no tengo
+   forma de borrar ítems más rápido, las borradas es de uno a uno"). Con 400
+   productos, borrar de a uno —cada uno con su confirmación— no es viable.
+   El lenguaje es el de siempre: botón "Seleccionar" y tocar para marcar.
+   invSelected guarda ids: sobrevive a que la lista se reordene, se filtre o se
+   busque mientras seleccionás, cosa que no pasaría con índices. */
+let invSelectMode = false;
+let invSelected = new Set();
+function invExitSelect(){ invSelectMode = false; invSelected.clear(); }
 function stockRowHtml(r, ccDueIds){
   const i = r.ing;
   // Nombre de View Transition único y estable por tarjeta (custom-ident: solo
@@ -759,17 +664,26 @@ function stockRowHtml(r, ccDueIds){
   // cada tarjeta hacia su nueva celda en lugar de fundir la lista entera.
   // view-transition-name SOLO durante el cambio de vista fila/2col/3col
   // (auditoría de parpadeo 2026-09-08): con el nombre puesto siempre, CADA
-  // View Transition de la app (cerrar cualquier modal, abrir un recibo, el visor
-  // del catálogo) capturaba una capa por tarjeta — 150 productos = 150 capas
+  // View Transition de la app (cerrar cualquier modal, abrir un recibo)
+  // capturaba una capa por tarjeta — 150 productos = 150 capas
   // por cierre de modal, el "congelado + parpadeo" con inventarios grandes.
   // invLayoutVtActive lo prende render() (app-04) solo para ese render.
   const vtName = invLayoutVtActive ? 'invtile-' + String(i.id).replace(/[^a-zA-Z0-9_-]/g, '') : '';
   return `
   ${/* data-status: lo usa el atajo "Alertas críticas" del Dashboard para saltar
        acá y hacer latir los críticos (ya no se listan en el Dashboard). */''}
-  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}" data-key="invtile:${i.id}" data-open-item="${i.id}" role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
+  ${/* En modo selección la tarjeta MARCA en vez de abrir la ficha: se cambia
+       data-open-item por data-inv-select para que el handler de siempre no se
+       dispare, en vez de dejar los dos y depender del orden de los listeners.
+       La FOTO sigue el mismo criterio (reporte del usuario 2026-09-09: "los
+       botones se confunden porque piensa que quiero ver la imagen"): desde que
+       llena la tarjeta, su toque —abrir el visor o pedir una foto— se comía casi
+       toda el área de marcado. En modo selección se le quita data-photo-item, así
+       que tocar CUALQUIER parte del ítem marca. */''}
+  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}${invSelectMode && invSelected.has(i.id)?' sel':''}" data-key="invtile:${i.id}" ${invSelectMode ? `data-inv-select="${i.id}" aria-pressed="${invSelected.has(i.id)}"` : `data-open-item="${i.id}"`} role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
+    ${invSelectMode ? `<span class="inv-tile-check" aria-hidden="true">${invSelected.has(i.id)?'✓':''}</span>` : ''}
     <div class="inv-tile-top">
-      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
+      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}"${invSelectMode ? '' : ` data-photo-item="${i.id}" title="${t('btn_upload_photo')}"`} style="${invSelectMode?'':'cursor:pointer;'}width:48px;height:48px;flex-shrink:0;">${stockIconSvg(i)}</div>
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
     </div>
     ${/* Sin marginBadge: los % de ganancia salen de la vista pública de la lista
@@ -847,13 +761,6 @@ function orderCalcLine(i){
       : `<button type="button" class="oc-qty" data-oc-edit="${i.id}" aria-label="${t('oc_type_aria').replace('{name}',name)}">${ocFmtQty(q)} ${escapeHtml(unitLabel(i.unit||'unidad'))}</button>`}
     <button type="button" class="oc-step" data-oc-plus="${i.id}" aria-label="${t('oc_plus_aria').replace('{name}',name)}">+</button>
     <span class="oc-line-sub">${money(sub)}</span>
-  </div>`;
-}
-function orderCalcCard(){
-  return `<div class="oc-card ${orderCalcOpen?'open':''}" id="oc-card" role="button" tabindex="0" aria-expanded="${orderCalcOpen}">
-    <div class="stat-label">${t('oc_card_label')}</div>
-    <div class="oc-card-total">🧮 <span>${money(orderCalcTotal())}</span></div>
-    <div class="oc-card-hint">${t('oc_card_hint')}</div>
   </div>`;
 }
 function orderCalcPanel(){
@@ -966,24 +873,34 @@ function inventarioView(){
   /* INVENTARIO reorganizado (maqueta aprobada por el usuario 2026-09-07, "hazlo
      exactamente así", pensado para 100+ productos):
      1. franja de números (Valor · Potencial de venta) lado a lado;
-     2. fila de herramientas con nombre, como el Catálogo: Pedido, Conteo (punto
-        cuando toca), Escanear estante (el FAB, sin el badge "−");
-     3. buscador fijo arriba al scrollear, con vista y ORDEN en la misma fila;
-     4. tres filtros rápidos: Crítico, Toca contar, Sin foto;
+     2. fila de herramientas con nombre: Pedido, Conteo (punto
+        cuando toca), Escanear estante (el FAB, con su badge "−");
+     3. debajo, el buscador con la vista y el ORDEN — se queda fijo al scrollear;
+     4. una sola fila de chips: Seleccionar y los tres filtros rápidos
+        (Crítico, Toca contar, Sin foto). Las categorías NO están: se repetían
+        con los encabezados de grupo de abajo (pedido del usuario 2026-09-09);
      5. chips de categoría como filtro justo sobre la lista, con "Todos";
      6. grupos plegables (recuerdan su estado) y "ver los restantes" pasados
         los 12 — lo plegado no se dibuja, así la pestaña sigue liviana. */
   const allRows = stockRowsData();
   const ccDue = isCycleCountDue();
   const ccDueIds = cycleCountDueIds();
-  const filterCategory = inventoryCategoryFilter ? categories.find(c=>c.id===inventoryCategoryFilter) : null;
   const sellRows = allRows.filter(r=>!isExpenseItem(r.ing));
   const quick = { crit: sellRows.filter(r=>r.status==='crit'), count: sellRows.filter(r=>ccDueIds.has(r.ing.id)), nophoto: sellRows.filter(r=>!itemPhotoSrc(r.ing)) };
   const searching = !!invSearch.trim();
-  let rows = filterCategory ? allRows.filter(r=>r.ing.categoryId===filterCategory.id) : allRows;
+  let rows = allRows;
   if(invQuickFilter && quick[invQuickFilter]){ const ids = new Set(quick[invQuickFilter].map(r=>r.ing.id)); rows = rows.filter(r=>ids.has(r.ing.id)); }
   rows = invSortRows(rows.filter(r=>invMatches(r.ing.name, invSearch)));
-  const groups = groupRowsByCategory(rows);
+  /* Agrupar por categoría SOLO en el orden por nombre (auditoría 2026-09-08).
+     Agrupar y ordenar se peleaban: con 400 productos en 5 categorías, "Menos
+     stock" mostraba los 12 más vacíos DE CADA grupo (60 tarjetas) en vez de
+     los 12 más vacíos de todos — un producto crítico de Bebidas quedaba
+     escondido bajo un grupo sin abrir, y la lista visible no era monótona.
+     Por nombre, agrupar es navegar (tiene sentido); por urgencia o por valor,
+     lo que se quiere es un ranking, así que va lista plana. */
+  const groups = invSort==='name'
+    ? groupRowsByCategory(rows)
+    : [{id:'__rank', name: invSort==='stock' ? t('inv_sort_stock') : t('inv_sort_value'), rows}];
   const total = sellRows.length;
   const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   const fmt = (n)=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1004,7 +921,7 @@ function inventarioView(){
       ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_more').replace('{n}', g.rows.length-INV_GROUP_PREVIEW)} ▾</button>`
       : (invExpanded.has(key) && g.rows.length > INV_GROUP_PREVIEW ? `<button type="button" class="inv-more" data-inv-more="${key}">${t('inv_less')} ▴</button>` : '');
     return `
-      <div class="category-group-header inv-group ${collapsed?'collapsed':''}" data-key="invgrp:${key}" data-inv-group="${key}" role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${t('inv_group_toggle_aria')}">${escapeHtml(g.name)} <span>${g.rows.length}</span><span class="inv-chev">▾</span></div>
+      <div class="category-group-header inv-group ${collapsed?'collapsed':''}" data-key="invgrp:${key}" data-inv-group="${key}" role="button" tabindex="0" aria-expanded="${!collapsed}" aria-label="${t('inv_group_toggle_aria')}">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
       ${collapsed ? '' : `<div class="inv-grid ${invLayout}" style="margin-bottom:${moreBtn ? 4 : 16}px;">${shown.map(r=>stockRowHtml(r,ccDueIds)).join('')}</div>${moreBtn}`}`;
   };
   const toolbar = invLayoutToggleHtml().replace('</div>', `
@@ -1039,17 +956,38 @@ function inventarioView(){
       <span class="inv-tool-label">${t('inv_tool_count')}</span>
     </button>
   </div>` : ''}
-  ${inventory.length===0 ? (cloudSyncPending ? emptyState('cloud',t('sync_loading_title'),t('sync_loading_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
+  ${inventory.length===0 ? (cloudSyncPending ? loadingSkeleton('inventario') : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
       `<button type="button" class="btn btn-primary" id="btn-inv-empty-scan">${t('dash_empty_scan_btn')}</button>
        <button type="button" class="btn btn-ghost" id="btn-inv-empty-manual">${t('dash_empty_manual_btn')}</button>`)) : `
-    ${/* Orden (pedido del usuario 2026-09-08, captura con las dos filas
-         marcadas: "estas dos hay que invertirlas"): categorías ARRIBA,
-         después los filtros rápidos, y el buscador con el selector de vista
-         ABAJO, justo sobre la lista — sigue fijo al scrollear. */''}
-    ${categories.length>0 ? categoryChipsRow() : ''}
+    ${/* UNA SOLA FILA DE CHIPS, arriba del todo (opción elegida por el usuario
+         2026-09-09 sobre tres maquetas). Antes eran TRES franjas de controles
+         —categorías, filtros rápidos, buscador— y los productos empezaban
+         recién a media pantalla; así se gana una fila entera. Debajo va el
+         buscador con el selector de vista y el orden, pegados a la lista.
+         Adentro: Seleccionar primero (es lo que se busca al querer borrar
+         varios), después los tres filtros rápidos y al final las categorías.
+         La fila scrollea a lo ancho, como ya lo hacían las dos por separado. */''}
     <div class="inv-chips">
+      <button type="button" class="category-chip quick ${invSelectMode?'on':''}" id="btn-inv-select">${invSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
       ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
     </div>
+    ${/* Barra de selección: reemplaza a la de búsqueda mientras el modo está
+         activo (buscar y seleccionar a la vez confunde qué queda marcado al
+         cambiar el filtro). El contador cuenta TODO lo seleccionado, incluso lo
+         que el filtro actual no muestra — por eso el borrado dice cuántos son. */''}
+    ${invSelectMode ? `
+    <div class="inv-sticky">
+      <div class="inv-selbar">
+        <strong>${t('inv_selected_n').replace('{n}', invSelected.size)}</strong>
+        <button type="button" class="link-btn" id="btn-inv-sel-all">${t('inv_select_all')}</button>
+        ${/* Compartir las fotos de lo marcado por la hoja nativa del sistema
+             (pedido del usuario 2026-09-09) — ver shareSelectedItemPhotos. */''}
+        <button type="button" class="btn btn-sm" id="btn-inv-sel-share" ${invSelected.size?'':'disabled'}
+          style="margin-left:auto;background:var(--basil);color:var(--on-accent);">${t('inv_share_selected').replace('{n}', invSelected.size)}</button>
+        <button type="button" class="btn btn-sm" id="btn-inv-sel-delete" ${invSelected.size?'':'disabled'}
+          style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
+      </div>
+    </div>` : `
     <div class="inv-sticky">
       <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
         <div class="inv-search-wrap">
@@ -1058,10 +996,10 @@ function inventarioView(){
         </div>
         ${toolbar}
       </div>
-    </div>
+    </div>`}
     ${rows.length===0
       ? (searching || invQuickFilter ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
-        : (filterCategory ? emptyState('box',t('empty_category_title'),t('empty_category_sub')) : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'))))
+        : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')))
       : groups.map(groupHtml).join('')}
   `}
   `;
@@ -1143,13 +1081,13 @@ function yearPickerWidget(){
   </div>`;
 }
 
-/* Calendario del mes que se muestra arriba de la lista de recibos: cada día con
-   un recibo muestra su miniatura; los días con notas (parser de Nudgy) llevan una
-   burbujita con el emoji de la primera. Tocar CUALQUIER día abre el modal
-   unificado del día (dayModal): sus recibos, sus notas y el compositor para
-   escribir una nueva — un solo modelo mental en vez de tres comportamientos
-   distintos por celda. Un día con varios recibos muestra el primero con la
-   insignia "×N"; se elige cuál abrir desde el mismo modal. */
+/* Calendario del mes, arriba de la lista de recibos. Un bloque de color con los
+   números en blanco (maqueta del usuario 2026-09-09): los días que tienen algo se
+   marcan con puntitos debajo — uno por recibo hasta tres, y uno ámbar si además
+   hay nota (parser de Nudgy). Tocar CUALQUIER día abre el modal unificado del día
+   (dayModal): sus recibos con foto, sus notas y el compositor para escribir una
+   nueva — un solo modelo mental en vez de tres comportamientos distintos por
+   celda, y el lugar donde vive el detalle que la celda ya no muestra. */
 function receiptCalendarWidget(){
   if(!calendarViewMonth) calendarViewMonth = localMonthStr();
   if(calendarShowYearPicker) return yearPickerWidget();
@@ -1159,45 +1097,82 @@ function receiptCalendarWidget(){
   const todayStr = localDateStr();
 
   const receiptsByDay = {};
+  let monthReceiptCount = 0;
   receipts.forEach(r=>{
     if(!r.date || r.date.slice(0,7)!==calendarViewMonth) return;
+    monthReceiptCount++;
     const day = parseInt(r.date.slice(8,10),10);
     if(!receiptsByDay[day]) receiptsByDay[day] = [];
     receiptsByDay[day].push(r);
   });
 
+  /* Los días de los meses vecinos se dibujan atenuados en vez de dejar huecos
+     (maqueta del usuario 2026-09-09) — son SOLO decorado: sin data-cal-day no
+     son tocables y no abren nada, igual que los huecos vacíos de antes. */
   const cells = [];
-  for(let i=0;i<firstWeekday;i++) cells.push('<div class="cal-day empty"></div>');
+  const prevMonthDays = new Date(y, m-1, 0).getDate();
+  for(let i=firstWeekday; i>0; i--){
+    cells.push(`<div class="cal-day out"><span class="cal-day-num">${prevMonthDays-i+1}</span></div>`);
+  }
   for(let day=1; day<=daysInMonth; day++){
     const dateStr = calendarViewMonth+'-'+String(day).padStart(2,'0');
     const dayReceipts = receiptsByDay[day];
     const r = dayReceipts ? dayReceipts[0] : null;
     const multi = dayReceipts && dayReceipts.length>1;
     const isToday = dateStr===todayStr;
-    const cover = r ? receiptImages(r)[0] : null;
     const isBlink = calendarBlinkDates.includes(dateStr);
-    // Notas del día (fijas + recurrentes, parser de Nudgy) — se marcan con el emoji
-    // de la primera en una burbujita, sin competir con la miniatura del recibo.
+    // Notas del día (fijas + recurrentes, parser de Nudgy).
     const dayNotes = calNotesOnDate(calNotes, dateStr);
     // Tocar CUALQUIER día abre el modal unificado del día (recibos + notas +
     // compositor) — antes cada celda decidía entre 3 comportamientos distintos.
+    /* El día es SIEMPRE su número, y lo que pasa ese día se marca con puntitos
+       debajo (maqueta del usuario 2026-09-09) — antes la miniatura del recibo
+       tapaba la fecha y cada celda se veía distinta. Un punto por recibo hasta
+       tres, más uno de otro color si hay nota; el conteo exacto, la foto y el
+       texto de la nota siguen a un toque, en el modal del día. El title conserva
+       el detalle para quien pase el mouse. */
+    /* La FOTO del recibo vuelve a la celda (pedido del usuario 2026-09-09: "los
+       escaneos ya no se ponen encima de la fecha correspondiente"). Se había ido
+       con la maqueta del calendario, que puso el número en todos los días; pero
+       reconocer el recibo de un vistazo —"el del súper fue el martes"— es
+       justamente para lo que se mira este calendario. La celda con recibo pasa a
+       ser una casilla con la foto adentro, exactamente del mismo tamaño y forma
+       que las demás. El estilo que la hace llenar la casilla va INLINE a
+       propósito (además de en dusty.css): si un dispositivo se queda con un CSS
+       viejo en caché, la <img> sin ese estilo se dibuja con su proporción
+       original y estira la casilla —más alta que las vecinas, que es justo lo
+       que reportó el usuario 2026-09-09 con una captura ampliada—. Inline viaja
+       con el JS, así que la forma no puede depender de qué CSS quedó cacheado. Los días sin recibo siguen
+       mostrando su número, y el puntito ámbar de nota se mantiene en ambos. */
+    const cover = dayReceipts && Array.isArray(r.images) ? r.images.find(im=>im && (im.base64 || im.url)) : null;
+    const coverSrc = cover ? receiptImgSrc(cover) : null;
+    const dots = [];
+    if(dayReceipts && !coverSrc) for(let d=0; d<Math.min(dayReceipts.length,3); d++) dots.push('<i></i>');
+    if(dayNotes.length) dots.push('<i class="note"></i>');
     cells.push(`
-      <div class="cal-day ${r?'has-receipt':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
-        ${/* Día con recibo: SIEMPRE el icono de recibo en lugar del número, y la
-             foto encima cuando la hay y carga (pedido del usuario 2026-09-09:
-             "pon el recibo en lugar del número"). Antes, si la foto fallaba al
-             cargar (URL de la nube caída/expirada) se ocultaba sola y la celda
-             quedaba vacía: ni foto ni número ni icono. */''}
+      <div class="cal-day ${r?'has-receipt':''} ${coverSrc?'has-photo':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
+        ${/* Día con recibo: el ICONO de recibo en lugar del número (pedido del
+             usuario 2026-09-09: "deja todo como está, solo pon el recibo en
+             lugar del número"), y la foto encima cuando la hay y carga. Si la
+             foto falla (URL de la nube caída) se quita sola y queda el icono —
+             antes la casilla quedaba vacía. */''}
         ${r ? `<span class="cal-day-receipt-icon">${lineIcon('receipt',18)}</span>` : `<span class="cal-day-num">${day}</span>`}
-        ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">` : ''}
-        ${multi ? `<span class="cal-day-badge">×${dayReceipts.length}</span>` : ''}
-        ${/* escapeHtml en el icon: viaja por meta/settings que cualquier miembro
-             puede escribir vía SDK — sin escape era un XSS almacenado que corría
-             en la sesión de todo el equipo (auditoría 2026-09-04). */''}
-        ${dayNotes.length ? `<span class="cal-day-note-dot">${escapeHtml(dayNotes[0].icon||'📌')}${dayNotes.length>1?`<i>${dayNotes.length}</i>`:''}</span>` : ''}
+        ${coverSrc
+          ? `<img class="cal-day-photo" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" src="${escapeHtml(coverSrc)}" alt="" ${imgLoadAttr(coverSrc)} decoding="async" onerror="this.remove();">
+             ${multi ? `<span class="cal-day-badge">&times;${dayReceipts.length}</span>` : ''}`
+          : ''}
+        ${dots.length ? `<span class="cal-dots">${dots.join('')}</span>` : ''}
       </div>
     `);
   }
+
+  /* SIEMPRE 6 filas (42 celdas), aunque el mes entre en 4 o 5 (auditoría
+     2026-09-09): antes el calendario medía 324, 368 o 412px según el mes y al
+     pasar de febrero a marzo el widget crecía 88px de golpe — el buscador y la
+     lista de recibos daban un salto en la cara del usuario. Con alto fijo,
+     cambiar de mes solo cambia los números. */
+  const tail = 42 - cells.length;
+  for(let d=1; d<=tail; d++) cells.push(`<div class="cal-day out"><span class="cal-day-num">${d}</span></div>`);
 
   return `
   <div class="cal-widget">
@@ -1212,6 +1187,11 @@ function receiptCalendarWidget(){
     <div class="cal-grid">
       ${cells.join('')}
     </div>
+    ${/* Cuántos recibos tiene el mes que se está mirando (pedido del usuario
+         2026-09-09). Solo a partir de dos: con uno solo, la casilla ya lo dice
+         todo y la línea sobraría. El ×N de cada casilla sigue contando los del
+         día; este cuenta el mes entero. */''}
+    ${monthReceiptCount > 1 ? `<div class="cal-month-count">${t('cal_month_receipts').replace('{n}', monthReceiptCount)}</div>` : ''}
     ${/* Cierre de mes, ubicado acá (decisión del usuario): resume el mes que el
          calendario está mostrando — la conclusión del arco, junto a sus datos. */''}
     <button type="button" class="cal-recap-btn" id="btn-month-recap">${t('recap_btn')}</button>
@@ -1311,25 +1291,23 @@ function recibosView(){
   });
 
   return `
-  <div class="section-head">
-    <div><h2>${t('rec_title')}</h2><p>${t('rec_sub')}</p></div>
-    ${/* Sin el botón "Scan receipt" (lo tachó el usuario): escanear ya vive en el
-         botón grande del Dashboard — acá duplicaba y apretaba el buscador. */''}
-    ${/* Sin recibos todavía no hay nada que buscar (auditoría de primer minuto
-         2026-09-07): el buscador por monto recién aparece con el primer recibo.
-         El calendario sí se muestra siempre (sirve para anotar recordatorios). */''}
-    ${receipts.length>0 ? `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
-    </div>` : ''}
-  </div>
+  ${/* Sin título ni bajada (pedido del usuario 2026-09-09): la pestaña abre
+       directo en el calendario — el nombre ya lo dice la barra de abajo.
+       Sin el botón "Scan receipt" tampoco: escanear vive en el botón grande del
+       Dashboard. Y sin recibos todavía no hay nada que buscar, así que el
+       buscador por monto recién aparece con el primero (el calendario sí se
+       muestra siempre: sirve para anotar recordatorios). */''}
+  ${receipts.length>0 ? `
+  <div class="section-head" style="margin-bottom:12px;">
+    <div class="field" style="margin:0;width:100%;max-width:220px;"><input id="cal-amount-search" type="text" inputmode="decimal" value="${escapeHtml(calendarAmountQuery)}" placeholder="${t('rec_amount_search_placeholder')}"></div>
+  </div>` : ''}
   ${/* El calendario va SIEMPRE (corrección 2026-09-07): esconderlo sin recibos
        dejaba a un usuario nuevo sin poder anotar un recordatorio tocando un día.
        Solo el buscador por monto (arriba) espera al primer recibo. */''}
   ${receiptCalendarWidget()}
   ${receipts.length>0 ? `<div class="field" style="max-width:340px;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div>` : ''}
-  ${receipts.length===0 ? emptyState('receipt',t('empty_receipts_title'),'',true,
-      `<button type="button" class="btn btn-primary" id="btn-rec-empty-scan">${t('dash_empty_scan_btn')}</button>`) :
+  ${receipts.length===0 ? (cloudSyncPending ? loadingSkeleton('recibos') : emptyState('receipt',t('empty_receipts_title'),'',true,
+      `<button type="button" class="btn btn-primary" id="btn-rec-empty-scan">${t('dash_empty_scan_btn')}</button>`)) :
     (sorted.length===0 ? `<div class="helper-note" style="margin:4px 0 0;">${t('rec_no_matches')}</div>` :
     groups.map(g=>`
       <div class="section-head" style="margin-top:22px;margin-bottom:10px;">
@@ -1519,88 +1497,106 @@ function priceHistoryModal(){
 function openMonthlySpendModal(){ showMonthlySpendModal = true; render(); }
 function closeMonthlySpendModal(){ showMonthlySpendModal = false; render(); }
 
-/* Gráfico APILADO (auditoría de presupuesto 2026-09-07): mercadería abajo (verde),
-   gastos operativos arriba (ámbar) y la línea punteada del presupuesto de CADA mes
-   sobre su barra — antes se graficaba el total sin presupuesto, y el presupuesto
-   mide solo gastos. Las barras crecen al abrir (animación CSS, .ms-bar). */
-function monthlySpendChartStacked(monthsAsc, currentMonthKey){
-  // Ancho según la cantidad de meses (auditoría 2026-09-07): con 2 meses en un
-  // viewBox de 560 el texto quedaba diminuto en el celular. Cada mes pide ~78px;
-  // con muchos meses el svg pide más ancho que la pantalla y el contenedor scrollea.
-  const n0 = monthsAsc.length;
-  const padL = 52, padR = 16, padT = 18, padB = 28;
-  const W = Math.max(300, padL + padR + n0*78), H = 210;
-  const innerW = W - padL - padR, innerH = H - padT - padB;
-  const splits = monthsAsc.map(m=>spendSplitForMonth(m));
-  const budgets = monthsAsc.map(m=>budgetForMonth(m)||0);
-  const max = Math.max(...splits.map(s=>s.invested+s.expense), ...budgets, 1);
-  const n = monthsAsc.length;
-  const slot = innerW / n;
-  const barW = Math.min(slot * 0.55, 26);
-  const yOf = v => padT + innerH - (v/max)*innerH;
-  const gridLines = [0,0.5,1].map(f=>{
-    const y = padT + innerH*(1-f);
-    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
-      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(max*f)}</text>`;
-  }).join('');
-  const bars = monthsAsc.map((m,i)=>{
-    const s = splits[i];
-    const x = padL + i*slot + (slot-barW)/2;
-    const invH = (s.invested/max)*innerH, expH = (s.expense/max)*innerH;
-    const yInv = padT + innerH - invH, yExp = yInv - expH;
-    const isCurrent = m===currentMonthKey;
-    const dim = isCurrent ? '' : 'opacity:.55;';
-    const total = s.invested + s.expense;
-    const b = budgets[i];
-    const budgetLine = b>0 ? `<line x1="${(x-6).toFixed(1)}" y1="${yOf(b).toFixed(1)}" x2="${(x+barW+6).toFixed(1)}" y2="${yOf(b).toFixed(1)}" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="3 3" opacity="${isCurrent?'.9':'.5'}"><title>${escapeHtml(t('ms_legend_budget'))} · ${money(b)}</title></line>` : '';
-    return `
-      <g class="ms-bar" style="animation-delay:${i*60}ms;">
-        <rect x="${x.toFixed(1)}" y="${yInv.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(invH, s.invested>0?2:0).toFixed(1)}" rx="3" fill="var(--money-pos)" style="${dim}"><title>${escapeHtml(t('ms_legend_inv'))} · ${money(s.invested)}</title></rect>
-        <rect x="${x.toFixed(1)}" y="${yExp.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(expH, s.expense>0?2:0).toFixed(1)}" rx="3" fill="var(--money-warn)" style="${dim}"><title>${escapeHtml(t('ms_legend_exp'))} · ${money(s.expense)}</title></rect>
-      </g>
-      ${budgetLine}
-      <text x="${(x+barW/2).toFixed(1)}" y="${(Math.min(yExp, b>0?yOf(b):yExp)-6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(total)}</text>
-      <text x="${(x+barW/2).toFixed(1)}" y="${(padT+innerH+16).toFixed(1)}" text-anchor="middle" font-size="10" fill="${isCurrent?'var(--ink)':'var(--ink-soft)'}" font-weight="${isCurrent?'700':'400'}" font-family="IBM Plex Mono">${escapeHtml(monthLabel(m, uiLang))}</text>
-    `;
-  }).join('');
-  // Con muchos meses el svg pide más ancho que la pantalla y el contenedor scrollea.
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:${n0>5 ? n0*66 : 0}px;height:auto;display:block;">
-    ${gridLines}
-    ${bars}
-  </svg>`;
+/* Una TARJETA por mes, en frases (rediseño 2026-09-09 a pedido del usuario:
+   "que se entienda como que son niños de 12 años"). Antes esto era un gráfico
+   SVG apilado con eje de montos, línea punteada del presupuesto y una leyenda
+   de tres colores — había que saber leer un gráfico para responder algo tan
+   simple como "cuánto gasté y cuánto me quedaba", y con un solo mes sin datos
+   (el caso de recién instalado) el gráfico ocupaba media pantalla sin decir
+   nada. Ahora cada mes dice su número grande, una barra contra el tope y una
+   frase en castellano llano. Los cálculos son exactamente los mismos.
+   La barra mide GASTOS contra el presupuesto (el presupuesto mide solo gastos);
+   la mercadería va aparte, en la línea chica de abajo, porque comprar stock no
+   es gastar — es convertir plata en inventario. */
+function monthlySpendCard(m, currentMonthKey){
+  const s = spendSplitForMonth(m), b = budgetForMonth(m) || 0;
+  const pct = b ? Math.round(s.expense/b*100) : 0;
+  const over = Math.max(s.expense - b, 0), left = Math.max(b - s.expense, 0);
+  const isCurrent = m === currentMonthKey;
+  // Mismo semáforo que la barra de presupuesto del panel: 80% avisa, 100% se pasó.
+  const level = !b ? 'ok' : (pct >= 100 ? 'crit' : pct >= 80 ? 'warn' : 'ok');
+  const line = !b
+    ? t(isCurrent ? 'ms_line_nb_now' : 'ms_line_nb').replace('{exp}', `<b>${money(s.expense)}</b>`)
+    : over > 0
+      ? t('ms_line_over').replace('{exp}', `<b>${money(s.expense)}</b>`).replace('{bud}', money(b)).replace('{over}', `<b>${money(over)}</b>`)
+      : t(isCurrent ? 'ms_line_now' : 'ms_line_past').replace('{exp}', `<b>${money(s.expense)}</b>`).replace('{bud}', money(b)).replace('{left}', `<b>${money(left)}</b>`);
+  return `
+    <div class="ms-card ${isCurrent ? 'now' : ''} ${level}">
+      <div class="ms-card-head">
+        <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}${isCurrent ? `<span class="ms-card-badge">${t('ms_current_month')}</span>` : ''}</span>
+        <span class="ms-card-amount">${money(s.expense)}</span>
+      </div>
+      ${b ? `<div class="ms-track"><i style="width:${Math.min(pct, 100)}%;"></i></div>` : ''}
+      <div class="ms-card-line">${line}</div>
+      ${s.invested > 0 ? `<div class="ms-card-goods">${t('ms_card_goods').replace('{inv}', money(s.invested))}</div>` : ''}
+    </div>`;
+}
+/* Tarjetas FANTASMA (pedido del usuario 2026-09-09: "sombras imaginarias para
+   que el usuario no vea todo en blanco y pueda ver cómo quedaría"). Recién
+   instalado solo existe el mes de hoy, vacío, y la pantalla no dejaba entender
+   qué va a aparecer ahí. Estas siete sombras usan los nombres REALES de los
+   siete meses anteriores y montos de EJEMPLO, escritos con las mismas frases
+   que una tarjeta real — pero DESENFOCADAS y desvanecidas (pedido del usuario:
+   "ejemplos reales pero que no se vean tan nítidos como reales"), cada vez más
+   hacia abajo. Así se entiende de una qué va a decir cada mes, sin que ningún
+   número borroso pueda confundirse con plata propia.
+   Se dibujan SOLO mientras no haya ni un recibo cargado: con el primero que
+   registre el usuario desaparecen todas de golpe (pedido 2026-09-09), para que
+   nunca convivan datos de verdad con muestras. */
+const MS_GHOST_MONTHS = [
+  // % del tope, color y qué tan fuera de foco va cada una. Los porcentajes son
+  // variados a propósito: la muestra tiene que dejar ver los tres estados del
+  // semáforo, no siete barras iguales.
+  {fill:58,  level:'ok',   op:'.62', blur:'1.1px'},
+  {fill:86,  level:'warn', op:'.54', blur:'1.5px'},
+  {fill:41,  level:'ok',   op:'.46', blur:'1.9px'},
+  {fill:104, level:'crit', op:'.38', blur:'2.3px'},
+  {fill:67,  level:'ok',   op:'.31', blur:'2.7px'},
+  {fill:92,  level:'warn', op:'.25', blur:'3.1px'},
+  {fill:35,  level:'ok',   op:'.20', blur:'3.5px'}
+];
+// Tope de ejemplo cuando el usuario todavía no puso el suyo: sin un número, la
+// frase de la tarjeta no se puede armar. Con presupuesto puesto se usa el real.
+const MS_GHOST_BUDGET = 450;
+function monthlySpendGhostCard(m, g){
+  const bud = budgetForMonth(m) || MS_GHOST_BUDGET;
+  const exp = Math.round(bud * g.fill / 100);
+  const over = Math.max(exp - bud, 0), left = Math.max(bud - exp, 0);
+  const line = over > 0
+    ? t('ms_line_over').replace('{exp}', `<b>${money(exp)}</b>`).replace('{bud}', money(bud)).replace('{over}', `<b>${money(over)}</b>`)
+    : t('ms_line_past').replace('{exp}', `<b>${money(exp)}</b>`).replace('{bud}', money(bud)).replace('{left}', `<b>${money(left)}</b>`);
+  return `
+    <div class="ms-card ghost ${g.level}" aria-hidden="true" style="opacity:${g.op};filter:blur(${g.blur});">
+      <div class="ms-card-head">
+        <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}</span>
+        <span class="ms-card-amount">${money(exp)}</span>
+      </div>
+      <div class="ms-track"><i style="width:${Math.min(g.fill,100)}%;"></i></div>
+      <div class="ms-card-line">${line}</div>
+      <div class="ms-card-goods">${t('ms_card_goods').replace('{inv}', money(Math.round(exp*1.3)))}</div>
+    </div>`;
 }
 function monthlySpendModal(){
   const currentMonthKey = localMonthStr();
   const months = allMonths();
   // El mes actual siempre está, aunque todavía no tenga recibos.
   if(!months.includes(currentMonthKey)) months.unshift(currentMonthKey);
-  const monthsAsc = [...months].reverse(); // más viejo primero, para leer izquierda a derecha en el tiempo
 
   return `
   <div class="overlay" id="monthly-spend-overlay">
     <div class="modal wide">
       <h3 class="navy">${t('ms_title')}</h3>
       <div class="sub">${t('ms_sub')}</div>
-      ${monthsAsc.length===0 ? `
+      ${months.length===0 ? `
         <div class="helper-note" style="margin:0 0 16px;">${t('ms_no_purchases')}</div>
       ` : `
-        <div style="margin:14px 0;overflow-x:auto;">${monthlySpendChartStacked(monthsAsc, currentMonthKey)}</div>
-        <div class="ms-legend">
-          <span><i style="background:var(--money-pos);"></i>${t('ms_legend_inv')}</span>
-          <span><i style="background:var(--money-warn);"></i>${t('ms_legend_exp')}</span>
-          <span><i class="ms-legend-line"></i>${t('ms_legend_budget')}</span>
-        </div>
-        <div class="ing-list-mini" style="max-height:180px;">
-          ${[...monthsAsc].reverse().map(m=>{
-            const s = spendSplitForMonth(m); const b = budgetForMonth(m);
-            const detail = b ? t('ms_row_detail').replace('{exp}', money(s.expense)).replace('{pct}', String(Math.round(s.expense/b*100)))
-                             : t('ms_row_detail_nb').replace('{exp}', money(s.expense));
-            return `
-            <div class="ing-list-mini-item">
-              <span>${escapeHtml(monthLabel(m, uiLang))} ${m===currentMonthKey?`<span class="price-updated">${t('ms_current_month')}</span>`:''}<div class="ms-row-detail">${detail}</div></span>
-              <span class="mono-cell">${money(spendForMonth(m))}</span>
-            </div>`;
-          }).join('')}
+        ${/* Del mes de hoy hacia atrás: lo primero que se ve es cómo vas ahora. */''}
+        <div class="ms-months">
+          ${months.map(m=>monthlySpendCard(m, currentMonthKey)).join('')}
+          ${receipts.length===0 ? `
+            <div class="ms-ghost-note">${t('ms_ghost_note')}</div>
+            ${MS_GHOST_MONTHS.map((g,i)=>monthlySpendGhostCard(shiftMonthStr(currentMonthKey, -(i+1)), g)).join('')}
+          ` : ''}
         </div>
       `}
       <div class="modal-actions">
@@ -1685,8 +1681,8 @@ function settingsCardHeader(icon, bg, fg, title){
 function alertSettingsModal(){
   /* AJUSTES reorganizado (auditoría 2026-09-07): título propio (antes decía
      "Alertas de precio", el nombre de lo que era esta pantalla antes de crecer),
-     cinco secciones con nombre en orden de uso — Apariencia, Inventario,
-     Alertas, Catálogo, Cuenta — y UNA sola regla de guardado: todo se aplica al
+     cuatro secciones con nombre en orden de uso — Apariencia, Inventario,
+     Alertas, Cuenta — y UNA sola regla de guardado: todo se aplica al
      instante (los umbrales al soltar el campo, como ya lo hacían tema, idioma,
      latidos y formato). Sin Guardar ni Cancelar: un Cerrar abajo y la ✕ arriba. */
   return `
@@ -1759,13 +1755,7 @@ function alertSettingsModal(){
         <div class="helper-note" style="margin-bottom:0;">${t('budget_alert_pct_helper')}</div>
       </div>
 
-      ${/* 4. CATÁLOGO: la publicación (WhatsApp, canales, redes, despublicar). */''}
-      <div class="settings-card">
-        ${settingsCardHeader('share','var(--sky-soft)','var(--sky-ink)',t('settings_catalog_title'))}
-        <button class="btn btn-ghost btn-sm" id="btn-open-catalog-publish" style="width:100%;">${t('settings_catalog_btn')}</button>
-      </div>
-
-      ${/* 5. CUENTA: submodal con respaldo, compartir cuenta, cerrar sesión,
+      ${/* 4. CUENTA: submodal con respaldo, compartir cuenta, cerrar sesión,
            eliminar y privacidad — vuelve acá al cerrarse. */''}
       <div class="settings-card">
         ${settingsCardHeader('cloud','var(--sky-soft)','var(--sky-ink)',t('settings_account_title'))}
@@ -1998,1461 +1988,3 @@ function budgetModal(){
     </div>
   </div>`;
 }
-
-/* ================= CATÁLOGO PARA CLIENTES =================
-   Pestaña propia (4.ª del carrusel — pedido del usuario 2026-09-06: "tiene que
-   haber otra pantalla"): el dueño marca qué productos/piezas mostrar, pone su
-   WhatsApp y publica; una función de Netlify (publish-catalog) escribe el doc
-   público y sube las fotos — el cliente final abre patronsc.netlify.app/c/<id>
-   (catalogo.html) sin cuenta ni app, y pide por WhatsApp. La selección viaja como
-   inCatalog en cada ítem/receta (sincroniza gratis con ellos); el número y el id
-   del catálogo viajan por meta. */
-let catalogPublishing = false;
-let showCatalogPublishModal = false;
-// CÁMARA-PRIMERO (iteración con el usuario 2026-09-06: "cuando le doy a la
-// cámara no me permite abrir la cámara"): tocar el botón dispara LA CÁMARA al
-// instante; con la foto ya sacada, este borrador guarda la imagen mientras un
-// modalcito pregunta "¿de qué producto es?" — tocás el producto y queda. Nada
-// de modos ni de tocar primero el producto.
-let catalogPendingPhoto = null;
-// El ORIGINAL de la foto recién sacada/subida + el filtro elegido: los filtros
-// se recalculan siempre desde el original (aplicar Vívido sobre B/N arruinaría
-// la foto), y catalogPendingPhoto guarda la versión ya filtrada que se asigna.
-let catalogPendingOriginal = null;
-let catalogPendingFilter = 'original';
-// Cámara INTELIGENTE (pedido del usuario 2026-09-06): mientras el modal de
-// asignar ya está abierto, la misma IA del identificador de productos mira la
-// foto y sugiere de qué producto se trata — la sugerencia aparece resaltada
-// arriba de la lista, un toque y listo. Solo cuentas reales (gasta 1 escaneo
-// del cupo; el trial de 5 no debe quemarse en silencio) y si falla o no
-// reconoce, la lista manual sigue ahí como siempre.
-let catalogAssignDetecting = false;
-let catalogAssignSuggestion = null; // {kind:'item'|'recipe', id}
-let catalogAssignReqId = 0;
-/* ---- EDITOR DE FOTO (pedido del usuario 2026-09-06: lo que la gente usa en
-   los editores) — recorte/encuadre con zoom y giro, Auto-mejora de un toque y
-   deslizadores de brillo/contraste/saturación/nitidez. NO destructivo: los
-   ajustes viven en catalogEdit y se re-hornean siempre desde la foto COMPLETA
-   (catalogEditFull, 1400px) — el resultado recién pisa el borrador al tocar
-   "Listo". Todo a puro canvas/píxel, sin servicios pagos. */
-let catalogEditorOpen = false;
-let catalogEditFull = null; // base 1400px de la foto recién sacada/subida
-// temp/shadows/highlights (2026-09-06, foco del usuario: "brillos e iluminación"):
-// los tres controles de LUZ que los editores serios usan más que el brillo —
-// temperatura (corrige el color del foco del local), sombras (levanta lo oscuro
-// sin lavar el resto) y luces (recupera lo quemado). Van horneados en el preview
-// (no existen en CSS filter) con el debounce corto de la nitidez.
-// ratio: '1:1' | '4:5' | 'orig' (formato del recorte — auditoría 2026-09-07: la
-// vista previa siempre mostraba un cuadrado aunque la alta guardara la forma
-// original; ahora lo que se ve es lo que se publica). tilt: enderezado fino en
-// grados (−15..15), aparte del giro de 90°.
-const CATALOG_EDIT_DEFAULTS = {rot:0, tilt:0, ratio:'1:1', zoom:1, offX:0.5, offY:0.5, bright:0, contrast:0, sat:0, sharp:0, auto:false, temp:0, shadows:0, highlights:0};
-let catalogEditGuide = false;      // guía de encuadre 85% (regla de Amazon) visible
-let catalogEditSrcAspect = 1;      // ancho/alto de la base ya girada (lienzo del formato "Original")
-let catalogAiJob = null;           // {kind, startedAt, expectSec, cancelled} — progreso/cancelar de las funciones PRO
-let catalogEdit = Object.assign({}, CATALOG_EDIT_DEFAULTS);
-let catalogEditBackup = null;   // para que Cancelar deshaga lo tocado en esta pasada
-let catalogEditPreviewUrl = null;
-let catalogEditBaking = false;
-let catalogEditPrevReq = 0;
-/* QUITAR FONDO (la función PRO — pedido del usuario 2026-09-06): la IA de
-   segmentación (Replicate, vía remove-background.js) devuelve el producto en
-   PNG con transparencia; el recorte se guarda acá y se COMPONE en el cliente
-   sobre el color de fondo elegido — cambiar de blanco a crema no vuelve a
-   llamar (ni cobrar) a la IA. */
-let catalogEditCutout = null;      // PNG transparente del producto
-let catalogEditFullBackup = null;  // la foto original, para "volver atrás"
-let catalogEditBg = '#ffffff';
-let catalogRemovingBg = false;
-// "Mejorar con IA" (súper-resolución Real-ESRGAN, la otra pata Pro): true
-// mientras la IA reconstruye la foto.
-let catalogEnhancing = false;
-// "Escenario IA" (FLUX Kontext): genera el ambiente alrededor del producto.
-let catalogStaging = false;
-let catalogStageOpen = false;
-/* Patrón iOS Fotos (pedido del usuario 2026-09-06, con captura de su Library):
-   tocar una tarjeta ABRE la foto completa (visor a pantalla completa); marcar
-   para el catálogo es un MODO aparte con el botón "Seleccionar" (→ "Listo"),
-   igual que Select en iOS — así ver y seleccionar no se pisan nunca. */
-let catalogSelectMode = false;
-let catalogViewPhoto = null; // {kind:'item'|'recipe', id} — visor abierto
-// Al CERRAR el visor, la miniatura de este producto lleva el view-transition-name
-// un render (el vuelo de vuelta) — se consume en attachEvents (app-07).
-let catalogViewerReturnTo = null;
-/* La lista que recorre el visor (deslizar izquierda/derecha): el mismo orden
-   en que se ven las tarjetas en la grilla — categorías y después recetas. */
-function catalogViewerList(){
-  const sellables = inventory.filter(i=>i && !isExpenseItem(i));
-  const list = [];
-  // Mismo orden que catalogoView: "Faltan fotos", categorías, recetas.
-  sellables.filter(i=>!catalogPhotoThumbSrc(i.photo)).forEach(i=>list.push({kind:'item', id:i.id}));
-  groupRowsByCategory(sellables.filter(i=>!!catalogPhotoThumbSrc(i.photo)).map(i=>({ing:i}))).forEach(g=>g.rows.forEach(r=>list.push({kind:'item', id:r.ing.id})));
-  recipes.filter(r=>r && r.id).forEach(r=>list.push({kind:'recipe', id:r.id}));
-  return list;
-}
-function catalogViewerObj(s){
-  if(!s) return null;
-  return s.kind==='item' ? inventory.find(i=>i.id===s.id) : recipes.find(r=>r && r.id===s.id);
-}
-/* VISOR DE FOTO (auditoría "smooth" 2026-09-07, contra iOS Fotos / PhotoSwipe):
-   - la miniatura (ya en memoria) aparece AL INSTANTE como placeholder con blur y
-     la alta (photoHiUrl) la reemplaza apenas baja — antes el fondo quedaba negro;
-   - ✕ arriba, contador "3 de 12", nombre y precio abajo con acciones (Compartir
-     foto / Al catálogo); tocar la foto muestra u oculta ese chrome, tocar el
-     fondo cierra, deslizar hacia abajo cierra, deslizar a los lados pasa de
-     foto, doble tap y pellizco hacen zoom (todo en app-07);
-   - role=dialog + aria-modal, Escape cierra (handler global), y el fondo no
-     scrollea (body.catalog-viewer-open);
-   - vuelo miniatura ↔ visor con view-transition-name compartido (ver render). */
-function catalogPhotoViewer(){
-  const s = catalogViewPhoto;
-  const obj = catalogViewerObj(s);
-  if(!obj) return '';
-  const list = catalogViewerList();
-  const idx = list.findIndex(x=>x.kind===s.kind && x.id===s.id);
-  const thumb = catalogPhotoThumbSrc(obj.photo);
-  const hi = obj.photoHiUrl || null;
-  const inCat = !!obj.inCatalog;
-  const counter = idx>=0 ? t('catalog_viewer_counter').replace('{i}', idx+1).replace('{n}', list.length) : '';
-  const shareSvg = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>';
-  return `
-  <div class="overlay overlay-fast catalog-viewer" id="catalog-photo-viewer" role="dialog" aria-modal="true" aria-label="${escapeHtml(obj.name)}" data-cv-kind="${s.kind}" data-cv-id="${escapeHtml(s.id)}">
-    <div class="cv-stage" id="cv-stage">
-      ${thumb || hi
-        ? `<img id="cv-img" src="${escapeHtml(thumb || hi)}" ${hi && thumb ? `data-hi="${escapeHtml(hi)}" class="cv-placeholder"` : ''} alt="${escapeHtml(obj.name)}" decoding="async" style="view-transition-name:catalog-photo;">`
-        : `<div class="cv-empty">${escapeHtml(obj.name)}</div>`}
-    </div>
-    <div class="cv-top">
-      <button type="button" class="cv-btn" id="cv-close" aria-label="${t('catalog_viewer_close')}">✕</button>
-      <span class="cv-counter">${counter}</span>
-      <span style="width:40px;"></span>
-    </div>
-    <div class="cv-bottom">
-      <div class="cv-name">${escapeHtml(obj.name)}</div>
-      ${obj.salePrice>0 ? `<div class="cv-price">${money(obj.salePrice)}</div>` : ''}
-      <div class="cv-actions">
-        <button type="button" id="cv-share">${shareSvg} ${t('catalog_viewer_share')}</button>
-        <button type="button" id="cv-toggle" class="${inCat?'on':''}" aria-pressed="${inCat}">${inCat ? '✓ '+t('catalog_viewer_in') : '+ '+t('catalog_viewer_add')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-// Escenarios incorporados (2026-09-06, idea "maniquíes y fondos"): texturas
-// generadas una vez y servidas como archivos del sitio (/backdrops/*.jpg).
-const CATALOG_BACKDROPS = ['studio','wood','marble','linen','concrete','dark'];
-async function composeCatalogCutout(){
-  if(!catalogEditCutout) return;
-  const img = await loadB64Image(catalogEditCutout);
-  const W = img.naturalWidth, H = img.naturalHeight;
-  const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const ctx = cv.getContext('2d');
-  // Fondo: color plano o escenario ("bd:<id>") con ajuste cover.
-  if(String(catalogEditBg).indexOf('bd:')===0){
-    const bg = await new Promise((res, rej)=>{
-      const im = new Image();
-      im.onload = ()=>res(im);
-      im.onerror = ()=>rej(new Error(t('err_img_process')));
-      im.src = '/backdrops/' + catalogEditBg.slice(3) + '.jpg';
-    });
-    const s = Math.max(W/bg.width, H/bg.height);
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bg, (W-bg.width*s)/2, (H-bg.height*s)/2, bg.width*s, bg.height*s);
-  } else {
-    ctx.fillStyle = catalogEditBg;
-    ctx.fillRect(0, 0, W, H);
-  }
-  // SOMBRA SUAVE automática bajo el producto — el truco que evita que "flote".
-  // El contorno sale del alfa del recorte escaneado a 80px (barato); la sombra
-  // es una elipse con degradado radial apoyada en la base del producto.
-  const sc = document.createElement('canvas'); sc.width = sc.height = 80;
-  const sx = sc.getContext('2d'); sx.drawImage(img, 0, 0, 80, 80);
-  const sd = sx.getImageData(0, 0, 80, 80).data;
-  let minX = 80, maxX = 0, maxY = 0;
-  for(let y=0; y<80; y++) for(let x2=0; x2<80; x2++){
-    if(sd[(y*80+x2)*4+3] > 40){ if(x2<minX) minX=x2; if(x2>maxX) maxX=x2; if(y>maxY) maxY=y; }
-  }
-  if(maxX > minX){
-    const cxP = ((minX+maxX)/2)/80*W, wP = (maxX-minX)/80*W;
-    const yP = Math.min(maxY/80*H + H*0.015, H*0.985);
-    const rx = wP*0.52, ry = Math.max(H*0.02, wP*0.09);
-    const g = ctx.createRadialGradient(cxP, yP, 0, cxP, yP, rx);
-    g.addColorStop(0, 'rgba(0,0,0,0.30)');
-    g.addColorStop(0.7, 'rgba(0,0,0,0.12)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.save();
-    ctx.translate(cxP, yP); ctx.scale(1, ry/rx); ctx.translate(-cxP, -yP);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(cxP, yP, rx, 0, 7); ctx.fill();
-    ctx.restore();
-  }
-  ctx.drawImage(img, 0, 0);
-  catalogEditFull = {base64: cv.toDataURL('image/jpeg', 0.9).split(',')[1], mediaType:'image/jpeg'};
-}
-function loadB64Image(obj){
-  return new Promise((res, rej)=>{
-    const im = new Image();
-    im.onload = ()=>res(im);
-    im.onerror = ()=>rej(new Error(t('err_img_process')));
-    im.src = 'data:'+(obj.mediaType||'image/jpeg')+';base64,'+obj.base64;
-  });
-}
-/* FLUIDEZ (reporte del usuario 2026-09-06: "no se siente al ritmo del dedo"):
-   brillo/contraste/saturación NO se hornean mientras se arrastra — viven como
-   CSS filter sobre el preview (GPU, 60fps, instantáneo) y recién se convierten
-   en píxeles al tocar "Listo". La matemática del horneado final COPIA la
-   semántica de CSS (brightness multiplicativo, contrast alrededor de 127.5,
-   saturate con pesos Rec.709) para que lo que ves sea lo que queda. */
-function cssFilterForEdit(){
-  const e = catalogEdit;
-  return `brightness(${1+e.bright/100}) contrast(${1+e.contrast/100}) saturate(${1+e.sat/100})`;
-}
-// El zoom del ÚLTIMO horneado del preview: mientras se arrastra el zoom o el
-// encuadre, el <img> se transforma por CSS relativo a esta base (fluido) y el
-// horneado real llega al soltar.
-let catalogEditBakedZoom = 1;
-// Pestañas del editor (pedido del usuario 2026-09-06: "menú profesional") —
-// Luz / Color / Encuadre / PRO, como organizan los editores serios; arranca
-// en Luz, el foco que el usuario definió.
-let catalogEditTab = 'light';
-/* Hornea la foto a outSize px: giro → recorte cuadrado (zoom + encuadre) →
-   auto-niveles → nitidez; brillo/contraste/saturación solo cuando
-   withAdjust=true (el guardado final) — el preview los muestra por CSS. */
-/* Relación alto/ancho del recorte según el formato elegido: 1:1 cuadrado, 4:5
-   vertical (Instagram), 'orig' la forma de la foto (ya girada). */
-function catalogEditAspect(e, rw, rh){
-  if(e.ratio==='4:5') return 1.25;
-  if(e.ratio==='orig') return rh/rw;
-  return 1;
-}
-async function bakeCatalogEdit(outSize, withAdjust, fullSrc, editSrc){
-  // fullSrc/editSrc opcionales: la subida en ALTA (uploadCatalogHiRes) hornea
-  // después de que el estado global ya se limpió, con sus copias capturadas.
-  const img = await loadB64Image(fullSrc || catalogEditFull);
-  const e = editSrc || catalogEdit;
-  const rot = ((e.rot%360)+360)%360;
-  const rw = (rot===90||rot===270) ? img.naturalHeight : img.naturalWidth;
-  const rh = (rot===90||rot===270) ? img.naturalWidth : img.naturalHeight;
-  if(!fullSrc || fullSrc===catalogEditFull) catalogEditSrcAspect = rw/rh;
-  const rc = document.createElement('canvas'); rc.width = rw; rc.height = rh;
-  const rctx = rc.getContext('2d');
-  // Giro de 90° + ENDEREZADO fino (tilt): se gira todo junto y, si hay tilt, se
-  // agranda lo justo para que no asomen esquinas vacías (el zoom mínimo que
-  // cubre el lienzo tras girar un rectángulo).
-  const tilt = Number(e.tilt)||0;
-  rctx.translate(rw/2, rh/2); rctx.rotate((rot+tilt)*Math.PI/180);
-  if(tilt){
-    const a = Math.abs(tilt)*Math.PI/180;
-    const cover = Math.max((rw*Math.cos(a)+rh*Math.sin(a))/rw, (rw*Math.sin(a)+rh*Math.cos(a))/rh);
-    rctx.scale(cover, cover);
-  }
-  rctx.drawImage(img, -img.naturalWidth/2, -img.naturalHeight/2);
-  // Recorte con el formato elegido (antes: siempre cuadrado).
-  const aspect = catalogEditAspect(e, rw, rh); // alto/ancho
-  const zoom = Math.max(1, e.zoom);
-  let cw = rw, chh = rw*aspect;
-  if(chh > rh){ chh = rh; cw = rh/aspect; }
-  cw /= zoom; chh /= zoom;
-  const cx = Math.min(Math.max(e.offX*rw, cw/2), rw - cw/2);
-  const cy = Math.min(Math.max(e.offY*rh, chh/2), rh - chh/2);
-  const outW = outSize, outH = Math.max(1, Math.round(outSize*aspect));
-  const oc = document.createElement('canvas'); oc.width = outW; oc.height = outH;
-  const ctx = oc.getContext('2d');
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(rc, cx-cw/2, cy-chh/2, cw, chh, 0, 0, outW, outH);
-  const d = ctx.getImageData(0, 0, outW, outH), p = d.data;
-  const clamp = v=>v<0?0:v>255?255:v;
-  // LUZ (temperatura / sombras / luces) — antes del auto y de los ajustes: son
-  // correcciones de la escena, no de estilo. Pesos cuadráticos por luminancia:
-  // sombras solo empuja lo oscuro, luces solo lo brillante.
-  if(e.temp || e.shadows || e.highlights){
-    const tR = 1 + (e.temp||0)/180, tB = 1 - (e.temp||0)/180;
-    const sh = (e.shadows||0)*0.9, hl = (e.highlights||0)*0.9;
-    for(let i=0; i<p.length; i+=4){
-      let r=p[i]*tR, g=p[i+1], b=p[i+2]*tB;
-      const lum = (0.2126*r+0.7152*g+0.0722*b)/255;
-      const wS = (1-lum)*(1-lum), wH = lum*lum;
-      const lift = sh*wS + hl*wH;
-      r+=lift; g+=lift; b+=lift;
-      p[i]=clamp(r); p[i+1]=clamp(g); p[i+2]=clamp(b);
-    }
-  }
-  if(e.auto){
-    // Auto-niveles POR CANAL con recorte del 1%: estira exposición y contraste
-    // y de paso corrige el tinte (la luz amarilla del local) — el clásico "Auto".
-    for(let ch=0; ch<3; ch++){
-      const hist = new Uint32Array(256);
-      for(let i=ch; i<p.length; i+=4) hist[p[i]]++;
-      const cut = (p.length/4)*0.01;
-      let lo=0, acc=0; while(lo<255 && acc<cut) acc += hist[lo++];
-      let hi=255; acc=0; while(hi>0 && acc<cut) acc += hist[hi--];
-      const range = Math.max(1, hi-lo);
-      for(let i=ch; i<p.length; i+=4) p[i] = clamp((p[i]-lo)*255/range);
-    }
-  }
-  // Misma matemática que el CSS filter del preview (brightness → contrast →
-  // saturate, en ese orden) — solo en el horneado FINAL.
-  const bF = 1+e.bright/100, cF = 1+e.contrast/100, sF = 1+e.sat/100;
-  if(withAdjust && (e.bright || e.contrast || e.sat)){
-    for(let i=0; i<p.length; i+=4){
-      let r=p[i]*bF, g=p[i+1]*bF, b=p[i+2]*bF;
-      r=(r-127.5)*cF+127.5; g=(g-127.5)*cF+127.5; b=(b-127.5)*cF+127.5;
-      const lum = 0.2126*r+0.7152*g+0.0722*b;
-      r=lum+(r-lum)*sF; g=lum+(g-lum)*sF; b=lum+(b-lum)*sF;
-      p[i]=clamp(r); p[i+1]=clamp(g); p[i+2]=clamp(b);
-    }
-  }
-  if(e.sharp>0){
-    const amt = e.sharp/100*0.9, w = outW, h = outH, src = new Uint8ClampedArray(p);
-    for(let y=1; y<h-1; y++) for(let x=1; x<w-1; x++){
-      const i=(y*w+x)*4;
-      for(let ch=0; ch<3; ch++){
-        const c=i+ch;
-        const blur=(src[c-4]+src[c+4]+src[c-w*4]+src[c+w*4]+src[c]*4)/8;
-        p[c]=clamp(src[c]+amt*(src[c]-blur));
-      }
-    }
-  }
-  ctx.putImageData(d, 0, 0);
-  return {base64: oc.toDataURL('image/jpeg', 0.82).split(',')[1], mediaType:'image/jpeg'};
-}
-/* size: 480 al soltar (nítido); 320 MIENTRAS se arrastra nitidez/temperatura/
-   sombras/luces (auditoría 2026-09-07: el horneado de 480 con ajustes medía
-   ~90 ms en escritorio, 300-450 en un teléfono medio — a 320 baja a menos de
-   la mitad y el deslizador sigue al dedo). */
-async function refreshCatalogEditPreview(size){
-  if(!catalogEditFull) return;
-  const req = ++catalogEditPrevReq;
-  catalogEditBaking = true;
-  try{
-    const out = await bakeCatalogEdit(size||480, false); // sin b/c/s: esos van por CSS
-    if(req!==catalogEditPrevReq || !catalogEditorOpen) return;
-    catalogEditPreviewUrl = 'data:image/jpeg;base64,'+out.base64;
-  }catch(err){}
-  if(req!==catalogEditPrevReq) return;
-  catalogEditBaking = false;
-  catalogEditBakedZoom = catalogEdit.zoom;
-  // El preview se actualiza EN el <img> directo (sin render completo): un render
-  // por movimiento de deslizador reconstruiría el propio deslizador a mitad del
-  // arrastre. La transform temporal (zoom/arrastre en vivo) se resetea porque el
-  // horneado nuevo ya la incorpora; el CSS filter se re-aplica por si acaso.
-  const img = document.getElementById('catalog-edit-preview');
-  if(img && catalogEditPreviewUrl){
-    img.src = catalogEditPreviewUrl;
-    img.style.transform = '';
-    img.style.filter = cssFilterForEdit();
-  } else render();
-}
-function resolveCatalogSuggestion(res){
-  if(!res) return null;
-  const norm = s=>String(s||'').toLowerCase().trim();
-  // 1) La IA ya emparejó contra el inventario (matched_inventory_name exacto).
-  const mName = norm(res.matched_inventory_name);
-  if(mName){
-    const it = inventory.find(i=>i && !isExpenseItem(i) && norm(i.name)===mName);
-    if(it) return {kind:'item', id:it.id};
-  }
-  // 2) Red de seguridad por nombre contenido, productos primero y piezas después.
-  const rName = norm(res.name);
-  if(rName){
-    const it2 = inventory.find(i=>i && !isExpenseItem(i) && (norm(i.name).includes(rName) || rName.includes(norm(i.name))));
-    if(it2) return {kind:'item', id:it2.id};
-    const rec = recipes.find(r=>r && r.id && (norm(r.name).includes(rName) || rName.includes(norm(r.name))));
-    if(rec) return {kind:'recipe', id:rec.id};
-  }
-  return null;
-}
-function catalogUrl(){ return catalogId ? (location.origin + '/c/' + catalogId) : null; }
-/* PUBLICACIÓN AUTOMÁTICA (2026-09-06, "borra ese settings de raíz"): con el
-   catálogo ya publicado, cada cambio relevante (selección, foto asignada, alta
-   subida) agenda una republicación silenciosa a los 4s — los cambios seguidos
-   se agrupan en una sola. La PRIMERA publicación sigue siendo explícita (el
-   modal de Compartir), que es donde se configuran número, canales y redes. */
-let catalogAutoPublishTimer = null;
-function scheduleCatalogAutoPublish(){
-  if(!catalogId || !currentUser || currentUser.isAnonymous) return;
-  clearTimeout(catalogAutoPublishTimer);
-  catalogAutoPublishTimer = setTimeout(()=>{ publishCatalogNow(true); }, 4000);
-}
-/* Los 4 filtros de edición más usados (pedido del usuario 2026-09-06), a puro
-   píxel (getImageData) a propósito: ctx.filter no existe en Safari viejo y los
-   thumbnails de 300px hacen esto instantáneo en cualquier teléfono.
-   - vivid: saturación + contraste (el "pop" de producto de Instagram)
-   - warm:  temperatura cálida (dorado de comida/atardecer)
-   - retro: sepia parcial + negros lavados (look de película)
-   - bw:    blanco y negro con un toque de contraste */
-async function applyCatalogFilter(orig, key){
-  if(!orig) return null;
-  if(key==='original') return {base64: orig.base64, mediaType: orig.mediaType};
-  const img = await new Promise((res, rej)=>{
-    const im = new Image();
-    im.onload = ()=>res(im);
-    im.onerror = ()=>rej(new Error(t('err_img_process')));
-    im.src = 'data:'+(orig.mediaType||'image/jpeg')+';base64,'+orig.base64;
-  });
-  const cv = document.createElement('canvas');
-  cv.width = img.naturalWidth; cv.height = img.naturalHeight;
-  const ctx = cv.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  const d = ctx.getImageData(0, 0, cv.width, cv.height), p = d.data;
-  const clamp = v => v<0 ? 0 : v>255 ? 255 : v;
-  for(let i=0;i<p.length;i+=4){
-    let r=p[i], g=p[i+1], b=p[i+2];
-    const lum = 0.299*r + 0.587*g + 0.114*b;
-    if(key==='vivid'){
-      r = lum+(r-lum)*1.4; g = lum+(g-lum)*1.4; b = lum+(b-lum)*1.4;
-      r = (r-128)*1.12+128; g = (g-128)*1.12+128; b = (b-128)*1.12+128;
-    } else if(key==='warm'){
-      r = r*1.08+10; g = g*1.03+4; b = b*0.92;
-    } else if(key==='retro'){
-      const sr = r*0.393+g*0.769+b*0.189, sg = r*0.349+g*0.686+b*0.168, sb = r*0.272+g*0.534+b*0.131;
-      r = r*0.45+sr*0.55; g = g*0.45+sg*0.55; b = b*0.45+sb*0.55;
-      r = r*0.9+22; g = g*0.9+22; b = b*0.9+22;
-    } else if(key==='bw'){
-      const v = (lum-128)*1.08+128; r = v; g = v; b = v;
-    }
-    p[i]=clamp(r); p[i+1]=clamp(g); p[i+2]=clamp(b);
-  }
-  ctx.putImageData(d, 0, 0);
-  return {base64: cv.toDataURL('image/jpeg', 0.8).split(',')[1], mediaType: 'image/jpeg'};
-}
-function catalogPhotoThumbSrc(photo){
-  if(!photo) return null;
-  if(photo.base64) return cachedPhotoUrl(photo.base64, photo.mediaType);
-  return photo.url || null;
-}
-function catalogoView(){
-  const sellables = inventory.filter(i=>i && !isExpenseItem(i));
-  const sellableRecipes = recipes.filter(r=>r && r.id);
-  // Tarjeta-botón IGUAL que la del Inventario (misma .inv-tile en la misma
-  // .inv-grid con el mismo selector fila/2col/3col — pedido del usuario
-  // 2026-09-06): tocarla marca/desmarca el producto para el catálogo. La
-  // seleccionada va a pleno color con su ✓ verde; la no seleccionada, apagada.
-  // Tarjeta = SOLO la foto, semi-cuadrada (pedido del usuario 2026-09-06: sin
-  // círculos y sin descripción — igual que la página pública). El nombre y el
-  // precio no se muestran; el title/aria los conserva. Sin foto, el nombre
-  // centrado hace de imagen (si no, el cuadrado sería mudo). TODAS las fotos van
-  // a pleno brillo (el atenuado de las no seleccionadas hacía ver la pantalla
-  // apagada — pedido del usuario 2026-09-06); la selección se lee SOLO por el
-  // ✓ verde y su borde.
-  // Vista de FILAS (verificación 2026-09-07): el cuadrado a todo el ancho daba
-  // fichas de 347px de alto con el thumbnail de 300px estirado — una foto por
-  // pantalla. En filas la ficha es una línea: foto chica a la izquierda, el
-  // nombre completo (acá sí cabe) y el ✓ a la derecha, como la lista de Fotos.
-  const tile = (kind, id, name, photoSrc, checked)=>{
-    const check = checked
-      ? `<span style="width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;pointer-events:none;flex-shrink:0;">✓</span>`
-      : '';
-    const border = checked ? 'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));' : '';
-    // Vuelo de VUELTA del visor: la miniatura del producto que se estaba viendo
-    // lleva el nombre de transición un render (ver catalogViewerReturnTo).
-    const vt = (catalogViewerReturnTo && catalogViewerReturnTo.kind===kind && catalogViewerReturnTo.id===id) ? 'view-transition-name:catalog-photo;' : '';
-    if(invLayout==='rows'){
-      return `
-    <div class="inv-tile" data-key="cat:${kind}:${id}" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="display:flex;flex-direction:row;align-items:center;gap:12px;padding:8px 12px 8px 8px;${border}">
-      <span style="width:58px;height:58px;border-radius:12px;overflow:hidden;flex-shrink:0;background:var(--inset);display:flex;align-items:center;justify-content:center;">
-        ${photoSrc
-          ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;${vt}">`
-          : lineIcon('tag',20)}
-      </span>
-      <span style="flex:1;min-width:0;font-weight:700;font-size:15px;color:var(--ink);overflow-wrap:anywhere;">${escapeHtml(name)}</span>
-      ${check}
-    </div>`;
-    }
-    return `
-    <div class="inv-tile" data-key="cat:${kind}:${id}" data-cat-toggle="${kind}:${id}" role="button" tabindex="0" aria-pressed="${checked}" title="${escapeHtml(name)}" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;${border}">
-      ${checked?`<span style="position:absolute;top:6px;right:6px;z-index:2;">${check}</span>`:''}
-      ${photoSrc
-        ? `<img src="${escapeHtml(photoSrc)}" alt="" ${imgLoadAttr(photoSrc)} decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;${vt}">`
-        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-weight:800;font-size:12.5px;color:var(--ink);overflow-wrap:anywhere;background:var(--inset);">${escapeHtml(invShortName(name))}</div>`}
-    </div>`;
-  };
-  const itemTile = (i)=> tile('item', i.id, i.name, catalogPhotoThumbSrc(i.photo), !!i.inCatalog);
-  const recipeTile = (r)=> tile('recipe', r.id, r.name, catalogPhotoThumbSrc(r.photo), !!r.inCatalog);
-  const url = catalogUrl();
-  return `
-  ${/* Sin encabezado ni tarjeta de link arriba (el usuario lo tachó de raíz,
-       captura 2026-09-06). Lo operativo (WhatsApp, publicar, despublicar)
-       vive compacto al FINAL, después de la lista. */''}
-  ${/* FILA DE HERRAMIENTAS con etiqueta (referencia del usuario 2026-09-06:
-       una app de edición "bien organizada" — botones grandes redondos con su
-       nombre debajo, parejos): Galería · CÁMARA (la protagonista, más grande,
-       con su badge ✎) · Seleccionar · Compartir. SIEMPRE visible — también sin
-       productos todavía (sin la cámara a mano, un usuario nuevo no puede ni
-       empezar; bug cazado en la verificación 2026-09-06). */''}
-  ${(()=>{
-      const tool = (id, inner, label, extra)=>`
-        <button type="button" id="${id}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:64px;">
-          ${inner}
-          <span class="cat-tool-label" style="${extra||''}">${label}</span>
-        </button>`;
-      const ring = (svg, cls, on)=>`
-        <span class="cat-tool-ring ${cls}" style="${on?'outline:3px solid var(--sky);outline-offset:2px;':''}">${svg}</span>`;
-      const shareSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>';
-      const collageSvg = '<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>';
-      return `
-    ${/* Tarjeta elevada estilo "Create New" de InShot (segunda captura del
-         usuario): los círculos con gradiente y etiqueta viven juntos en una
-         tarjeta redondeada — la casa de las herramientas del catálogo. */''}
-    ${/* Sin tarjeta contenedora (el usuario la tachó, captura 2026-09-06): los
-         círculos flotan directo sobre la página, cada uno ya trae su sombra. */''}
-    ${/* CUADRO DE COLOR (pedido del usuario 2026-09-08, captura del Dashboard
-         con la tarjeta verde marcada: "solo poner en el cuadro la cámara y lo
-         demás"): la fila de herramientas vive dentro de la misma tarjeta de
-         color que el presupuesto (.dash-budget), en VIOLETA (--tile-4, pedido
-         del usuario: "la cámara ya es verde, escoge un color con el que el
-         menú se vea bien") — contrasta con el coral, el amarillo, el verde y
-         la cámara en cualquier tema — con los anillos ribeteados en blanco. */''}
-    <div class="stat-card dash-month dash-budget catalog-tools-card">
-      ${/* SIN engranaje (el usuario lo borró de raíz): la publicación es
-           AUTOMÁTICA — cada cambio del catálogo se publica solo (ver
-           scheduleCatalogAutoPublish). La config de una vez vive en la primera
-           publicación (Compartir) y después en Ajustes generales. */''}
-      ${/* Sin el título "Herramientas del catálogo" (el usuario lo borró de raíz,
-           2026-09-07): los tres círculos con su etiqueta ya se explican solos. */''}
-      ${/* align-items:flex-end (verificación 2026-09-07): con flex-start las
-           etiquetas Collage/Compartir quedaban 25px más arriba que "Cámara"
-           (el círculo grande empuja la suya). Alineadas por abajo, las tres
-           palabras comparten renglón y la cámara sobresale por arriba — el
-           patrón de la fila de herramientas de InShot. */''}
-      <div style="display:flex;justify-content:space-evenly;align-items:flex-end;gap:4px;padding:2px 0;">
-        ${/* Orden (pedido del usuario 2026-09-06): la CÁMARA primera desde la
-             DERECHA — donde cae el pulgar. Galería se FUSIONÓ en la Cámara
-             (pedido del usuario: "eso ahí está demasiado"): sin capture, el
-             teléfono ofrece Tomar foto y Fototeca en la misma hoja nativa. */''}
-        ${tool('btn-catalog-collage', ring(collageSvg, 'cat-collage'), t('catalog_tool_collage'))}
-        ${/* PLANTILLAS (pedido del usuario 2026-09-07): catálogo en grilla, lista
-             de precios, menú de restaurante u oferta, como imagen para compartir. */''}
-        ${tool('btn-catalog-templates', ring('<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>', 'cat-templates'), t('catalog_tool_templates'))}
-        ${tool('btn-catalog-share-top', ring(shareSvg, 'cat-share'), t('catalog_share_btn'))}
-        <button type="button" id="btn-catalog-photo" aria-label="${t('catalog_photo_fab_aria')}" style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;min-width:76px;">
-          ${/* Mismo porte que los escáneres (76px de .shelf-scan-fab, ícono 32 —
-               pedido del usuario 2026-09-07): sin el override de 64px de antes. */''}
-          <span class="shelf-fab-wrap" style="display:inline-block;">
-            <span class="shelf-scan-fab" style="display:flex;">${lineIcon('camera',32)}</span>
-            <span class="shelf-minus-badge" style="pointer-events:none;background:var(--sky);display:flex;align-items:center;justify-content:center;">✎</span>
-          </span>
-          <span class="cat-tool-label" style="font-weight:800;">${t('catalog_tool_camera')}</span>
-        </button>
-      </div>
-    </div>`;
-    })()}
-  ${sellables.length===0 && sellableRecipes.length===0
-    ? (()=>{
-      /* ÍTEMS DE EJEMPLO para el usuario nuevo (pedido 2026-09-06): tarjetas
-         ficticias — visuales, no datos, nada que sincronizar — que muestran
-         cómo se ve el catálogo (grupos, cuadrados, el ✓ de seleccionado).
-         Desaparecen SOLAS en cuanto existe el primer producto real, porque solo
-         viven en esta rama vacía. pointer-events:none: no se tocan. */
-      const ex = uiLang==='en'
-        ? [['👕','T-shirt',true],['☕','Mug',true],['🧢','Cap',false],['🔌','Cable',true]]
-        : [['👕','Camiseta',true],['☕','Taza',true],['🧢','Gorra',false],['🔌','Cable',true]];
-      return `
-      <div class="category-group-header" style="margin-top:26px;">${uiLang==='en'?'Example':'Ejemplo'} <span>${ex.length}</span></div>
-      <div class="inv-grid cols2" style="pointer-events:none;">
-        ${ex.map(([e,n,chk])=>`
-        <div class="inv-tile" style="position:relative;padding:0;overflow:hidden;aspect-ratio:1/1;display:block;opacity:.8;${chk?'border-color:color-mix(in srgb, var(--basil) 55%, var(--line));':''}">
-          ${chk?`<span style="position:absolute;top:6px;right:6px;z-index:2;width:22px;height:22px;border-radius:50%;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;">✓</span>`:''}
-          <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--inset);">
-            <span style="font-size:40px;">${e}</span>
-            <span style="font-weight:800;font-size:13.5px;color:var(--ink);">${n}</span>
-            <span style="font-size:10px;font-weight:700;color:var(--ink-soft);background:var(--raised);border-radius:6px;padding:2px 8px;">${t('budget_exp_example_tag')}</span>
-          </div>
-        </div>`).join('')}
-      </div>
-      <div class="helper-note" style="margin-top:12px;">${t('catalog_examples_note')}</div>`;
-    })()
-    : `
-    ${/* Misma organización que el Inventario: grupos por categoría y las mismas
-         tarjetas en la grilla fila/2col/3col con el selector compartido. */''}
-    ${/* Seleccionar vive a la IZQUIERDA de esta fila (donde lo señaló el
-         usuario, captura 2026-09-06), frente al selector de vista. */''}
-    <div class="inv-toolbar" style="justify-content:space-between;align-items:center;gap:8px;margin-top:26px;">
-      ${/* Seleccionar SIN caja (pedido del usuario): texto pelado, como el
-           "Select" de iOS Fotos — verde cuando el modo está activo. */''}
-      <button type="button" id="btn-catalog-select" style="background:none;border:none;cursor:pointer;padding:8px 4px;font-weight:800;font-size:15px;color:${catalogSelectMode?'var(--basil)':'var(--ink)'};">${catalogSelectMode ? '✓ '+t('catalog_select_done') : t('catalog_select_btn')}</button>
-      ${/* En modo selección (auditoría 2026-09-07, patrón iOS Fotos / Material 3):
-           contador "N seleccionados" + Todos / Ninguno en lugar del selector de
-           vista — que ahí no hace falta. */''}
-      ${catalogSelectMode ? (()=>{
-          const n = sellables.filter(i=>i.inCatalog).length + sellableRecipes.filter(r=>r.inCatalog).length;
-          return `
-      <span style="display:flex;align-items:center;gap:6px;min-width:0;">
-        <span id="catalog-select-count" style="font-size:13px;font-weight:800;color:var(--basil);white-space:nowrap;font-variant-numeric:tabular-nums;">${t('catalog_select_count').replace('{n}', n)}</span>
-        <button type="button" class="exit-reason-chip" id="btn-catalog-select-all" style="padding:5px 10px;font-size:12.5px;">${t('catalog_select_all')}</button>
-        <button type="button" class="exit-reason-chip" id="btn-catalog-select-none" style="padding:5px 10px;font-size:12.5px;">${t('catalog_select_none')}</button>
-      </span>`;
-        })() : invLayoutToggleHtml()}
-    </div>
-    ${/* La ayuda del modo selección ya NO va en línea (verificación 2026-09-07):
-         al entrar/salir del modo la nota aparecía y desaparecía empujando toda
-         la grilla ~35px — un salto de layout. Ahora sale como toast al entrar
-         (app-07), y la grilla no se mueve. */''}
-    ${/* "FALTAN FOTOS" primero (auditoría 2026-09-07, patrón de estado vacío de
-         NN/g): los productos sin foto se agrupan arriba, con su propio contador,
-         en vez de perderse como cuadrados de texto entre los que sí tienen — el
-         empujón visible para sacarlas. Con foto, cada uno en su categoría. */''}
-    ${(()=>{
-        const noPhoto = sellables.filter(i=>!catalogPhotoThumbSrc(i.photo));
-        const withPhoto = sellables.filter(i=>!!catalogPhotoThumbSrc(i.photo));
-        const gridCls = `inv-grid ${invLayout}${catalogSelectMode?' cat-selecting':''}`;
-        return `
-    ${noPhoto.length>0 ? `
-      <div class="category-group-header" style="color:var(--saffron-ink, var(--ink-soft));">📷 ${t('catalog_missing_photos')} <span>${noPhoto.length}</span></div>
-      <div class="${gridCls}" style="margin-bottom:16px;">${noPhoto.map(itemTile).join('')}</div>` : ''}
-    ${groupRowsByCategory(withPhoto.map(i=>({ing:i}))).map(g=>`
-      <div class="category-group-header">${escapeHtml(g.name)} <span>${g.rows.length}</span></div>
-      <div class="${gridCls}" style="margin-bottom:16px;">${g.rows.map(r=>itemTile(r.ing)).join('')}</div>
-    `).join('')}
-    ${sellableRecipes.length>0 ? `
-      <div class="category-group-header">${t('catalog_recipes_header')} <span>${sellableRecipes.length}</span></div>
-      <div class="${gridCls}" style="margin-bottom:16px;">${sellableRecipes.map(recipeTile).join('')}</div>` : ''}`;
-      })()}`}
-  ${/* Sin bloque de publicación en la página (el usuario lo tachó de raíz,
-       captura 2026-09-06): la pestaña queda limpia — herramientas y fotos.
-       Todo lo de publicar vive en el MODAL que abre la herramienta Compartir. */''}
-  <div style="height:26px;"></div>`;
-}
-
-/* ================= COLLAGE CON DISEÑOS =================
-   (referencia del usuario 2026-09-06: la galería de layouts de las apps de
-   collage). Tras elegir 2-4 fotos se abre el selector: cuadrículas clásicas y
-   los "Pinboard" — fotos inclinadas estilo polaroid con marco blanco y sombra
-   sobre fondo de estudio. Curado para fotos de producto. */
-/* MODAL DE CÁMARA del Catálogo (intro única, captura del usuario 2026-09-07):
-   el mismo modal con caja punteada que Recibos, Productos y Estante — título,
-   una línea, la caja "Tocá para sacar o elegir una foto" y Cancelar. Tocar la
-   caja abre la CÁMARA directo y el link de abajo la galería (decisión final
-   del usuario: sin hojas intermedias); con la foto elegida este modal se
-   cierra y aparece el de asignar. */
-let showCatalogCameraModal = false;
-function catalogCameraModal(){
-  return `
-  <div class="overlay overlay-fast" id="catalog-camera-overlay">
-    <div class="modal">
-      <h3 class="sky">${t('catalog_camera_title')}</h3>
-      <div class="sub">${t('catalog_camera_sub')}</div>
-      <div class="drop-zone" id="catalog-drop-zone">
-        <div class="dz-icon">${lineIcon('camera',26)}</div>
-        <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
-      </div>
-      <button type="button" id="btn-catalog-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
-      <div class="scan-tip">📷 ${t('catalog_tip')}</div>
-      ${scanQuotaLineHtml()}
-      <div class="modal-actions" style="margin-top:0;">
-        <button class="btn btn-ghost" id="btn-cancel-catalog-camera" style="width:100%;">${t('btn_cancel')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-/* ================= PLANTILLAS (pedido del usuario 2026-09-07) =================
-   Cuarta herramienta del Catálogo: arma una IMAGEN lista para compartir o
-   imprimir con los productos — catálogo en grilla, lista de precios, menú de
-   restaurante u oferta — en formato post (1080²), historia (1080×1920) u hoja
-   (1240×1754, A4 a 150 dpi). Todo a canvas local con las miniaturas base64
-   (nunca URLs remotas: pintarlas mancharía el canvas y no se podría exportar).
-   Varias páginas cuando no entran; Compartir manda todas como archivos. */
-let showTemplateModal = false;
-let tplKind = 'grid', tplFormat = 'post', tplStyle = 'dark', tplScope = 'catalog';
-let tplPage = 0, tplOfferId = null, tplRendering = false, tplReq = 0;
-let tplPreviewUrl = null;
-const TPL_FORMATS = { post:[1080,1080], story:[1080,1920], sheet:[1240,1754] };
-const TPL_STYLES = {
-  dark:  {bg:'#0f1522', panel:'#171d2c', ink:'#f2f4f8', soft:'#9aa3b5', accent:'#6fd38f', line:'#2a3244', serif:false},
-  light: {bg:'#ffffff', panel:'#f3f4f6', ink:'#151515', soft:'#6b7280', accent:'#2f7d4f', line:'#e5e7eb', serif:false},
-  warm:  {bg:'#f6efe3', panel:'#fff9ef', ink:'#2b1d12', soft:'#8a705a', accent:'#b5532a', line:'#e6d8c3', serif:true}
-};
-function templateItems(){
-  const useAll = tplScope==='all';
-  const out = [];
-  inventory.filter(i=>i && !isExpenseItem(i) && (useAll || i.inCatalog)).forEach(i=>{
-    const cat = categories.find(c=>c.id===i.categoryId);
-    out.push({id:i.id, name:i.name, price:Number(i.salePrice)||0, unit:i.unit||'', photo:(i.photo && i.photo.base64) ? i.photo : null, category: cat ? cat.name : ''});
-  });
-  recipes.filter(r=>r && r.id && (useAll || r.inCatalog)).forEach(r=>{
-    out.push({id:r.id, name:r.name, price:Number(r.salePrice)||0, unit:'', photo:(r.photo && r.photo.base64) ? r.photo : null, category: t('catalog_recipes_header')});
-  });
-  return out;
-}
-// Cuántos productos entran por página en cada diseño y formato.
-function tplCapacity(kind, fmt){
-  const c = { grid:{post:9, story:15, sheet:20}, list:{post:12, story:24, sheet:32}, menu:{post:11, story:22, sheet:30}, offer:{post:1, story:1, sheet:1}, cats:{post:5, story:9, sheet:11} };
-  return c[kind][fmt];
-}
-function tplPages(kind = tplKind){
-  const items = templateItems();
-  if(kind==='offer'){
-    const one = items.find(i=>i.id===tplOfferId) || items[0];
-    return one ? [[one]] : [];
-  }
-  if(kind==='cats'){
-    // POR CATEGORÍAS (referencia del usuario 2026-09-07: banda de color a la
-    // izquierda y tarjetas blancas con foto redonda, "Pizza · 25 items"):
-    // la primera página es la portada con una tarjeta por categoría; después,
-    // una tarjeta por producto agrupada por categoría, en el mismo estilo.
-    // Sirve igual para un menú de restaurante o un catálogo de ferretería.
-    const cap = tplCapacity('cats', tplFormat);
-    const groups = {}; const order = [];
-    items.forEach(it=>{ const k=it.category||''; if(!(k in groups)){ groups[k]=[]; order.push(k); } groups[k].push(it); });
-    const cats = order.map(k=>({name: k || t('categories_uncategorized'), count: groups[k].length, photo: (groups[k].find(i=>i.photo)||{}).photo || null}));
-    const pages = [];
-    for(let i=0;i<cats.length;i+=cap) pages.push({cover:true, cats:cats.slice(i,i+cap)});
-    const lines = []; order.forEach(k=>{ if(k) lines.push({h:k}); groups[k].forEach(it=>lines.push({it})); });
-    for(let i=0;i<lines.length;i+=cap) pages.push(lines.slice(i,i+cap));
-    return pages;
-  }
-  if(kind==='menu'){
-    // Agrupado por categoría (en el orden del usuario); los encabezados
-    // también cuentan como renglón. Un grupo puede seguir en la página siguiente.
-    const cap = tplCapacity('menu', tplFormat);
-    const groups = {}; const order = [];
-    items.forEach(it=>{ const k=it.category||''; if(!(k in groups)){ groups[k]=[]; order.push(k); } groups[k].push(it); });
-    const lines = []; order.forEach(k=>{ if(k) lines.push({h:k}); groups[k].forEach(it=>lines.push({it})); });
-    const pages = []; for(let i=0;i<lines.length;i+=cap) pages.push(lines.slice(i,i+cap));
-    return pages;
-  }
-  const cap = tplCapacity(kind, tplFormat);
-  const pages = []; for(let i=0;i<items.length;i+=cap) pages.push(items.slice(i,i+cap));
-  return pages;
-}
-// --- helpers de dibujo ---
-function tplRoundRect(ctx, x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-function tplCover(ctx, im, x, y, w, h, r){
-  ctx.save(); tplRoundRect(ctx,x,y,w,h,r); ctx.clip();
-  const s = Math.max(w/im.naturalWidth, h/im.naturalHeight);
-  const dw = im.naturalWidth*s, dh = im.naturalHeight*s;
-  ctx.drawImage(im, x+(w-dw)/2, y+(h-dh)/2, dw, dh); ctx.restore();
-}
-function tplFont(st, weight, size){ return `${weight} ${size}px ${st.serif ? 'Georgia, "Times New Roman", serif' : '-apple-system, "Segoe UI", Roboto, sans-serif'}`; }
-function tplFit(ctx, text, maxW){ let s=String(text||''); if(ctx.measureText(s).width<=maxW) return s; while(s.length>1 && ctx.measureText(s+'…').width>maxW) s=s.slice(0,-1); return s+'…'; }
-function tplWrap(ctx, text, maxW, maxLines){
-  const words = String(text||'').split(/\s+/); const lines=[]; let cur='';
-  for(const w of words){ const tst = cur ? cur+' '+w : w; if(ctx.measureText(tst).width<=maxW || !cur) cur=tst; else { lines.push(cur); cur=w; if(lines.length===maxLines) break; } }
-  if(lines.length<maxLines && cur) lines.push(cur);
-  if(lines.length===maxLines && words.join(' ')!==lines.join(' ')) lines[maxLines-1]=tplFit(ctx, lines[maxLines-1]+'…', maxW);
-  return lines;
-}
-function tplPriceText(it){ return it.price>0 ? money(it.price) + (it.unit && it.unit!=='unidad' ? '/'+unitLabel(it.unit) : '') : t('tpl_price_ask'); }
-async function tplImages(items){
-  const map = new Map();
-  await Promise.all(items.filter(it=>it && it.photo).map(async it=>{ try{ map.set(it.id, await loadB64Image(it.photo)); }catch(e){} }));
-  return map;
-}
-async function composeTemplatePage(page, pageIdx, total, kind = tplKind){
-  const [W,H] = TPL_FORMATS[tplFormat]; const st = TPL_STYLES[tplStyle];
-  const cv = document.createElement('canvas'); cv.width=W; cv.height=H;
-  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-  ctx.fillStyle = st.bg; ctx.fillRect(0,0,W,H);
-  const pad = Math.round(W*0.06);
-  const title = businessName || 'Dusty';
-  // Encabezado: nombre del negocio + qué es.
-  ctx.fillStyle = st.ink; ctx.textBaseline='top'; ctx.textAlign='left';
-  ctx.font = tplFont(st, 800, Math.round(W*0.052)); ctx.fillText(tplFit(ctx, title, W-pad*2), pad, pad);
-  ctx.fillStyle = st.soft; ctx.font = tplFont(st, 600, Math.round(W*0.026));
-  const sub = kind==='menu' ? '' : t('tpl_kind_'+kind) + (total>1 ? ' · '+t('tpl_page').replace('{i}', pageIdx+1).replace('{n}', total) : '');
-  if(sub) ctx.fillText(sub, pad, pad + Math.round(W*0.062));
-  const top = pad + Math.round(W*(sub ? 0.11 : 0.085));
-  // Pie: WhatsApp / link.
-  const footH = Math.round(W*0.06);
-  const foot = catalogWhatsApp ? `${t('tpl_menu_footer')} · +${String(catalogWhatsApp).replace(/\D/g,'')}` : (catalogUrl() ? catalogUrl().replace(/^https?:\/\//,'') : '');
-  if(foot){ ctx.fillStyle = st.soft; ctx.font = tplFont(st, 600, Math.round(W*0.024)); ctx.textAlign='center'; ctx.fillText(tplFit(ctx, foot, W-pad*2), W/2, H-pad-Math.round(W*0.03)); ctx.textAlign='left'; }
-  const bodyH = H - top - pad - footH;
-  const isLines = Array.isArray(page) && (kind==='menu' || kind==='cats');
-  const items = isLines ? page.filter(l=>l.it).map(l=>l.it) : (Array.isArray(page) ? page : []);
-  const imgs = (kind==='grid' || kind==='offer' || kind==='cats') ? await tplImages(items) : new Map();
-  if(kind==='grid'){
-    const cols = tplFormat==='sheet' ? 4 : 3;
-    const rows = Math.ceil(tplCapacity('grid', tplFormat)/cols);
-    const gap = Math.round(W*0.022);
-    const cw = (W - pad*2 - gap*(cols-1)) / cols;
-    const ch = Math.min(cw*1.45, (bodyH - gap*(rows-1)) / rows);
-    page.forEach((it, i)=>{
-      const x = pad + (i%cols)*(cw+gap), y = top + Math.floor(i/cols)*(ch+gap);
-      ctx.fillStyle = st.panel; tplRoundRect(ctx, x, y, cw, ch, Math.round(W*0.02)); ctx.fill();
-      // Foto arriba (56%), abajo dos renglones de nombre y el precio con aire
-      // entre ambos (verificación 2026-09-07: con 62% la segunda línea del
-      // nombre pisaba el precio).
-      const ph = ch*0.56; const im = imgs.get(it.id);
-      if(im) tplCover(ctx, im, x, y, cw, ph, Math.round(W*0.02));
-      else { ctx.fillStyle = st.line; tplRoundRect(ctx, x, y, cw, ph, Math.round(W*0.02)); ctx.fill(); }
-      ctx.fillStyle = st.ink; ctx.font = tplFont(st, 700, Math.round(cw*0.085));
-      const lines = tplWrap(ctx, it.name, cw - Math.round(W*0.03), 2);
-      lines.forEach((ln,k)=>ctx.fillText(ln, x+Math.round(W*0.015), y+ph+Math.round(cw*0.06)+k*Math.round(cw*0.105)));
-      ctx.fillStyle = it.price>0 ? st.accent : st.soft; ctx.font = tplFont(st, 800, Math.round(cw*0.1));
-      ctx.fillText(tplPriceText(it), x+Math.round(W*0.015), y+ch-Math.round(cw*0.15));
-    });
-  } else if(kind==='list'){
-    const rowH = bodyH / tplCapacity('list', tplFormat);
-    const fs = Math.min(Math.round(rowH*0.42), Math.round(W*0.034));
-    page.forEach((it, i)=>{
-      const y = top + i*rowH;
-      ctx.fillStyle = st.line; ctx.fillRect(pad, y+rowH-1, W-pad*2, 1);
-      ctx.fillStyle = st.ink; ctx.font = tplFont(st, 600, fs); ctx.textAlign='left';
-      const price = tplPriceText(it); ctx.font = tplFont(st, 800, fs); const pw = ctx.measureText(price).width;
-      ctx.font = tplFont(st, 600, fs); ctx.fillText(tplFit(ctx, it.name, W-pad*2-pw-Math.round(W*0.03)), pad, y+(rowH-fs)/2);
-      ctx.fillStyle = it.price>0 ? st.accent : st.soft; ctx.font = tplFont(st, 800, fs); ctx.textAlign='right'; ctx.fillText(price, W-pad, y+(rowH-fs)/2); ctx.textAlign='left';
-    });
-  } else if(kind==='menu'){
-    const rowH = bodyH / tplCapacity('menu', tplFormat);
-    const fs = Math.min(Math.round(rowH*0.44), Math.round(W*0.034));
-    let y = top;
-    page.forEach(l=>{
-      if(l.h){
-        ctx.fillStyle = st.accent; ctx.font = tplFont(st, 800, Math.round(fs*0.8)); ctx.textAlign='left';
-        ctx.fillText(String(l.h).toUpperCase(), pad, y+rowH*0.5-fs*0.4);
-        ctx.fillStyle = st.line; ctx.fillRect(pad, y+rowH-2, W-pad*2, 2);
-      } else {
-        const it = l.it; const price = tplPriceText(it);
-        ctx.fillStyle = it.price>0 ? st.ink : st.soft; ctx.font = tplFont(st, 800, fs); ctx.textAlign='right'; const pw = ctx.measureText(price).width;
-        ctx.fillText(price, W-pad, y+(rowH-fs)/2);
-        ctx.fillStyle = st.ink; ctx.font = tplFont(st, 500, fs); ctx.textAlign='left';
-        const name = tplFit(ctx, it.name, W-pad*2-pw-Math.round(W*0.06)); ctx.fillText(name, pad, y+(rowH-fs)/2);
-        // Puntitos guía entre nombre y precio, el alma de un menú.
-        const nx = pad + ctx.measureText(name).width + Math.round(W*0.012), ex = W-pad-pw-Math.round(W*0.012);
-        ctx.fillStyle = st.soft; for(let dx=nx; dx<ex; dx+=Math.round(fs*0.45)) ctx.fillRect(dx, y+rowH*0.5+fs*0.28, 2, 2);
-      }
-      y += rowH;
-    });
-  } else if(kind==='cats'){
-    // Banda de color a la izquierda bajo el encabezado, tarjetas claras con la
-    // foto redonda asomando por el borde izquierdo y la flecha a la derecha.
-    const band = Math.round(W*0.2);
-    // La banda arranca DEBAJO del encabezado (verificación 2026-09-07: pisaba el
-    // subtítulo "Página 1 de 5").
-    ctx.fillStyle = st.accent; ctx.fillRect(0, top - Math.round(pad*0.15), band, H - top + Math.round(pad*0.15));
-    const cardX = Math.round(band*0.55), cardW = W - cardX - pad, r = Math.round(W*0.03);
-    const rows = page.cover ? page.cats : page; const n = tplCapacity('cats', tplFormat);
-    const gap = Math.round(W*0.028); const ch = Math.min((bodyH - gap*(n-1))/n, W*0.19);
-    const cardBg = tplStyle==='dark' ? st.panel : '#ffffff';
-    // Fotos de las categorías de la portada (las de los productos ya están en imgs).
-    const coverImgs = new Map();
-    if(page.cover) await Promise.all(page.cats.map(async (c,i)=>{ if(c.photo){ try{ coverImgs.set(i, await loadB64Image(c.photo)); }catch(e){} } }));
-    rows.forEach((row, i)=>{
-      const y = top + i*(ch+gap);
-      if(!page.cover && row.h){
-        ctx.fillStyle = st.accent; ctx.font = tplFont(st, 800, Math.round(ch*0.26)); ctx.textAlign='left';
-        // El rótulo de la categoría va a la DERECHA de la banda (no encima).
-        ctx.fillText(String(row.h).toUpperCase(), band + Math.round(W*0.03), y + ch*0.5 - Math.round(ch*0.13));
-        return;
-      }
-      const name = page.cover ? row.name : row.it.name;
-      const sub = page.cover ? t('tpl_items_n').replace('{n}', row.count) : tplPriceText(row.it);
-      const im = page.cover ? coverImgs.get(i) : imgs.get(row.it.id);
-      ctx.save(); ctx.shadowColor='rgba(0,0,0,0.16)'; ctx.shadowBlur=Math.round(W*0.02); ctx.shadowOffsetY=Math.round(W*0.005);
-      ctx.fillStyle = cardBg; tplRoundRect(ctx, cardX, y, cardW, ch, r); ctx.fill(); ctx.restore();
-      const d = Math.round(ch*0.82), px = cardX - Math.round(d*0.38), py = y + Math.round((ch-d)/2);
-      if(im){ ctx.save(); ctx.shadowColor='rgba(0,0,0,0.22)'; ctx.shadowBlur=Math.round(W*0.015); ctx.beginPath(); ctx.arc(px+d/2, py+d/2, d/2, 0, Math.PI*2); ctx.closePath(); ctx.fillStyle=cardBg; ctx.fill(); ctx.restore();
-        ctx.save(); ctx.beginPath(); ctx.arc(px+d/2, py+d/2, d/2 - Math.round(W*0.004), 0, Math.PI*2); ctx.closePath(); ctx.clip();
-        const s = Math.max(d/im.naturalWidth, d/im.naturalHeight); ctx.drawImage(im, px+d/2-im.naturalWidth*s/2, py+d/2-im.naturalHeight*s/2, im.naturalWidth*s, im.naturalHeight*s); ctx.restore(); }
-      else { ctx.fillStyle = st.line; ctx.beginPath(); ctx.arc(px+d/2, py+d/2, d/2, 0, Math.PI*2); ctx.fill(); }
-      const tx = px + d + Math.round(W*0.03), maxW = cardW - (tx - cardX) - Math.round(ch*0.9);
-      ctx.fillStyle = tplStyle==='dark' ? st.ink : '#1f2a44'; ctx.font = tplFont(st, 800, Math.round(ch*0.27)); ctx.textAlign='left';
-      ctx.fillText(tplFit(ctx, name, maxW), tx, y + Math.round(ch*0.2));
-      ctx.fillStyle = (!page.cover && !(row.it.price>0)) ? st.soft : (page.cover ? st.soft : st.accent); ctx.font = tplFont(st, page.cover ? 500 : 800, Math.round(ch*0.19));
-      ctx.fillText(sub, tx, y + Math.round(ch*0.56));
-      // Flecha en círculo, pegada al borde derecho de la tarjeta.
-      const cr = Math.round(ch*0.24), cx = cardX + cardW - Math.round(cr*0.6), cy = y + ch/2;
-      ctx.save(); ctx.shadowColor='rgba(0,0,0,0.16)'; ctx.shadowBlur=Math.round(W*0.012); ctx.fillStyle=cardBg; ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.fill(); ctx.restore();
-      ctx.strokeStyle = st.accent; ctx.lineWidth = Math.max(2, Math.round(W*0.004)); ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx-cr*0.18, cy-cr*0.32); ctx.lineTo(cx+cr*0.16, cy); ctx.lineTo(cx-cr*0.18, cy+cr*0.32); ctx.stroke();
-    });
-  } else if(kind==='offer'){
-    const it = page[0]; const im = imgs.get(it.id);
-    const ph = Math.round(bodyH*0.6);
-    if(im) tplCover(ctx, im, pad, top, W-pad*2, ph, Math.round(W*0.03)); else { ctx.fillStyle=st.panel; tplRoundRect(ctx,pad,top,W-pad*2,ph,Math.round(W*0.03)); ctx.fill(); }
-    // Etiqueta OFERTA
-    ctx.fillStyle = st.accent; tplRoundRect(ctx, pad+Math.round(W*0.03), top+Math.round(W*0.03), Math.round(W*0.26), Math.round(W*0.075), Math.round(W*0.02)); ctx.fill();
-    ctx.fillStyle = st.bg; ctx.font = tplFont(st, 900, Math.round(W*0.036)); ctx.textAlign='center'; ctx.fillText(t('tpl_offer_label'), pad+Math.round(W*0.03)+Math.round(W*0.13), top+Math.round(W*0.03)+Math.round(W*0.019)); ctx.textAlign='left';
-    ctx.fillStyle = st.ink; ctx.font = tplFont(st, 800, Math.round(W*0.06));
-    const lines = tplWrap(ctx, it.name, W-pad*2, 2); lines.forEach((ln,k)=>ctx.fillText(ln, pad, top+ph+Math.round(W*0.04)+k*Math.round(W*0.072)));
-    ctx.fillStyle = st.accent; ctx.font = tplFont(st, 900, Math.round(W*0.12));
-    ctx.fillText(tplPriceText(it), pad, top+ph+Math.round(W*0.04)+lines.length*Math.round(W*0.072)+Math.round(W*0.02));
-  }
-  return cv;
-}
-async function refreshTemplatePreview(){
-  const req = ++tplReq; tplRendering = true;
-  try{
-    const pages = tplPages();
-    if(pages.length===0){ tplPreviewUrl=null; tplRendering=false; return; }
-    if(tplPage>=pages.length) tplPage = pages.length-1;
-    const cv = await composeTemplatePage(pages[tplPage], tplPage, pages.length);
-    if(req!==tplReq || !showTemplateModal) return;
-    tplPreviewUrl = cv.toDataURL('image/jpeg', 0.86);
-  }catch(e){ tplPreviewUrl=null; }
-  if(req!==tplReq) return;
-  tplRendering = false;
-  const img = document.getElementById('tpl-preview');
-  if(img && tplPreviewUrl){ img.src = tplPreviewUrl; img.style.opacity='1'; const sp=document.getElementById('tpl-spinner'); if(sp) sp.hidden=true; }
-  else render();
-}
-async function templatePageFiles(){
-  const pages = tplPages(); const files = [];
-  for(let i=0;i<pages.length;i++){
-    const cv = await composeTemplatePage(pages[i], i, pages.length);
-    const blob = await new Promise(res=>cv.toBlob(res, 'image/jpeg', 0.92));
-    const base = (businessName || 'dusty').replace(/[^\w\- ]+/g,'').trim().slice(0,30) || 'dusty';
-    files.push(new File([blob], `${base}-${t('tpl_kind_'+tplKind).toLowerCase().replace(/\s+/g,'-')}${pages.length>1?'-'+(i+1):''}.jpg`, {type:'image/jpeg'}));
-  }
-  return files;
-}
-/* GALERÍA de miniaturas (pedido del usuario 2026-09-07: "que se vean las maquetas
-   para que el cliente vea cómo va a quedar"): cada diseño se dibuja de verdad
-   con los productos del usuario, en chico, y se elige tocando la miniatura.
-   Se re-dibujan al cambiar formato, estilo o alcance (la clave lo resume). */
-const TPL_KINDS = ['cats','grid','menu','list','offer'];
-let tplThumbs = {};       // {kind: dataURL} para la clave actual
-let tplThumbsKey = '';
-let tplThumbsReq = 0;
-async function refreshTemplateThumbs(){
-  const key = tplFormat+'|'+tplStyle+'|'+tplScope+'|'+(tplOfferId||'')+'|'+templateItems().length;
-  if(tplThumbsKey===key && Object.keys(tplThumbs).length===TPL_KINDS.length) return;
-  const req = ++tplThumbsReq;
-  tplThumbsKey = key; tplThumbs = {};
-  for(const k of TPL_KINDS){
-    try{
-      const pages = tplPages(k);
-      if(pages.length===0) continue;
-      const cv = await composeTemplatePage(pages[0], 0, pages.length, k);
-      if(req!==tplThumbsReq) return;
-      const tw = 240, th = Math.round(tw*cv.height/cv.width);
-      const sm = document.createElement('canvas'); sm.width=tw; sm.height=th;
-      const c2 = sm.getContext('2d'); c2.imageSmoothingEnabled=true; c2.imageSmoothingQuality='high'; c2.drawImage(cv,0,0,tw,th);
-      tplThumbs[k] = sm.toDataURL('image/jpeg', 0.8);
-      // La miniatura entra en su tarjeta sin re-render (no pisar los chips).
-      const img = document.querySelector('[data-tpl-card="'+k+'"] img');
-      if(img){ img.src = tplThumbs[k]; img.style.opacity='1'; const sp=img.parentElement.querySelector('.spinner'); if(sp) sp.remove(); }
-    }catch(e){}
-  }
-}
-function templateModal(){
-  const items = templateItems();
-  const pages = tplPages();
-  const [W,H] = TPL_FORMATS[tplFormat];
-  const chip = (attr, val, cur, label)=>`<button type="button" class="exit-reason-chip ${cur===val?'on':''}" data-${attr}="${val}" style="font-size:13px;padding:8px 13px;">${label}</button>`;
-  return `
-  <div class="overlay overlay-fast" id="template-overlay">
-    <div class="modal" style="display:flex;flex-direction:column;overflow:hidden;">
-      <h3 class="sky" style="flex-shrink:0;">${t('tpl_title')}</h3>
-      <div class="sub" style="flex-shrink:0;margin-bottom:10px;">${t('tpl_sub')}</div>
-      <div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-        ${/* Galería: cada diseño dibujado en chico con los productos reales. */''}
-        <div class="tpl-gallery">
-          ${TPL_KINDS.map(k=>`
-          <button type="button" class="tpl-card ${tplKind===k?'on':''}" data-tpl-kind="${k}" data-tpl-card="${k}" aria-pressed="${tplKind===k}">
-            <span class="tpl-thumb" style="aspect-ratio:${W}/${H};">
-              ${tplThumbs[k] ? `<img src="${tplThumbs[k]}" alt="" style="opacity:1;">` : `<img src="" alt="" style="opacity:0;"><div class="spinner"></div>`}
-            </span>
-            <span class="tpl-card-label">${t('tpl_kind_'+k)}</span>
-          </button>`).join('')}
-        </div>
-        <div class="helper-note" style="margin:6px 0 4px;">${t('tpl_gallery_hint')}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
-          ${['post','story','sheet'].map(f=>chip('tpl-format', f, tplFormat, t('tpl_format_'+f))).join('')}
-          <span style="width:8px;"></span>
-          ${['dark','light','warm'].map(s=>chip('tpl-style', s, tplStyle, t('tpl_style_'+s))).join('')}
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;">
-          ${chip('tpl-scope','catalog',tplScope,t('tpl_scope_catalog'))}${chip('tpl-scope','all',tplScope,t('tpl_scope_all'))}
-          ${tplKind==='offer' && items.length>0 ? `<select id="tpl-offer-select" style="flex:1;min-width:120px;">${items.map(i=>`<option value="${escapeHtml(i.id)}" ${(tplOfferId||items[0].id)===i.id?'selected':''}>${escapeHtml(i.name)}</option>`).join('')}</select>` : ''}
-        </div>
-        ${pages.length===0 ? `<div class="helper-note" style="margin-top:12px;">${t('tpl_empty')}</div>` : `
-        <div style="position:relative;margin:12px auto 0;width:100%;max-width:${tplFormat==='story'?'52%':tplFormat==='sheet'?'70%':'88%'};aspect-ratio:${W}/${H};background:#151515;border-radius:10px;overflow:hidden;box-shadow:var(--shadow);">
-          <img id="tpl-preview" src="${tplPreviewUrl||''}" alt="" style="width:100%;height:100%;display:block;object-fit:contain;opacity:${tplPreviewUrl?1:0};transition:opacity .2s;">
-          <div id="tpl-spinner" ${tplPreviewUrl&&!tplRendering?'hidden':''} style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:13px;font-weight:700;"><div class="spinner"></div> ${t('tpl_rendering')}</div>
-        </div>
-        ${pages.length>1 ? `
-        <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px;">
-          <button type="button" class="btn btn-ghost btn-sm" id="tpl-prev" ${tplPage===0?'disabled':''}>‹</button>
-          <span style="font-size:13px;font-weight:700;color:var(--ink-soft);">${t('tpl_page').replace('{i}', tplPage+1).replace('{n}', pages.length)}</span>
-          <button type="button" class="btn btn-ghost btn-sm" id="tpl-next" ${tplPage>=pages.length-1?'disabled':''}>›</button>
-        </div>` : ''}`}
-      </div>
-      <div class="modal-actions" style="flex-shrink:0;">
-        <button class="btn btn-ghost" id="btn-close-template">${t('btn_close')}</button>
-        <button class="btn btn-ghost" id="btn-save-template" ${pages.length===0?'disabled':''}>${t('tpl_save')}</button>
-        <button class="btn btn-primary" id="btn-share-template" ${pages.length===0?'disabled':''}>${t('tpl_share')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-let showCollageLayoutModal = false;
-let collageImgsCache = []; // elementos Image — viven acá, no en estado serializable
-let collageChosenLayout = null; // el diseño elegido ANTES de elegir las fotos
-const COLLAGE_LAYOUTS = { 2:['v2','h2','pin2'], 3:['bigL3','cols3','pin3'], 4:['grid4','bigT4','pin4'] };
-function collageLayoutCount(id){
-  for(const n of [2,3,4]) if(COLLAGE_LAYOUTS[n].indexOf(id)!==-1) return n;
-  return 2;
-}
-function collagePreviewSvg(id){
-  const r=(x,y,w,h,rot)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="none" stroke="currentColor" stroke-width="2.4" ${rot?`transform="rotate(${rot} ${x+w/2} ${y+h/2})"`:''}/>`;
-  const map={
-    v2:r(4,4,27,52)+r(35,4,27,52),
-    h2:r(4,4,58,25)+r(4,31,58,25),
-    pin2:r(8,8,34,34,-8)+r(28,22,26,26,9),
-    bigL3:r(4,4,27,52)+r(35,4,27,25)+r(35,31,27,25),
-    cols3:r(4,4,17,52)+r(24,4,17,52)+r(44,4,17,52),
-    pin3:r(6,6,26,26,-7)+r(34,8,24,24,6)+r(18,30,28,24,-3),
-    grid4:r(4,4,27,25)+r(35,4,27,25)+r(4,31,27,25)+r(35,31,27,25),
-    bigT4:r(4,4,58,30)+r(4,38,16,18)+r(24,38,16,18)+r(44,38,16,18),
-    pin4:r(6,6,24,22,-6)+r(34,6,24,22,7)+r(6,32,24,22,5)+r(34,32,24,22,-7)
-  };
-  return `<svg viewBox="0 0 66 60" width="72" height="66" style="color:var(--ink);">${map[id]||''}</svg>`;
-}
-function collageLayoutModal(){
-  // DISEÑO PRIMERO (pedido del usuario 2026-09-06: al tocar Collage saltaba el
-  // selector de archivos — debía salir el menú de diseños): se muestran TODOS
-  // los layouts agrupados por cantidad de fotos; elegir uno abre las fotos.
-  return `
-  <div class="overlay overlay-fast" id="collage-layout-overlay">
-    <div class="modal">
-      <h3 class="sky">${t('catalog_collage_pick')}</h3>
-      ${[2,3,4].map(n=>`
-      <div style="font-size:12.5px;font-weight:800;color:var(--ink-soft);margin:14px 2px 8px;">${n} ${t('catalog_collage_photos')}</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${COLLAGE_LAYOUTS[n].map(id=>`
-        <button type="button" data-collage-layout="${id}" style="background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;">${collagePreviewSvg(id)}</button>`).join('')}
-      </div>`).join('')}
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-cancel-collage" style="width:100%;">${t('btn_cancel')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-async function composeCollageLayout(layoutId){
-  const imgs = collageImgsCache;
-  const S = 1600, gap = 8;
-  const cv = document.createElement('canvas'); cv.width = cv.height = S;
-  const ctx = cv.getContext('2d');
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  const cell = (im,x,y,w,h)=>{
-    const s = Math.max(w/im.naturalWidth, h/im.naturalHeight);
-    const dw = im.naturalWidth*s, dh = im.naturalHeight*s;
-    ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
-    ctx.drawImage(im, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
-    ctx.restore();
-  };
-  // Tarjeta polaroid: marco blanco, rotación y sombra — el alma del Pinboard.
-  const card = (im,cx,cy,w,h,rot)=>{
-    const pad = S*0.018;
-    ctx.save();
-    ctx.translate(cx,cy); ctx.rotate(rot*Math.PI/180);
-    ctx.shadowColor='rgba(0,0,0,0.30)'; ctx.shadowBlur=S*0.02; ctx.shadowOffsetY=S*0.008;
-    ctx.fillStyle='#ffffff';
-    ctx.fillRect(-w/2-pad, -h/2-pad, w+pad*2, h+pad*2);
-    ctx.shadowColor='transparent';
-    const s = Math.max(w/im.naturalWidth, h/im.naturalHeight);
-    const dw = im.naturalWidth*s, dh = im.naturalHeight*s;
-    ctx.beginPath(); ctx.rect(-w/2,-h/2,w,h); ctx.clip();
-    ctx.drawImage(im, -dw/2, -dh/2, dw, dh);
-    ctx.restore();
-  };
-  if(layoutId.indexOf('pin')===0){
-    const g = ctx.createRadialGradient(S/2,S*0.35,S*0.1,S/2,S*0.6,S);
-    g.addColorStop(0,'#f4f4f5'); g.addColorStop(1,'#d8d8db');
-    ctx.fillStyle=g; ctx.fillRect(0,0,S,S);
-  } else { ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,S,S); }
-  const half=(S-gap)/2, third=(S-2*gap)/3;
-  if(layoutId==='v2'){ cell(imgs[0],0,0,half,S); cell(imgs[1],half+gap,0,half,S); }
-  else if(layoutId==='h2'){ cell(imgs[0],0,0,S,half); cell(imgs[1],0,half+gap,S,half); }
-  else if(layoutId==='pin2'){ card(imgs[0],S*0.42,S*0.42,S*0.52,S*0.52,-6); card(imgs[1],S*0.68,S*0.68,S*0.40,S*0.40,8); }
-  else if(layoutId==='bigL3'){ cell(imgs[0],0,0,half,S); cell(imgs[1],half+gap,0,half,half); cell(imgs[2],half+gap,half+gap,half,half); }
-  else if(layoutId==='cols3'){ cell(imgs[0],0,0,third,S); cell(imgs[1],third+gap,0,third,S); cell(imgs[2],2*(third+gap),0,third,S); }
-  else if(layoutId==='pin3'){ card(imgs[0],S*0.32,S*0.32,S*0.40,S*0.40,-7); card(imgs[1],S*0.72,S*0.30,S*0.36,S*0.36,6); card(imgs[2],S*0.52,S*0.72,S*0.44,S*0.38,-3); }
-  else if(layoutId==='grid4'){ cell(imgs[0],0,0,half,half); cell(imgs[1],half+gap,0,half,half); cell(imgs[2],0,half+gap,half,half); cell(imgs[3],half+gap,half+gap,half,half); }
-  else if(layoutId==='bigT4'){ const y2=S*0.58+gap, h2=S-y2; cell(imgs[0],0,0,S,S*0.58); cell(imgs[1],0,y2,third,h2); cell(imgs[2],third+gap,y2,third,h2); cell(imgs[3],2*(third+gap),y2,third,h2); }
-  else if(layoutId==='pin4'){ card(imgs[0],S*0.30,S*0.28,S*0.36,S*0.32,-6); card(imgs[1],S*0.72,S*0.28,S*0.36,S*0.32,7); card(imgs[2],S*0.30,S*0.72,S*0.36,S*0.32,5); card(imgs[3],S*0.72,S*0.72,S*0.36,S*0.32,-7); }
-  else { cell(imgs[0],0,0,half,S); if(imgs[1]) cell(imgs[1],half+gap,0,half,S); }
-  return {base64: cv.toDataURL('image/jpeg',0.9).split(',')[1], mediaType:'image/jpeg'};
-}
-
-/* Modal de PUBLICACIÓN (abre la herramienta Compartir de la tarjeta): WhatsApp,
-   publicar/actualizar, y con link ya publicado las acciones de compartirlo. */
-// Cerrar Publicación vuelve a Ajustes si se abrió desde ahí (auditoría de
-// Ajustes 2026-09-07: era el único hijo que no volvía); desde Compartir del
-// Catálogo, settingsReturnPending es false y no pasa nada extra.
-function closeCatalogPublishModal(){ showCatalogPublishModal=false; reopenSettingsIfPending(); render(); }
-function catalogPublishModal(){
-  const url = catalogUrl();
-  return `
-  <div class="overlay overlay-fast" id="catalog-publish-overlay">
-    <div class="modal">
-      <h3 class="sky">${t('catalog_publish_header')}</h3>
-      <div class="field" style="margin-top:10px;">
-        <label>${t('catalog_wa_label')}</label>
-        <input id="catalog-wa-input" type="tel" inputmode="numeric" placeholder="5215512345678" value="${escapeHtml(catalogWhatsApp)}">
-      </div>
-      ${/* Canales de pedido a elección del dueño (SMS/llamadas usan el mismo
-           número) + sus redes — el cliente ve TODOS los habilitados. */''}
-      <div style="margin-top:10px;">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_channels_label')}</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="exit-reason-chip on" disabled style="opacity:.8;">💬 WhatsApp</button>
-          <button type="button" class="exit-reason-chip ${catalogChannels.sms?'on':''}" data-cat-channel="sms">✉️ ${t('catalog_ch_sms')}</button>
-          <button type="button" class="exit-reason-chip ${catalogChannels.call?'on':''}" data-cat-channel="call">📞 ${t('catalog_ch_call')}</button>
-        </div>
-      </div>
-      <div style="margin-top:12px;">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;">${t('catalog_socials_label')}</label>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <input data-cat-social="instagram" type="text" placeholder="Instagram: ${t('catalog_social_ph')}" value="${escapeHtml(catalogChannels.instagram||'')}">
-          <input data-cat-social="facebook" type="text" placeholder="Facebook: ${t('catalog_social_ph')}" value="${escapeHtml(catalogChannels.facebook||'')}">
-          <input data-cat-social="tiktok" type="text" placeholder="TikTok: ${t('catalog_social_ph')}" value="${escapeHtml(catalogChannels.tiktok||'')}">
-        </div>
-      </div>
-      <button class="btn btn-primary" id="btn-publish-catalog" style="width:100%;margin-top:14px;" ${catalogPublishing?'disabled':''}>${catalogPublishing ? t('catalog_publishing') : t(catalogId ? 'catalog_update_btn' : 'catalog_publish_btn')}</button>
-      ${url ? `
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-catalog-link" style="flex:1;">${t('catalog_copy_btn')}</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-share-catalog-link" style="flex:1;">${t('catalog_share_btn')}</button>
-        <a class="btn btn-ghost btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" style="flex:1;text-align:center;">${t('catalog_open_btn')}</a>
-      </div>
-      <div style="text-align:center;margin-top:10px;">
-        <button type="button" class="link-btn" id="btn-unpublish-catalog" style="color:var(--tomato);padding:4px 8px;">${t('catalog_unpublish_btn')}</button>
-      </div>` : ''}
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-close-catalog-publish" style="width:100%;">${t('btn_close')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-/* Foto recién sacada con la cámara del Catálogo: modalcito que pregunta a qué
-   producto/pieza pertenece — la vista previa arriba, la lista tocable abajo. */
-function catalogAssignModal(){
-  const src = catalogPendingPhoto ? cachedPhotoUrl(catalogPendingPhoto.base64, catalogPendingPhoto.mediaType) : null;
-  const row = (kind, obj)=>{
-    const thumb = catalogPhotoThumbSrc(obj.photo);
-    return `
-    <div data-assign-photo="${kind}:${obj.id}" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
-      <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;overflow:hidden;">${thumb?`<img src="${escapeHtml(thumb)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:lineIcon('tag',14)}</span>
-      <span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(obj.name)}</span>
-      <span style="color:var(--ink-soft);">›</span>
-    </div>`;
-  };
-  return `
-  ${/* UN solo scroll (verificación 2026-09-07): antes la lista tenía su propio
-       scroll de 40vh ADENTRO de un modal que también scrolleaba (770px de
-       contenido en 713 de alto) — el dedo caía en dos regiones distintas y el
-       Cancelar quedaba escondido abajo. Ahora el modal es una columna flex a
-       88vh: foto, chips y sugerencia fijos arriba, la lista toma lo que queda
-       y es lo ÚNICO que scrollea, y Cancelar siempre a la vista. */''}
-  <div class="overlay overlay-fast" id="catalog-assign-overlay">
-    <div class="modal" style="display:flex;flex-direction:column;overflow:hidden;">
-      <h3 class="sky" style="flex-shrink:0;">${t('catalog_assign_title')}</h3>
-      ${/* Vista previa ENTERA (contain sobre fondo oscuro — auditoría 2026-09-07):
-           con cover una foto 4:3 se veía recortada y el usuario no sabía cómo
-           iba a quedar. */''}
-      ${src ? `<div style="width:100%;height:200px;background:#151515;border-radius:12px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><img src="${escapeHtml(src)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"></div>` : ''}
-      ${/* Filtros (los 4 más usados + original): recalculan desde el original y
-           la vista previa de arriba muestra el resultado al instante. */''}
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;flex-shrink:0;">
-        ${catalogEditFull ? `<button type="button" class="exit-reason-chip" id="btn-open-photo-editor" style="font-weight:800;">✂️ ${t('catalog_edit_btn')}</button>` : ''}
-        ${['original','vivid','warm','retro','bw'].map(k=>`<button type="button" class="exit-reason-chip ${catalogPendingFilter===k?'on':''}" data-photo-filter="${k}">${t('catalog_filter_'+k)}</button>`).join('')}
-      </div>
-      ${/* Reconocer con IA: se dice que usa 1 escaneo y se puede apagar (antes
-           gastaba el cupo en silencio, auditoría 2026-09-07). */''}
-      ${(currentUser && !currentUser.isAnonymous) ? `
-      <div class="catalog-suggest-row">
-        <span>✨ ${t('catalog_suggest_toggle')} <small>(${t('catalog_suggest_cost')})</small></span>
-        <label class="pulse-switch" aria-label="${t('catalog_suggest_toggle')}"><input type="checkbox" id="catalog-suggest-toggle" ${catalogSuggestOn?'checked':''}><i></i></label>
-      </div>` : ''}
-      ${catalogAssignDetecting ? `<div class="scan-status" style="margin-top:10px;flex-shrink:0;"><div class="spinner"></div> ${t('catalog_detecting')} <small style="color:var(--ink-soft);">(${t('catalog_suggest_cost')})</small></div>` : ''}
-      ${(()=>{
-        if(!catalogAssignSuggestion) return '';
-        const s = catalogAssignSuggestion;
-        const obj = s.kind==='item' ? inventory.find(i=>i.id===s.id) : recipes.find(r=>r && r.id===s.id);
-        if(!obj) return '';
-        return `
-      <div style="margin-top:10px;background:var(--sky-soft);border-radius:10px;padding:4px 10px 2px;flex-shrink:0;">
-        <div style="font-size:11px;font-weight:800;color:var(--sky-ink);padding-top:4px;">✨ ${t('catalog_suggested')}</div>
-        ${row(s.kind, obj)}
-      </div>`;
-      })()}
-      ${/* BUSCADOR (auditoría 2026-09-07): con 80 productos la lista era un scroll
-           largo. Filtra en vivo sin re-render (app-07). Sin autofocus, regla de
-           la casa: el teclado lo abre el usuario. Y si nada coincide, la fila
-           "Crear «texto» con esta foto" — antes había que cancelar, ir a
-           Inventario, crear el producto y volver. */''}
-      <input id="catalog-assign-search" type="search" placeholder="${t('catalog_assign_search_ph')}" autocomplete="off" style="margin-top:10px;flex-shrink:0;">
-      <div id="catalog-assign-create" data-assign-create="1" role="button" tabindex="0" hidden style="display:none;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer;flex-shrink:0;">
-        <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;background:var(--basil);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;">+</span>
-        <span id="catalog-assign-create-label" style="flex:1;min-width:0;font-size:13.5px;font-weight:800;color:var(--basil-ink);overflow-wrap:anywhere;"></span>
-      </div>
-      <div id="catalog-assign-list" style="flex:1;min-height:96px;overflow-y:auto;margin-top:6px;-webkit-overflow-scrolling:touch;">
-        ${inventory.filter(i=>i && !isExpenseItem(i)).map(i=>row('item', i)).join('')}
-        ${recipes.filter(r=>r && r.id).map(r=>row('recipe', r)).join('')}
-        <div id="catalog-assign-empty" hidden class="helper-note" style="margin-top:10px;">${t('catalog_assign_no_match')} · ${t('catalog_assign_create_hint')}</div>
-      </div>
-      <div class="modal-actions" style="flex-shrink:0;">
-        <button class="btn btn-ghost" id="btn-cancel-assign-photo" style="width:100%;">${t('btn_cancel')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-/* SÚPER CALIDAD (caso del usuario 2026-09-06: un restaurante necesita imágenes
-   de calidad en su catálogo): tras asignar, se hornea la MISMA edición+filtro a
-   1200px y se sube en segundo plano (upload-catalog-photo) — el ítem guarda solo
-   la URL (photoHiUrl) y publish-catalog la prefiere sobre el thumbnail de 300px.
-   Si falla, silencio: el catálogo usa la normal como siempre. */
-async function uploadCatalogHiRes(target, kind, fullSrc, editSrc, filterKey, forPhoto){
-  try{
-    if(!fullSrc || !currentUser || currentUser.isAnonymous) return;
-    // Si el usuario NO tocó el encuadre ni los ajustes, la alta conserva la
-    // FORMA ORIGINAL de la foto (el horneado siempre recorta al cuadrado — eso
-    // perdía la imagen completa; pedido del usuario 2026-09-06 de poder verla
-    // entera). El cuadrado queda solo cuando el encuadre fue una decisión.
-    const e = editSrc || {};
-    // Con formato "Original" y sin tocar nada, la alta es la foto tal cual
-    // (sin recorte). Con 1:1 o 4:5 el formato ya es una decisión: se hornea.
-    const untouched = !e.auto && !e.bright && !e.contrast && !e.sat && !e.sharp
-      && !e.temp && !e.shadows && !e.highlights && !(Number(e.tilt)||0)
-      && (e.zoom||1)===1 && ((e.rot||0)%360)===0
-      && (e.ratio==='orig' || e.ratio===undefined)
-      && Math.abs((e.offX!==undefined?e.offX:0.5)-0.5)<0.001
-      && Math.abs((e.offY!==undefined?e.offY:0.5)-0.5)<0.001;
-    let hi;
-    if(untouched){
-      const im = await loadB64Image(fullSrc);
-      hi = resizeToBase64(im, 1440, 0.85);
-    } else {
-      hi = await bakeCatalogEdit(1440, true, fullSrc, editSrc);
-    }
-    if(filterKey && filterKey!=='original') hi = await applyCatalogFilter(hi, filterKey);
-    // Miniatura de 480px para la GRILLA pública (auditoría 2026-09-07): se
-    // deriva de la alta ya terminada, así lleva la misma edición y filtro.
-    let thumbB64 = null;
-    try{ const him = await loadB64Image(hi); thumbB64 = resizeToBase64(him, 480, 0.8).base64; }catch(err){}
-
-    const res = await callDustyAI('/.netlify/functions/upload-catalog-photo', {
-      imageBase64: hi.base64, mediaType: 'image/jpeg', thumbBase64: thumbB64 || undefined,
-      itemId: (kind==='recipe' ? 'r-' : 'i-') + target.id
-    }, {notFoundKey:'err_function_not_found', genericKey:'err_img_process'});
-    if(res && res.url){
-      // Si mientras subía el usuario tocó "Deshacer" (o puso otra foto), la alta
-      // ya no corresponde a lo que el ítem muestra: no se pisa.
-      if(forPhoto && target.photo !== forPhoto) return;
-      target.photoHiUrl = res.url;
-      if(res.thumbUrl) target.photoThumbUrl = res.thumbUrl; else delete target.photoThumbUrl;
-      saveState();
-      // La alta llegó DESPUÉS de la auto-publicación del asignado: se agenda
-      // otra para que el catálogo público apunte a la versión nítida.
-      scheduleCatalogAutoPublish();
-    }
-  }catch(err){
-    console.warn('[Dusty] la foto en alta no se pudo subir (el catálogo usará la normal):', err.message || err);
-  }
-}
-
-/* El editor en sí: preview cuadrado arrastrable (encuadre), Auto y Girar como
-   chips, y los deslizadores. Brillo/contraste/saturación tienen vista previa
-   INSTANTÁNEA vía CSS filter mientras arrastrás (el horneado real corre al
-   soltar); zoom y nitidez se hornean al soltar. */
-function catalogEditorModal(){
-  const e = catalogEdit;
-  // Fila de deslizador con su VALOR a la derecha (se actualiza en vivo desde
-  // app-07 sin re-render) — el detalle que separa un panel casero de uno pro.
-  // Tipografías a tamaño de dedo (pedido del usuario 2026-09-06: "las letras
-  // están pequeñas") y feedback dinámico: el valor se enciende en celeste cuando
-  // el ajuste está activo (≠ del punto neutro) — app-07 lo acompaña en vivo.
-  const slider = (key, label, min, max, val)=>{
-    const active = key==='zoom' ? val!==100 : val!==0;
-    return `
-    <div style="display:flex;align-items:center;gap:12px;margin-top:14px;">
-      <span style="font-size:14px;font-weight:700;color:var(--ink);width:104px;flex-shrink:0;">${label}</span>
-      <input type="range" data-edit-slider="${key}" min="${min}" max="${max}" step="1" value="${val}" style="flex:1;accent-color:var(--sky);height:30px;">
-      <span data-edit-val="${key}" data-edit-neutral="${key==='zoom'?100:0}" style="width:40px;text-align:right;font-size:14px;font-weight:800;color:${active?'var(--sky-ink)':'var(--ink-soft)'};font-variant-numeric:tabular-nums;flex-shrink:0;transition:color .15s;">${val}</span>
-    </div>`;
-  };
-  // Ícono ARRIBA y palabra abajo, siempre (verificación 2026-09-07): con
-  // "☀️ Luz" en una línea, "Color" y "Encuadre" no entraban en su cuarto de
-  // ancho y se partían en dos renglones mientras Luz y PRO quedaban en uno —
-  // cuatro pestañas de cuatro formas distintas. En columna las cuatro miden
-  // lo mismo y ninguna palabra se corta.
-  const tab = (key, icon, label)=>`
-    <button type="button" data-edit-tab="${key}" style="flex:1;min-width:0;border:none;cursor:pointer;padding:8px 2px 7px;border-radius:9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:800;letter-spacing:.01em;white-space:nowrap;transition:background .18s, transform .18s, box-shadow .18s;background:${catalogEditTab===key?'var(--raised)':'transparent'};color:${catalogEditTab===key?'var(--ink)':'var(--ink-soft)'};${catalogEditTab===key?'transform:scale(1.04);box-shadow:var(--shadow);':''}"><span style="font-size:17px;line-height:1;">${icon}</span><span>${label}</span></button>`;
-  // Formato del lienzo de la vista previa = el del recorte (1:1, 4:5 u
-  // original); el alto se limita para que los deslizadores queden a la vista.
-  const asp = e.ratio==='4:5' ? 0.8 : e.ratio==='orig' ? (catalogEditSrcAspect||1) : 1;
-  const anyEdit = ['bright','contrast','sat','sharp','temp','shadows','highlights','tilt'].some(k=>Number(e[k])) || e.auto || e.zoom!==1 || (e.rot%360)!==0 || Math.abs(e.offX-0.5)>0.001 || Math.abs(e.offY-0.5)>0.001;
-  return `
-  ${/* PANTALLA COMPLETA (auditoría 2026-09-07, como Snapseed/Lightroom): antes
-       era un modal donde la foto ocupaba el 37% del alto. */''}
-  <div class="overlay overlay-fast overlay-full" id="catalog-editor-overlay" role="dialog" aria-modal="true" aria-label="${t('catalog_edit_title')}">
-    <div class="modal" style="display:flex;flex-direction:column;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;margin-bottom:8px;">
-        <h3 class="sky" style="margin:0;">${t('catalog_edit_title')}</h3>
-        <button type="button" class="link-btn" id="btn-edit-reset" ${anyEdit?'':'disabled'} style="padding:6px 8px;font-weight:800;opacity:${anyEdit?1:.45};">↺ ${t('catalog_edit_reset')}</button>
-      </div>
-      <div id="catalog-edit-wrap" style="position:relative;width:100%;max-width:calc(52vh * ${asp});aspect-ratio:${asp};margin:0 auto;background:#151515;border-radius:12px;overflow:hidden;touch-action:none;cursor:grab;flex-shrink:0;">
-        ${/* transition SOLO en filter (dinámica suave al mover brillo/etc); la
-             transform queda sin transición — el arrastre del encuadre debe
-             seguir al dedo sin lag. */''}
-        ${catalogEditPreviewUrl ? `<img id="catalog-edit-preview" src="${catalogEditPreviewUrl}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;filter:${cssFilterForEdit()};will-change:transform,filter;transition:filter .15s ease;">` : ''}
-        ${/* Antes/después: presión larga sobre la foto muestra la base sin
-             ajustes (app-07 pone .cat-edit-compare y este badge). */''}
-        <img id="catalog-edit-original" alt="" hidden style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:2;">
-        <span id="catalog-edit-badge" class="cat-edit-badge" hidden>${t('catalog_edit_original_badge')}</span>
-        ${catalogEditGuide ? `<div class="cat-edit-guide"></div>` : ''}
-        ${catalogEditBaking ? `<div style="position:absolute;bottom:8px;right:8px;"><div class="spinner"></div></div>` : ''}
-      </div>
-      <div class="helper-note" style="margin:6px 0 0;font-size:12px;text-align:center;flex-shrink:0;">${t('catalog_edit_compare_hint')}</div>
-      ${/* Pestañas segmentadas Luz/Color/Encuadre/PRO — cada grupo respira. */''}
-      <div style="display:flex;gap:4px;background:var(--inset);border-radius:10px;padding:4px;margin-top:12px;">
-        ${tab('light', '☀️', t('catalog_tab_light'))}
-        ${tab('color', '🎨', t('catalog_tab_color'))}
-        ${tab('frame', '⤢', t('catalog_tab_frame'))}
-        ${tab('pro', '✦', 'PRO')}
-      </div>
-      ${catalogEditTab==='light' ? `
-      <div style="margin-top:12px;">
-        <button type="button" class="exit-reason-chip ${e.auto?'on':''}" id="btn-edit-auto" style="font-size:14px;padding:9px 16px;">✨ ${t('catalog_edit_auto')}</button>
-      </div>
-      ${slider('bright', t('catalog_edit_bright'), -50, 50, e.bright)}
-      ${slider('contrast', t('catalog_edit_contrast'), -50, 50, e.contrast)}
-      ${slider('shadows', t('catalog_edit_shadows'), -50, 50, e.shadows||0)}
-      ${slider('highlights', t('catalog_edit_highlights'), -50, 50, e.highlights||0)}` : ''}
-      ${catalogEditTab==='color' ? `
-      ${slider('temp', t('catalog_edit_temp'), -50, 50, e.temp||0)}
-      ${slider('sat', t('catalog_edit_sat'), -50, 50, e.sat)}
-      ${slider('sharp', t('catalog_edit_sharp'), 0, 100, e.sharp)}` : ''}
-      ${catalogEditTab==='frame' ? `
-      <div class="helper-note" style="margin:10px 0 0;font-size:13px;">${t('catalog_edit_drag_hint')}</div>
-      ${/* FORMATO del recorte (1:1 catálogo, 4:5 Instagram, Original) + guía del
-           85% (Amazon: el producto llena al menos ese cuadro). */''}
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
-        <span style="font-size:13.5px;font-weight:700;color:var(--ink);">${t('catalog_edit_ratio')}</span>
-        ${[['1:1','1:1'],['4:5','4:5'],['orig',t('catalog_edit_ratio_orig')]].map(([k,l])=>`<button type="button" class="exit-reason-chip ${e.ratio===k?'on':''}" data-edit-ratio="${k}" style="font-size:13.5px;padding:8px 14px;">${l}</button>`).join('')}
-        <button type="button" class="exit-reason-chip ${catalogEditGuide?'on':''}" id="btn-edit-guide" style="font-size:13.5px;padding:8px 14px;margin-left:auto;">⌗ ${t('catalog_edit_guide')}</button>
-      </div>
-      ${slider('zoom', t('catalog_edit_zoom'), 100, 300, Math.round(e.zoom*100))}
-      ${slider('tilt', t('catalog_edit_tilt'), -15, 15, e.tilt||0)}
-      <div style="margin-top:12px;">
-        <button type="button" class="exit-reason-chip" id="btn-edit-rotate" style="font-size:14px;padding:9px 16px;">↻ ${t('catalog_edit_rotate')}</button>
-      </div>` : ''}
-      ${catalogEditTab==='pro' ? `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-        <button type="button" class="exit-reason-chip" id="btn-remove-bg" ${catalogRemovingBg?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogRemovingBg ? t('catalog_rembg_working') : '🪄 '+t('catalog_rembg_btn')}</button>
-        <button type="button" class="exit-reason-chip" id="btn-enhance-photo" ${catalogEnhancing?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogEnhancing ? t('catalog_enhance_working') : '🚀 '+t('catalog_enhance_btn')}</button>
-        <button type="button" class="exit-reason-chip ${catalogStageOpen?'on':''}" id="btn-stage-photo" ${catalogStaging?'disabled':''} style="border-color:var(--sky);color:var(--sky-ink);font-weight:800;font-size:14px;padding:9px 14px;">${catalogStaging ? t('catalog_stage_working') : '🏞️ '+t('catalog_stage_btn')}</button>
-      </div>
-      ${/* PROGRESO + CANCELAR de la función PRO en curso (auditoría 2026-09-07:
-           antes se esperaba hasta 88 s sin barra ni salida). La barra avanza
-           con el tiempo esperado del modelo (app-07 la mueve sin re-render). */''}
-      ${catalogAiJob ? `
-      <div id="catalog-ai-job" style="margin-top:12px;background:var(--inset);border-radius:10px;padding:10px 12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('catalog_ai_progress').replace('{s}', catalogAiJob.expectSec)}</span>
-          <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-cancel">${t('btn_cancel')}</button>
-        </div>
-        <div class="cat-ai-progress"><div id="catalog-ai-bar" style="width:${Math.min(95, Math.round(((Date.now()-catalogAiJob.startedAt)/1000)/catalogAiJob.expectSec*100))}%;"></div></div>
-      </div>` : ''}
-      ${catalogEditCutout ? `
-      ${/* Fondos: colores planos + ESCENARIOS incorporados (con sombra automática
-           en la composición) — el "estudio de fondos" gratis. */''}
-      <div style="display:flex;gap:9px;align-items:center;margin-top:12px;flex-wrap:wrap;">
-        <span style="font-size:13.5px;font-weight:700;color:var(--ink);">${t('catalog_rembg_bg')}</span>
-        ${['#ffffff','#f6f1e7','#e9e9e9','#191919'].map(c=>`<button type="button" data-edit-bg="${c}" aria-label="${c}" style="width:34px;height:34px;border-radius:50%;background:${c};border:2px solid ${catalogEditBg===c?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;transition:transform .15s;${catalogEditBg===c?'transform:scale(1.12);':''}"></button>`).join('')}
-        ${CATALOG_BACKDROPS.map(id=>`<button type="button" data-edit-bg="bd:${id}" aria-label="${id}" title="${id}" style="width:34px;height:34px;border-radius:9px;background-image:url('/backdrops/${id}.jpg');background-size:cover;background-position:center;border:2px solid ${catalogEditBg==='bd:'+id?'var(--sky)':'var(--line)'};cursor:pointer;flex-shrink:0;transition:transform .15s;${catalogEditBg==='bd:'+id?'transform:scale(1.12);':''}"></button>`).join('')}
-      </div>` : ''}
-      ${catalogStageOpen && !catalogStaging ? `
-      ${/* Escenario IA: un toque en un preset genera; o describilo a mano. */''}
-      <div style="margin-top:12px;background:var(--inset);border-radius:10px;padding:12px;">
-        <div style="font-size:13px;font-weight:800;color:var(--sky-ink);margin-bottom:10px;">🏞️ ${t('catalog_stage_hint')}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="exit-reason-chip" data-stage-preset="wood" style="font-size:14px;padding:9px 14px;">🪵 ${t('catalog_stage_wood')}</button>
-          <button type="button" class="exit-reason-chip" data-stage-preset="kitchen" style="font-size:14px;padding:9px 14px;">🍽️ ${t('catalog_stage_kitchen')}</button>
-          <button type="button" class="exit-reason-chip" data-stage-preset="studio" style="font-size:14px;padding:9px 14px;">💡 ${t('catalog_stage_studio')}</button>
-          <button type="button" class="exit-reason-chip" data-stage-preset="shelf" style="font-size:14px;padding:9px 14px;">🏪 ${t('catalog_stage_shelf')}</button>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <input id="stage-custom-input" type="text" placeholder="${t('catalog_stage_custom_ph')}" style="flex:1;">
-          <button type="button" class="btn btn-primary btn-sm" id="btn-stage-go">${t('catalog_stage_go')}</button>
-        </div>
-      </div>` : ''}` : ''}
-      ${catalogEditFullBackup ? `<button type="button" class="link-btn" id="btn-rembg-revert" style="margin-top:8px;padding:4px 0;">${t('catalog_rembg_revert')}</button>` : ''}
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="btn-cancel-edit">${t('btn_cancel')}</button>
-        <button class="btn btn-primary" id="btn-apply-edit">${t('catalog_edit_done')}</button>
-      </div>
-    </div>
-  </div>`;
-}
-async function publishCatalogNow(auto){
-  // Publicar necesita cuenta REAL: el link es permanente y las fotos quedan
-  // públicas — una sesión anónima de prueba no debería dejar rastros públicos.
-  if(!currentUser || currentUser.isAnonymous){ if(!auto) openUpgradeModal(t('catalog_needs_account_note')); return; }
-  const waEl = document.getElementById('catalog-wa-input');
-  if(waEl) catalogWhatsApp = waEl.value.trim();
-  const items = [];
-  // La versión en ALTA (photoHiUrl, 1200px ya editada) manda sobre el thumbnail
-  // de 300px — es la diferencia entre una ficha de catálogo nítida y una borrosa.
-  const pushEntry = (id, name, price, unit, category, photo, hiUrl, thumbUrl)=>{
-    const entry = {id, name, price: price>0 ? price : null, unit, category};
-    if(hiUrl){ entry.photoUrl = hiUrl; if(thumbUrl) entry.photoThumbUrl = thumbUrl; }
-    else if(photo){
-      if(photo.url) entry.photoUrl = photo.url;
-      else if(photo.base64){ entry.photoB64 = photo.base64; entry.photoMediaType = photo.mediaType||'image/jpeg'; }
-    }
-    items.push(entry);
-  };
-  inventory.filter(i=>i && i.inCatalog && !isExpenseItem(i)).forEach(i=>{
-    const cat = categories.find(c=>c.id===i.categoryId);
-    pushEntry(i.id, i.name, Number(i.salePrice)||0, i.unit||null, cat?cat.name:null, i.photo, i.photoHiUrl, i.photoThumbUrl);
-  });
-  recipes.filter(r=>r && r.inCatalog).forEach(r=>{
-    pushEntry(r.id, r.name, Number(r.salePrice)||0, null, null, r.photo, r.photoHiUrl, r.photoThumbUrl);
-  });
-  if(items.length===0){ showToast(t('catalog_none_selected'), 'error'); return; }
-  catalogPublishing = true; render();
-  try{
-    const token = await currentUser.getIdToken();
-    const res = await fetch('/.netlify/functions/publish-catalog', {
-      method:'POST',
-      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
-      body: JSON.stringify({
-        catalogId: catalogId || undefined, ownerUid: syncUid(), businessName,
-        whatsapp: catalogWhatsApp.replace(/\D/g,''), lang: uiLang, items,
-        // Canales elegidos por el dueño (limpios: solo usuario, sin @ ni URL)
-        channels: {
-          sms: !!catalogChannels.sms, call: !!catalogChannels.call,
-          instagram: String(catalogChannels.instagram||'').replace(/^@|\s|https?:\/\/[^\/]+\//g,'').slice(0,40),
-          facebook: String(catalogChannels.facebook||'').replace(/^@|\s|https?:\/\/[^\/]+\//g,'').slice(0,60),
-          tiktok: String(catalogChannels.tiktok||'').replace(/^@|\s|https?:\/\/[^\/]+\//g,'').slice(0,40)
-        }
-      })
-    });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok || !data.catalogId) throw new Error(data.error || ('HTTP '+res.status));
-    catalogId = data.catalogId;
-    saveState();
-    logActivity('catalog_published', '', String(data.itemCount||items.length));
-    showToast(t(auto ? 'catalog_auto_updated' : 'catalog_published_toast'));
-  }catch(e){
-    console.error('[Dusty] no se pudo publicar el catálogo:', e);
-    // En automático los errores no molestan (sin señal pasa): el próximo cambio
-    // vuelve a agendar. En manual sí se avisa.
-    if(!auto) showToast(t('catalog_error'), 'error');
-  }
-  catalogPublishing = false; render();
-}
-async function unpublishCatalogNow(){
-  if(!currentUser || !catalogId) return;
-  if(!confirm(t('catalog_unpublish_confirm'))) return;
-  catalogPublishing = true; render();
-  try{
-    const token = await currentUser.getIdToken();
-    const res = await fetch('/.netlify/functions/publish-catalog', {
-      method:'POST',
-      headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
-      body: JSON.stringify({catalogId, ownerUid: syncUid(), unpublish:true})
-    });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    // El id se CONSERVA a propósito: republicar revive el MISMO link (los QR
-    // impresos y los links ya compartidos vuelven a servir).
-    showToast(t('catalog_unpublished_toast'));
-  }catch(e){
-    console.error('[Dusty] no se pudo despublicar el catálogo:', e);
-    showToast(t('catalog_error'), 'error');
-  }
-  catalogPublishing = false; render();
-}
-

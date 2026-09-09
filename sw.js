@@ -302,13 +302,139 @@
 // ::before en vez de un box-shadow difuminado — confirmado por el usuario que
 // el parpadeo sobre la barra se iba al apagar los latidos (iOS re-rasterizaba
 // la barra y su sombra en cada pulso) — css.
-// v93: en el calendario de Recibos, un día con recibo muestra SIEMPRE el
-// icono de recibo en lugar del número, con la foto encima cuando carga —
-// antes, si la foto fallaba al cargar (URL de la nube caída), la celda
-// quedaba vacía — app-05.
-const CACHE_NAME = 'patron-shell-v93';
-// Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
-// con tope — la app y catalogo.html las muestran sin volver a bajarlas.
+// v93: auditoría de rendimiento de UI 2026-09-08 — en páginas inactivas se
+// pausan SOLO las animaciones infinitas (las de entrada quedaban congeladas
+// invisibles y re-arrancaban al cambiar de pestaña: el parpadeo), barras de
+// progreso por transform (compositor) en vez de width, esqueletos que reservan
+// el alto real mientras llega el primer snapshot (sin saltos), y el resorte
+// del swipe arranca en el mismo cuadro del pointerup — css + app-03/05/06/07.
+// v94: segunda pasada de la auditoría de rendimiento — la barra de progreso
+// del tutorial era la única que seguía animando width (layout por cuadro en
+// la primera pantalla que ve un usuario nuevo); pasa a transform:scaleX como
+// el resto — css + app-06.
+// v95: auditoría con 400 productos y 15 recibos — "Menos stock" ordenaba por
+// unidades sueltas (5 cajas vs 20 litros) en vez de por qué tan vacío está cada
+// producto, y agrupar por categoría partía el ranking en 12 por grupo; el
+// cambio de vista del inventario dejó de redibujar todo (34-61ms → 0-1ms) —
+// app-05/06/07.
+// v96: arranque — networkFirst esperaba a la red SIN tope, así que con señal
+// mala pero viva (no falla, tarda) abrir la app se quedaba colgado en los ~15
+// pedidos del shell aunque la copia guardada estuviera lista. Ahora la red
+// tiene 2,5 s y después se sirve el caché, actualizando por detrás — sw.
+// v97: compartir una foto hacia Dusty (share_target) — el POST de Android se
+// atiende en el SW, la foto va a un caché aparte y la app la levanta al
+// arrancar y abre el escaneo con ella; accesos directos del ícono; caché de
+// íconos y fondos por una semana — manifest + sw + app-07 + netlify.toml.
+// v98: Equipo (compartir la cuenta con un empleado) vuelve al Dashboard como
+// tarjeta — había quedado solo en Ajustes › Cuenta, a tres toques, cuando la
+// fila del inventario que también lo traía dejó de dibujarse; se borra esa
+// función muerta — app-03 + app-05.
+// v99: destello en el pie del Dashboard al deslizar desde Inventario (reporte
+// del usuario 2026-09-08, "empezó desde que le metí muchos datos"): el alto
+// del documento se encogía en el MISMO cuadro en que se quita el offset del
+// carrusel y salta el scroll — con 400 productos son 36.692 px de golpe.
+// Ahora encoger espera un cuadro; crecer sigue siendo inmediato — app-04/06.
+// v101: se restaura el deslice entre pestañas EXACTAMENTE como estaba (revert
+// de #15). Se había eliminado para ver si era la causa del destello del pie
+// del Dashboard; el usuario confirmó que con el gesto fuera el destello SEGUÍA,
+// así que el gesto queda descartado como causa y no había razón para perder la
+// función. El código de app-04/05/06/07 vuelve byte a byte al estado previo;
+// solo la versión del precache avanza, para no numerar hacia atrás.
+// v102: el español pasa de rioplatense (voseo) a NEUTRO LATINOAMERICANO con
+// "tú" (pedido del usuario 2026-09-09). 166 textos: imperativos (probá→prueba,
+// tocá→toca, elegí→elige), presente (tenés→tienes, contás→cuentas), pronombre
+// pegado (fijalo→fíjalo, contanos→cuéntanos) y vos→tú/ti/contigo — app-03.
+// v103: al borrar un bill se ofrece borrar también sus PAGOS de este mes
+// (reporte del usuario 2026-09-09: "borré los dos bills y la barra del
+// presupuesto no hizo el cálculo"). El bill es la definición; el pago es un
+// recibo aparte, y el presupuesto se calcula desde los recibos — app-03 + app-06.
+// v104: un miembro del equipo no podía escanear —"topó el límite"— porque el
+// pase sin cupo del dueño era por QUIEN LLAMA, no por cuenta: los escaneos del
+// dueño salteaban la transacción sin descontar, el contador quedaba congelado
+// en su tope y el empleado chocaba con él. Ahora el pase es de la cuenta —
+// netlify/functions.
+// v105: la ZONA DE CATÁLOGO se elimina de raíz (pedido del usuario 2026-09-09).
+// Se van la 4.ª pestaña y todo lo suyo — publicación, visor de fotos, editor,
+// collage, plantillas, canales de pedido, la página pública catalogo.html, el
+// link /c/<id>, los fondos de /backdrops y las funciones get-catalog,
+// publish-catalog, upload-catalog-photo, enhance-photo, remove-bg y stage-photo.
+// El carrusel vuelve a 3 páginas — app-01..07 + dusty.css + netlify + reglas.
+// v110: "Gasto por mes" deja de ser un gráfico. El SVG apilado con eje de
+// montos, línea punteada del presupuesto y leyenda de tres colores pedía
+// saber leer un gráfico para responder "cuánto gasté y cuánto me quedaba";
+// ahora cada mes es una tarjeta con su número, una barra contra el tope y
+// una frase llana (pedido del usuario 2026-09-09). Mismos cálculos —
+// app-03 + app-05 + dusty.css.
+// v111: en "Gasto por mes", recién instalado se ven dos tarjetas FANTASMA
+// bajo el mes actual — los nombres reales de los dos meses anteriores con
+// bloques grises donde irán el monto y la frase, y la barra en verde/ámbar
+// apagados. Nunca inventan un número; solo muestran cómo va a quedar en vez
+// de dejar la pantalla casi en blanco (pedido del usuario 2026-09-09) —
+// app-03 + app-05 + dusty.css.
+// v112: las muestras de "Gasto por mes" pasan de 2 a 7 meses y se van con el
+// PRIMER recibo (antes se iban recién al aparecer un segundo mes con datos:
+// convivían muestras con datos reales). Se desvanecen hacia abajo — la
+// opacidad no se veía porque msCardIn termina en opacity:1 y una animación
+// le gana al style inline. Probado con 12 meses reales a 320px: la lista
+// scrollea y los botones quedan siempre a la vista — app-05 + dusty.css.
+// v113: la CÁMARA pasa a rojo (pedido del usuario 2026-09-09) — los dos FAB
+// de escanear, Dashboard e Inventario, dejan el verde de siempre (azul en
+// los temas App Store) y toman el rojo de la app, con el pulso y el ícono
+// acompañando. Como el rojo queda reservado para la cámara, "Conteo" sale
+// de ese color y se iguala con "A mano": los dos en violeta — dusty.css.
+// v114: "Pedido sugerido" vacío muestra tres filas SOMBRA de cómo se va a ver
+// cuando haya productos por pedir (pedido del usuario 2026-09-09) — bloques
+// grises, sin nombres ni cantidades inventadas, que se van solas apenas un
+// producto llega a nivel crítico. El bloque gris (.ms-skel) pasó a llamarse
+// .skel porque ahora lo comparten dos pantallas — app-03 + app-05 + app-06
+// + dusty.css.
+// v115: las sombras dejan de ser bloques grises y pasan a ser EJEMPLOS de
+// verdad —nombres, montos y las mismas frases que una fila real— pero
+// DESENFOCADOS y desvanecidos, cada vez más hacia abajo (pedido del usuario
+// 2026-09-09: "ejemplos reales pero que no se vean tan nítidos como
+// reales"). Los nombres de producto son genéricos, nunca del inventario del
+// usuario. Vale para "Gasto por mes" y "Pedido sugerido"; .skel se va —
+// app-03 + app-05 + app-06 + dusty.css.
+// v116: auditoría general (pedido del usuario 2026-09-09). Se van 7 funciones,
+// ~80 líneas de CSS y 18 claves de idioma que ya no usaba nadie; el calendario
+// pasa a 6 filas fijas (cambiar de mes movía todo lo de abajo hasta 88px);
+// Escape cierra las hojas (calculadora / cierre de mes) como el botón atrás;
+// el lápiz del presupuesto y otros botones chicos llegan a 44px de zona
+// tocable sin cambiar de tamaño; y la foto de un producto se guarda a 560px
+// por los tres caminos por los que puede entrar (eran 400/300/300) —
+// app-03 + app-05 + app-06 + app-07 + dusty.css.
+// v117: la FOTO del recibo vuelve al día del calendario (se había ido con la
+// maqueta que puso el número en todos los días). La celda con recibo es ahora
+// una tarjetita redondeada de 17px con sombra y filo de luz —del mismo palo
+// que los cuadros del resto de la app, pedido del usuario 2026-09-09— con el
+// ×N cuando hay varios y el aro ámbar si además es hoy — app-05 + dusty.css.
+// v118: el calendario vuelve a la CUADRÍCULA de casillas de la captura del
+// usuario (2026-09-09): cada día con su fondo redondeado de 17px, los días de
+// los meses vecinos sin casilla, y hoy con el contorno ámbar rodeando la
+// casilla entera en vez del círculo relleno. Además, cuántos recibos tiene el
+// mes a la vista, encima del Cierre de mes, a partir de dos —
+// app-03 + app-05 + dusty.css.
+// v119: la casilla con foto tiene EXACTAMENTE la misma forma que las demás
+// (captura ampliada del usuario 2026-09-09: se veía más grande y más
+// redonda). Se le saca la sombra proyectada y el aro blanco grueso, que la
+// hacían flotar, y el estilo que hace a la <img> llenar la casilla pasa a ir
+// también INLINE: con un CSS viejo en caché la foto se dibujaba con su
+// proporción original y estiraba la casilla — app-05 + dusty.css.
+// v120: las casillas del calendario pasan de 17 a 13px de radio. En una casilla
+// de 46x42, 17px dejaba 8px de lado recto: la forma tiraba a óvalo. En las de
+// número casi no se veía (su fondo apenas contrasta), pero la de la foto es
+// blanca sobre el bloque y ahí saltaba — el usuario lo marcó con una captura
+// ampliada. Misma geometría para las dos y el velo un poco más oscuro, para
+// que la esquina de la casilla vacía también se vea — dusty.css.
+// v121: la esquina de las casillas del calendario baja de 13 a 8px — la
+// proporción de la captura que mandó el usuario (~17% del ancho de la
+// casilla). Solo el radio: nada más del calendario cambia — dusty.css.
+// v122: en el calendario de Recibos, un día con recibo muestra el ICONO de
+// recibo en lugar del número, con la foto encima cuando carga; si la foto
+// falla, queda el icono (antes la casilla quedaba vacía) — app-05 + css.
+const CACHE_NAME = 'patron-shell-v122';
+// Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
+// la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
 const PHOTO_HOSTS = ['storage.googleapis.com', 'firebasestorage.googleapis.com'];
 const PHOTO_CACHE_MAX = 240;
@@ -352,14 +478,53 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(names => Promise.all(
-        names.filter(name => name !== CACHE_NAME && name !== PHOTO_CACHE).map(name => caches.delete(name))
+        names.filter(name => name !== CACHE_NAME && name !== PHOTO_CACHE && name !== SHARE_CACHE).map(name => caches.delete(name))
       ))
       .then(() => self.clients.claim())
   );
 });
 
+/* COMPARTIR UNA FOTO HACIA DUSTY (manifest.json → share_target). Android manda
+   la foto como POST multipart a /?compartir=1; ese POST no existe como ruta en
+   Netlify, así que si llegara a la red devolvería un error. Se atiende acá:
+   la foto se guarda en un caché aparte y se responde con una redirección a la
+   app, que al arrancar la levanta y abre el escaneo con ella (ver
+   tomarFotoCompartida en app-07). Sin esto, el flujo entero no existe. */
+const SHARE_CACHE = 'patron-compartido';
+const SHARE_SLOT = '/__compartido__';
+async function recibirCompartido(req){
+  try{
+    const form = await req.formData();
+    const fotos = form.getAll('fotos').filter(f => f && f.size > 0);
+    if(fotos.length){
+      const cache = await caches.open(SHARE_CACHE);
+      // Se guarda UNA entrada por foto, numerada, para conservar el orden en que
+      // las eligió (un recibo largo puede venir en varias páginas).
+      await cache.put(SHARE_SLOT, new Response(String(fotos.length), {
+        headers: {'Content-Type':'text/plain'} }));
+      for(let i=0;i<fotos.length;i++){
+        await cache.put(SHARE_SLOT + '/' + i, new Response(fotos[i], {
+          headers: {'Content-Type': fotos[i].type || 'image/jpeg'} }));
+      }
+    }
+  }catch(err){
+    console.error('[Dusty] no se pudo recibir la foto compartida:', err);
+  }
+  // 303: el navegador cambia el POST por un GET a la app, así recargar no
+  // reenvía la foto.
+  return Response.redirect('/?compartir=listo', 303);
+}
+
 self.addEventListener('fetch', event => {
   const req = event.request;
+
+  const urlCompartir = new URL(req.url);
+  if (req.method === 'POST' && urlCompartir.origin === self.location.origin
+      && urlCompartir.searchParams.get('compartir') === '1') {
+    event.respondWith(recibirCompartido(req));
+    return;
+  }
+
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
@@ -368,7 +533,7 @@ self.addEventListener('fetch', event => {
   // llamada a la nube quedan sin tocar: ya manejan su propio caso de "sin
   // red" en el código de la app, y no tiene sentido cachear esas respuestas.
   if (url.origin === self.location.origin) {
-    event.respondWith(networkFirst(req));
+    event.respondWith(networkFirst(req, event));
   } else if (FONT_HOSTS.includes(url.hostname)) {
     event.respondWith(cacheFirst(req));
   } else if (PHOTO_HOSTS.includes(url.hostname) && req.destination === 'image') {
@@ -397,15 +562,46 @@ async function trimPhotoCache(cache){
   await Promise.all(extra.map(k => cache.delete(k)));
 }
 
-async function networkFirst(req){
+/* Tope de espera a la red (auditoría de arranque 2026-09-08). Antes esto hacía
+   `await fetch(req)` a secas: la red solo "perdía" si FALLABA. Con señal mala
+   pero viva — el wifi de una tienda, datos en un sótano — no falla: tarda. Y
+   como el shell son ~15 pedidos al mismo origen (los 8 app-0*.js, el css,
+   patron-core, morphdom…), abrir la app se quedaba esperando a todos aunque la
+   copia guardada estuviera lista desde el primer instante.
+   Ahora, SI HAY COPIA EN CACHÉ, la red tiene 2,5 s para contestar; pasado ese
+   tiempo se sirve la copia y la respuesta de red sigue viajando por detrás
+   (event.waitUntil) para dejar el caché al día para la próxima apertura. Sin
+   copia no hay nada mejor que esperar, así que se espera como siempre.
+   Contrapartida asumida: en una red lenta, un archivo puede venir de la red y
+   otro del caché en la misma carga. El precache versiona el juego COMPLETO por
+   release (CACHE_NAME) y el SW se activa de inmediato (skipWaiting +
+   clients.claim), así que esa mezcla solo es posible en la ventana de segundos
+   entre un deploy y la actualización del SW — a cambio de sacar un bloqueo que
+   hoy se sufre en cada apertura con mala señal. */
+const NETWORK_TIMEOUT_MS = 2500;
+async function networkFirst(req, event){
   const cache = await caches.open(CACHE_NAME);
-  try {
-    const fresh = await fetch(req);
+  const red = fetch(req).then(fresh => {
     if (fresh && fresh.ok) cache.put(req, fresh.clone());
     return fresh;
+  });
+  const cached = await cache.match(req);
+  if (cached) {
+    let temporizador;
+    const espera = new Promise(r => { temporizador = setTimeout(() => r(null), NETWORK_TIMEOUT_MS); });
+    // red.catch(...) => null: un fallo de red también "pierde" la carrera y cae
+    // a la copia guardada, igual que antes.
+    const ganador = await Promise.race([red.catch(() => null), espera]);
+    clearTimeout(temporizador);
+    if (ganador) return ganador;
+    // La red no llegó a tiempo (o falló): se sirve lo guardado y se deja que la
+    // actualización termine sola, sin que nadie la espere.
+    if (event && event.waitUntil) event.waitUntil(red.catch(() => {}));
+    return cached;
+  }
+  try {
+    return await red;
   } catch (err) {
-    const cached = await cache.match(req);
-    if (cached) return cached;
     // Navegación (recarga/abrir la app) sin red y sin esa URL exacta en
     // caché: se sirve el shell de todos modos, la SPA arranca desde ahí.
     if (req.mode === 'navigate') {

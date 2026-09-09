@@ -62,18 +62,13 @@ function render(){
     showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
     showActivityModal, showTeamModal, showProductBatchModal,
-    showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal, showProductionHub,
-    !!catalogViewPhoto];
+    showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal, showProductionHub];
   const RECEIPT_DETAIL_FLAG = 2; // índice de !!showReceiptDetail en overlayFlags
-  // El visor de foto del Catálogo (último de la lista) va en AMBAS direcciones,
-  // como el detalle de recibo: su gracia es el vuelo miniatura ↔ foto grande
-  // (view-transition-name compartido, ver catalogPhotoViewer / catalogoView).
-  const CATALOG_VIEWER_FLAG = overlayFlags.length - 1;
   let overlayClosed = false, receiptDetailToggled = false;
   if(lastOverlayFlags){
     overlayFlags.forEach((v,i)=>{
       if(v !== lastOverlayFlags[i]){
-        if(i === RECEIPT_DETAIL_FLAG || i === CATALOG_VIEWER_FLAG) receiptDetailToggled = true;
+        if(i === RECEIPT_DETAIL_FLAG) receiptDetailToggled = true;
         if(!v) overlayClosed = true;
       }
     });
@@ -88,8 +83,7 @@ function render(){
   /* NOMBRES DE TRANSICIÓN A DEMANDA (auditoría de parpadeo 2026-09-08, medida
      con 150 productos y 120 recibos): antes cada tarjeta de producto y cada
      recibo llevaba su view-transition-name SIEMPRE, así que cualquier View
-     Transition (cerrar un modal, abrir un recibo, el visor del catálogo)
-     capturaba ~270 capas — un congelado y un parpadeo por cada cierre en un
+     Transition (cerrar un modal, abrir un recibo) capturaba ~270 capas — un congelado y un parpadeo por cada cierre en un
      inventario grande. Ahora el nombre existe solo en la transición que lo
      usa: el estado VIEJO se nombra a mano en el DOM justo antes de la captura,
      y el NUEVO lo pone el template mientras la bandera esté prendida. */
@@ -215,19 +209,11 @@ function renderApp(){
         <div class="view-page${tabIdx===0?' active':''}${Math.abs(0-tabIdx)>1?' far':''}">${topbar()}${dashboardView()}</div>
         <div class="view-page${tabIdx===1?' active':''}${Math.abs(1-tabIdx)>1?' far':''}">${inventarioView()}</div>
         <div class="view-page${tabIdx===2?' active':''}${Math.abs(2-tabIdx)>1?' far':''}">${recibosView()}</div>
-        <div class="view-page${tabIdx===3?' active':''}${Math.abs(3-tabIdx)>1?' far':''}">${catalogoView()}</div>
       </div>
     </div>
     ${/* Presupuesto ANTES de itemModal a propósito: sus filas de gastos abren
          la ficha del ítem, que debe apilarse ENCIMA (el orden del DOM manda). */''}
     ${showBudgetModal ? budgetModal() : ''}
-    ${showCatalogCameraModal && !catalogPendingPhoto ? catalogCameraModal() : ''}
-    ${catalogPendingPhoto ? catalogAssignModal() : ''}
-    ${catalogPendingPhoto && catalogEditorOpen ? catalogEditorModal() : ''}
-    ${showCatalogPublishModal ? catalogPublishModal() : ''}
-    ${showCollageLayoutModal ? collageLayoutModal() : ''}
-    ${showTemplateModal ? templateModal() : ''}
-    ${catalogViewPhoto ? catalogPhotoViewer() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}
     ${showCategoriesModal ? categoriesModal() : ''}
@@ -287,8 +273,8 @@ function renderApp(){
     morphdom(app, `<div id="app">${html}</div>`, {
       /* CLAVES ESTABLES (auditoría de parpadeo 2026-09-08, medida con 150
          productos con foto y 120 recibos): morphdom solo reconoce "es el mismo
-         nodo" por id. Las tarjetas de producto, las del catálogo, las de recibo
-         y los días del calendario no tenían id, así que al reordenar la lista
+         nodo" por id. Las tarjetas de producto, las de recibo y los días del
+         calendario no tenían id, así que al reordenar la lista
          (un snapshot de la nube, ordenar, buscar, un chip de categoría) las
          destruía y las volvía a crear: 45 fotos re-decodificadas al tipear
          "pro" y 20 latidos de conteo arrancando de cero — eso era el parpadeo
@@ -317,8 +303,8 @@ function renderApp(){
    2026-09-08, medida con el inventario real: 253 productos, 51 por contar):
    destapar una página .far (content-visibility:hidden) en el momento del toque
    cuesta su primer layout + pintado — ~60 ms en escritorio, un tirón de
-   150-300 ms en teléfono justo al arrancar el deslizamiento hacia Recibos o
-   Catálogo. Acá se destapan en un momento MUERTO (requestIdleCallback) después
+   150-300 ms en teléfono justo al arrancar el deslizamiento hacia Recibos.
+   Acá se destapan en un momento MUERTO (requestIdleCallback) después
    de cada render y de cada asentado de pestaña, así el toque las encuentra ya
    acomodadas y el resorte arranca limpio. El template sigue poniendo .far al
    dibujar (primer pintado rápido; un render de fondo las vuelve a tapar), y este
@@ -344,12 +330,18 @@ function schedulePagePrewarm(){
 // la animación de switchToTab(), porque ahí el DOM no se vuelve a dibujar de cero
 // pero la página visible sí puede haber cambiado de alto.
 let viewportSyncedContentH = -1, viewportSyncedInnerH = -1; // lo último medido (ver scheduleViewportSync)
-function syncViewportHeight(){
+let viewportShrinkFrame = null;
+/* opts (todo opcional): {tab, contentHeight, vTop}. Sirve para ajustar el alto a
+   una pestaña que TODAVÍA no es la activa —el cambio de marco lo hace al
+   comprometerse el cambio, ver rebasePagesToTab— y para hacerlo con medidas ya
+   tomadas, sin leer geometría en el cuadro del pointerup. */
+function syncViewportHeight(diferirEncogido, opts){
   const viewport = document.querySelector('.view-viewport');
   const pages = document.querySelectorAll('.view-page');
-  const idx = TAB_ORDER.indexOf(activeTab);
+  const idx = TAB_ORDER.indexOf((opts && opts.tab) || activeTab);
   if(!viewport || !pages[idx]) return;
-  const contentHeight = pages[idx].getBoundingClientRect().height;
+  const contentHeight = (opts && opts.contentHeight != null)
+    ? opts.contentHeight : pages[idx].getBoundingClientRect().height;
   // Si el contenido de la pestaña activa es corto (ej. Inventario filtrado al conteo
   // cíclico, con un solo producto) y no llega a tapar la pantalla hasta la barra de
   // abajo, se estira igual hasta ahí — si no, queda un hueco vacío mostrando el
@@ -363,12 +355,14 @@ function syncViewportHeight(){
   // hecho a media página (marcar una ficha, un snapshot) estiraba el documento,
   // y el siguiente render hecho arriba lo encogía y el scroll se recortaba de
   // golpe. El relleno tiene que ser el mismo sin importar dónde esté el scroll.
-  const viewportDocTop = viewport.getBoundingClientRect().top + window.scrollY;
+  const viewportDocTop = (opts && opts.vTop != null)
+    ? opts.vTop : viewport.getBoundingClientRect().top + window.scrollY;
   const fillHeight = Math.max(0, window.innerHeight - viewportDocTop - navHeight);
   const totalHeight = Math.max(contentHeight, fillHeight);
-  viewportSyncedContentH = Math.round(contentHeight);
-  viewportSyncedInnerH = window.innerHeight;
-  viewport.style.height = totalHeight + 'px';
+  const aplicar = ()=>{
+    viewportSyncedContentH = Math.round(contentHeight);
+    viewportSyncedInnerH = window.innerHeight;
+    viewport.style.height = totalHeight + 'px';
   // El fondo gris solo arranca EXACTO donde termina el contenido real (contentHeight)
   // — arriba de esa línea queda transparente, tal como estaba siempre, para no tapar
   // el degradé verde de marca del <body> que se sigue viendo (a propósito) en los
@@ -376,9 +370,39 @@ function syncViewportHeight(){
   // punta a punta (como se probó antes) tapaba también esa parte de arriba y dejaba
   // un corte feo justo donde arranca el contenido — acá el corte cae exactamente
   // donde el contenido real ya terminó, así no se nota.
-  viewport.style.background = totalHeight>contentHeight
-    ? `linear-gradient(to bottom, transparent ${contentHeight}px, var(--bg) ${contentHeight}px)`
-    : 'none';
+    viewport.style.background = totalHeight>contentHeight
+      ? `linear-gradient(to bottom, transparent ${contentHeight}px, var(--bg) ${contentHeight}px)`
+      : 'none';
+  };
+  /* ENCOGER EL DOCUMENTO, UN CUADRO DESPUÉS (reporte del usuario 2026-09-08:
+     "parpadea toda esa zona al deslizar de Inventario al Dashboard", y "empezó
+     desde que le metí muchos datos").
+     Al asentarse un cambio de pestaña el alto del documento se ajusta a la
+     página nueva. Aunque el contenido visible no se mueva, cambiar el alto del
+     documento de golpe re-rasteriza la página entera, y eso se ve como un
+     destello justo en el pie del contenido, donde se juntan las tarjetas de
+     color, el borde del fondo y la sombra de la barra.
+     Medido: yendo de Inventario al Dashboard el alto cae de golpe 490 px con 10
+     productos (imperceptible) pero 36.692 px con 400 — 43 pantallas en un
+     cuadro. Por eso "empezó" al cargar datos: el mecanismo estuvo siempre, los
+     datos lo hicieron visible.
+     Solo se difiere ENCOGER. Crecer se aplica ya mismo: un documento más corto
+     de la cuenta recorta el scroll (y con él la posición de la página que se
+     está mostrando), mientras que uno 2 cuadros más largo no se nota. */
+  const altoActual = parseFloat(viewport.style.height) || 0;
+  if(diferirEncogido && altoActual > totalHeight + 1){
+    if(viewportShrinkFrame) cancelAnimationFrame(viewportShrinkFrame);
+    viewportShrinkFrame = requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      viewportShrinkFrame = null;
+      // Pudo haber otro cambio de pestaña mientras tanto: ese render ya ajustó
+      // el alto a SU página y pisar con esta medida vieja sería el salto que se
+      // quiere evitar.
+      if(TAB_ORDER.indexOf(activeTab)!==idx) return;
+      aplicar();
+    }));
+    return;
+  }
+  aplicar();
 }
 /* El alto fijo de arriba se medía UNA vez por render y nada lo volvía a
    medir (auditoría de scroll 2026-09-07). Todo lo que cambia el alto de la
@@ -498,8 +522,6 @@ function bottomNav(){
     {tab:'dashboard', label:t('tab_dashboard'), icon:`<polyline points="3 11 12 4 21 11"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/>`},
     {tab:'inventario', label:t('tab_inventory'), icon:`<polygon points="12 3 21 7.5 21 16.5 12 21 3 16.5 3 7.5"/><polyline points="3 7.5 12 12 21 7.5"/><line x1="12" y1="12" x2="12" y2="21"/>`},
     {tab:'recibos', label:t('tab_receipts'), icon:`<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>`},
-    // Vitrina/tienda: la pestaña del catálogo que el negocio comparte con sus clientes.
-    {tab:'catalogo', label:t('tab_catalog'), icon:`<path d="M4 9l1.5-5h13L20 9"/><path d="M5 9v11h14V9"/><path d="M9.5 20v-5.5h5V20"/><path d="M4 9h16"/>`},
   ];
   // Presupuesto en amarillo/rojo (pedido del usuario 2026-09-07: "ponerla a
   // palpitar como aviso"): un punto que late sobre el ícono del Dashboard para

@@ -118,7 +118,33 @@ function suggestedOrderModal(){
     <div class="modal">
       <h3 class="basil">${t('suggested_order_title')}</h3>
       <div class="sub">${t('suggested_order_sub')}</div>
-      ${rows.length===0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('suggested_order_empty')}</div>` : `
+      ${rows.length===0 ? `
+        <div class="helper-note" style="margin:0 0 10px;">${t('suggested_order_empty')}</div>
+        ${/* SOMBRAS de cómo se va a ver con productos por pedir (pedido del
+             usuario 2026-09-09, mismo recurso que en "Gasto por mes"): la
+             pantalla vacía solo decía que no hay nada crítico y no dejaba
+             entender qué aparece acá cuando sí lo hay. Son filas de EJEMPLO
+             de verdad —nombre, cuánto pedir y la nota de abajo, armadas igual
+             que una fila real— pero DESENFOCADAS y desvanecidas (pedido del
+             usuario: "ejemplos reales pero que no se vean tan nítidos como
+             reales"), así se entiende la forma sin poder confundirlas con
+             datos propios. Los nombres son genéricos, nunca del inventario del
+             usuario. Se van solas apenas un producto llega a nivel crítico,
+             porque solo se dibujan con la lista vacía. */''}
+        <div class="so-ghost-note">${t('suggested_order_ghost_note')}</div>
+        <div style="display:flex;flex-direction:column;margin-bottom:8px;">
+          ${[{name:t('so_ex1'), have:1,  target:20, o:'.62', blur:'1.1px'},
+             {name:t('so_ex2'), have:2,  target:25, o:'.44', blur:'1.8px'},
+             {name:t('so_ex3'), have:12, target:60, o:'.28', blur:'2.6px'}].map(g=>`
+            <div class="matched-item ghost" aria-hidden="true" style="opacity:${g.o};filter:blur(${g.blur});">
+              <div class="mi-top">
+                <strong>${escapeHtml(g.name)}</strong>
+                <span>${g.target-g.have} ${escapeHtml(unitLabel('unidad'))}</span>
+              </div>
+              <div style="font-size:12px;color:var(--ink-soft);">${t('suggested_order_row_note')} ${g.have} ${escapeHtml(unitLabel('unidad'))} ${t('stock_of')} ${g.target} ${escapeHtml(unitLabel('unidad'))}</div>
+            </div>`).join('')}
+        </div>
+      ` : `
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
         ${rows.map(r=>{
           const need = Math.max(r.target - (r.ing.qtyOnHand||0), 0);
@@ -253,6 +279,28 @@ function receiptDetailModal(){
 function emptyState(iconName,title,sub,compact,actionsHtml){
   return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}${actionsHtml?`<div class="empty-state-actions">${actionsHtml}</div>`:''}</div>`;
 }
+/* Esqueleto de carga por pestaña mientras cloudSyncPending (primer snapshot de
+   la nube en camino). Reserva la MISMA forma que el contenido real de cada
+   pestaña — ver la nota junto a .sk-wrap en dusty.css — para que la llegada de
+   los datos no desplace nada. Los bloques van aria-hidden; el estado lo anuncia
+   el contenedor (role=status + aria-busy) con el mismo texto de siempre. */
+function loadingSkeleton(kind){
+  const title = t('sync_loading_title');
+  const head = `<div class="sk-label"><span class="spinner"></span>${title}</div>`;
+  if(kind==='dashboard'){
+    const tile = `<div class="dash-tile sk-tile" aria-hidden="true"><i class="sk-block sk-icon"></i><i class="sk-block sk-num"></i><i class="sk-block sk-line"></i><i class="sk-block sk-line short"></i></div>`;
+    return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="${title}">${head}
+      <div class="dash-section-label" aria-hidden="true">${t('dash_today')}</div>
+      <div class="dash-grid">${tile.repeat(6)}</div></div>`;
+  }
+  if(kind==='recibos'){
+    const card = `<div class="dish-card sk-dish" aria-hidden="true"><i class="sk-block sk-card"></i><div style="padding:12px;"><i class="sk-block sk-line" style="margin-top:0;"></i><i class="sk-block sk-line short"></i></div></div>`;
+    return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="${title}" style="margin-top:22px;">${head}
+      <div class="dish-grid">${card.repeat(2)}</div></div>`;
+  }
+  const row = `<div class="stock-row-static sk-row" aria-hidden="true"><div class="stock-row"><i class="sk-block sk-ring"></i><div style="flex:1;min-width:0;"><i class="sk-block sk-line" style="margin-top:0;width:55%;"></i><i class="sk-block sk-bar"></i><i class="sk-block sk-line short"></i></div></div></div>`;
+  return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="${title}">${head}${row.repeat(6)}</div>`;
+}
 
 /* ================= MODAL: IDIOMA (primera pantalla que ve un usuario nuevo) ================= */
 // Su propia pantalla, separada del tutorial de bienvenida — antes compartían modal, así
@@ -364,7 +412,7 @@ function welcomeModal(){
         <div class="welcome-step-sub">${t(step.subKey)}</div>
       </div>
       <div class="welcome-progress-row">
-        <div class="welcome-progress-track"><div class="welcome-progress-fill" style="width:${Math.round((welcomeStep+1)/WELCOME_STEPS.length*100)}%;"></div></div>
+        <div class="welcome-progress-track"><div class="welcome-progress-fill" style="--fill:${((welcomeStep+1)/WELCOME_STEPS.length).toFixed(3)};"></div></div>
         <span class="welcome-progress-pct">${Math.round((welcomeStep+1)/WELCOME_STEPS.length*100)}%</span>
       </div>
       <div class="welcome-dots">
@@ -1968,26 +2016,6 @@ function activityModal(){
   </div>`;
 }
 
-/* ================= MODAL: COMPRA MANUAL ================= */
-/* ================= MODAL: ESCANEAR RECIBO (lectura con Claude API vía Netlify Function) ================= */
-/* ================= INTRO ÚNICA DE CÁMARA =================
-   (decisión final del usuario 2026-09-07, tras probar la hoja nativa de iOS y una
-   hoja propia y descartarlas — "tapan" la pantalla): las cuatro cámaras grandes
-   — Recibos, Productos, Estante y Catálogo — abren el MISMO modal: título, la
-   línea que explica qué hace ese escáner, la caja punteada "Tocá para sacar una
-   foto" (abre la CÁMARA directo, input con capture) y debajo el link "o subí una
-   desde la galería" (input sin capture). Nada de hojas intermedias. Después
-   cada escáner hace lo suyo. Los pares de inputs (con/sin capture) existen
-   porque en algunos WebViews de Android el input sin capture salta al
-   explorador y esconde la cámara (bug reportado por un usuario real). */
-// Los inputs del escáner de recibos (con capture = cámara; sin capture y
-// multiple = galería).
-function receiptPhotoSource(){
-  return {
-    camera: ()=>{ const i=document.getElementById('receipt-file'); if(i) i.click(); },
-    gallery: ()=>{ const i=document.getElementById('receipt-file-gallery'); if(i) i.click(); }
-  };
-}
 /* ===== Compartido por los escáneres (auditoría de cámaras 2026-09-07) ===== */
 // "Sigue leyendo…" pasados 8 s de espera, en cualquier escáner: un spinner mudo
 // durante 10 s se siente colgado. beginAiWait al arrancar la lectura, endAiWait al
@@ -2406,7 +2434,7 @@ function resizeToBase64(img, maxSide, quality){
      estándar de los editores: ir a la mitad en cada paso (cada píxel destino
      promedia ~4 de origen) hasta acercarse al tamaño final, con el filtro de
      suavizado del canvas en 'high'. Mejora TODAS las fotos de la app —
-     productos, recibos, recetas y el catálogo — gratis. */
+     productos, recibos y recetas — gratis. */
   let src = img, sw = img.width, sh = img.height;
   while(sw/2 >= width && sh/2 >= height && sw > 32){
     const half = document.createElement('canvas');
@@ -2438,8 +2466,8 @@ function resizeToBase64(img, maxSide, quality){
 let pbSourceImg = null;
 
 // Recorta la zona de un producto (box en fracciones 0..1) con un poco de aire
-// alrededor y la devuelve como miniatura — mismo tamaño/calidad que la foto que
-// sube "Subir foto" a mano, así el ícono queda igual que el de un alta manual.
+// alrededor — con ITEM_PHOTO_SIDE/QUALITY, los mismos que "Subir foto" y el alta
+// a mano, así un producto se ve igual sin importar por dónde entró su foto.
 function cropToBase64(img, box, maxSide, quality){
   try{
     const pad = 0.08; // 8% de aire alrededor del recorte
@@ -2496,16 +2524,10 @@ function openProductBatchModal(){
   pbRequestId++;
   pbState='camera'; pbItems=[]; pbError=''; pbSourceImg=null; pbMatchedId=null;
   showProductBatchModal=true; render();
-  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos,
-  // Estante y Catálogo; la hoja de fotos recién al tocar la caja. El visor en
+  // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos y
+  // Estante; la hoja de fotos recién al tocar la caja. El visor en
   // vivo se retiró: cada escáner trabaja con UNA foto quieta, y la cámara del
   // teléfono la saca mejor.
-}
-function pbPhotoSource(){
-  return {
-    camera: ()=>{ const i=document.getElementById('pb-photo-file'); if(i) i.click(); },
-    gallery: ()=>{ const i=document.getElementById('pb-photo-file-gallery'); if(i) i.click(); }
-  };
 }
 function closeProductBatchModal(){ pbRequestId++; stopScannerCamera(); showProductBatchModal=false; pbSourceImg=null; render(); }
 // "Escanear otro": vuelve a la caja sin cerrar el modal — para recorrer un estante
@@ -2568,7 +2590,7 @@ async function processProductBatchSource(source){
         sku: p.sku || '',
         categoryId: catMatch ? catMatch.id : (p.category && p.category.trim() ? '__newcat__:'+p.category.trim() : null),
         confidence: p.confidence || 'baja',
-        photo: p.box ? cropToBase64(source, p.box, 300, 0.75) : null,
+        photo: p.box ? cropToBase64(source, p.box, ITEM_PHOTO_SIDE, ITEM_PHOTO_QUALITY) : null,
         // Confianza baja arranca DESTILDADA: un toque en Agregar no debe meter una
         // "lata sin etiqueta" al inventario.
         selected: !dup && (p.confidence||'baja')!=='baja',
@@ -3711,10 +3733,71 @@ function removeInventoryItem(id){
   if(deletedItem) logActivity('item_deleted', deletedItem.name);
 }
 
+/* BORRADO EN LOTE (pedido del usuario 2026-09-09). Una sola confirmación con el
+   total, un solo saveState y UN solo registro de actividad: logActivity escribe en
+   Firestore por llamada, así que borrar 50 productos de a uno serían 50 escrituras
+   y 50 líneas en el historial del equipo para una sola acción del usuario.
+   Los bills seleccionados que tengan pagos de este mes se preguntan UNA vez para
+   todos, no uno por uno — misma decisión que deleteStockItem toma por ítem (ver
+   ahí el porqué de preguntar en vez de asumir), pero sin volverla insoportable. */
+function deleteSelectedInventory(ids){
+  const lista = ids.map(id=>inventory.find(i=>i.id===id)).filter(Boolean);
+  if(!lista.length) return 0;
+  if(!confirm(t('confirm_delete_selected').replace('{n}', lista.length))) return 0;
+  const idSet = new Set(lista.map(i=>i.id));
+  const pagosDelMes = receipts.filter(r=>r && r.manual && r.billItemId && idSet.has(r.billItemId)
+    && monthKey(r.date)===localMonthStr());
+  if(pagosDelMes.length){
+    const total = pagosDelMes.reduce((sum,r)=>sum+(r.total||0), 0);
+    if(confirm(t('confirm_delete_bill_payments')
+        .replace('{n}', pagosDelMes.length).replace('{total}', money(total)))){
+      const pagoIds = new Set(pagosDelMes.map(r=>r.id));
+      pagosDelMes.forEach(r=>{ if(!deletedReceiptIds.includes(r.id)) deletedReceiptIds.push(r.id); });
+      receipts = receipts.filter(r=>!pagoIds.has(r.id));
+    }
+  }
+  inventory = inventory.filter(i=>!idSet.has(i.id));
+  lista.forEach(i=>{ if(!deletedInventoryIds.includes(i.id)) deletedInventoryIds.push(i.id); });
+  saveState();
+  // Un solo registro para toda la acción (ver la nota de arriba).
+  if(lista.length===1) logActivity('item_deleted', lista[0].name);
+  else logActivity('items_bulk_deleted', '', String(lista.length));
+  return lista.length;
+}
 function deleteStockItem(id, triggerEl){
   const item = inventory.find(i=>i.id===id);
   if(!item) return;
   if(!confirm(t('confirm_delete_item').replace('{name}', item.name))) return;
+  /* PAGOS DE UN BILL (reporte del usuario 2026-09-09: "borré los dos bills para
+     que dejara de palpitar la alerta pero la barra del presupuesto no hizo el
+     cálculo"). Un bill es la DEFINICIÓN del gasto recurrente ("Luz, $600/mes");
+     el ＋ de la lista de presupuesto registra el PAGO creando un recibo manual
+     (manual:true, billItemId). Borrar el bill nunca tocó esos recibos, y como el
+     presupuesto se calcula desde los recibos, la barra no se movía — correcto
+     contablemente, pero desde el presupuesto el bill y su pago se ven como una
+     sola cosa y nada te avisaba dónde había quedado la plata.
+     Solo se ofrecen los pagos de ESTE MES: son los que mueven la barra que el
+     usuario está mirando. Borrar los de meses anteriores reescribiría el gasto de
+     meses ya cerrados, que es justo lo que no hay que hacer sin pedirlo aparte.
+     Se pregunta, no se asume: el pago ocurrió de verdad, y borrar el bill puede
+     significar "ya no lo pago más" sin negar lo que sí se pagó. */
+  const pagosDelMes = isExpenseItem(item)
+    ? receipts.filter(r=>r && r.manual && r.billItemId===id && monthKey(r.date)===localMonthStr())
+    : [];
+  let borrarPagos = false;
+  if(pagosDelMes.length){
+    const total = pagosDelMes.reduce((sum,r)=>sum+(r.total||0), 0);
+    borrarPagos = confirm(t('confirm_delete_bill_payments')
+      .replace('{n}', pagosDelMes.length).replace('{total}', money(total)));
+  }
+  const borrarPagosSiCorresponde = ()=>{
+    if(!borrarPagos || !pagosDelMes.length) return;
+    const ids = new Set(pagosDelMes.map(r=>r.id));
+    // Lápidas, igual que en deleteReceipt: sin esto un compañero offline los
+    // vuelve a subir al reconectar y el gasto reaparece en el presupuesto.
+    pagosDelMes.forEach(r=>{ if(!deletedReceiptIds.includes(r.id)) deletedReceiptIds.push(r.id); });
+    receipts = receipts.filter(r=>!ids.has(r.id));
+  };
   // La misma fila (mismo data-ing-id) aparece dos veces en el DOM a la vez: una en
   // la tarjeta de stock del Dashboard y otra en Inventario (las 3 pestañas viven
   // siempre las 3 en el DOM, ver la nota junto a .view-track). Antes esto buscaba
@@ -3726,7 +3809,7 @@ function deleteStockItem(id, triggerEl){
   // realmente se tocó (triggerEl) y subiendo al contenedor más cercano, se anima
   // siempre la fila correcta sin importar la pestaña.
   const wrap = triggerEl ? triggerEl.closest('.stock-row-static') : document.querySelector('.stock-row-static[data-ing-id="'+id+'"]');
-  const finish = ()=>{ removeInventoryItem(id); render(); };
+  const finish = ()=>{ borrarPagosSiCorresponde(); removeInventoryItem(id); render(); };
   if(!wrap){ finish(); return; }
   const h = wrap.getBoundingClientRect().height;
   wrap.style.maxHeight = h+'px';
@@ -3747,54 +3830,117 @@ function viewportWidthPx(){
 }
 function trackRestPx(tab, vw){ return -(TAB_ORDER.indexOf(tab) * vw); }
 /* ===== Scroll por pestaña + alineación de páginas durante el swipe =====
-   (auditoría de scroll 2026-09-07). Las 4 páginas comparten el MISMO scroll del
+   (auditoría de scroll 2026-09-07). Las 3 páginas comparten el MISMO scroll del
    documento y arrancan todas en el mismo tope (.view-track, align-items:
    flex-start). Con el Inventario scrolleado 2000px, deslizar hacia el Dashboard
    mostraba la vecina desde SU tope — o sea, 2000px abajo de su contenido: un
    hueco gris — y al asentarse el documento se achicaba de golpe y el scroll se
    recortaba: el "salto" al cambiar de pestaña. Y al volver, el Inventario
    aparecía arriba de todo, perdido el lugar.
-   Ahora: cada pestaña recuerda su scroll (tabScrollMemory). Al comprometerse un
-   gesto (o tocar la barra), cada página que NO es la actual se corre con un
-   translateY (compositor, sin layout) de modo que lo que se ve por la ventana
-   sea exactamente su scroll recordado; al asentarse, render() vuelve a dibujar
-   sin esos offsets y en el mismo cuadro el documento se lleva al scroll
-   recordado — el desplazamiento del documento y el offset que desaparece se
-   cancelan: cero movimiento visible. */
+   Ahora: cada pestaña recuerda su scroll (tabScrollMemory). Todo el juego de
+   páginas vive en un MARCO DE REFERENCIA: el scroll del documento vale para una
+   pestaña (la "base") y a cada una de las otras se le da un translateY
+   (compositor, sin layout) para que por la ventana se vea justo su scroll
+   recordado. Al enganchar un gesto la base es la pestaña actual — el dedo está
+   sobre ella y no se la puede tocar.
+
+   REBASE AL COMPROMETERSE (reporte del usuario 2026-09-08: "parpadea toda esa
+   zona al deslizar de Inventario al Dashboard"). Antes el cambio de marco se
+   hacía AL ASENTARSE: se le quitaba el translateY a la página que llegaba y en
+   el mismo cuadro el documento saltaba a su scroll recordado. Las dos cosas se
+   cancelan y el contenido no se mueve, pero quitarle el transform a un elemento
+   que está EN PANTALLA le destruye la capa de composición y obliga a
+   re-rasterizar la página entera — con el Inventario scrolleado miles de píxeles
+   esa capa es enorme y el re-rasterizado no llega en un cuadro: eso es el
+   destello. Y era justo al final, con el ojo ya quieto sobre la página que
+   llega.
+   Ahora el cambio de marco pasa al COMPROMETERSE (rebasePagesToTab), cuando
+   arranca el resorte: el documento se lleva ya al scroll de la pestaña de
+   destino y el offset se lo queda la página que SALE, que en medio segundo va a
+   estar fuera de pantalla. La que llega nunca tiene transform, así que al
+   asentarse no hay nada que quitarle: el cuadro del asentado no toca ni el
+   scroll ni los transforms. Sigue sin verse movimiento porque las dos cosas se
+   cancelan igual, solo que en un cuadro en el que la pantalla ya se está
+   moviendo en horizontal. */
 const tabScrollMemory = {};
+// Geometría de las 3 páginas medida al alinear. Se guarda para poder re-alinear
+// en el pointerup sin volver a leer nada: un getBoundingClientRect de las tres
+// fuerza un layout justo en el cuadro en el que tiene que arrancar el resorte
+// (era el "se traba al soltar" de la auditoría de swipe 2026-09-08).
+let pageGeomAtAlign = null;
+// Colchón sobre el borde de abajo de la ventana. La barra del navegador móvil
+// aparece y desaparece sola, y con ella innerHeight, así que el recorte no se
+// calcula al ras.
+const VIEWPORT_SLACK = 140;
 function viewportDocTop(){
   const vp = document.querySelector('.view-viewport');
   return vp ? vp.getBoundingClientRect().top + window.scrollY : 0;
 }
-function alignPagesForSwipe(fromTab){
+/* Pone las 3 páginas en el marco de `base` (un scroll de documento). Devuelve la
+   geometría usada, para poder reusarla sin volver a medir. */
+function applyPageOffsets(base, geom){
   const pages = document.querySelectorAll('.view-page');
   const vp = document.querySelector('.view-viewport');
-  if(!pages.length || !vp) return;
-  const S = window.scrollY;
-  tabScrollMemory[fromTab] = S;
+  if(!pages.length || !vp) return null;
+  const medidas = geom ? geom.heights
+    : TAB_ORDER.map((_, i)=> pages[i] ? pages[i].getBoundingClientRect().height : 0);
+  const vTop = geom ? geom.vTop : (vp.getBoundingClientRect().top + window.scrollY);
+  /* TECHO (reporte del usuario 2026-09-08: "empezó desde que le metí muchos
+     datos"). Una página corrida hacia abajo tiene que caber dentro del viewport
+     (overflow:hidden) o se recortaría justo donde termina la actual — pero solo
+     hace falta que llegue hasta el borde de abajo de la VENTANA: lo que quede
+     más abajo no se ve, recortarlo no se nota, y el scroll no se mueve durante
+     el resorte así que ese borde no cambia.
+     Sin este techo el viewport se estiraba hasta la página MÁS LARGA de las
+     tres entera.
+     Medido con 400 productos, yendo de Inventario al Dashboard: el documento
+     pasaba de 907 px a 37.599 px al empezar el gesto y volvía a 907 al
+     asentarse. Ese cambio de tamaño del documento (36.692 px, 43 pantallas)
+     re-rasteriza todo y es lo que se veía como un destello en el pie del
+     contenido. Con techo, el mismo deslice lo mueve ~270 px. */
+  const techo = Math.max(0, base + window.innerHeight + VIEWPORT_SLACK - vTop);
   let needH = 0;
   TAB_ORDER.forEach((tab, i)=>{
     const page = pages[i];
     if(!page) return;
-    if(tab===fromTab){ page.style.transform = ''; return; }
-    const remembered = tabScrollMemory[tab] || 0;
-    const dy = S - remembered;
+    const dy = base - (tabScrollMemory[tab] || 0);
     page.style.transform = dy ? `translateY(${dy}px)` : '';
-    // La vecina corrida hacia abajo tiene que caber dentro del viewport
-    // (overflow:hidden): si no, se recortaría justo donde termina la actual.
-    needH = Math.max(needH, dy + page.getBoundingClientRect().height);
+    needH = Math.max(needH, Math.min(dy + (medidas[i] || 0), techo));
   });
   const cur = parseFloat(vp.style.height) || 0;
   if(needH > cur) vp.style.height = needH + 'px';
+  return {heights: medidas, vTop};
+}
+function alignPagesForSwipe(fromTab){
+  tabScrollMemory[fromTab] = window.scrollY;
+  pageGeomAtAlign = applyPageOffsets(tabScrollMemory[fromTab], null);
+}
+/* Cambio de marco: de la pestaña actual a la de destino, en un solo cuadro y sin
+   movimiento visible.
+   El alto del documento se lleva ACÁ al que le corresponde a la pestaña de
+   destino, en vez de al asentarse. Yendo del Inventario (23.178 px con 400
+   productos) al Dashboard (907 px) el documento tiene que encoger 22.271 px sí o
+   sí, y hacerlo es re-rasterizar todo: la diferencia es CUÁNDO. Al asentarse cae
+   con la pantalla ya quieta sobre la página nueva —justo el destello que se
+   reportó en el pie del contenido—; acá cae en el cuadro del pointerup, con el
+   track arrancando el resorte y todo moviéndose en horizontal.
+   El orden importa: primero el alto de destino (puede encoger), después los
+   offsets (que solo agrandan, para que la página que sale no quede recortada
+   antes del borde de la ventana) y al final el scroll, que window.scrollTo
+   recorta contra el alto que haya en ese momento. */
+function rebasePagesToTab(tab){
+  const destino = tabScrollMemory[tab] || 0;
+  tabScrollMemory[tab] = destino;
+  const i = TAB_ORDER.indexOf(tab);
+  const g = pageGeomAtAlign;
+  syncViewportHeight(false, g
+    ? {tab, contentHeight: g.heights[i], vTop: g.vTop}
+    : {tab});
+  applyPageOffsets(destino, g);
+  window.scrollTo(0, destino);
 }
 function clearPageOffsets(){
   document.querySelectorAll('.view-page').forEach(p=>{ p.style.transform = ''; });
-}
-function restoreScrollForTab(tab){
-  const remembered = tabScrollMemory[tab];
-  if(remembered===undefined) { window.scrollTo(0, 0); return; }
-  const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-  window.scrollTo(0, Math.max(0, Math.min(remembered, maxY)));
 }
 // getComputedStyle siempre devuelve la matriz resuelta en píxeles, sin importar si
 // el transform actual se escribió en % (el primer dibujado) o en px (una animación
@@ -3878,8 +4024,13 @@ function commitTabSwitchLight(tab, track){
     p.classList.toggle('far', Math.abs(i-idx)>1);
   });
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
-  clearPageOffsets();
-  syncViewportHeight();
+  // Las páginas ya quedaron en el marco de esta pestaña al comprometerse el
+  // cambio (rebasePagesToTab), así que acá no se les toca el transform: la que
+  // está en pantalla conserva su capa de composición.
+  // true = si el documento tiene que ENCOGER, que lo haga un cuadro después:
+  // encogerlo en el mismo cuadro que el resto del asentado re-rasteriza la
+  // página entera — el destello del pie del contenido (ver syncViewportHeight).
+  syncViewportHeight(true);
   schedulePagePrewarm(); // las que quedaron lejos se destapan en tiempo libre (app-04)
 }
 /* Cambia de pestaña animando el .view-track que YA está en el DOM, en vez de
@@ -3903,7 +4054,11 @@ function hapticTabTick(){
     if(H) H.impact({style:'LIGHT'}).catch(()=>{});
   }catch(e){}
 }
-function switchToTab(tab, initialVelocityPxPerSec){
+/* liveGesture: true cuando viene de soltar un deslice (endGestureImpl). Ahí las
+   páginas ya están destapadas y alineadas desde que el gesto enganchó el eje
+   (pointermove), así que se saltea el destape + re-medición + espera de dos
+   cuadros que sí necesita un toque en la barra — ver más abajo. */
+function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
   const track = document.querySelector('.view-track');
   if(!track){
     if(tab!==activeTab){ activeTab=tab; try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){} }
@@ -3931,26 +4086,40 @@ function switchToTab(tab, initialVelocityPxPerSec){
   /* PÁGINAS LEJANAS (auditoría de cambio de pestaña 2026-09-08, medida cuadro
      a cuadro con 150 productos y 120 recibos): render() marca .far (content-
      visibility:hidden) a las páginas a 2+ pestañas de la activa, y un toque en
-     la barra puede ir justo a una de esas (Dashboard → Recibos, Inventario →
-     Catálogo). La página de destino entraba deslizándose VACÍA los ~600 ms del
+     la barra puede ir justo a una de esas (Dashboard → Recibos). La página
+     de destino entraba deslizándose VACÍA los ~600 ms del
      resorte (alto 0, sin rasterizar) y aparecía de golpe recién en el render
      del asentado — ese era el parpadeo al cambiar de página. Acá se destapan
      TODAS las páginas antes de medir y de arrancar: alignPagesForSwipe ya las
      mide con su alto real (con .far medía 0 y no estiraba el viewport), y el
      resorte arranca recién en el cuadro siguiente, con la página ya pintada.
      El render del asentado vuelve a poner .far a las que quedaron lejos. */
+  let uncovered = false; // ¿hubo que destapar alguna página .far recién ahora?
   {
     // Solo las que pasan por debajo del deslizamiento (de la actual a la de
     // destino, inclusive): destapar las otras sería pintar y medir de más.
     const a = TAB_ORDER.indexOf(activeTab), z = TAB_ORDER.indexOf(tab);
     const lo = Math.min(a, z), hi = Math.max(a, z);
-    document.querySelectorAll('.view-page').forEach((p, i)=>{ if(i>=lo && i<=hi) p.classList.remove('far'); });
-    void track.offsetHeight; // fuerza el layout con las páginas ya destapadas
+    document.querySelectorAll('.view-page').forEach((p, i)=>{
+      if(i>=lo && i<=hi && p.classList.contains('far')){ p.classList.remove('far'); uncovered = true; }
+    });
+    if(uncovered) void track.offsetHeight; // fuerza el layout con las páginas ya destapadas
   }
-  // Toque en la barra de abajo (sin gesto previo): las páginas se alinean ACÁ.
-  // Viniendo de un swipe ya están alineadas y volver a hacerlo es idempotente
-  // (el scroll no se movió mientras el dedo arrastraba en horizontal).
-  alignPagesForSwipe(activeTab);
+  /* Toque en la barra de abajo (sin gesto previo): las páginas se alinean ACÁ.
+     Viniendo de un deslice ya quedaron alineadas al enganchar el eje (ver
+     pointermove en attachViewSwipeHandlers) y el scroll no se movió mientras
+     el dedo iba en horizontal — repetirlo costaba un layout forzado
+     (getBoundingClientRect de las 3 páginas) justo en el pointerup, el cuadro
+     en el que el resorte tiene que arrancar (auditoría de swipe 2026-09-08). */
+  if(!liveGesture || uncovered) alignPagesForSwipe(activeTab);
+  /* Acá se cambia el marco de referencia a la pestaña de destino (ver la nota
+     larga arriba de tabScrollMemory): el documento va ya a SU scroll y el
+     translateY se lo lleva la página que sale. La que llega entra y se asienta
+     sin transform, así que el cuadro del asentado no toca nada que esté en
+     pantalla. Es una escritura de estilo por página más un scrollTo, sin leer
+     geometría (las alturas ya se midieron al alinear), así que no cuesta un
+     layout forzado en el cuadro del pointerup. */
+  rebasePagesToTab(tab);
   hapticTabTick();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   // Un render de fondo que caiga entre este cuadro y el arranque del resorte
@@ -3963,7 +4132,7 @@ function switchToTab(tab, initialVelocityPxPerSec){
     /* ASENTADO LIVIANO (auditoría 2026-09-08): el render completo de acá
        (template entero + morphdom, 25-55 ms en escritorio, un tirón de
        100-250 ms en un teléfono con inventario grande) no cambiaba nada del
-       contenido — las cuatro páginas ya estaban al día. Lo único que depende
+       contenido — las tres páginas ya estaban al día. Lo único que depende
        de la pestaña activa es el transform del track (a %), las clases
        .active/.far de las páginas, la barra de abajo y el alto del viewport:
        se ajustan a mano. Solo si un render quedó pospuesto durante la
@@ -3974,15 +4143,17 @@ function switchToTab(tab, initialVelocityPxPerSec){
     } else {
       commitTabSwitchLight(tab, track);
     }
-    // Mismo cuadro que el render (síncrono): el documento se lleva al scroll
-    // recordado de la pestaña nueva; el offset con el que se la mostró durante
-    // el gesto ya no existe, y las dos cosas se cancelan — no se ve moverse.
-    restoreScrollForTab(tab);
   });
-  // Dos rAF: el primero corre antes de pintar este cuadro; el segundo, con la
-  // página de destino ya rasterizada en pantalla. ~2 cuadros de espera (33 ms),
-  // imperceptibles — la barra de abajo ya marcó la pestaña nueva al instante.
-  requestAnimationFrame(()=>requestAnimationFrame(startSpring));
+  /* Dos rAF SOLO si hubo que destapar una página .far (toque en la barra hacia
+     una pestaña lejana): el primero corre antes de pintar este cuadro; el
+     segundo, con la página de destino ya rasterizada. Esa espera de ~2 cuadros
+     (33 ms) se aplicaba antes a TODOS los cambios, incluido soltar un deslice —
+     ahí la página vecina ya estaba pintada bajo el dedo, así que el track se
+     quedaba clavado dos cuadros donde se soltó y recién después arrancaba el
+     resorte: el "se traba al soltar" (auditoría de swipe 2026-09-08). Ahora el
+     resorte sale en el mismo cuadro del pointerup. */
+  if(uncovered) requestAnimationFrame(()=>requestAnimationFrame(startSpring));
+  else startSpring();
 }
 /* Deslizar hacia los lados entre pestañas, siguiendo el dedo en tiempo real (como
    cambiar de pantalla de apps en el iPhone) — no interfiere con un modal abierto
@@ -4020,6 +4191,13 @@ function attachViewSwipeHandlers(){
   // sesgo, horizontal gana hasta ~63° de inclinación (|dx| > |dy|*0.5) — el scroll
   // vertical de verdad (casi recto para abajo) sigue andando normal, pero un
   // deslice apenas diagonal para cambiar de pestaña ahora sí "agarra".
+  // OJO, LÍMITE REAL ~43°, NO 63° (medido con gestos táctiles reales, 2026-09-08):
+  // #app declara touch-action:pan-y, que autoriza al navegador a quedarse el gesto
+  // para scrollear sin consultar a JS. Desde ~45° el compositor lo hace: llegan 2
+  // pointermove y después pointercancel, así que este código nunca ve el arrastre
+  // y el tramo 45°-63° del sesgo es inalcanzable. Bajar MOVE_LOCK a 4px para
+  // decidir antes tampoco lo rescata (probado). Ampliarlo exigiría sacar el
+  // pan-y, que rompe el scroll vertical de toda la app — no vale la pena.
   const AXIS_BIAS = 0.5;
   let s = null; // estado del gesto en curso, o null si no hay ninguno
 
@@ -4072,9 +4250,11 @@ function attachViewSwipeHandlers(){
 
   document.addEventListener('pointermove',(e)=>{
     if(!s || e.pointerId!==s.pointerId) return;
-    // Arrastre de selección del Catálogo en curso (presión larga + deslizar por
-    // la grilla, app-07): ese dedo marca tarjetas, no cambia de pestaña.
-    if(typeof catSelDrag!=='undefined' && catSelDrag){ endGestureImpl(e, true); return; }
+    // Eje ya decidido como vertical: es un scroll normal y este gesto no tiene
+    // nada que hacer — se sale ANTES de los chequeos de abajo (querySelector
+    // del track, etc.), que corrían en cada evento de movimiento de cada
+    // scroll de toda la app.
+    if(s.axis==='y') return;
     // Si en el medio del gesto la pantalla se volvió a dibujar entera (ej. llegó un
     // cambio de otro dispositivo del equipo por Firestore mientras deslizabas), el
     // nodo .view-track de ahora ya NO es el mismo que agarramos al empezar — seguir
@@ -4167,14 +4347,14 @@ function attachViewSwipeHandlers(){
       }
       targetIdx = Math.max(0, Math.min(TAB_ORDER.length-1, targetIdx));
     }
-    switchToTab(TAB_ORDER[targetIdx], isCancel ? 0 : velocity*1000); // px/ms -> px/s, ver animateTrackTo
+    switchToTab(TAB_ORDER[targetIdx], isCancel ? 0 : velocity*1000, true); // px/ms -> px/s, ver animateTrackTo
   }
   document.addEventListener('pointerup', (e)=>endGestureImpl(e, false));
   document.addEventListener('pointercancel', (e)=>endGestureImpl(e, true));
 }
 
 /* Mantener presionado un chip de categoría (en el Dashboard) y arrastrarlo lo mueve
-   de lugar entre sus vecinos — el orden final es el que categoryChipsRow() va a
+   de lugar entre sus vecinos — el orden final es el que categoryChipsHtml() va a
    mostrar de ahí en más, el mismo que categoriesModal() deja editar con flechas.
    Requiere mantener presionado un rato antes de arrancar (en vez de reaccionar al
    primer movimiento, como el swipe de pestañas) porque la fila hace scroll
