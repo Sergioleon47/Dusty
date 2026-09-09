@@ -2663,9 +2663,9 @@ function applyProductBatch(){
 
 /* ================= VISOR DE FOTO DE PRODUCTO =================
    Tocar la miniatura de un producto CON foto la abre en grande (para reconocer
-   el ítem cuando la miniatura no alcanza), con un menú mínimo arriba a la
-   derecha — cambiar / quitar / cerrar — en botones chicos translúcidos, pedido
-   del usuario: "elegante y no muy pronunciado". Sin foto, tocar la miniatura
+   el ítem cuando la miniatura no alcanza), con un menú mínimo DEBAJO de la foto
+   — cambiar / quitar / cerrar — en botones chicos translúcidos, pedido del
+   usuario: "elegante y no muy pronunciado". Sin foto, tocar la miniatura
    sigue abriendo el selector para subir una (promptItemPhotoUpload, app-07). */
 let photoViewItemId = null;
 
@@ -2677,13 +2677,18 @@ function itemPhotoViewerModal(){
   return `
   <div class="overlay pv-overlay" id="photo-viewer-overlay">
     <div class="photo-viewer" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('pv_photo_of').replace('{name}', item.name))}">
+      <img src="${escapeHtml(src)}" alt="${escapeHtml(item.name)}">
+      <div class="pv-caption">${escapeHtml(item.name)}</div>
+      ${/* Los botones van DEBAJO de la foto (pedido del usuario 2026-09-09):
+           arriba a la derecha tapaban justo la esquina de la etiqueta, que es
+           donde suele estar el dato que uno abre la foto para leer. Y van
+           también al final del marcado, no solo movidos por CSS, para que el
+           orden de lectura y el del teclado coincidan con el visual. */''}
       <div class="pv-actions">
         <button type="button" class="pv-btn" id="pv-change" title="${t('pv_change')}" aria-label="${t('pv_change')}">${icon('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}</button>
         <button type="button" class="pv-btn pv-btn-danger" id="pv-delete" title="${t('btn_remove_photo')}" aria-label="${t('btn_remove_photo')}">${icon('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>')}</button>
         <button type="button" class="pv-btn" id="pv-close" title="${t('oc_close')}" aria-label="${t('oc_close')}">${icon('<path d="M18 6L6 18M6 6l12 12"/>')}</button>
       </div>
-      <img src="${escapeHtml(src)}" alt="${escapeHtml(item.name)}">
-      <div class="pv-caption">${escapeHtml(item.name)}</div>
     </div>
   </div>`;
 }
