@@ -223,7 +223,6 @@ function attachEvents(){
   manageModalA11y();
   attachModalTabTrap();
   document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts').forEach(makeKeyboardClickable);
-  attachViewSwipeHandlers();
   attachHardwareBackButton();
   attachCategoryChipDragHandlers();
   const btnLangToggle=document.getElementById('btn-lang-toggle');

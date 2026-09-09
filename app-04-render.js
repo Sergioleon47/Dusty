@@ -1,29 +1,22 @@
 /* ================= RENDER ================= */
-/* render() reconstruye TODO el HTML de #app de una — no hace diffing. Si un dedo está
-   en medio de un deslice entre pestañas (swipeGestureActive), reconstruir ahora
-   reemplazaría el nodo .view-track que el gesto está animando a mano, y el propio
-   código de attachViewSwipeHandlers lo detecta como "la pantalla cambió por debajo"
-   y aborta el gesto en seco — se siente como que el deslice "no agarra" o se corta
-   solo. Puede pasar por cualquier cosa que dispare un render en el momento menos
-   pensado: un snapshot de Firestore llegando, el latido de presencia del modo equipo
-   cada 30s, etc. En vez de perder esa actualización, se pospone y se aplica de una
-   sola vez apenas el dedo suelta (ver flushPendingRenderIfAny, llamado desde
-   endGestureImpl en attachViewSwipeHandlers). */
-let swipeGestureActive = false;
+/* render() reconstruye TODO el HTML de #app de una — no hace diffing. Si eso
+   pasa mientras el carrusel se está animando (trackAnimating), reemplazaría el
+   nodo .view-track que el resorte está moviendo a mano: el rAF en curso queda
+   animando un nodo huérfano —fuera del DOM, invisible— hasta que se asienta solo
+   y dispara un segundo redibujado tardío, que se siente como un freeze seguido
+   de un salto brusco. Puede pasar por cualquier cosa que dispare un render en el
+   momento menos pensado: un snapshot de Firestore llegando, el latido de
+   presencia del modo equipo cada 30s, etc. En vez de perder esa actualización,
+   se pospone y se aplica de una sola vez al asentarse (ver
+   flushPendingRenderIfAny, llamado desde switchToTab).
+   (Hasta 2026-09-09 había además una bandera swipeGestureActive para el dedo
+   apoyado en un deslice entre pestañas; ese gesto se eliminó —se navega con la
+   barra de abajo— y trackAnimating cubre solo el resorte, que es lo que queda.) */
 let renderPendingAfterGesture = false;
 let lastOverlayFlags = null;
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 function render(){
-  // trackAnimating cubre el resorte de asentado (tap en la barra de abajo, o el
-  // "suelto el dedo y termina de acomodarse" de un swipe) — swipeGestureActive por
-  // sí solo no alcanza ahí porque ya se puso en false apenas se soltó el dedo (ver
-  // endGestureImpl) o nunca llegó a ponerse en true (tocar un botón no es un
-  // arrastre). Sin este chequeo, un render disparado desde afuera (un snapshot de
-  // Firestore, el latido de presencia) durante esa ventana reemplaza el nodo
-  // .view-track que el resorte todavía está animando a mano: el rAF en curso queda
-  // animando un nodo huérfano (fuera del DOM, invisible) hasta que se asienta solo
-  // y dispara un segundo redibujado tardío — se siente como un freeze seguido de un
-  // salto brusco.
+  // trackAnimating cubre el resorte del cambio de pestaña (ver la nota de arriba).
   // Mismo motivo que arriba, pero para la cámara del escaneo de código de barras:
   // mientras barcodeScannerInstance existe hay un <video> de verdad adentro de
   // #barcode-reader que la librería de códigos de barras maneja a mano — un
@@ -38,7 +31,7 @@ function render(){
   // <video> del escáner de productos (getUserMedia manejado a mano en app-06).
   // shelfCamStream: misma protección que scannerCamStream pero para el <video>
   // del escáner de estante (app-08).
-  if(swipeGestureActive || trackAnimating || barcodeScannerInstance || scannerCamStream || shelfCamStream){ renderPendingAfterGesture = true; return; }
+  if(trackAnimating || barcodeScannerInstance || scannerCamStream || shelfCamStream){ renderPendingAfterGesture = true; return; }
   /* CERRAR un modal (o abrir/cerrar el detalle de recibo) se anima con la View
      Transitions API del navegador: startViewTransition() saca una captura del
      estado viejo y funde hacia el nuevo. Solo al cerrar, a propósito: al ABRIR el
@@ -331,7 +324,7 @@ function schedulePagePrewarm(){
   pagePrewarmPending = true;
   const run = ()=>{
     pagePrewarmPending = false;
-    if(swipeGestureActive || trackAnimating){ setTimeout(schedulePagePrewarm, 400); return; }
+    if(trackAnimating){ setTimeout(schedulePagePrewarm, 400); return; }
     document.querySelectorAll('.view-page.far').forEach(p=>{ p.classList.remove('far'); });
     const track = document.querySelector('.view-track');
     if(track) void track.offsetHeight; // el layout ocurre AHORA, en tiempo libre, no en el toque
@@ -430,7 +423,7 @@ function scheduleViewportSync(){
   if(viewportSyncFrame) return;
   viewportSyncFrame = requestAnimationFrame(()=>{
     viewportSyncFrame = null;
-    if(swipeGestureActive || trackAnimating) return;
+    if(trackAnimating) return;
     const viewport = document.querySelector('.view-viewport');
     const pages = document.querySelectorAll('.view-page');
     const idx = TAB_ORDER.indexOf(activeTab);

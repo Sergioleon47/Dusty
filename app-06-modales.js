@@ -3840,11 +3840,9 @@ function currentTrackPx(track){
    vez de depender de transition+transitionend, que es lo que hacía que antes se
    sintiera siempre igual de rápido pasara lo que pasara. */
 let trackSpringFrame = null;
-// Cubre TODA la ventana en la que el resorte está animando .view-track a mano —
-// no solo mientras el dedo está apoyado (swipeGestureActive cubre eso), sino
-// también después de soltar y al tocar un botón de la barra de abajo (ahí no hay
-// gesto de arrastre en absoluto). render() la revisa igual que swipeGestureActive
-// (ver más abajo) para no reemplazar el nodo que este resorte está animando.
+// Cubre TODA la ventana en la que el resorte está animando .view-track a mano.
+// render() la revisa para no reemplazar el nodo que este resorte está animando
+// (ver la nota al principio de app-04).
 let trackAnimating = false;
 function animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, onSettled){
   if(trackSpringFrame){ cancelAnimationFrame(trackSpringFrame); trackSpringFrame=null; }
@@ -3915,8 +3913,8 @@ function commitTabSwitchLight(tab, track){
    actualiza activeTab y se llama a render() — para ese momento la pantalla ya está
    en su lugar, así que el redibujado no se nota. Se usa tanto al tocar un botón de
    la barra de abajo (sin velocidad inicial, el resorte solo tira hacia el destino)
-   como al soltar un gesto de deslizar (con la velocidad real del dedo — ver
-   attachViewSwipeHandlers). */
+   (desde 2026-09-09 solo lo usa la barra: el deslice entre pestañas se eliminó,
+   así que la velocidad inicial del resorte es siempre 0). */
 /* Vibración sutil al comprometerse un cambio de pestaña (tap en la barra o soltar
    un swipe que superó el umbral) — el toquecito táctil que las apps nativas dan al
    "encajar" una pantalla. En el navegador o sin el plugin es un no-op silencioso.
@@ -3929,11 +3927,11 @@ function hapticTabTick(){
     if(H) H.impact({style:'LIGHT'}).catch(()=>{});
   }catch(e){}
 }
-/* liveGesture: true cuando viene de soltar un deslice (endGestureImpl). Ahí las
-   páginas ya están destapadas y alineadas desde que el gesto enganchó el eje
-   (pointermove), así que se saltea el destape + re-medición + espera de dos
-   cuadros que sí necesita un toque en la barra — ver más abajo. */
-function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
+/* Cambia de pestaña. Desde 2026-09-09 el único disparador es la barra de abajo
+   (más el botón físico "atrás" de Android, que vuelve al Dashboard): el deslice
+   se eliminó, así que ya no hay velocidad inicial que pasarle al resorte ni un
+   camino "el gesto ya alineó las páginas" que saltear. */
+function switchToTab(tab){
   const track = document.querySelector('.view-track');
   if(!track){
     if(tab!==activeTab){ activeTab=tab; try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){} }
@@ -3946,10 +3944,10 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
   if(tab===activeTab){
     // No cambia de pestaña, solo se asienta de vuelta en su lugar (ej. un arrastre
     // que no llegó al umbral, o el rebote tipo goma en la primera/última pestaña).
-    // Igual puede haber quedado un redibujado pospuesto de mientras el dedo estaba
-    // apoyado (ver swipeGestureActive en render()) — se aplica recién acá, nunca
-    // antes, para no pisar la posición que el resorte todavía está animando a mano.
-    animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
+    // Igual puede haber quedado un redibujado pospuesto durante la animación (ver
+    // trackAnimating en render()) — se aplica recién acá, nunca antes, para no
+    // pisar la posición que el resorte todavía está animando a mano.
+    animateTrackTo(track, fromPx, toPx, 0, ()=>{
       // Gesto cancelado: las vecinas vuelven a su lugar y el alto del viewport
       // (que alignPagesForSwipe pudo haber estirado) a la medida real.
       clearPageOffsets();
@@ -3982,18 +3980,17 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
   }
   /* Toque en la barra de abajo (sin gesto previo): las páginas se alinean ACÁ.
      Viniendo de un deslice ya quedaron alineadas al enganchar el eje (ver
-     pointermove en attachViewSwipeHandlers) y el scroll no se movió mientras
-     el dedo iba en horizontal — repetirlo costaba un layout forzado
+     el scroll no se movió entre medio — repetirlo costaba un layout forzado
      (getBoundingClientRect de las 4 páginas) justo en el pointerup, el cuadro
      en el que el resorte tiene que arrancar (auditoría de swipe 2026-09-08). */
-  if(!liveGesture || uncovered) alignPagesForSwipe(activeTab);
+  alignPagesForSwipe(activeTab);
   hapticTabTick();
   document.querySelectorAll('.bottom-nav-item').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
   // Un render de fondo que caiga entre este cuadro y el arranque del resorte
   // volvería a tapar la página (o a mover el track): se pospone igual que
   // durante la animación (render() mira trackAnimating).
   trackAnimating = true;
-  const startSpring = ()=> animateTrackTo(track, fromPx, toPx, initialVelocityPxPerSec, ()=>{
+  const startSpring = ()=> animateTrackTo(track, fromPx, toPx, 0, ()=>{
     activeTab = tab;
     try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){}
     /* ASENTADO LIVIANO (auditoría 2026-09-08): el render completo de acá
@@ -4026,215 +4023,28 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
   if(uncovered) requestAnimationFrame(()=>requestAnimationFrame(startSpring));
   else startSpring();
 }
-/* Deslizar hacia los lados entre pestañas, siguiendo el dedo en tiempo real (como
-   cambiar de pantalla de apps en el iPhone) — no interfiere con un modal abierto
-   (no se toca nada si hay uno en pantalla), ni con el scroll vertical normal (se
-   bloquea el eje apenas se nota cuál de los dos domina).
-
-   Escucha en document (NO en .view-viewport) para que agarre el dedo empiece
-   donde empiece el toque — la barra de arriba, una tarjeta, un botón, la barra de
-   abajo — no solo el área en blanco entre unas cosas y otras. Por eso se cablea
-   UNA SOLA VEZ (viewSwipeAttached), a diferencia del resto de attachEvents() que
-   se vuelve a correr en cada render: document nunca se destruye, así que
-   engancharse de nuevo cada vez apilaría escuchas repetidas. Los elementos que sí
-   cambian en cada render (.view-track, .view-viewport) se buscan de nuevo recién
-   cuando hacen falta, nunca se guardan de entrada.
-
-   Mientras el dedo está apoyado, la pantalla lo sigue 1 a 1 en tiempo real (con
-   re-base al enganchar y goma asintótica en los bordes, ver pointermove); el
-   compromiso final — a qué pestaña queda — se decide recién al soltar (endGesture),
-   con la velocidad real de los últimos ~100ms del dedo entrando directo al resorte
-   de switchToTab(). */
-let viewSwipeAttached = false;
-function attachViewSwipeHandlers(){
-  if(viewSwipeAttached) return;
-  viewSwipeAttached = true;
-  const MOVE_LOCK = 10; // px para decidir si el gesto es horizontal o vertical — antes
-                         // era 5, muy sensible al temblor natural de los primeros
-                         // píxeles de un toque real, lo que a veces trababa el eje en
-                         // "vertical" por error y el swipe no arrancaba
-  const DIST_FRACTION = 0.2; // % del ancho para comprometerse al cambio arrastrando lento
-  const FLICK_VELOCITY = 0.3; // px/ms — un toque rápido cambia de pestaña aunque recorra poco
-  // Antes ganaba el eje horizontal recién pasado los 45° (|dx|>|dy| a secas) — un
-  // dedo real casi nunca se mueve perfectamente horizontal, así que un deslice
-  // apenas un poco inclinado (muy común arrancando desde abajo del pulgar) se
-  // trababa en "es scroll vertical" y el cambio de pestaña no agarraba. Con este
-  // sesgo, horizontal gana hasta ~63° de inclinación (|dx| > |dy|*0.5) — el scroll
-  // vertical de verdad (casi recto para abajo) sigue andando normal, pero un
-  // deslice apenas diagonal para cambiar de pestaña ahora sí "agarra".
-  // OJO, LÍMITE REAL ~43°, NO 63° (medido con gestos táctiles reales, 2026-09-08):
-  // #app declara touch-action:pan-y, que autoriza al navegador a quedarse el gesto
-  // para scrollear sin consultar a JS. Desde ~45° el compositor lo hace: llegan 2
-  // pointermove y después pointercancel, así que este código nunca ve el arrastre
-  // y el tramo 45°-63° del sesgo es inalcanzable. Bajar MOVE_LOCK a 4px para
-  // decidir antes tampoco lo rescata (probado). Ampliarlo exigiría sacar el
-  // pan-y, que rompe el scroll vertical de toda la app — no vale la pena.
-  const AXIS_BIAS = 0.5;
-  let s = null; // estado del gesto en curso, o null si no hay ninguno
-
-  document.addEventListener('pointerdown',(e)=>{
-    if(e.pointerType==='mouse' && e.button!==0) return;
-    /* Solo el dedo "principal" (el primero apoyado) maneja este gesto — un segundo
-       dedo, o la palma tocando de más, se ignora sin romper el gesto en curso.
-       Importante: NO se descarta el toque nuevo por haber quedado un gesto anterior
-       sin cerrar. Esa protección ("si ya hay uno en curso, ignorar") parecía
-       prudente pero era justo lo que causaba el "pongo el dedo y no responde": si
-       por cualquier motivo un gesto quedaba sin su pointerup (el navegador se lo
-       tragó, el sistema interrumpió, etc.), TODOS los toques siguientes quedaban
-       ignorados hasta recargar la página. Un pointerdown principal siempre arranca
-       de cero — es imposible quedar trabado. */
-    if(e.isPrimary===false) return;
-    if(e.target.closest('.overlay')) return; // con un modal abierto, este gesto no aplica
-    // La hoja de la calculadora es fixed pero NO es .overlay — sin esta línea,
-    // deslizar el dedo dentro de la calculadora abierta arrastraba las pestañas
-    // por detrás (y al cerrarla estabas en otra pantalla sin haberlo pedido).
-    if(e.target.closest('.oc-sheet')) return;
-    const viewport = document.querySelector('.view-viewport');
-    const track = document.querySelector('.view-track');
-    if(!viewport || !track) return;
-    // Si todavía estaba terminando de asentarse la transición anterior, tocar la
-    // pantalla la "agarra" ahí mismo donde esté en vez de dejarla terminando sola
-    // en paralelo (que compitiera con el gesto nuevo) — startIdx se calcula según
-    // activeTab, que recién se actualiza cuando el resorte anterior se asienta, así
-    // que cancelarlo ahora evita que ese commit tardío pise el resultado de este
-    // gesto nuevo.
-    if(trackSpringFrame){ cancelAnimationFrame(trackSpringFrame); trackSpringFrame=null; trackAnimating=false; }
-    /* A propósito NO se llama a setPointerCapture acá. Un toque ya viene con
-       "captura implícita" al elemento donde empezó, así que sus eventos siguen
-       llegando (y burbujeando hasta document) aunque el dedo se mueva por encima de
-       otras cosas — capturar a mano no aportaba nada y sí podía romper el gesto si
-       algún otro elemento se adelantaba a tomar la captura primero. */
-    const vw = viewport.getBoundingClientRect().width;
-    s = {
-      startX:e.clientX, startY:e.clientY, dx:0, dragPx:0, axis:null, baseX:0,
-      vw, startIdx: TAB_ORDER.indexOf(activeTab), startPx: trackRestPx(activeTab, vw),
-      pointerId: e.pointerId, track, // se guarda el nodo exacto — ver por qué en pointermove
-      samples: [{t:e.timeStamp, x:e.clientX}]
-    };
-  }, {passive:true});
-
-  /* Curva de goma asintótica de iOS (la de verdad, no un multiplicador lineal):
-     cuanto más tirás, menos avanza — se acerca a un límite sin llegar nunca, que es
-     exactamente la sensación del borde de una pantalla de iPhone. c=0.55 es la
-     constante que usa Apple en UIScrollView. */
-  function rubberBand(x, dim){ return (1 - 1/((x*0.55/dim) + 1)) * dim; }
-
-  document.addEventListener('pointermove',(e)=>{
-    if(!s || e.pointerId!==s.pointerId) return;
-    // Eje ya decidido como vertical: es un scroll normal y este gesto no tiene
-    // nada que hacer — se sale ANTES de los chequeos de abajo (querySelector
-    // del track, etc.), que corrían en cada evento de movimiento de cada
-    // scroll de toda la app.
-    if(s.axis==='y') return;
-    // Arrastre de selección del Catálogo en curso (presión larga + deslizar por
-    // la grilla, app-07): ese dedo marca tarjetas, no cambia de pestaña.
-    if(typeof catSelDrag!=='undefined' && catSelDrag){ endGestureImpl(e, true); return; }
-    // Si en el medio del gesto la pantalla se volvió a dibujar entera (ej. llegó un
-    // cambio de otro dispositivo del equipo por Firestore mientras deslizabas), el
-    // nodo .view-track de ahora ya NO es el mismo que agarramos al empezar — seguir
-    // moviendo el viejo (ya fuera del DOM) no haría nada visible, y el nuevo
-    // arrancaría en su posición de reposo sin el arrastre. Se aborta limpio en vez
-    // de producir un salto o quedar mudo.
-    if(document.querySelector('.view-track')!==s.track){ endGestureImpl(e, true); return; }
-    s.dx = e.clientX - s.startX;
-    const dy = e.clientY - s.startY;
-    if(s.axis===null){
-      if(Math.abs(s.dx)<MOVE_LOCK && Math.abs(dy)<MOVE_LOCK) return;
-      s.axis = Math.abs(s.dx) > Math.abs(dy)*AXIS_BIAS ? 'x' : 'y';
-      if(s.axis==='x'){
-        s.track.style.transition = 'none';
-        // Capa de composición SOLO durante el gesto (ver .vt-live en dusty.css) —
-        // el resorte la quita al asentarse.
-        s.track.classList.add('vt-live');
-        // Re-base: el movimiento arranca desde CERO en este punto, no desde donde
-        // se apoyó el dedo — sin esto, al confirmarse el eje la pantalla pegaba un
-        // salto seco de ~10px (la distancia ya recorrida para detectar el eje), y
-        // ese saltito inicial es gran parte de que se sintiera "no profesional".
-        // Es lo mismo que hace UIPanGestureRecognizer de iOS.
-        s.baseX = e.clientX;
-        // A partir de acá, render() pospone cualquier redibujado de fondo (ver la
-        // nota junto a su definición) en vez de reemplazar el nodo que este gesto
-        // está animando a mano — así un dato que llega de Firestore a mitad de un
-        // deslice ya no lo corta en seco.
-        swipeGestureActive = true;
-        // Las vecinas se corren para mostrar su scroll recordado a la altura
-        // de la ventana actual (ver alignPagesForSwipe) — antes de que el
-        // dedo las traiga a la vista.
-        alignPagesForSwipe(activeTab);
-      }
-    }
-    if(s.axis!=='x') return;
-    // Muestras para la velocidad de soltado — solo interesan los últimos ~100ms
-    // (cómo venía el dedo AL FINAL, no el promedio de todo el arrastre).
-    s.samples.push({t:e.timeStamp, x:e.clientX});
-    while(s.samples.length>2 && e.timeStamp - s.samples[0].t > 120) s.samples.shift();
-    e.preventDefault(); // igual hace falta: evita que el navegador intente su propio scroll/gesto horizontal
-    // Sigue el dedo en tiempo real, 1 a 1 — el commit final (a qué pestaña queda y
-    // el resorte con el que asienta) recién se decide al soltar, en endGesture.
-    s.dragPx = e.clientX - s.baseX;
-    let dxPx = s.dragPx;
-    const atFirst = s.startIdx===0 && dxPx>0;
-    const atLast = s.startIdx===TAB_ORDER.length-1 && dxPx<0;
-    if(atFirst || atLast){
-      dxPx = Math.sign(dxPx) * rubberBand(Math.abs(dxPx), s.vw);
-    } else if(Math.abs(dxPx) > s.vw){
-      // Pasada la pestaña vecina no hay más adónde ir (el commit es de a una):
-      // goma también, en vez de seguir arrastrando en vano.
-      dxPx = Math.sign(dxPx) * (s.vw + rubberBand(Math.abs(dxPx)-s.vw, s.vw*0.5));
-    }
-    s.track.style.transform = `translateX(${s.startPx + dxPx}px)`;
-  }, {passive:false});
-
-  function endGestureImpl(e, isCancel){
-    if(!s || (e.pointerId!==undefined && e.pointerId!==s.pointerId)) return;
-    const g = s; s = null;
-    // El dedo ya se levantó (o el gesto se canceló) — de acá en adelante render() puede
-    // volver a dibujar normal. El resorte de asentado sigue animando el nodo actual a
-    // mano, sin volver a llamar a render() hasta que se asiente (ver switchToTab), así
-    // que soltar la bandera ahora no le pisa el arrastre.
-    swipeGestureActive = false;
-    if(g.axis!=='x'){ return; } // fue scroll vertical o un toque muy chico — no se tocó el track
-    // Velocidad de soltado medida sobre la ventana de muestras (~100ms), igual que
-    // el reconocedor de gestos de iOS — usar solo el último par de eventos (como
-    // antes) es ruidoso: dos eventos casi simultáneos daban velocidades absurdas o
-    // con el signo cambiado, y el gesto "decidía mal" al soltar.
-    let velocity = 0; // px/ms
-    if(!isCancel && g.samples.length>=2){
-      const last = g.samples[g.samples.length-1];
-      let first = g.samples[0];
-      for(const smp of g.samples){ if(last.t - smp.t <= 100){ first = smp; break; } }
-      if(last.t > first.t) velocity = (last.x - first.x)/(last.t - first.t);
-    }
-    // Un pointercancel (el sistema interrumpió el toque — una llamada entrante, un
-    // gesto del navegador, etc.) nunca completa el cambio de pestaña, solo vuelve a
-    // donde estaba — soltar de verdad es lo único que puede confirmar un cambio.
-    let targetIdx = g.startIdx;
-    if(!isCancel){
-      const flicked = Math.abs(velocity) > FLICK_VELOCITY && Math.abs(g.dragPx) > 8;
-      if(flicked){
-        // La DIRECCIÓN del flick la manda la velocidad, no la distancia total —
-        // así, arrastrar lejos y "devolver" el dedo con un golpecito al final
-        // cancela el cambio, exactamente como en iOS.
-        targetIdx = g.startIdx + (velocity < 0 ? 1 : -1);
-      } else if(Math.abs(g.dragPx) > g.vw*DIST_FRACTION){
-        targetIdx = g.startIdx + (g.dragPx < 0 ? 1 : -1);
-      }
-      targetIdx = Math.max(0, Math.min(TAB_ORDER.length-1, targetIdx));
-    }
-    switchToTab(TAB_ORDER[targetIdx], isCancel ? 0 : velocity*1000, true); // px/ms -> px/s, ver animateTrackTo
-  }
-  document.addEventListener('pointerup', (e)=>endGestureImpl(e, false));
-  document.addEventListener('pointercancel', (e)=>endGestureImpl(e, true));
-}
-
+/* DESLIZAR ENTRE PESTAÑAS: ELIMINADO (decisión del usuario 2026-09-09).
+   Se navega solo con la barra de abajo. El gesto competía con el scroll vertical
+   —el gesto principal de la app— y el navegador se lo quedaba para scrollear a
+   partir de ~43°, por el touch-action:pan-y de #app: medido con toques reales, a
+   45° llegaban 2 pointermove y después pointercancel, así que un deslice apenas
+   diagonal no respondía y el toque quedaba en nada.
+   Lo que sobrevive de aquel código, porque lo usa igual el cambio por la barra:
+   alignPagesForSwipe / clearPageOffsets / tabScrollMemory (memoria de scroll por
+   pestaña) y animateTrackTo (el resorte). Conservan el nombre "swipe" por
+   historia, no porque siga habiendo un gesto.
+   NO se eliminó para arreglar el destello del pie del Dashboard, y no lo
+   arregla: medido, un toque en la barra aplica el MISMO translateY(337px) a la
+   página de destino durante 30 cuadros y se lo quita en el mismo asentado. */
 /* Mantener presionado un chip de categoría (en el Dashboard) y arrastrarlo lo mueve
    de lugar entre sus vecinos — el orden final es el que categoryChipsRow() va a
    mostrar de ahí en más, el mismo que categoriesModal() deja editar con flechas.
    Requiere mantener presionado un rato antes de arrancar (en vez de reaccionar al
    primer movimiento, como el swipe de pestañas) porque la fila hace scroll
    horizontal — sin ese margen, cualquier intento de scrollear la fila se
-   confundiría con querer reordenar un chip. Se cablea UNA sola vez en document,
-   igual que attachViewSwipeHandlers — ver esa función para por qué. */
+   confundiría con querer reordenar un chip. Se cablea UNA sola vez en document
+   (categoryChipDragAttached): document nunca se destruye, así que engancharse de
+   nuevo en cada render apilaría escuchas repetidas. */
 let categoryChipDragAttached = false;
 function attachCategoryChipDragHandlers(){
   if(categoryChipDragAttached) return;
