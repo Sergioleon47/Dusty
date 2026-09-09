@@ -597,10 +597,12 @@ function dashboardView(){
 /* Chips de categoría como FILTRO con "Todos" primero (maqueta 2026-09-07):
    justo sobre la lista, el activo resaltado; "Todos" quita el filtro. El
    Dashboard usa el mismo data-open-category para saltar al Inventario filtrado. */
-function categoryChipsRow(){
+/* Devuelve SOLO los chips de categoría, sin contenedor: desde 2026-09-09 comparten
+   una única fila con Seleccionar y los filtros rápidos (ver inventarioView), así que
+   el .inv-chips lo pone quien arma esa fila. */
+function categoryChipsHtml(){
   const total = inventory.filter(i=>!isExpenseItem(i)).length;
   return `
-  <div class="inv-chips">
     <button type="button" class="category-chip ${inventoryCategoryFilter?'':'on'}" data-inv-all="1">${t('inv_all_chip')}<span>${total}</span></button>
     ${categories.map(c=>{
       // Solo mercadería real: las categorías de gasto (Utilities, Eat out)
@@ -608,9 +610,7 @@ function categoryChipsRow(){
       const count = inventory.filter(i=>i.categoryId===c.id && !isExpenseItem(i)).length;
       if(count===0) return '';
       return `<button type="button" class="category-chip ${inventoryCategoryFilter===c.id?'on':''}" data-open-category="${c.id}" aria-pressed="${inventoryCategoryFilter===c.id}">${escapeHtml(c.name)}<span>${count}</span></button>`;
-    }).join('')}
-  </div>
-  `;
+    }).join('')}`;
 }
 /* PRIMEROS PASOS (auditoría de primer minuto 2026-09-07): reemplaza la tarjeta de
    Inversión mientras no hay nada cargado. Tres pasos con el primero YA tildado
@@ -1026,8 +1026,9 @@ function inventarioView(){
      1. franja de números (Valor · Potencial de venta) lado a lado;
      2. fila de herramientas con nombre: Pedido, Conteo (punto
         cuando toca), Escanear estante (el FAB, con su badge "−");
-     3. buscador fijo arriba al scrollear, con vista y ORDEN en la misma fila;
-     4. Seleccionar y tres filtros rápidos: Crítico, Toca contar, Sin foto;
+     3. debajo, el buscador con la vista y el ORDEN — se queda fijo al scrollear;
+     4. una sola fila de chips: Seleccionar, los tres filtros rápidos
+        (Crítico, Toca contar, Sin foto) y las categorías;
      5. chips de categoría como filtro justo sobre la lista, con "Todos";
      6. grupos plegables (recuerdan su estado) y "ver los restantes" pasados
         los 12 — lo plegado no se dibuja, así la pestaña sigue liviana. */
@@ -1109,17 +1110,18 @@ function inventarioView(){
   ${inventory.length===0 ? (cloudSyncPending ? loadingSkeleton('inventario') : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub'),false,
       `<button type="button" class="btn btn-primary" id="btn-inv-empty-scan">${t('dash_empty_scan_btn')}</button>
        <button type="button" class="btn btn-ghost" id="btn-inv-empty-manual">${t('dash_empty_manual_btn')}</button>`)) : `
-    ${/* Orden (pedido del usuario 2026-09-08, captura con las dos filas
-         marcadas: "estas dos hay que invertirlas"): categorías ARRIBA,
-         después los filtros rápidos, y el buscador con el selector de vista
-         ABAJO, justo sobre la lista — sigue fijo al scrollear. */''}
-    ${categories.length>0 ? categoryChipsRow() : ''}
+    ${/* UNA SOLA FILA DE CHIPS, arriba del todo (opción elegida por el usuario
+         2026-09-09 sobre tres maquetas). Antes eran TRES franjas de controles
+         —categorías, filtros rápidos, buscador— y los productos empezaban
+         recién a media pantalla; así se gana una fila entera. Debajo va el
+         buscador con el selector de vista y el orden, pegados a la lista.
+         Adentro: Seleccionar primero (es lo que se busca al querer borrar
+         varios), después los tres filtros rápidos y al final las categorías.
+         La fila scrollea a lo ancho, como ya lo hacían las dos por separado. */''}
     <div class="inv-chips">
-      ${/* Seleccionar va PRIMERO (pedido del usuario 2026-09-09): la fila se
-           desborda a lo ancho y quedaba fuera de pantalla al final, había que
-           deslizarla para encontrarlo. Los tres filtros rápidos van detrás. */''}
       <button type="button" class="category-chip quick ${invSelectMode?'on':''}" id="btn-inv-select">${invSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
       ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
+      ${categories.length>0 ? categoryChipsHtml() : ''}
     </div>
     ${/* Barra de selección: reemplaza a la de búsqueda mientras el modo está
          activo (buscar y seleccionar a la vez confunde qué queda marcado al

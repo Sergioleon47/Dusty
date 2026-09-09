@@ -4354,7 +4354,7 @@ function attachViewSwipeHandlers(){
 }
 
 /* Mantener presionado un chip de categoría (en el Dashboard) y arrastrarlo lo mueve
-   de lugar entre sus vecinos — el orden final es el que categoryChipsRow() va a
+   de lugar entre sus vecinos — el orden final es el que categoryChipsHtml() va a
    mostrar de ahí en más, el mismo que categoriesModal() deja editar con flechas.
    Requiere mantener presionado un rato antes de arrancar (en vez de reaccionar al
    primer movimiento, como el swipe de pestañas) porque la fila hace scroll
