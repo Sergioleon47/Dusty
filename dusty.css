@@ -903,11 +903,12 @@
      acompaña al tema en vez de clavar un color fijo. Mismo DOM y mismos ids:
      cambia la pintura, no el comportamiento. */
   /* Bloque azul a SANGRE con los bordes de la referencia (pedido del usuario
-     2026-09-09, captura de Vecteezy): arriba recto, pegado al borde superior y
-     a los lados, y solo las esquinas de abajo redondeadas. Los márgenes
+     2026-09-09, captura de Vecteezy): pegado al borde superior y a los lados;
+     las cuatro esquinas iguales (el usuario pidió las de arriba como las de
+     abajo, 2026-09-09). Los márgenes
      negativos cancelan el margen de la página (--page-pad-*, ver #app) y el
      padding superior lo repone por dentro, más la franja de estado. */
-  .cal-widget{background:var(--tile-1);border:0;border-radius:0 0 28px 28px;box-shadow:0 12px 28px rgba(0,0,0,.20);
+  .cal-widget{background:var(--tile-1);border:0;border-radius:28px;box-shadow:0 12px 28px rgba(0,0,0,.20);
     padding:calc(var(--page-pad-top) + 10px) 14px 16px;margin:calc(-1 * var(--page-pad-top)) calc(-1 * var(--page-pad-x)) 16px;color:var(--tile-ink);}
   .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   /* Antes era texto pelado sin fondo ni borde — nada avisaba que se podía tocar para

@@ -437,7 +437,9 @@
 // lados; solo las esquinas de abajo redondeadas) y se quita el buscador por
 // monto que iba sobre él. El margen de página pasa de #app a cada .view-page
 // (variables --page-pad-*) para que un bloque pueda salirse — css + app-05.
-const CACHE_NAME = 'patron-shell-v123';
+// v124: las cuatro esquinas del bloque azul del calendario iguales (el usuario
+// pidió las de arriba como las de abajo, 28px) — css.
+const CACHE_NAME = 'patron-shell-v124';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
