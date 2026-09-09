@@ -1182,8 +1182,6 @@ function attachEvents(){
     document.querySelectorAll('[data-inv-select]').forEach(el=>invSelected.add(el.dataset.invSelect));
     render();
   };
-  const btnSelNone=document.getElementById('btn-inv-sel-none');
-  if(btnSelNone) btnSelNone.onclick=()=>{ invSelected.clear(); render(); };
   const btnSelDelete=document.getElementById('btn-inv-sel-delete');
   if(btnSelDelete) btnSelDelete.onclick=()=>{
     const n = deleteSelectedInventory([...invSelected]);
