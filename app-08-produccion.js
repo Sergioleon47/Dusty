@@ -118,7 +118,10 @@ function shelfScanFab(){
   // Dashboard (fabPulse + delay) — pedido del usuario: los dos escáneres de la app
   // laten igual y a la misma altura de pantalla.
   // Inventario reorganizado (maqueta aprobada 2026-09-07): el FAB vive en la
-  // fila de herramientas con su NOMBRE debajo ("Escanear estante").
+  // fila de herramientas con su NOMBRE debajo — "Reducción" desde el pedido del
+  // usuario 2026-09-09 ("a ese botón ponle reducción"): nombra lo que HACE con
+  // el stock, no el gesto de sacar la foto, y le hace juego al badge "−". El
+  // qué-y-cómo sigue en el tooltip (shelf_banner_sub) y en la burbuja.
   /* El badge "−" volvió (pedido del usuario 2026-09-09 sobre una captura, con la
      esquina marcada: "ponle el signo negativo como estaba"). En la maqueta se
      había sacado suponiendo que el nombre debajo alcanzaba, pero el nombre dice
