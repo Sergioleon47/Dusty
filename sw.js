@@ -450,7 +450,19 @@
 // y aparece una franja fija sobre la barra de abajo cuando no hay red. Antes un
 // sync roto hacia horas se veia igual que una subida en curso, y la app
 // funcionaba offline sin decirlo nunca — app-01/02/03/04/07 + css.
-const CACHE_NAME = 'patron-shell-v129';
+// v127-v129: se deshace lo que cambiaba el aspecto de la app (pedido del
+// usuario): el zoom vuelve a estar bloqueado, los campos a su tamano de
+// siempre, los chips en cero como los demas y sin reglas de tableta. Queda solo
+// lo que no se ve: deshacer un borrado en lote, la salida de "sin resultados",
+// el aviso al exportar y el bloqueo del doble toque al aplicar un escaneo.
+// v130: las fuentes pasan a su propia cache, que NO se borra al publicar.
+// Estaban en CACHE_NAME y activate borra toda cache que no sea la del momento,
+// asi que cada actualizacion las tiraba y la primera apertura despues volvia a
+// pedirle la hoja de estilos a Google — y esa hoja BLOQUEA el dibujado. Medido
+// con 253 productos y CPU 4x: con la hoja en cache la app abre en 547ms en 3G
+// lento y 722ms sin conexion; sin ella en cache, 13,2s y 13,5s, con el HTML ya
+// servido a los 10ms. Todo ese tiempo era un solo pedido a un tercero — sw.
+const CACHE_NAME = 'patron-shell-v130';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
@@ -482,6 +494,15 @@ const PRECACHE_URLS = [
 // Orígenes de fuentes: se cachean por separado (cache-first) porque son
 // archivos versionados/inmutables — no hace falta ni tiene sentido pedirlos
 // de nuevo en cada carga.
+// Van en su PROPIA caché, que no se borra al publicar una versión (auditoría
+// 2026-09-09). Estaban en CACHE_NAME, y activate borra toda caché que no sea la
+// del momento: cada actualización tiraba las fuentes y la primera apertura
+// después volvía a pedirle la hoja de estilos a Google. Esa hoja BLOQUEA el
+// dibujado, así que con mala señal la app quedaba en blanco esperándola —
+// medido acá sin conexión: 12.470ms de los 13 segundos de arranque se iban en
+// ese único pedido, con el HTML ya servido a los 10ms. Las fuentes no dependen
+// de la versión de la app; no hay motivo para volver a bajarlas.
+const FONT_CACHE = 'patron-fonts-v1';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', event => {
@@ -496,7 +517,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(names => Promise.all(
-        names.filter(name => name !== CACHE_NAME && name !== PHOTO_CACHE && name !== SHARE_CACHE).map(name => caches.delete(name))
+        names.filter(name => name !== CACHE_NAME && name !== PHOTO_CACHE && name !== SHARE_CACHE && name !== FONT_CACHE).map(name => caches.delete(name))
       ))
       .then(() => self.clients.claim())
   );
@@ -553,7 +574,7 @@ self.addEventListener('fetch', event => {
   if (url.origin === self.location.origin) {
     event.respondWith(networkFirst(req, event));
   } else if (FONT_HOSTS.includes(url.hostname)) {
-    event.respondWith(cacheFirst(req));
+    event.respondWith(cacheFirst(req, FONT_CACHE));
   } else if (PHOTO_HOSTS.includes(url.hostname) && req.destination === 'image') {
     // Solo las <img> (destination image): las llamadas del SDK de Firebase al
     // mismo host (subidas, metadata) siguen sin tocarse.
@@ -596,6 +617,13 @@ async function trimPhotoCache(cache){
    clients.claim), así que esa mezcla solo es posible en la ventana de segundos
    entre un deploy y la actualización del SW — a cambio de sacar un bloqueo que
    hoy se sufre en cada apertura con mala señal. */
+/* Se probó cambiar esto a "servir lo guardado y actualizar por detrás"
+   (stale-while-revalidate) buscando arrancar más rápido, y NO mejoró nada:
+   medido con los 253 productos y CPU 4x, la segunda apertura en 3G lento dio
+   448ms con esta versión y 547ms con la otra. Los 13 segundos que se veían
+   antes no eran de acá — eran de la hoja de fuentes de Google (ver FONT_CACHE
+   más abajo). Se deja como está: cambiar a stale-while-revalidate retrasaría
+   una apertura la llegada de cada versión nueva, a cambio de nada. */
 const NETWORK_TIMEOUT_MS = 2500;
 async function networkFirst(req, event){
   const cache = await caches.open(CACHE_NAME);
@@ -630,8 +658,8 @@ async function networkFirst(req, event){
   }
 }
 
-async function cacheFirst(req){
-  const cache = await caches.open(CACHE_NAME);
+async function cacheFirst(req, nombreCache){
+  const cache = await caches.open(nombreCache || CACHE_NAME);
   const cached = await cache.match(req);
   if (cached) return cached;
   const fresh = await fetch(req);

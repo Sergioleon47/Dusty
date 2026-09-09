@@ -13,7 +13,8 @@
 const {
   isAllowedOrigin, verifyCallerInfo,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage,
-  checkIpRateLimit
+  checkIpRateLimit,
+  withCors
 } = require('./lib/patron-admin');
 
 function buildPrompt(categoryNames, inventoryNames) {
@@ -179,7 +180,7 @@ ${inventoryNames.map(n => `- ${n}`).join('\n')}
 Si un producto de la foto ES uno de esa lista (criterio: abreviaturas, marcas, tamaños — no comparación literal), poné el nombre EXACTO tal cual aparece. Si no, null.` : `El usuario no tiene productos en su inventario todavía — "matched_inventory_name" va a ser null en todos.`}`;
 }
 
-exports.handler = async (event) => {
+exports.handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
   }
@@ -407,4 +408,4 @@ exports.handler = async (event) => {
     // Genérico a propósito: err.message crudo filtraba detalles internos al cliente.
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }
-};
+});

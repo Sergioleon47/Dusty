@@ -25,7 +25,8 @@
 const {
   isAllowedOrigin, verifyCallerInfo,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
-  checkIpRateLimit
+  checkIpRateLimit,
+  withCors
 } = require('./lib/patron-admin');
 
 function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, expenseCategoryNames, multi) {
@@ -152,7 +153,7 @@ Formato de cada item:
 SOBRE "truncated": true si el recibo parece CORTADO en la foto — el total final no se ve completo, la última línea queda al borde, o el papel sigue fuera del cuadro. false si se ve entero. (Auditoría 2026-09-07: la app ofrece agregar otra página cuando es true.)`}`;
 }
 
-exports.handler = async (event) => {
+exports.handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
   }
@@ -385,4 +386,4 @@ exports.handler = async (event) => {
     // Genérico a propósito: err.message crudo filtraba detalles internos al cliente.
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }
-};
+});

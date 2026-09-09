@@ -16,9 +16,9 @@
 // index.html ya detecta un "permission-denied" en cualquiera de sus listeners
 // de Firestore (que van a empezar a fallar apenas este árbol desaparezca) y
 // devuelve a cada miembro a su propia cuenta vacía automáticamente.
-const { admin, getFirebaseApp, isAllowedOrigin, verifyCaller } = require('./lib/patron-admin');
+const { admin, getFirebaseApp, isAllowedOrigin, verifyCaller, withCors } = require('./lib/patron-admin');
 
-exports.handler = async (event) => {
+exports.handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
   }
@@ -109,4 +109,4 @@ exports.handler = async (event) => {
     // (paths, nombres de servicios) al cliente. El detalle queda en el log de arriba.
     return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo borrar la cuenta, intenta de nuevo' }) };
   }
-};
+});

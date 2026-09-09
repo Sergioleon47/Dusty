@@ -7,6 +7,28 @@
 // primera vez y ya tiene "5 alertas críticas" y productos que nunca cargó pierde la
 // confianza en la app antes de usarla. Ahora arranca vacío de verdad — ver
 // dashboardEmptyState() para la pantalla de "primeros pasos" que lo reemplaza.
+/* DÓNDE VIVEN LAS FUNCIONES DE LA NUBE (escanear recibo, identificar producto,
+   borrar la cuenta). En la web la app y las funciones comparten origen, así que
+   una ruta relativa alcanza. Dentro de la app de Play Store NO: Capacitor sirve
+   los archivos desde https://localhost, y ahí "/.netlify/functions/..." apunta
+   al propio teléfono, donde no hay ninguna función. El fetch fallaba y el
+   usuario veía "sin conexión" teniendo señal perfecta — o sea, escanear recibos
+   e identificar productos no funcionaban en la app publicada (auditoría
+   2026-09-09). Con esto, dentro del envoltorio nativo se pide al servidor real.
+   El servidor, por su lado, tuvo que aprender a aceptar ese origen: ver
+   ALLOWED_ORIGIN_PATTERNS en netlify/functions/lib/patron-admin.js. */
+const API_ORIGEN_WEB = 'https://patronsc.netlify.app';
+const API_BASE = (function(){
+  try{
+    const cap = window.Capacitor;
+    const nativo = !!(cap && (typeof cap.isNativePlatform === 'function' ? cap.isNativePlatform() : cap.isNative))
+      || location.protocol === 'capacitor:';
+    return nativo ? API_ORIGEN_WEB : '';
+  }catch(e){ return ''; }
+})();
+// Une la base con la ruta de la función. En la web devuelve la ruta tal cual.
+function urlFuncion(path){ return API_BASE + path; }
+
 let inventory = [];
 let purchases = [];
 

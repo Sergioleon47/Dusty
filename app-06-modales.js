@@ -43,7 +43,7 @@ async function performAccountDeletion(){
     // ser de antes de reautenticar, y el servidor (delete-account.js) exige uno
     // válido para saber a qué cuenta borrar.
     const idToken = await currentUser.getIdToken(true);
-    const response = await fetch('/.netlify/functions/delete-account', {
+    const response = await fetch(urlFuncion('/.netlify/functions/delete-account'), {
       method:'POST',
       headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
       body: JSON.stringify({})
@@ -2964,7 +2964,9 @@ async function callDustyAI(path, body, opts){
   }
   let response;
   try{
-    response = await fetch(path, {
+    // urlFuncion: en la web devuelve la ruta tal cual; dentro de la app de Play
+    // Store la manda al servidor real (ver API_BASE en app-01).
+    response = await fetch(urlFuncion(path), {
       method: 'POST',
       headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
       body: JSON.stringify(Object.assign({ ownerUid: syncUid() }, body))

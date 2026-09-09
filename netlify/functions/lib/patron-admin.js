@@ -30,11 +30,54 @@ function getFirebaseApp() {
 // seguridad perfecta, un ataque decidido puede falsificar el header Origin,
 // pero corta el abuso casual/bots), solo se acepta si el pedido viene
 // realmente del sitio de Dusty o de una vista previa/desarrollo local.
+// La app publicada en Play Store / App Store entra por acá: Capacitor sirve los
+// archivos desde https://localhost (Android) o capacitor://localhost (iOS), y
+// ese es el Origin que manda. Sin estos dos patrones, escanear un recibo o
+// identificar un producto se rechazaba SIEMPRE desde la app instalada
+// (auditoría 2026-09-09). No abre la puerta a nadie: el freno de verdad sigue
+// siendo el ID token de Firebase que se verifica abajo (verifyCallerInfo), más
+// callerCanUseAccount y el límite por IP. El Origin es solo el freno casual, y
+// de por sí ya era falsificable — por eso nunca fue la defensa principal.
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/([a-z0-9-]+\.)?patronsc\.netlify\.app$/i,
+  /^https:\/\/localhost$/i,
+  /^capacitor:\/\/localhost$/i,
   /^http:\/\/localhost(:\d+)?$/i,
   /^http:\/\/127\.0\.0\.1(:\d+)?$/i
 ];
+/* CABECERAS CORS. En la web la app y las funciones comparten origen y el
+   navegador no pide nada de esto. Desde la app instalada sí: el pedido sale de
+   https://localhost (o capacitor://localhost) hacia patronsc.netlify.app, o sea
+   cruza origen, y el navegador lo bloquea salvo que la respuesta lo autorice.
+   Además, como lleva Content-Type y Authorization, antes del POST manda un
+   OPTIONS de sondeo: sin atenderlo, el pedido de verdad nunca sale.
+   Solo se responde con permiso a los orígenes de la lista de arriba; a
+   cualquier otro no se le devuelve ninguna cabecera y el navegador lo corta,
+   igual que antes (auditoría 2026-09-09). */
+function corsHeaders(event) {
+  const origin = (event.headers.origin || event.headers.Origin || '').replace(/\/$/, '');
+  if (!origin || !ALLOWED_ORIGIN_PATTERNS.some(re => re.test(origin))) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  };
+}
+/* Envuelve un handler para que TODAS sus respuestas lleven las cabeceras (son
+   muchos returns y olvidarse en uno rompe justo el caso de error, que es cuando
+   el usuario necesita ver el mensaje) y para atender el OPTIONS de sondeo. */
+function withCors(handler) {
+  return async (event, context) => {
+    const cabeceras = corsHeaders(event);
+    if ((event.httpMethod || '').toUpperCase() === 'OPTIONS') {
+      return { statusCode: 204, headers: cabeceras, body: '' };
+    }
+    const res = await handler(event, context);
+    return Object.assign({}, res, { headers: Object.assign({}, res && res.headers, cabeceras) });
+  };
+}
 function isAllowedOrigin(event) {
   const origin = event.headers.origin || event.headers.Origin || '';
   const referer = event.headers.referer || event.headers.Referer || '';
@@ -314,7 +357,7 @@ async function recordScanUsage(ownerUid, count, period) {
 }
 
 module.exports = {
-  admin, getFirebaseApp, isAllowedOrigin, verifyCaller, verifyCallerInfo, ALLOWED_ORIGIN_PATTERNS,
+  admin, getFirebaseApp, isAllowedOrigin, corsHeaders, withCors, verifyCaller, verifyCallerInfo, ALLOWED_ORIGIN_PATTERNS,
   isUnlimitedAccount,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
   checkIpRateLimit
