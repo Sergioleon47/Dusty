@@ -377,7 +377,12 @@
 // opacidad no se veía porque msCardIn termina en opacity:1 y una animación
 // le gana al style inline. Probado con 12 meses reales a 320px: la lista
 // scrollea y los botones quedan siempre a la vista — app-05 + dusty.css.
-const CACHE_NAME = 'patron-shell-v112';
+// v113: la CÁMARA pasa a rojo (pedido del usuario 2026-09-09) — los dos FAB
+// de escanear, Dashboard e Inventario, dejan el verde de siempre (azul en
+// los temas App Store) y toman el rojo de la app, con el pulso y el ícono
+// acompañando. Como el rojo queda reservado para la cámara, "Conteo" sale
+// de ese color y se iguala con "A mano": los dos en violeta — dusty.css.
+const CACHE_NAME = 'patron-shell-v113';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
