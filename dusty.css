@@ -1926,13 +1926,20 @@
      toque haga otra cosa. NO lleva la clase .overlay a propósito (esa dispara la
      lógica de modales y bloquearía el swipe de pestañas). */
   .shelf-info-backdrop{position:fixed;inset:0;z-index:44;background:transparent;}
-  .shelf-info-bubble{position:absolute;top:calc(100% + 12px);right:-10px;width:min(300px, 80vw);
+  /* Centrada bajo la herramienta. El right:-10px de antes era de cuando el FAB
+     vivía pegado al borde derecho de la pantalla; ahora va en el medio de la
+     fila de herramientas y una burbuja de 300px se salía por la izquierda, con
+     el título cortado (captura del usuario 2026-09-09). El centrado va por
+     margin-left y no por transform porque el transform lo usa la animación de
+     entrada, y se pisarían. */
+  .shelf-info-bubble{position:absolute;top:calc(100% + 12px);left:50%;width:min(300px, 80vw);
+    margin-left:calc(min(300px, 80vw) / -2);
     background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
     box-shadow:var(--shadow-lg);z-index:45;font-size:12.5px;line-height:1.55;color:var(--ink-soft);
-    transform-origin:top right;animation:bubbleIn .55s var(--ease-spring);cursor:pointer;}
+    transform-origin:top center;animation:bubbleIn .55s var(--ease-spring);cursor:pointer;}
   .shelf-info-bubble strong{display:block;color:var(--tomato);font-size:13px;margin-bottom:5px;}
   /* La colita de la nube, apuntando hacia arriba al badge/FAB. */
-  .shelf-info-bubble::before{content:'';position:absolute;top:-6.5px;left:20px;width:12px;height:12px;
+  .shelf-info-bubble::before{content:'';position:absolute;top:-6.5px;left:calc(50% - 6px);width:12px;height:12px;
     background:var(--panel);border-left:1px solid var(--line);border-top:1px solid var(--line);
     transform:rotate(45deg);}
   @keyframes bubbleIn{

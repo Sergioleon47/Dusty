@@ -118,18 +118,37 @@ function shelfScanFab(){
   // Dashboard (fabPulse + delay) — pedido del usuario: los dos escáneres de la app
   // laten igual y a la misma altura de pantalla.
   // Inventario reorganizado (maqueta aprobada 2026-09-07): el FAB vive en la
-  // fila de herramientas con su NOMBRE debajo ("Escanear estante") — el badge
-  // "−" y su burbuja se fueron: la palabra explica más que el signo.
+  // fila de herramientas con su NOMBRE debajo ("Escanear estante").
+  /* El badge "−" volvió (pedido del usuario 2026-09-09 sobre una captura, con la
+     esquina marcada: "ponle el signo negativo como estaba"). En la maqueta se
+     había sacado suponiendo que el nombre debajo alcanzaba, pero el nombre dice
+     QUÉ escanea, no en qué DIRECCIÓN mueve el stock: este escáner resta y el del
+     Dashboard suma, y el signo es lo único que los distingue de un vistazo.
+     Sigue abriendo la burbuja de instrucciones al tocarlo, igual que antes.
+     El .shelf-fab-wrap ahora envuelve solo el botón —no toda la herramienta—
+     porque el badge se ancla abajo a la izquierda de su caja: colgado de la
+     herramienta entera caía al lado del texto. La burbuja sí queda colgada de la
+     herramienta (.inv-tool ya es position:relative) para abrirse por debajo del
+     nombre y no taparlo. */
   return `
-  <div class="inv-tool shelf-fab-wrap" style="min-width:76px;">
-    <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
-      title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
-      aria-label="${t('shelf_banner_title')}">
-      <div class="scan-fab-ring"></div>
-      <div class="scan-fab-ring delay"></div>
-      ${lineIcon('camera',30)}
-    </button>
+  <div class="inv-tool" style="min-width:76px;">
+    <span class="shelf-fab-wrap" style="display:block;">
+      <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
+        title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
+        aria-label="${t('shelf_banner_title')}">
+        <div class="scan-fab-ring"></div>
+        <div class="scan-fab-ring delay"></div>
+        ${lineIcon('camera',30)}
+      </button>
+      <button type="button" class="shelf-minus-badge" id="btn-shelf-info" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble?'true':'false'}">−</button>
+    </span>
     <span class="inv-tool-label" style="font-weight:800;">${t('shelf_banner_title')}</span>
+    ${showShelfInfoBubble ? `
+    <div class="shelf-info-backdrop" id="shelf-info-backdrop"></div>
+    <div class="shelf-info-bubble" id="shelf-info-bubble" role="tooltip">
+      <strong>${t('shelf_info_title')}</strong>
+      ${t('shelf_info_text')}
+    </div>` : ''}
   </div>`;
 }
 
