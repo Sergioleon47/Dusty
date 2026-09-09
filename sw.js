@@ -334,10 +334,10 @@
 // del documento se encogía en el MISMO cuadro en que se quita el offset del
 // carrusel y salta el scroll — con 400 productos son 36.692 px de golpe.
 // Ahora encoger espera un cuadro; crecer sigue siendo inmediato — app-04/06.
-// v100: deslizar entre pestañas APAGADO (decisión del usuario 2026-09-09).
-// El gesto competía con el scroll y el navegador se lo quedaba a partir de
-// ~43°; la barra de abajo hace lo mismo sin esa ambigüedad. El código queda
-// entero detrás de SWIPE_ENTRE_PESTANAS — app-06.
+// v100: deslizar entre pestañas ELIMINADO de raíz (decisión del usuario
+// 2026-09-09). 200 líneas del gesto, su bandera swipeGestureActive en los
+// guards de render, los parámetros muertos de switchToTab y los comentarios
+// que lo citaban. Se navega con la barra de abajo — app-04/05/06/07.
 const CACHE_NAME = 'patron-shell-v100';
 // Fotos del catálogo en Storage (versionadas por ?v=, inmutables): cache-first
 // con tope — la app y catalogo.html las muestran sin volver a bajarlas.

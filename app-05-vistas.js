@@ -269,9 +269,11 @@ function stockRowsData(){
 /* Esta tarjeta vive en el Dashboard. Sus filas usan .stock-row-static, igual que las
    de Inventario — ninguna de las dos tiene gesto de deslizar propio, porque esta
    pantalla es donde MÁS se usa el gesto de deslizar para cambiar de pestaña
-   (attachViewSwipeHandlers) y la tarjeta ocupa casi toda la pantalla: con un gesto de
-   arrastre por fila activo ahí, el dedo casi siempre caía sobre una fila y competía
-   con el cambio de pestaña. Borrar un producto se hace con la x chica de cada fila
+   y la tarjeta ocupa casi toda la pantalla: con un gesto de arrastre por fila
+   activo ahí, el dedo casi siempre caía sobre una fila. (El deslice entre pestañas
+   que competía con eso se eliminó en 2026-09-09, pero las filas siguen sin gesto
+   propio: borrar es más claro con un toque en la x que con un arrastre a ciegas.)
+   Borrar un producto se hace con la x chica de cada fila
    (deleteStockItem), disponible tanto acá como en Inventario. */
 /* Anillo (donut) de salud del inventario: de un vistazo, qué porción está OK vs.
    necesita atención — sin tener que leer fila por fila. Solo cuenta productos con
