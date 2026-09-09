@@ -796,11 +796,16 @@ function stockRowHtml(r, ccDueIds){
        acá y hacer latir los críticos (ya no se listan en el Dashboard). */''}
   ${/* En modo selección la tarjeta MARCA en vez de abrir la ficha: se cambia
        data-open-item por data-inv-select para que el handler de siempre no se
-       dispare, en vez de dejar los dos y depender del orden de los listeners. */''}
+       dispare, en vez de dejar los dos y depender del orden de los listeners.
+       La FOTO sigue el mismo criterio (reporte del usuario 2026-09-09: "los
+       botones se confunden porque piensa que quiero ver la imagen"): desde que
+       llena la tarjeta, su toque —abrir el visor o pedir una foto— se comía casi
+       toda el área de marcado. En modo selección se le quita data-photo-item, así
+       que tocar CUALQUIER parte del ítem marca. */''}
   <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}${invSelectMode && invSelected.has(i.id)?' sel':''}" data-key="invtile:${i.id}" ${invSelectMode ? `data-inv-select="${i.id}" aria-pressed="${invSelected.has(i.id)}"` : `data-open-item="${i.id}"`} role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
     ${invSelectMode ? `<span class="inv-tile-check" aria-hidden="true">${invSelected.has(i.id)?'✓':''}</span>` : ''}
     <div class="inv-tile-top">
-      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}" data-photo-item="${i.id}" style="cursor:pointer;width:48px;height:48px;flex-shrink:0;" title="${t('btn_upload_photo')}">${stockIconSvg(i)}</div>
+      <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}"${invSelectMode ? '' : ` data-photo-item="${i.id}" title="${t('btn_upload_photo')}"`} style="${invSelectMode?'':'cursor:pointer;'}width:48px;height:48px;flex-shrink:0;">${stockIconSvg(i)}</div>
       <div class="inv-tile-name">${escapeHtml(invShortName(i.name))}${i.updated?`<span class="price-updated">${t('price_updated')}</span>`:''}</div>
     </div>
     ${/* Sin marginBadge: los % de ganancia salen de la vista pública de la lista
