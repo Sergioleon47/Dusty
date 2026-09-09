@@ -1649,6 +1649,20 @@
   .dash-budget .budget-pace{color:var(--bs);margin-top:8px;}
   .dash-budget.ok .link-btn, .dash-budget.warn .link-btn, .dash-budget.crit .link-btn{color:var(--tile-ink);opacity:.85;}
   .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  /* TABLETA (auditoría 2026-09-09): no había una sola regla de ancho mínimo en
+     todo el archivo. Medido en la app a 1024px, cada tarjeta del Dashboard
+     quedaba de 483px —casi media pantalla para un número y dos palabras— y las
+     de producto igual de estiradas. Con dos reglas las cuadrículas usan el
+     ancho de verdad en vez de agrandar las piezas. */
+  @media (min-width:760px){
+    .dash-grid{grid-template-columns:repeat(3,1fr);}
+    .inv-grid.cols2{grid-template-columns:repeat(auto-fill,minmax(210px,1fr));}
+    .inv-grid.cols3{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+    .inv-grid.cols4{grid-template-columns:repeat(auto-fill,minmax(124px,1fr));}
+  }
+  @media (min-width:1040px){
+    .dash-grid{grid-template-columns:repeat(4,1fr);}
+  }
   .dash-tile{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:122px;padding:14px;border-radius:18px;border:1px solid var(--tile-border);background:var(--panel);color:var(--tile-ink);text-align:left;font-family:inherit;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s;}
   .dash-tile:active{transform:scale(.97);}
   .dash-tile.static{cursor:default;}
@@ -1754,6 +1768,22 @@
   /* Filtro puesto: el mismo relleno con un aro blanco por dentro — se ve
      "hundido" sin cambiar de color, que es lo que dice cuál está activo. */
   .inv-chips .category-chip.quick.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.9), 0 3px 10px rgba(0,0,0,.20);}
+  /* Chip de filtro rápido SIN resultados: se atenúa de verdad. La clase .zero se
+     ponía en el markup desde siempre pero no tenía NINGUNA regla escrita, así que
+     un chip con 0 se veía idéntico a uno con resultados y el usuario caía en el
+     callejón sin ninguna advertencia (auditoría 2026-09-09). */
+  .inv-chips .category-chip.quick.zero{opacity:.42;filter:saturate(.3);}
+  .inv-chips .category-chip.quick.zero.on{opacity:.8;filter:saturate(.7);}
+  /* Pantalla de "sin resultados": el mensaje real y la salida. */
+  .inv-noresults{display:flex;flex-direction:column;align-items:center;gap:13px;
+    text-align:center;padding:36px 20px 30px;}
+  .inv-noresults-msg{font-size:14px;color:var(--ink-mid);max-width:34ch;line-height:1.5;}
+  /* Botón dentro de un aviso — nació con el "Deshacer" de los borrados. */
+  .toast.toast-action{display:flex;align-items:center;gap:14px;}
+  .toast-btn{flex-shrink:0;border:none;background:none;padding:4px 2px;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:800;letter-spacing:.02em;
+    color:var(--navy-ink);text-decoration:underline;text-underline-offset:3px;}
+  .toast-btn:active{opacity:.6;}
   /* 6. Grupos plegables + "ver los restantes". */
   /* Los encabezados del Inventario van en la tinta plena, no en el gris apagado
      (pedido del usuario 2026-09-09, mismo criterio que la barra de abajo): son

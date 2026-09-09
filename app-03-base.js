@@ -193,6 +193,16 @@ const I18N = {
     cloud_sync_signed_out:'Iniciar sesión para sincronizar en la nube',
     cloud_sync_signed_in:'✓ Sincronizado como {email}',
     cloud_sync_pending:'Sincronizando cambios con la nube — todavía puede faltar ver lo último de tu equipo',
+    export_working:'Armando el respaldo…',
+    export_done:'Respaldo descargado',
+    btn_undo:'Deshacer',
+    inv_restored_n:'{n} producto(s) restaurado(s)',
+    inv_no_match_search:'Ningún producto coincide con “{q}”',
+    inv_clear_search:'Borrar la búsqueda',
+    inv_filter_none_crit:'Ningún producto está en crítico. Todo tu stock está por encima del mínimo.',
+    inv_filter_none_count:'No toca contar nada hoy.',
+    inv_filter_none_nophoto:'Todos tus productos ya tienen foto.',
+    inv_clear_filter:'Ver todos los productos',
     cloud_sync_offline:'Sin conexión — todo lo que hagas se guarda en este teléfono y sube solo al volver la señal',
     cloud_sync_failed:'No se pudo guardar en la nube — tus datos están en este teléfono. Tocá para reintentar',
     cloud_sync_failed_retry:'Reintentando guardar en la nube… Tus datos siguen a salvo en este teléfono',
@@ -263,6 +273,7 @@ const I18N = {
     confirm_delete_selected:'¿Borrar {n} producto(s)? Esta acción no se puede deshacer.',
     inv_deleted_n:'{n} producto(s) borrado(s)',
     activity_items_bulk_deleted:'borró {n} productos',
+    activity_items_bulk_restored:'restauró {n} productos',
     activity_item_created:'agregó', activity_item_edited:'editó', activity_item_deleted:'eliminó',
     activity_scan_applied:'actualizó {n} producto(s) desde un recibo',
     activity_last_edit:'Última edición: {who} — {when}',
@@ -709,6 +720,16 @@ const I18N = {
     cloud_sync_signed_out:'Sign in to sync to the cloud',
     cloud_sync_signed_in:'✓ Synced as {email}',
     cloud_sync_pending:'Syncing changes with the cloud — you may not be seeing your team\'s latest yet',
+    export_working:'Building the backup…',
+    export_done:'Backup downloaded',
+    btn_undo:'Undo',
+    inv_restored_n:'{n} product(s) restored',
+    inv_no_match_search:'No product matches “{q}”',
+    inv_clear_search:'Clear the search',
+    inv_filter_none_crit:'No product is critical. All your stock is above its minimum.',
+    inv_filter_none_count:'Nothing due for a count today.',
+    inv_filter_none_nophoto:'All your products already have a photo.',
+    inv_clear_filter:'See all products',
     cloud_sync_offline:"No connection — everything you do is saved on this phone and uploads when you're back online",
     cloud_sync_failed:"Couldn't save to the cloud — your data is safe on this phone. Tap to retry",
     cloud_sync_failed_retry:'Retrying the cloud save… Your data is still safe on this phone',
@@ -779,6 +800,7 @@ const I18N = {
     confirm_delete_selected:'Delete {n} product(s)? This cannot be undone.',
     inv_deleted_n:'{n} product(s) deleted',
     activity_items_bulk_deleted:'deleted {n} products',
+    activity_items_bulk_restored:'restored {n} products',
     activity_item_created:'added', activity_item_edited:'edited', activity_item_deleted:'deleted',
     activity_scan_applied:'updated {n} product(s) from a receipt',
     activity_last_edit:'Last edited: {who} — {when}',
@@ -1096,13 +1118,20 @@ function t(key){ return (I18N[uiLang] && I18N[uiLang][key]) || I18N.en[key] || I
    dentro del WebView de Android se ven especialmente crudos y BLOQUEAN el hilo.
    Vive en #toast-root (fuera de #app: morphdom no lo toca), se apila hasta 3, se
    descarta solo (los errores duran más) o con un toque. type: 'info'|'success'|'error'. */
-function showToast(message, type){
+/* Tercer parámetro opcional {label, onClick} (auditoría 2026-09-09): el aviso
+   puede llevar un botón — así nació el "Deshacer" de los borrados, que hasta
+   ahora no existía en ninguna parte de la app. Con acción el aviso dura más (la
+   decisión de deshacer necesita leerse) y NO se cierra al tocarlo en cualquier
+   lado, solo con el botón o solo. */
+function showToast(message, type, action){
   try{
     const root = document.getElementById('toast-root');
     if(!root){ alert(message); return; } // último recurso si el shell no lo tiene
     const el = document.createElement('div');
-    el.className = 'toast toast-' + (type || 'info');
-    el.textContent = String(message);
+    el.className = 'toast toast-' + (type || 'info') + (action ? ' toast-action' : '');
+    const txt = document.createElement('span');
+    txt.textContent = String(message);
+    el.appendChild(txt);
     root.appendChild(el);
     while(root.children.length > 3) root.removeChild(root.firstChild);
     let gone = false;
@@ -1112,8 +1141,18 @@ function showToast(message, type){
       el.classList.add('toast-out');
       setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 260);
     };
-    el.onclick = dismiss;
-    setTimeout(dismiss, type === 'error' ? 6500 : 4200);
+    if(action && action.label && typeof action.onClick==='function'){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toast-btn';
+      btn.textContent = action.label;
+      btn.onclick = (ev)=>{ ev.stopPropagation(); dismiss(); try{ action.onClick(); }catch(e){ console.error('[Dusty] acción del aviso falló:', e); } };
+      el.appendChild(btn);
+      setTimeout(dismiss, 8000); // más aire: hay que decidir, no solo leer
+    } else {
+      el.onclick = dismiss;
+      setTimeout(dismiss, type === 'error' ? 6500 : 4200);
+    }
   }catch(e){}
 }
 function unitLabel(u){ return u==='unidad' ? t('unit_unidad') : u==='caja' ? t('unit_caja') : u==='servicio' ? t('unit_servicio') : u; }
@@ -1388,7 +1427,16 @@ function loadState(){
 /* Respaldo manual: exporta todo el estado a un .json descargable, e importa uno
    de vuelta. Es la única forma de no perder todo si el localStorage se llena
    (las fotos de recibos en base64 pesan) o si el usuario cambia de dispositivo. */
+/* AUDITORÍA 2026-09-09: serializa el inventario, las compras y los recibos CON
+   las fotos en base64 — con cientos de recibos son varios segundos de hilo
+   bloqueado, y no había ni spinner ni aviso: la app parecía colgada. Ahora
+   avisa que está armando el respaldo, cede un cuadro para que ese aviso llegue
+   a pintarse, y confirma al terminar. */
 function exportData(){
+  showToast(t('export_working'), 'info');
+  setTimeout(exportDataNow, 60);
+}
+function exportDataNow(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
     cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
@@ -1401,6 +1449,7 @@ function exportData(){
   const a = document.createElement('a');
   a.href = url; a.download = `patron-backup-${localDateStr()}.json`;
   document.body.appendChild(a); a.click(); a.remove();
+  showToast(t('export_done'), 'success');
   URL.revokeObjectURL(url);
 }
 /* Camino más simple para reportar un problema: abre el cliente de correo del

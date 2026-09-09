@@ -450,7 +450,7 @@
 // y aparece una franja fija sobre la barra de abajo cuando no hay red. Antes un
 // sync roto hacia horas se veia igual que una subida en curso, y la app
 // funcionaba offline sin decirlo nunca — app-01/02/03/04/07 + css.
-const CACHE_NAME = 'patron-shell-v126';
+const CACHE_NAME = 'patron-shell-v127';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

@@ -1194,8 +1194,21 @@ function attachEvents(){
   const btnSelDelete=document.getElementById('btn-inv-sel-delete');
   if(btnSelDelete) btnSelDelete.onclick=()=>{
     const n = deleteSelectedInventory([...invSelected]);
-    if(n>0){ invExitSelect(); showToast(t('inv_deleted_n').replace('{n}', n)); }
+    if(n>0){
+      invExitSelect();
+      showToast(t('inv_deleted_n').replace('{n}', n), 'info', {
+        label: t('btn_undo'),
+        onClick: ()=>{ const back = undoBulkDelete(); if(back) showToast(t('inv_restored_n').replace('{n}', back), 'success'); }
+      });
+    }
     render();
+  };
+  // Salida del callejón de "sin resultados" (auditoría 2026-09-09).
+  const btnClearFilters=document.getElementById('btn-inv-clear-filters');
+  if(btnClearFilters) btnClearFilters.onclick=()=>{
+    invSearch=''; invQuickFilter=null; inventoryCategoryFilter=null;
+    render();
+    const inp=document.getElementById('inv-search'); if(inp) inp.value='';
   };
   document.querySelectorAll('[data-inv-quick]').forEach(b=>{
     b.onclick=()=>{ const k=b.dataset.invQuick; invQuickFilter = (invQuickFilter===k) ? null : k; render(); };
@@ -1758,7 +1771,14 @@ function attachEvents(){
     if(payReminderChk) payReminderChk.onchange=(e)=>{ scanPayReminder=e.target.checked; };
 
     const applyBtn=document.getElementById('btn-apply-scan');
-    if(applyBtn) applyBtn.onclick=applyScanResults;
+    // Se bloquea al primer toque (auditoría 2026-09-09): aplica N productos, crea
+    // el recibo y dispara la subida de fotos; un doble toque nervioso lo hacía
+    // dos veces. El render siguiente lo repinta habilitado si hiciera falta.
+    if(applyBtn) applyBtn.onclick=()=>{
+      if(applyBtn.disabled) return;
+      applyBtn.disabled = true;
+      applyScanResults();
+    };
   }
 
   // Producción y salidas (recetas, producir, escáner de estante, historial) — app-08.

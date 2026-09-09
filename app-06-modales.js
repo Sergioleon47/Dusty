@@ -3740,10 +3740,36 @@ function removeInventoryItem(id){
    Los bills seleccionados que tengan pagos de este mes se preguntan UNA vez para
    todos, no uno por uno — misma decisión que deleteStockItem toma por ítem (ver
    ahí el porqué de preguntar en vez de asumir), pero sin volverla insoportable. */
+/* Instantánea del último borrado múltiple, para el "Deshacer" del aviso
+   (auditoría 2026-09-09: no existía deshacer en NINGÚN borrado, y este puede
+   llevarse cientos de productos con un solo toque y una sola confirmación).
+   Vive solo en memoria y solo hasta el próximo borrado: es un arrepentimiento
+   inmediato, no un historial. */
+let lastBulkDelete = null;
+function undoBulkDelete(){
+  const snap = lastBulkDelete;
+  if(!snap) return 0;
+  lastBulkDelete = null;
+  // Vuelven los productos y, si se borraron, los pagos del mes; y se quitan las
+  // lápidas para que la nube no los re-entierre en el próximo sync.
+  const invIds = new Set(snap.items.map(i=>i.id));
+  inventory = inventory.concat(snap.items.filter(i=>!inventory.some(x=>x.id===i.id)));
+  deletedInventoryIds = deletedInventoryIds.filter(id=>!invIds.has(id));
+  if(snap.receipts.length){
+    const recIds = new Set(snap.receipts.map(r=>r.id));
+    receipts = receipts.concat(snap.receipts.filter(r=>!receipts.some(x=>x.id===r.id)));
+    deletedReceiptIds = deletedReceiptIds.filter(id=>!recIds.has(id));
+  }
+  saveState();
+  logActivity('items_bulk_restored', '', String(snap.items.length));
+  render();
+  return snap.items.length;
+}
 function deleteSelectedInventory(ids){
   const lista = ids.map(id=>inventory.find(i=>i.id===id)).filter(Boolean);
   if(!lista.length) return 0;
   if(!confirm(t('confirm_delete_selected').replace('{n}', lista.length))) return 0;
+  const snapshot = { items: lista.map(i=>JSON.parse(JSON.stringify(i))), receipts: [] };
   const idSet = new Set(lista.map(i=>i.id));
   const pagosDelMes = receipts.filter(r=>r && r.manual && r.billItemId && idSet.has(r.billItemId)
     && monthKey(r.date)===localMonthStr());
@@ -3752,6 +3778,7 @@ function deleteSelectedInventory(ids){
     if(confirm(t('confirm_delete_bill_payments')
         .replace('{n}', pagosDelMes.length).replace('{total}', money(total)))){
       const pagoIds = new Set(pagosDelMes.map(r=>r.id));
+      snapshot.receipts = pagosDelMes.map(r=>JSON.parse(JSON.stringify(r)));
       pagosDelMes.forEach(r=>{ if(!deletedReceiptIds.includes(r.id)) deletedReceiptIds.push(r.id); });
       receipts = receipts.filter(r=>!pagoIds.has(r.id));
     }
@@ -3762,6 +3789,7 @@ function deleteSelectedInventory(ids){
   // Un solo registro para toda la acción (ver la nota de arriba).
   if(lista.length===1) logActivity('item_deleted', lista[0].name);
   else logActivity('items_bulk_deleted', '', String(lista.length));
+  lastBulkDelete = snapshot;
   return lista.length;
 }
 function deleteStockItem(id, triggerEl){

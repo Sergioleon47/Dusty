@@ -997,8 +997,24 @@ function inventarioView(){
         ${toolbar}
       </div>
     </div>`}
+    ${/* SIN RESULTADOS con salida, y con el mensaje correcto (auditoría
+         2026-09-09). Antes los tres casos —búsqueda, filtro rápido y ambos—
+         mostraban "Ningún producto coincide" sin ninguna forma de volver. Peor:
+         tocar "Sin foto" cuando TODAS las fotos están puestas es una buena
+         noticia, y se presentaba como un error. Ahora cada filtro dice lo que
+         de verdad pasó y siempre hay un botón para salir. */''}
     ${rows.length===0
-      ? (searching || invQuickFilter ? `<div class="oc-empty" style="margin:14px 0;">${t('oc_no_match')}</div>`
+      ? (searching || invQuickFilter ? (()=>{
+          const filtroVacio = invQuickFilter && !searching;
+          const msg = filtroVacio
+            ? t('inv_filter_none_' + (invQuickFilter==='nophoto' ? 'nophoto' : invQuickFilter))
+            : t('inv_no_match_search').replace('{q}', escapeHtml(invSearch.trim()));
+          return `
+        <div class="inv-noresults">
+          <div class="inv-noresults-msg">${msg}</div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-inv-clear-filters">${filtroVacio ? t('inv_clear_filter') : t('inv_clear_search')}</button>
+        </div>`;
+        })()
         : emptyState('box',t('empty_inventory_title'),t('empty_inventory_sub')))
       : groups.map(groupHtml).join('')}
   `}
