@@ -4045,8 +4045,26 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
    compromiso final — a qué pestaña queda — se decide recién al soltar (endGesture),
    con la velocidad real de los últimos ~100ms del dedo entrando directo al resorte
    de switchToTab(). */
+/* DESLIZAR ENTRE PESTAÑAS: APAGADO (decisión del usuario 2026-09-09).
+   El gesto se cablea o no según esta constante; todo el código de abajo queda
+   intacto —y con él lo aprendido: el re-base al enganchar, la goma de los
+   bordes, la ventana de velocidad, por qué NO se descarta un toque nuevo si
+   quedó un gesto sin cerrar—. Volver a encenderlo es poner true.
+   Por qué se apagó: el deslice arrastraba problemas que no se terminaban de
+   cerrar. Compite con el scroll vertical, y el navegador se lo queda para
+   scrollear a partir de ~43° por el touch-action:pan-y de #app (medido con
+   gestos táctiles reales: a 45° llegan 2 pointermove y después pointercancel),
+   así que un deslice apenas diagonal no respondía. La barra de abajo hace lo
+   mismo sin ninguna de esas ambigüedades.
+   OJO para quien lea esto buscando el destello del pie del Dashboard: apagar el
+   gesto NO lo resuelve. El toque en la barra pasa por el MISMO asentado
+   (switchToTab → commitTabSwitchLight → clearPageOffsets + restoreScrollForTab)
+   y muestra el mismo desplome de altura — medido: 11.699 px → 905 px con 120
+   productos, tocando la barra, sin deslizar. */
+const SWIPE_ENTRE_PESTANAS = false;
 let viewSwipeAttached = false;
 function attachViewSwipeHandlers(){
+  if(!SWIPE_ENTRE_PESTANAS) return;
   if(viewSwipeAttached) return;
   viewSwipeAttached = true;
   const MOVE_LOCK = 10; // px para decidir si el gesto es horizontal o vertical — antes
