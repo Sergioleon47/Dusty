@@ -414,7 +414,13 @@
 // casilla entera en vez del círculo relleno. Además, cuántos recibos tiene el
 // mes a la vista, encima del Cierre de mes, a partir de dos —
 // app-03 + app-05 + dusty.css.
-const CACHE_NAME = 'patron-shell-v118';
+// v119: la casilla con foto tiene EXACTAMENTE la misma forma que las demás
+// (captura ampliada del usuario 2026-09-09: se veía más grande y más
+// redonda). Se le saca la sombra proyectada y el aro blanco grueso, que la
+// hacían flotar, y el estilo que hace a la <img> llenar la casilla pasa a ir
+// también INLINE: con un CSS viejo en caché la foto se dibujaba con su
+// proporción original y estiraba la casilla — app-05 + dusty.css.
+const CACHE_NAME = 'patron-shell-v119';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

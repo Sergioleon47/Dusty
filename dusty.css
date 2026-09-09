@@ -974,7 +974,12 @@
      una celda de ~50px: 17px de radio —bien redondeado, como pidió el usuario:
      "cuadrito ovalado"—, borde blanco finito para despegarla del
      azul del bloque, y la foto recortada al centro. */
-  .cal-day.has-photo{overflow:hidden;border-radius:17px;box-shadow:0 4px 12px rgba(0,0,0,.28), inset 0 0 0 1.5px rgba(255,255,255,.55);}
+  /* Sin sombra proyectada ni aro grueso: con ellos la casilla blanca "flotaba"
+     y se leía más grande y más redonda que sus vecinas (captura del usuario
+     2026-09-09). Ahora es la MISMA casilla, con la foto en lugar del número;
+     solo un filo de un pixel para separar una foto clara del bloque en los
+     temas claros. */
+  .cal-day.has-photo{overflow:hidden;border-radius:17px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);}
   .cal-day-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:17px;display:block;}
   /* Cuántos recibos tiene ese día, arriba a la derecha — mismo rojo de la app. */
   .cal-day-badge{position:absolute;top:2px;right:2px;z-index:2;background:var(--money-neg);color:#fff;
@@ -984,7 +989,7 @@
   .cal-day.has-photo .cal-dots{bottom:3px;}
   .cal-day.has-photo .cal-dots i.note{box-shadow:0 0 0 2px rgba(0,0,0,.45);}
   /* Hoy con foto: el aro ámbar rodea la tarjetita en vez del número. */
-  .cal-day.today.has-photo{box-shadow:0 4px 12px rgba(0,0,0,.28), inset 0 0 0 2.5px var(--hue-5);}
+  .cal-day.today.has-photo{box-shadow:inset 0 0 0 2px var(--hue-5);}
   .day-receipt-row{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px;cursor:pointer;transition:background .2s ease,transform .12s ease;}
   .day-receipt-row:hover{background:var(--raised);}
   .day-receipt-row:active{transform:scale(0.98);background:var(--raised);}

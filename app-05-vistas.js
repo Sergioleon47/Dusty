@@ -1136,8 +1136,13 @@ function receiptCalendarWidget(){
        con la maqueta del calendario, que puso el número en todos los días; pero
        reconocer el recibo de un vistazo —"el del súper fue el martes"— es
        justamente para lo que se mira este calendario. La celda con recibo pasa a
-       ser una tarjetita redondeada, del mismo palo que los cuadros del resto de
-       la app (pedido: "que no se vean tan cuadrados"). Los días sin recibo siguen
+       ser una casilla con la foto adentro, exactamente del mismo tamaño y forma
+       que las demás. El estilo que la hace llenar la casilla va INLINE a
+       propósito (además de en dusty.css): si un dispositivo se queda con un CSS
+       viejo en caché, la <img> sin ese estilo se dibuja con su proporción
+       original y estira la casilla —más alta que las vecinas, que es justo lo
+       que reportó el usuario 2026-09-09 con una captura ampliada—. Inline viaja
+       con el JS, así que la forma no puede depender de qué CSS quedó cacheado. Los días sin recibo siguen
        mostrando su número, y el puntito ámbar de nota se mantiene en ambos. */
     const cover = dayReceipts && Array.isArray(r.images) ? r.images.find(im=>im && (im.base64 || im.url)) : null;
     const coverSrc = cover ? receiptImgSrc(cover) : null;
@@ -1147,7 +1152,7 @@ function receiptCalendarWidget(){
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${coverSrc?'has-photo':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
         ${coverSrc
-          ? `<img class="cal-day-photo" src="${escapeHtml(coverSrc)}" alt="" ${imgLoadAttr(coverSrc)} decoding="async" onerror="this.remove();">
+          ? `<img class="cal-day-photo" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" src="${escapeHtml(coverSrc)}" alt="" ${imgLoadAttr(coverSrc)} decoding="async" onerror="this.remove();">
              ${multi ? `<span class="cal-day-badge">&times;${dayReceipts.length}</span>` : ''}`
           : `<span class="cal-day-num">${day}</span>`}
         ${dots.length ? `<span class="cal-dots">${dots.join('')}</span>` : ''}
