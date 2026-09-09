@@ -250,7 +250,7 @@ function recipeModal(){
           return `
           <div class="recipe-comp-row">
             <select data-rcomp-ing="${idx}" style="flex:2;min-width:0;">${recipeIngOptions(c.ingId)}</select>
-            <input data-rcomp-qty="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(c.qty??'')}" placeholder="${t('recipe_qty_ph')}" style="flex:1;min-width:64px;">
+            <input data-rcomp-qty="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(c.qty??'')}" placeholder="${t('recipe_qty_ph')}" style="flex:1;min-width:64px;">
             <span class="recipe-comp-unit">${ing ? escapeHtml(unitLabel(ing.unit)) : ''}</span>
             <button type="button" class="stock-row-x-btn" data-rcomp-remove="${idx}" title="${t('btn_delete')}">✕</button>
           </div>`;
@@ -413,7 +413,7 @@ function produceModal(){
         <label>${t('produce_count_label')}</label>
         <div class="qty-stepper">
           <button type="button" id="btn-produce-minus" ${produceCount<=1?'disabled':''}>−</button>
-          <input id="produce-count-input" type="number" min="1" step="1" value="${escapeHtml(produceCount)}">
+          <input id="produce-count-input" type="number" inputmode="numeric" min="1" step="1" value="${escapeHtml(produceCount)}">
           <button type="button" id="btn-produce-plus">+</button>
         </div>
       </div>
@@ -447,7 +447,7 @@ function produceModal(){
         return `
       <div class="field" style="margin-top:12px;">
         <label>${t('produce_price_label')}</label>
-        <input id="produce-price-input" type="number" min="0" step="0.01" value="${escapeHtml(produceSalePrice)}" placeholder="0.00">
+        <input id="produce-price-input" type="number" inputmode="decimal" min="0" step="0.01" value="${escapeHtml(produceSalePrice)}" placeholder="0.00">
         ${unitSale>0
           ? `<div class="helper-note" style="margin:6px 0 0;">${t('produce_income_line').replace('{amount}', money(roundQty(count*unitSale)))}</div>`
           : `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('produce_no_price_note')}</div>`}
@@ -742,14 +742,14 @@ function shelfScanModal(){
             <div style="background:var(--sky-soft);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
               <div style="font-size:11.5px;font-weight:700;color:var(--sky-ink);margin-bottom:6px;">${t('shelf_capacity_ask')}</div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <input data-shelf-capacity="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(it.capacityDraft)}" placeholder="${t('ph_capacity_example')}" style="flex:1;">
+                <input data-shelf-capacity="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.capacityDraft)}" placeholder="${t('ph_capacity_example')}" style="flex:1;">
                 <span style="font-size:12px;color:var(--sky-ink);font-weight:700;">${escapeHtml(unitLabel(ing.unit))}</span>
               </div>
               <div style="font-size:10.5px;color:var(--sky-ink);margin-top:5px;">${t('shelf_capacity_helper').replace('{u}', escapeHtml(unitLabel(ing.unit)))}</div>
             </div>` : ''}
             <div class="mi-fields" style="align-items:center;">
               <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_final_label')}</label>
-              <input data-shelf-final="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(it.finalQty)}" style="flex:1;min-width:70px;">
+              <input data-shelf-final="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.finalQty)}" style="flex:1;min-width:70px;">
               <span style="font-size:12px;color:var(--ink-soft);">${escapeHtml(unitLabel(ing.unit))}</span>
               <span data-shelf-delta="${idx}">${shelfDeltaPill(ing.qtyOnHand||0, it.finalQty, ing.unit)}</span>
             </div>
@@ -760,7 +760,7 @@ function shelfScanModal(){
             ${shelfReason==='sale' ? `
             <div class="mi-fields" style="align-items:center;margin-top:6px;">
               <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>
-              <input data-shelf-price="${idx}" type="number" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
+              <input data-shelf-price="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
               <span style="font-size:12px;color:var(--ink-soft);">$/${escapeHtml(unitLabel(ing.unit))}</span>
             </div>
             ${it.salePriceDraft==='' && it.include ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}

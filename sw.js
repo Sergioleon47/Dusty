@@ -462,7 +462,12 @@
 // con 253 productos y CPU 4x: con la hoja en cache la app abre en 547ms en 3G
 // lento y 722ms sin conexion; sin ella en cache, 13,2s y 13,5s, con el HTML ya
 // servido a los 10ms. Todo ese tiempo era un solo pedido a un tercero — sw.
-const CACHE_NAME = 'patron-shell-v130';
+// v131: los 17 campos numericos que no lo declaraban ahora piden el teclado que
+// corresponde (inputmode decimal donde se escriben precios y cantidades,
+// numerico donde se escriben enteros). Sin eso, en el telefono varios abrian un
+// teclado sin punto decimal para escribir un precio. No cambia nada de como se
+// ve la app — app-06/08.
+const CACHE_NAME = 'patron-shell-v131';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

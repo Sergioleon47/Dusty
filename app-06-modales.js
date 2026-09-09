@@ -208,7 +208,7 @@ function cycleCountModal(){
                 <span>${t('cc_current')}: ${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))}</span>
               </div>
               <div class="mi-fields">
-                <input type="number" step="0.01" placeholder="${t('cc_counted_placeholder')}" data-cc-count="${i.id}" style="flex:1;">
+                <input type="number" inputmode="decimal" step="0.01" placeholder="${t('cc_counted_placeholder')}" data-cc-count="${i.id}" style="flex:1;">
               </div>
             </div>
           `).join('')}
@@ -223,8 +223,8 @@ function cycleCountModal(){
       <div class="settings-card">
         ${settingsCardHeader('clock','var(--sky-soft)','var(--sky-ink)',t('cc_settings_title'))}
         <div class="field-row">
-          <div class="field"><label>${t('cc_pct_label')}</label><input id="cc-pct-input" type="number" min="1" max="100" step="1" value="${escapeHtml(draftCycleCountPct)}"></div>
-          <div class="field"><label>${t('cc_interval_label')}</label><input id="cc-interval-input" type="number" min="1" max="90" step="1" value="${escapeHtml(draftCycleCountInterval)}"></div>
+          <div class="field"><label>${t('cc_pct_label')}</label><input id="cc-pct-input" type="number" inputmode="numeric" min="1" max="100" step="1" value="${escapeHtml(draftCycleCountPct)}"></div>
+          <div class="field"><label>${t('cc_interval_label')}</label><input id="cc-interval-input" type="number" inputmode="numeric" min="1" max="90" step="1" value="${escapeHtml(draftCycleCountInterval)}"></div>
         </div>
         <div class="helper-note" style="margin-bottom:0;">${t('cc_settings_helper')}</div>
       </div>
@@ -1558,12 +1558,12 @@ function itemModal(){
       <div class="settings-card quick-add-card">
         <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
         <div class="field-row">
-          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
           <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
             <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
           </div>
         </div>
-        <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
+        <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
       </div>
       <button type="button" class="quick-add-more" id="btn-item-more">
         <span>${t('item_quick_more_btn')}</span>
@@ -1621,7 +1621,7 @@ function itemModal(){
         ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('item_section_basic'))}
         <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
         ${isExp ? `
-        <div class="field"><label for="fi-cost">${t('lbl_bill_amount')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+        <div class="field"><label for="fi-cost">${t('lbl_bill_amount')}</label><input id="fi-cost" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
         ${/* Solo al CREAR: registrar de una el pago de este mes como recibo
              manual — sin esto, el ítem era puro catálogo y la barra del
@@ -1674,7 +1674,7 @@ function itemModal(){
           <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
             <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
           </div>
-          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         </div>
         ${/* Precio de venta y % de ganancia: SOLO para quien el dueño lo permite
              (canSeeFinancials) — un miembro sin permiso ve costo y stock, pero no
@@ -1682,7 +1682,7 @@ function itemModal(){
              se renderiza (ver el guard en app-07). */''}
         ${canSeeFinancials() ? `
         <div class="field-row" style="margin-bottom:0;">
-          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
           <div class="field" style="margin-bottom:0;"><label id="fi-profit-label">${t('lbl_profit_pct')}</label>
             ${(()=>{
               const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
@@ -1702,8 +1702,8 @@ function itemModal(){
           <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
         </div>
         <div class="field-row" style="margin-bottom:0;">
-          <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
-          <div class="field" style="margin-bottom:0;"><label for="fi-capacity">${t('capacity_label')}</label><input id="fi-capacity" type="number" step="0.01" min="0" value="${escapeHtml(draftItem.capacityFull||'')}" placeholder="${t('ph_capacity_example')}"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-stock">${t('lbl_stock')}</label><input id="fi-stock" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.qtyOnHand||0)}"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-capacity">${t('capacity_label')}</label><input id="fi-capacity" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.capacityFull||'')}" placeholder="${t('ph_capacity_example')}"></div>
         </div>
         <div class="helper-note" style="margin:8px 0 0;">${t('capacity_helper')}</div>
       </div>`}
@@ -2202,7 +2202,7 @@ function scanModal(){
         </div>
         <div class="field">
           <label>${t('lbl_invoice_total')}</label>
-          <input id="scan-invoice-total" type="number" step="0.01" value="${scanInvoiceTotal!==null?scanInvoiceTotal:''}" placeholder="${t('ph_invoice_total')}">
+          <input id="scan-invoice-total" type="number" inputmode="decimal" step="0.01" value="${scanInvoiceTotal!==null?scanInvoiceTotal:''}" placeholder="${t('ph_invoice_total')}">
         </div>
         <div class="helper-note">${t('invoice_total_helper')}</div>
         ${(()=>{
