@@ -388,7 +388,14 @@
 // producto llega a nivel crítico. El bloque gris (.ms-skel) pasó a llamarse
 // .skel porque ahora lo comparten dos pantallas — app-03 + app-05 + app-06
 // + dusty.css.
-const CACHE_NAME = 'patron-shell-v114';
+// v115: las sombras dejan de ser bloques grises y pasan a ser EJEMPLOS de
+// verdad —nombres, montos y las mismas frases que una fila real— pero
+// DESENFOCADOS y desvanecidos, cada vez más hacia abajo (pedido del usuario
+// 2026-09-09: "ejemplos reales pero que no se vean tan nítidos como
+// reales"). Los nombres de producto son genéricos, nunca del inventario del
+// usuario. Vale para "Gasto por mes" y "Pedido sugerido"; .skel se va —
+// app-03 + app-05 + app-06 + dusty.css.
+const CACHE_NAME = 'patron-shell-v115';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

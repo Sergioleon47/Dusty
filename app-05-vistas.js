@@ -1628,30 +1628,45 @@ function monthlySpendCard(m, currentMonthKey){
    que el usuario no vea todo en blanco y pueda ver cómo quedaría"). Recién
    instalado solo existe el mes de hoy, vacío, y la pantalla no dejaba entender
    qué va a aparecer ahí. Estas siete sombras usan los nombres REALES de los
-   siete meses anteriores pero no inventan ni un número: donde van el monto y
-   las frases hay bloques grises. La barra sí lleva el color del semáforo,
-   apagado, para que se vea de entrada qué significa verde, qué ámbar y qué
-   rojo. Se desvanecen hacia abajo, como una lista que sigue.
+   siete meses anteriores y montos de EJEMPLO, escritos con las mismas frases
+   que una tarjeta real — pero DESENFOCADAS y desvanecidas (pedido del usuario:
+   "ejemplos reales pero que no se vean tan nítidos como reales"), cada vez más
+   hacia abajo. Así se entiende de una qué va a decir cada mes, sin que ningún
+   número borroso pueda confundirse con plata propia.
    Se dibujan SOLO mientras no haya ni un recibo cargado: con el primero que
    registre el usuario desaparecen todas de golpe (pedido 2026-09-09), para que
    nunca convivan datos de verdad con muestras. */
 const MS_GHOST_MONTHS = [
-  // Anchos y colores variados a propósito: la muestra tiene que dejar ver los
-  // tres estados del semáforo, no siete barras iguales.
-  {fill:58, level:'ok'},   {fill:86, level:'warn'}, {fill:41, level:'ok'},
-  {fill:104, level:'crit'},{fill:67, level:'ok'},   {fill:92, level:'warn'},
-  {fill:35, level:'ok'}
+  // % del tope, color y qué tan fuera de foco va cada una. Los porcentajes son
+  // variados a propósito: la muestra tiene que dejar ver los tres estados del
+  // semáforo, no siete barras iguales.
+  {fill:58,  level:'ok',   op:'.62', blur:'1.1px'},
+  {fill:86,  level:'warn', op:'.54', blur:'1.5px'},
+  {fill:41,  level:'ok',   op:'.46', blur:'1.9px'},
+  {fill:104, level:'crit', op:'.38', blur:'2.3px'},
+  {fill:67,  level:'ok',   op:'.31', blur:'2.7px'},
+  {fill:92,  level:'warn', op:'.25', blur:'3.1px'},
+  {fill:35,  level:'ok',   op:'.20', blur:'3.5px'}
 ];
-function monthlySpendGhostCard(m, fill, level, opacity){
+// Tope de ejemplo cuando el usuario todavía no puso el suyo: sin un número, la
+// frase de la tarjeta no se puede armar. Con presupuesto puesto se usa el real.
+const MS_GHOST_BUDGET = 450;
+function monthlySpendGhostCard(m, g){
+  const bud = budgetForMonth(m) || MS_GHOST_BUDGET;
+  const exp = Math.round(bud * g.fill / 100);
+  const over = Math.max(exp - bud, 0), left = Math.max(bud - exp, 0);
+  const line = over > 0
+    ? t('ms_line_over').replace('{exp}', `<b>${money(exp)}</b>`).replace('{bud}', money(bud)).replace('{over}', `<b>${money(over)}</b>`)
+    : t('ms_line_past').replace('{exp}', `<b>${money(exp)}</b>`).replace('{bud}', money(bud)).replace('{left}', `<b>${money(left)}</b>`);
   return `
-    <div class="ms-card ghost ${level}" aria-hidden="true" style="opacity:${opacity};">
+    <div class="ms-card ghost ${g.level}" aria-hidden="true" style="opacity:${g.op};filter:blur(${g.blur});">
       <div class="ms-card-head">
         <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}</span>
-        <span class="skel amount"></span>
+        <span class="ms-card-amount">${money(exp)}</span>
       </div>
-      <div class="ms-track"><i style="width:${fill}%;"></i></div>
-      <div class="skel line"></div>
-      <div class="skel line short"></div>
+      <div class="ms-track"><i style="width:${Math.min(g.fill,100)}%;"></i></div>
+      <div class="ms-card-line">${line}</div>
+      <div class="ms-card-goods">${t('ms_card_goods').replace('{inv}', money(Math.round(exp*1.3)))}</div>
     </div>`;
 }
 function monthlySpendModal(){
@@ -1673,9 +1688,7 @@ function monthlySpendModal(){
           ${months.map(m=>monthlySpendCard(m, currentMonthKey)).join('')}
           ${receipts.length===0 ? `
             <div class="ms-ghost-note">${t('ms_ghost_note')}</div>
-            ${MS_GHOST_MONTHS.map((g,i)=>monthlySpendGhostCard(
-                shiftMonthStr(currentMonthKey, -(i+1)), Math.min(g.fill,100), g.level,
-                (0.55 - i*0.05).toFixed(2))).join('')}
+            ${MS_GHOST_MONTHS.map((g,i)=>monthlySpendGhostCard(shiftMonthStr(currentMonthKey, -(i+1)), g)).join('')}
           ` : ''}
         </div>
       `}

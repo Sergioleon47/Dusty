@@ -856,24 +856,20 @@
   .ms-card-line b{font-weight:800;}
   .ms-card-goods{font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.4;}
   /* Sombras de los meses que todavía no existen (ver monthlySpendGhostCard):
-     el mes real, y bloques grises donde van el monto y la frase — nunca un
-     número inventado. La segunda se desvanece más, como una fila que sigue. */
+     el mes real y montos de ejemplo, cada tarjeta más fuera de foco que la
+     anterior (el blur y la opacidad los pone cada una inline). */
   .ms-ghost-note{font-size:11.5px;color:var(--ink-soft);margin:4px 2px 0;line-height:1.4;}
   /* Sin msCardIn: esa animación termina en opacity:1 y, por venir de un
      @keyframes, le gana hasta al style inline — las sombras se veían tan
      fuertes como una tarjeta real. Cada una trae su opacidad calculada. */
   .ms-card.ghost{animation:none;pointer-events:none;user-select:none;}
   .ms-card.ghost .ms-card-month{color:var(--ink-soft);}
-  /* Bloque gris de relleno: marca dónde va a ir un dato que todavía no existe.
-     Lo comparten las sombras de "Gasto por mes" y las del "Pedido sugerido". */
-  .skel{display:block;border-radius:6px;background:color-mix(in srgb, var(--ink) 15%, transparent);}
-  .skel.amount{width:78px;height:17px;}
-  .skel.line{height:11px;margin-top:11px;}
-  .skel.line.short{width:58%;margin-top:7px;height:9px;}
   /* Filas fantasma del pedido sugerido (ver suggestedOrderModal). */
   .so-ghost-note{font-size:11.5px;color:var(--ink-soft);margin:0 0 8px;line-height:1.4;}
+  /* Las filas de ejemplo van DESENFOCADAS (el blur lo pone cada fila inline,
+     que crece hacia abajo): se lee la forma de una fila real sin que el texto
+     pueda tomarse por un dato propio. */
   .matched-item.ghost{pointer-events:none;user-select:none;}
-  .matched-item.ghost .mi-top{margin-bottom:0;}
   @media (prefers-reduced-motion: reduce){
     .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-card, .ms-track i{animation:none;}
   }
