@@ -895,11 +895,11 @@
   /* EL CALENDARIO ES UN BLOQUE DE COLOR (maqueta del usuario 2026-09-09): un
      solo panel con el degradé del tema, los números en blanco y puntitos debajo
      de los días que tienen algo — en vez de 35 tarjetitas grises, cada una con
-     su miniatura. El color sale de --tile-3 — el verde de la tarjeta "Pedido
-     sugerido" del Dashboard, elegido por el usuario 2026-09-09 —, así que
+     su miniatura. El color sale de --tile-1, el azul del tema (el usuario probó
+     el verde de "Pedido sugerido" y volvió a este el 2026-09-09), así que
      acompaña al tema en vez de clavar un color fijo. Mismo DOM y mismos ids:
      cambia la pintura, no el comportamiento. */
-  .cal-widget{background:var(--tile-3);border:0;border-radius:22px;box-shadow:0 12px 28px rgba(0,0,0,.20);
+  .cal-widget{background:var(--tile-1);border:0;border-radius:22px;box-shadow:0 12px 28px rgba(0,0,0,.20);
     padding:18px 14px 14px;margin-bottom:16px;color:var(--tile-ink);}
   .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   /* Antes era texto pelado sin fondo ni borde — nada avisaba que se podía tocar para
@@ -1756,7 +1756,7 @@
   /* División del gasto del mes: inversión (verde) vs gastos operativos (ámbar). */
   /* Botón del cierre de mes al pie del calendario de Recibos. */
   /* Cierre de mes en ROSADO (--tile-6, pedido del usuario 2026-09-09): destaca
-     sobre el verde del bloque en vez de perderse como un blanco translúcido. */
+     sobre el bloque en vez de perderse como un blanco translúcido. */
   .cal-recap-btn{width:100%;margin-top:12px;padding:11px;border-radius:12px;border:0;
     background:var(--tile-6);color:var(--tile-ink);font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;
     box-shadow:0 6px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.30);}
