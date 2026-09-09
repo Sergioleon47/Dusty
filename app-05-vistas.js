@@ -668,11 +668,13 @@ function dashboardEmptyState(){
 // muestra solo esos productos (ver inventarioView). También es preferencia de
 // sesión nomás, se resetea solo al recargar.
 let inventoryCategoryFilter = null;
-/* Vista del inventario elegida por el usuario: 'rows' (una columna, todo más
-   grande — accesibilidad para quien no ve bien), 'cols2', 'cols3' o 'cols4'
-   (la más densa, pedida el 2026-09-06). Persiste como preferencia del dispositivo. */
+/* Vista del inventario elegida por el usuario: 'cols2', 'cols3' o 'cols4' (la más
+   densa, pedida el 2026-09-06). Persiste como preferencia del dispositivo.
+   La de una columna ('rows') se eliminó el 2026-09-09: con la foto llenando la
+   tarjeta quedaba un producto por pantalla. El dispositivo que la tenía guardada
+   cae en cols2 al no pasar el filtro de abajo. */
 let invLayout = 'cols2';
-try{ const v = localStorage.getItem('patron_inv_layout'); if(['rows','cols2','cols3','cols4'].includes(v)) invLayout = v; }catch(e){}
+try{ const v = localStorage.getItem('patron_inv_layout'); if(['cols2','cols3','cols4'].includes(v)) invLayout = v; }catch(e){}
 // Un solo render tras tocar el selector viaja por View Transition (ver render(),
 // app-04): con view-transition-name por tarjeta, cada una VUELA a su nueva
 // posición/tamaño en vez del redibujado seco — el morph estilo iOS que faltaba.
@@ -725,7 +727,7 @@ function applyInvLayoutLight(){
   if(!grids.length){ render(); return; }
   const aplicar = ()=>{
     grids.forEach(g=>{
-      g.classList.remove('rows','cols2','cols3','cols4');
+      g.classList.remove('cols2','cols3','cols4');
       g.classList.add(invLayout);
     });
     document.querySelectorAll('[data-inv-layout]').forEach(b=>{
@@ -748,13 +750,11 @@ function applyInvLayoutLight(){
 function invLayoutToggleHtml(){
   const opt = (val, label, icon)=>`<button type="button" data-inv-layout="${val}" class="${invLayout===val?'on':''}" aria-label="${label}" aria-pressed="${invLayout===val}" title="${label}">${icon}</button>`;
   const sq = (n)=>{
-    if(n===1) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="2" y="3" width="16" height="4" rx="1.2"/><rect x="2" y="9" width="16" height="4" rx="1.2"/><rect x="2" y="15" width="16" height="3" rx="1.2"/></svg>';
     if(n===2) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="2" y="3" width="7" height="7" rx="1.5"/><rect x="11" y="3" width="7" height="7" rx="1.5"/><rect x="2" y="12" width="7" height="7" rx="1.5"/><rect x="11" y="12" width="7" height="7" rx="1.5"/></svg>';
     if(n===3) return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="1" y="3" width="5" height="5" rx="1.2"/><rect x="7.5" y="3" width="5" height="5" rx="1.2"/><rect x="14" y="3" width="5" height="5" rx="1.2"/><rect x="1" y="12" width="5" height="5" rx="1.2"/><rect x="7.5" y="12" width="5" height="5" rx="1.2"/><rect x="14" y="12" width="5" height="5" rx="1.2"/></svg>';
     return '<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor"><rect x="0.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="5.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="10.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="15.6" y="4.4" width="3.8" height="3.8" rx="1"/><rect x="0.6" y="11.8" width="3.8" height="3.8" rx="1"/><rect x="5.6" y="11.8" width="3.8" height="3.8" rx="1"/><rect x="10.6" y="11.8" width="3.8" height="3.8" rx="1"/><rect x="15.6" y="11.8" width="3.8" height="3.8" rx="1"/></svg>';
   };
   return `<div class="inv-layout-toggle" role="group" aria-label="${t('inv_layout_label')}">
-    ${opt('rows', t('inv_layout_rows'), sq(1))}
     ${opt('cols2', t('inv_layout_cols2'), sq(2))}
     ${opt('cols3', t('inv_layout_cols3'), sq(3))}
     ${opt('cols4', t('inv_layout_cols4'), sq(4))}

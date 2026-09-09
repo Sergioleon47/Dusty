@@ -1476,7 +1476,6 @@
   .inv-grid.cols2{grid-template-columns:1fr 1fr;}
   .inv-grid.cols3{grid-template-columns:1fr 1fr 1fr;gap:6px;}
   .inv-grid.cols4{grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;}
-  .inv-grid.rows{grid-template-columns:1fr;}
   /* Ítems FLOTANDO, sin caja (pedido del usuario 2026-09-06: "más limpia la
      app"): fondo y borde transparentes — ícono y texto directo sobre la página.
      El borde de 1px se conserva invisible: el modo selección lo pinta para
@@ -1496,23 +1495,24 @@
      Solo dentro de .inv-grid: en el Dashboard y en el resto de la app el ícono
      sigue siendo el círculo de siempre, al lado del texto. */
   .inv-grid .inv-tile-top{flex-direction:column;gap:6px;align-items:stretch;text-align:center;}
-  /* LA FOTO LLEGA AL BORDE de la tarjeta (pedido del usuario 2026-09-09: "sácalo
-     de esos bordes"). Antes quedaba enmarcada dos veces — su propio aro de color
-     más el recuadro de la tarjeta — y el resultado eran dos rectángulos
-     concéntricos. Ahora la tarjeta ES el marco: la foto la llena de lado a lado,
-     y el color del stock pasa al borde de la tarjeta, que ya sabe su estado por
-     el data-status que lleva puesto. El acabado es el de los tiles del
-     Dashboard: esquinas de 18px, sombra proyectada y filo de luz arriba. */
-  .inv-grid:not(.rows) .inv-tile{padding:0 0 9px;overflow:hidden;border-radius:18px;
-    border:2px solid var(--stock-ok);box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
-  .inv-grid:not(.rows) .inv-tile[data-status="warn"]{border-color:var(--stock-warn);}
-  .inv-grid:not(.rows) .inv-tile[data-status="crit"]{border-color:var(--stock-crit);}
-  .inv-grid:not(.rows) .inv-tile[data-status="none"]{border-color:#3a414b;}
-  .inv-grid:not(.rows) .inv-tile-name,
-  .inv-grid:not(.rows) .inv-row-meta,
-  .inv-grid:not(.rows) .stock-caption{padding:0 8px;}
-  .inv-grid:not(.rows) .stock-icon-ring{border:0;border-radius:0;box-shadow:none;}
-  .inv-grid .stock-icon-ring{width:100% !important;height:auto !important;aspect-ratio:1;border-radius:18px;}
+  /* LA FOTO MANDA (pedido del usuario 2026-09-09: "elimina los bordes de arriba
+     para que la imagen resalte y deja el borde de abajo"). La tarjeta lleva su
+     borde SOLO abajo: arriba y a los costados no hay nada que enmarque la foto,
+     que llega limpia hasta el filo de la tarjeta. Ese borde de abajo se pinta con
+     el color del stock —la tarjeta ya lo sabía por su data-status—, así que el
+     aviso de crítico no se pierde, solo se muda al pie. El acabado es el de los
+     tiles del Dashboard: esquinas de 18px, sombra y filo de luz arriba. */
+  .inv-grid .inv-tile{padding:0 0 9px;overflow:hidden;border-radius:18px;
+    border:0;border-bottom:3px solid var(--stock-ok);
+    box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  .inv-grid .inv-tile[data-status="warn"]{border-bottom-color:var(--stock-warn);}
+  .inv-grid .inv-tile[data-status="crit"]{border-bottom-color:var(--stock-crit);}
+  .inv-grid .inv-tile[data-status="none"]{border-bottom-color:#3a414b;}
+  .inv-grid .inv-tile-name,
+  .inv-grid .inv-row-meta,
+  .inv-grid .stock-caption{padding:0 8px;}
+  .inv-grid .stock-icon-ring{width:100% !important;height:auto !important;aspect-ratio:1;
+    border:0;border-radius:0;box-shadow:none;}
   .inv-grid .stock-icon-ring svg{width:42%;height:42%;}
   .inv-grid .inv-tile-name, .inv-grid .inv-row-meta, .inv-grid .stock-caption{text-align:center;}
   /* Sin foto, el ícono suelto sobre un cuadro vacío se veía pobre: un degradé en
@@ -1534,18 +1534,6 @@
   .inv-grid.cols4 .inv-tile-name{font-size:10.5px;text-align:center;}
   .inv-grid.cols4 .inv-row-meta{font-size:10px;text-align:center;}
   .inv-grid.cols4 .stock-caption{font-size:9.5px;text-align:center;}
-  /* Una columna: la vista GRANDE para quien no ve bien — todo sube de talle. */
-  .inv-grid.rows .inv-tile{padding:14px;gap:8px;}
-  /* Una columna: acá la tarjeta ocupa todo el ancho, así que una foto a lo ancho
-     sería una pantalla por producto — se queda al costado del texto, pero como
-     cuadrado grande en vez de círculo, para que la foto igual se vea. */
-  .inv-grid.rows .inv-tile-top{flex-direction:row;align-items:center;gap:12px;text-align:left;}
-  .inv-grid.rows .stock-icon-ring{width:76px !important;height:76px !important;aspect-ratio:auto;border-radius:18px;}
-  .inv-grid.rows .inv-tile-name, .inv-grid.rows .inv-row-meta, .inv-grid.rows .stock-caption{text-align:left;}
-  .inv-grid.rows .inv-tile-name{font-size:16px;-webkit-line-clamp:3;}
-  .inv-grid.rows .inv-row-meta{font-size:14px;}
-  .inv-grid.rows .stock-caption{font-size:13.5px;}
-  /* Selector de vista (fila / 2 col / 3 col), a la derecha arriba de la lista. */
   /* ===== DASHBOARD reorganizado (maqueta aprobada 2026-09-07, "ármalo así mismo") ===== */
   .dash-month{margin-bottom:12px;}
   .dash-month .budget-line{margin-top:6px;}
