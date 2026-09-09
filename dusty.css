@@ -1703,7 +1703,13 @@
      "hundido" sin cambiar de color, que es lo que dice cuál está activo. */
   .inv-chips .category-chip.quick.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.9), 0 3px 10px rgba(0,0,0,.20);}
   /* 6. Grupos plegables + "ver los restantes". */
-  .category-group-header.inv-group{cursor:pointer;user-select:none;-webkit-user-select:none;padding:6px 4px 6px 4px;border-radius:8px;margin:6px 0 6px;}
+  /* Los encabezados del Inventario van en la tinta plena, no en el gris apagado
+     (pedido del usuario 2026-09-09, mismo criterio que la barra de abajo): son
+     el índice de la lista, lo que uno busca al scrollear. Solo los de acá —
+     .category-group-header sin .inv-group lo usa también el modal de
+     Presupuesto, donde son etiquetas secundarias y el gris les queda bien. */
+  .category-group-header.inv-group{cursor:pointer;user-select:none;-webkit-user-select:none;padding:6px 4px 6px 4px;border-radius:8px;margin:6px 0 6px;color:var(--ink);}
+  .category-group-header.inv-group span{color:var(--ink);}
   .category-group-header.inv-group:active{background:var(--inset);}
   .inv-more{display:block;width:100%;background:none;border:none;color:var(--ink-soft);font-size:12.5px;font-weight:600;padding:8px 0 2px;cursor:pointer;font-family:inherit;}
   .inv-toolbar{display:flex;justify-content:flex-end;margin:0 0 8px;}
