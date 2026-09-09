@@ -19,6 +19,14 @@
        tinta oscura pasa 4.5:1 sobre los cuatro acentos. */
     --on-accent:#101318;
     --navy:#ff6b35; --navy-soft:#ff8a5c; --tomato:#ff5c5c; --saffron:#f5a623; --basil:#3ddc97;
+    /* Rojo del badge "−" del escáner de reducción (pedido del usuario 2026-09-09,
+       comparando con una captura vieja: "ponle más rojo"). Token propio y NO un
+       --tomato más saturado: --tomato es el rojo de todos los avisos de la app y
+       cada tema lo re-define a su gusto (el tema indigo lo tiene en #F1AA9B, casi
+       rosa). Este rojo tiene un solo trabajo —decir "esto RESTA" sobre el verde
+       del escáner— y tiene que ser el mismo en los 20 temas. Blanco encima da
+       3.9:1, mejor que los 3.1:1 del --tomato. */
+    --minus-red:#EE1B1B;
     /* "soft"/"wash" en oscuro = el acento mezclado hacia el panel (tinte opaco,
        no un pastel claro) — mismo rol de siempre: fondo de chips y avisos. */
     --basil-soft:color-mix(in srgb, var(--basil) 15%, var(--panel));
@@ -1918,7 +1926,7 @@
      Dashboard agrega, este resta), y al tocarlo la burbuja explica cómo se usa. */
   .shelf-fab-wrap{position:relative;}
   .shelf-minus-badge{position:absolute;left:-4px;bottom:-2px;width:26px;height:26px;border-radius:50%;
-    background:var(--tomato);color:#fff;font-size:19px;font-weight:800;line-height:1;
+    background:var(--minus-red);color:#fff;font-size:19px;font-weight:800;line-height:1;
     border:2px solid var(--bg);cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;
     padding:0 0 2px;box-shadow:var(--shadow);transition:transform .15s ease;}
   .shelf-minus-badge:active{transform:scale(0.88);}
