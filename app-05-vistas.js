@@ -1811,6 +1811,20 @@ function alertSettingsModal(){
             <i></i>
           </label>
         </div>
+        ${/* ¿ESTE NEGOCIO FABRICA? (pregunta del usuario 2026-09-10: "¿y si alguien
+             no usa la zona de producción?"). Decide la tercera pestaña. Solo
+             aparece el interruptor: en automático se prende sola con la primera
+             receta, y este switch está para forzarla en cualquier sentido —
+             alguien que fabrica pero prefiere Recibos abajo, o alguien que
+             borró sus recetas y no quiere perder la pestaña. */''}
+        <div class="pulse-row">
+          <div class="pulse-text"><b>${t('prod_tab_label')}</b><small>${t('prod_tab_helper')}</small></div>
+          <span class="pulse-state">${usesProduction() ? t('pulse_on') : t('pulse_off')}</span>
+          <label class="pulse-switch" aria-label="${t('prod_tab_label')}">
+            <input type="checkbox" id="production-tab-toggle" ${usesProduction()?'checked':''}>
+            <i></i>
+          </label>
+        </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
           ${/* El rótulo del idioma va en el idioma ACTUAL (pedido del usuario 2026-09-07). */''}
           <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Cambiar a inglés':'🌐 Switch to Spanish'}</button>

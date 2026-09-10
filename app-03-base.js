@@ -49,6 +49,8 @@ const I18N = {
   es: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos',
     tab_production:'Producción',
+    prod_tab_label:'Fabrico mis productos',
+    prod_tab_helper:'Prende la pestaña Producción abajo. Si la apagas, ahí vuelven los Recibos — el calendario del Dashboard te lleva igual.',
     dash_see_all_months:'Ver todos los meses',
     dash_budget_of:'Presupuesto:', dash_edit_budget:'Editar',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
@@ -615,6 +617,8 @@ const I18N = {
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
     tab_production:'Production',
+    prod_tab_label:'I make my own products',
+    prod_tab_helper:'Turns on the Production tab below. Turn it off and Receipts goes back there — the Dashboard calendar still takes you to them.',
     dash_see_all_months:'See all months',
     dash_budget_of:'Budget:', dash_edit_budget:'Edit',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',

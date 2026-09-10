@@ -214,6 +214,10 @@ function attachModalTabTrap(){
    Donde no hay View Transitions (Safari viejo, Firefox) el if de abajo cae al
    render de siempre: se abre igual, sin el agrandado. */
 function openReceiptsSheet(){
+  /* Un solo destino mental —"tocá el calendario y vas a tus recibos"— por dos
+     caminos: si Recibos todavía es pestaña (negocio que no fabrica), se cambia de
+     pestaña como siempre; si Producción le tomó el lugar, se abre la hoja. */
+  if(TAB_ORDER[2]==='recibos'){ switchToTab('recibos'); return; }
   showReceiptsSheet = true;
   if(document.startViewTransition){ document.startViewTransition(()=>render()); return; }
   render();
@@ -257,6 +261,16 @@ function attachEvents(){
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
   // Latidos de aviso (Ajustes): interruptor, se aplica al instante y queda en el
   // dispositivo — misma mecánica que el tema.
+  /* ¿Este negocio fabrica? Prende o apaga la pestaña Producción. Se guarda como
+     'on'/'off' explícito: una vez que el usuario opina, deja de decidirlo la
+     cantidad de recetas — si no, borrar la última receta le sacaría la pestaña
+     que acaba de pedir. */
+  const productionTabToggle=document.getElementById('production-tab-toggle');
+  if(productionTabToggle) productionTabToggle.onchange=()=>{
+    productionTabPref = productionTabToggle.checked ? 'on' : 'off';
+    try{ localStorage.setItem('patron_production_tab', productionTabPref); }catch(e){}
+    render();
+  };
   const pulseToggle=document.getElementById('pulse-toggle');
   if(pulseToggle) pulseToggle.onchange=()=>{
     dustyPulse = !!pulseToggle.checked;

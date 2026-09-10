@@ -100,19 +100,59 @@ let activeTab = 'dashboard';
    entero desde ahí; el lugar que dejó en la barra lo toma Producción, que es un
    catálogo y no cabía en un modal. Recibos NO se perdió: showReceiptsSheet lo
    abre a pantalla completa con la misma vista de siempre. */
-const TAB_ORDER = ['dashboard','inventario','produccion'];
+/* LA BARRA SE ADAPTA AL NEGOCIO (pregunta del usuario 2026-09-10: "¿y si alguien
+   no usa la zona de producción?"). Un negocio que solo revende no fabrica nada, y
+   tendría un tercio de la barra ocupado por una pantalla que nunca abre — y encima
+   habría perdido Recibos de ahí. Así que la tercera pestaña es:
+     - RECIBOS mientras no exista ninguna receta (o sea: todo sigue como antes);
+     - PRODUCCIÓN en cuanto el negocio arma su primera receta.
+   El calendario del Dashboard se queda en los dos casos: es mejor que la línea de
+   texto que había, y tocarlo lleva a los recibos por el camino que corresponda —
+   a la pestaña si existe, a la hoja completa si no (ver openReceiptsSheet).
+   productionTabPref permite forzarlo desde Ajustes: 'auto' (según haya recetas),
+   'on' o 'off'. Es preferencia del DISPOSITIVO, como los latidos o las columnas
+   del inventario: no viaja a la nube ni se le impone al resto del equipo. */
+let productionTabPref = 'auto';
+try{
+  const v = localStorage.getItem('patron_production_tab');
+  if(v==='on' || v==='off') productionTabPref = v;
+}catch(e){}
+function usesProduction(){
+  if(productionTabPref==='on') return true;
+  if(productionTabPref==='off') return false;
+  return Array.isArray(recipes) && recipes.length > 0;
+}
+/* TAB_ORDER es `let` y no `const` porque la tercera pestaña cambia según lo de
+   arriba. Todo el sistema de deslizar la lee EN CADA USO (ancho, gesto, memoria de
+   scroll), así que reasignarla y redibujar alcanza — ver refreshTabOrder(). */
+let TAB_ORDER = ['dashboard','inventario','recibos'];
 // La pestaña recordada puede ser una que ya no existe (el Catálogo se eliminó, y
 // ahora Recibos): sin este filtro, el dispositivo que quedó ahí arrancaba en una
 // pestaña muerta — pantalla en blanco hasta tocar otra.
 try{
   const saved = localStorage.getItem('patron_active_tab');
-  if(TAB_ORDER.indexOf(saved) >= 0) activeTab = saved;
+  /* Se valida contra las CUATRO conocidas y no contra TAB_ORDER: acá todavía no
+     se sabe si la tercera va a ser Recibos o Producción (recipes se carga después),
+     y comparar con el arreglo provisional dejaba afuera a quien se había quedado
+     en Producción. refreshTabOrder() la corrige en el primer render si no existe. */
+  if(['dashboard','inventario','recibos','produccion'].indexOf(saved) >= 0) activeTab = saved;
 }catch(e){}
 /* Recibos a pantalla completa, abierto desde la tarjeta del calendario. Se abre
    con una View Transition que agranda el calendario chiquito hasta el grande
    (ver openReceiptsSheet en app-07): el mismo mecanismo que ya usa el cambio de
    vista del Inventario, no una animación nueva. */
 let showReceiptsSheet = false;
+/* Recalcula la tercera pestaña. Corre al principio de cada render (app-04): si el
+   usuario acaba de crear su primera receta, Producción aparece sin que haga falta
+   recargar. Si la pestaña en la que estaba parado desaparece, vuelve al Dashboard
+   en vez de quedar en un índice -1 con la pantalla en blanco. */
+function refreshTabOrder(){
+  const tercera = usesProduction() ? 'produccion' : 'recibos';
+  if(TAB_ORDER[2] === tercera) return false;
+  TAB_ORDER = ['dashboard','inventario',tercera];
+  if(TAB_ORDER.indexOf(activeTab) < 0) activeTab = 'dashboard';
+  return true;
+}
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
 /* Auditoría de primer minuto 2026-09-07 (ver helpModal, teamIntroModal, itemModal
    y celebrateFirstScan en app-06):
