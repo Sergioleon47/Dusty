@@ -42,10 +42,13 @@ let showOutflowsModal = false;
    con su propia cámara — ver el guard de render() en app-04, que también protege
    este <video> de ser arrancado por un redibujado de fondo. */
 let showShelfModal = false, shelfState = 'camera', shelfItems = [], shelfUnmatched = [], shelfError = '', shelfRequestId = 0;
-// Qué representan las salidas de este ajuste: 'sale' (default — la intención del
-// escáner de salidas) o 'loss' (merma). Decide si el Cierre de mes las cuenta
-// como ingresos estimados o solo como costo.
-let shelfReason = 'sale';
+/* Qué representan las salidas de este ajuste. ARRANCA EN null A PROPÓSITO
+   (revisión contable 2026-09-10): antes era 'sale' por defecto, así que una foto
+   del estante daba por VENDIDO todo lo que hubiera bajado y sumaba ingresos que
+   nadie eligió. Ahora se pregunta. Este valor es solo el "aplicar a todos" de la
+   cabecera; el que manda es el de cada renglón (shelfItems[i].reason), porque de
+   8 productos 7 se vendieron y 1 se pudrió es el caso normal, no el raro. */
+let shelfReason = null;
 // Burbuja de instrucciones del badge "−" del escáner de estante (ver shelfScanFab).
 let showShelfInfoBubble = false;
 let shelfCamStream = null;
@@ -543,7 +546,7 @@ function openShelfModal(){
     ensureTrialAccount().catch(()=>{});
   }
   shelfRequestId++;
-  shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason='sale';
+  shelfState='camera'; shelfItems=[]; shelfUnmatched=[]; shelfError=''; shelfReason=null;
   showShelfModal = true; render();
   // Intro única (2026-09-07): el mismo modal con caja punteada que Recibos y
   // Productos; la hoja de fotos recién al tocar la caja. El visor en vivo se
@@ -650,6 +653,8 @@ async function processShelfSource(source){
         // Arranca en el salePrice del producto; vacío = el producto no tiene
         // precio y sin escribir uno acá la venta no suma Ingresos al Cierre.
         salePriceDraft: Number(ing.salePrice)>0 ? ing.salePrice : lastSalePriceFor(ing.id),
+        // Sin motivo hasta que el usuario diga qué pasó — ver la nota en shelfReason.
+        reason: null,
         // Recorte de lo que la IA contó, para verificar de un vistazo.
         photo: p.box ? cropToBase64(source, p.box, 300, 0.75) : null,
         include: detected!==null
@@ -686,6 +691,10 @@ function shelfDeltaPill(current, finalQty, unit){
 
 function shelfScanModal(){
   const includedCount = shelfItems.filter(it=>it.include && it.finalQty!=='' && Number.isFinite(Number(it.finalQty))).length;
+  // Renglones listos para aplicar pero todavía sin decir qué pasó con ellos:
+  // mientras haya uno, el botón no se habilita. Suponer "venta" es justamente lo
+  // que inflaba los ingresos, y suponer cualquier otra cosa sería igual de falso.
+  const sinMotivo = shelfItems.filter(it=>it.include && it.finalQty!=='' && Number.isFinite(Number(it.finalQty)) && !it.reason).length;
   return `
   <div class="overlay" id="shelf-overlay">
     <div class="modal wide">
@@ -713,10 +722,23 @@ function shelfScanModal(){
 
       ${shelfState==='review' ? `
         ${shelfItems.length>0 ? `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('shelf_review_hint')}</div>` : ''}
-        ${shelfItems.length>0 ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px;">
-          <span style="font-size:12px;font-weight:700;color:var(--ink-mid);">${t('shelf_reason_label')}</span>
-          <button type="button" class="exit-reason-chip ${shelfReason==='sale'?'on':''}" data-shelf-reason="sale">${t('shelf_reason_sale')}</button>
-          <button type="button" class="exit-reason-chip ${shelfReason==='loss'?'on':''}" data-shelf-reason="loss">${t('shelf_reason_loss')}</button>
+        ${/* LA PREGUNTA. Va acá, después de leer la foto y antes de aplicar nada:
+             es el paso intermedio que convierte "restar inventario" en un
+             movimiento con significado contable. Tres opciones, ninguna marcada
+             de entrada, cada una con una línea que dice qué le hace a la plata —
+             para que la respuesta no dependa de entender contabilidad. */''}
+        ${shelfItems.length>0 ? `<div class="exit-reason-ask">
+          <div class="era-title">${t('shelf_reason_ask')}</div>
+          <div class="era-sub">${t('shelf_reason_ask_sub')}</div>
+          <div class="era-options">
+            ${[['sale','shelf_reason_sale','shelf_reason_sale_hint'],
+               ['internal','shelf_reason_internal','shelf_reason_internal_hint'],
+               ['loss','shelf_reason_loss','shelf_reason_loss_hint']].map(([val,label,hint])=>`
+              <button type="button" class="era-option ${shelfReason===val?'on':''}" data-shelf-reason="${val}">
+                <span class="era-option-label">${t(label)}</span>
+                <span class="era-option-hint">${t(hint)}</span>
+              </button>`).join('')}
+          </div>
         </div>` : ''}
         ${shelfItems.map((it,idx)=>{
           const ing = inventory.find(i=>i.id===it.ingId);
@@ -753,17 +775,27 @@ function shelfScanModal(){
               <span style="font-size:12px;color:var(--ink-soft);">${escapeHtml(unitLabel(ing.unit))}</span>
               <span data-shelf-delta="${idx}">${shelfDeltaPill(ing.qtyOnHand||0, it.finalQty, ing.unit)}</span>
             </div>
-            ${/* Precio de venta de esta salida (solo con motivo "venta" — la
-                 merma no genera ingresos): editable por línea, prellenado con el
-                 salePrice del producto. Es de ESTA venta, no cambia el precio
-                 de la ficha. */''}
-            ${shelfReason==='sale' ? `
+            ${/* El motivo DE ESTE RENGLÓN. La cabecera pone el de todos de un
+                 toque; acá se corrige el que sea distinto, sin volver arriba. */''}
+            ${it.include ? `
+            <div class="row-reason">
+              <span class="rr-label">${t('shelf_row_reason')}</span>
+              <button type="button" class="rr-chip ${it.reason==='sale'?'on':''}" data-row-reason="${idx}" data-reason-val="sale">${t('shelf_reason_sale')}</button>
+              <button type="button" class="rr-chip ${it.reason==='internal'?'on':''}" data-row-reason="${idx}" data-reason-val="internal">${t('shelf_reason_internal')}</button>
+              <button type="button" class="rr-chip ${it.reason==='loss'?'on':''}" data-row-reason="${idx}" data-reason-val="loss">${t('shelf_reason_loss')}</button>
+            </div>` : ''}
+            ${/* Precio de venta de ESTA salida: solo si el renglón es una venta.
+                 Ni la merma ni el consumo interno generan ingresos, así que
+                 pedirles un precio sería invitar a inventarlo. */''}
+            ${it.include && it.reason==='sale' ? `
             <div class="mi-fields" style="align-items:center;margin-top:6px;">
               <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>
               <input data-shelf-price="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
               <span style="font-size:12px;color:var(--ink-soft);">$/${escapeHtml(unitLabel(ing.unit))}</span>
             </div>
-            ${it.salePriceDraft==='' && it.include ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}
+            ${it.salePriceDraft==='' ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}
+            ${it.include && it.reason==='internal' ? `<div class="row-reason-note internal">🍕 ${t('shelf_internal_note')}</div>` : ''}
+            ${it.include && it.reason==='loss' ? `<div class="row-reason-note loss">🗑️ ${t('shelf_loss_note')}</div>` : ''}
           </div>`;
         }).join('')}
         ${shelfUnmatched.length>0 ? `
@@ -776,10 +808,12 @@ function shelfScanModal(){
         </div>` : ''}
       ` : ''}
 
+      ${shelfState==='review' && sinMotivo>0 ? `<div class="reason-missing-note">${t('shelf_reason_missing').replace('{n}', sinMotivo)}</div>` : ''}
+
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-shelf">${t(shelfState==='review'?'btn_close':'btn_cancel')}</button>
         ${['review','error','empty'].includes(shelfState) ? `<button class="btn btn-ghost" id="btn-shelf-again">${t('ids_scan_again')}</button>` : ''}
-        ${shelfState==='review' && shelfItems.length>0 ? `<button class="btn btn-primary" id="btn-apply-shelf" ${includedCount===0?'disabled':''}>${t('shelf_apply_btn').replace('{n}', includedCount)}</button>` : ''}
+        ${shelfState==='review' && shelfItems.length>0 ? `<button class="btn btn-primary" id="btn-apply-shelf" ${(includedCount===0||sinMotivo>0)?'disabled':''}>${t('shelf_apply_btn').replace('{n}', includedCount)}</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -815,16 +849,25 @@ function applyShelfAdjust(){
     // priceAt sale del campo editable de la revisión (el precio REAL de esta
     // venta); si quedó vacío o inválido, cae al salePrice del producto.
     const priceDraft = parseFloat(it.salePriceDraft);
+    // reason POR RENGLÓN: es lo que decide si esta salida es ingreso, traspaso a
+    // producción o pérdida. El del outflow entero queda solo para las salidas
+    // viejas, que no lo tenían por línea (ver outflowPL en app-03).
+    const rowReason = (it.reason==='sale' || it.reason==='internal' || it.reason==='loss') ? it.reason : 'sale';
     items.push({ingId: ing.id, ingName: ing.name, qty: roundQty(current - newQty), unit: ing.unit,
+      reason: rowReason,
       costAt: Number(ing.costPerUnit)||0,
-      priceAt: (Number.isFinite(priceDraft) && priceDraft>=0) ? roundQty(priceDraft) : (Number(ing.salePrice)||0)});
+      // Solo una venta lleva precio: pedirle uno a la merma o al consumo interno
+      // sería invitar a inventar un ingreso que no existió.
+      priceAt: rowReason!=='sale' ? 0
+        : ((Number.isFinite(priceDraft) && priceDraft>=0) ? roundQty(priceDraft) : (Number(ing.salePrice)||0))});
   });
   if(items.length>0){
     recordOutflow({
       id: uid('o'), type:'adjust', recipeId:null, recipeName:'', count:null,
-      // reason: 'sale' (default, la intención del escáner de salidas) o 'loss'
-      // (merma/rotura/vencido) — sin esto, tirar mercadería inflaba los Ingresos.
-      reason: shelfReason==='loss' ? 'loss' : 'sale',
+      // Motivo del conjunto: se guarda solo si TODOS los renglones coinciden —
+      // con motivos mezclados no hay uno que represente al ajuste, y el que manda
+      // es el de cada línea igual.
+      reason: (()=>{ const rs=new Set(items.map(i=>i.reason)); return rs.size===1 ? items[0].reason : 'mixed'; })(),
       items, date: localDateStr(), createdAt: new Date().toISOString(),
       by: currentUser ? currentUser.uid : null, byLabel: currentUser ? currentUserLabel() : ''
     });
@@ -1042,12 +1085,23 @@ function attachProductionEvents(){
     });
     const btnApply=document.getElementById('btn-apply-shelf');
     if(btnApply) btnApply.onclick=applyShelfAdjust;
-    // Ventas ⇄ pérdida/merma del ajuste — decide cómo lo cuenta el Cierre de mes.
+    /* La respuesta de la cabecera se aplica a TODOS los renglones marcados — el
+       caso común es una foto entera de ventas y no tiene sentido pedir ocho
+       toques para eso. Cada renglón se corrige después con sus propios chips. */
     document.querySelectorAll('[data-shelf-reason]').forEach(b=>{
       b.onclick=()=>{
-        const r=b.dataset.shelfReason;
-        if(r===shelfReason) return;
-        shelfReason=r; render();
+        shelfReason = b.dataset.shelfReason;
+        shelfItems.forEach(it=>{ if(it.include) it.reason = shelfReason; });
+        render();
+      };
+    });
+    // Corrección de UN renglón (de 8 productos, 7 vendidos y 1 podrido).
+    document.querySelectorAll('[data-row-reason]').forEach(b=>{
+      b.onclick=()=>{
+        const it = shelfItems[+b.dataset.rowReason];
+        if(!it) return;
+        it.reason = b.dataset.reasonVal;
+        render();
       };
     });
   }
