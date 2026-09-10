@@ -239,7 +239,7 @@ function produccionView(){
         `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
     }
     return `<div class="empty-state" style="padding:16px 20px 40px;">
-      <div class="inv-tools" style="margin:0 0 14px;">${shelfScanFab('prod')}</div>
+      <div class="inv-tools" style="margin:0 0 14px;">${shelfScanFab('prod', true)}</div>
       <h3 style="margin:0 0 6px;">${t('prod_empty_title')}</h3>
       <p style="margin:0;font-size:13px;">${t('prod_empty_sub')}</p>
       <div class="empty-state-actions"><button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button></div>
@@ -386,9 +386,19 @@ function deleteSelectedRecipes(){
    (mismo lenguaje que el FAB del Dashboard). Producción entra como un botón normal
    más en la fila de acciones (ver inv-header-actions en app-05) — sin elementos
    visuales nuevos compitiendo con el FAB. */
-function shelfScanFab(zona){
+function shelfScanFab(zona, hero){
   const z = zona || 'inv';
   if(inventory.length === 0) return '';
+  /* MODO "hero": la presentacion del catalogo vacio (pedido del usuario
+     2026-09-10). Ahi la camara no es una herramienta mas en una fila: es lo unico
+     que hay en la pantalla, en el lugar donde antes vivia un medallon decorativo.
+     Por eso va mas grande (96px contra 66) y SIN etiqueta debajo — "quita donde
+     dice reduccion, quitalo de raiz esa parte" —: el texto de abajo existe para
+     distinguirla de las otras dos herramientas de la fila de Inventario, y aca no
+     hay otras. El signo pasa a "+/−" y a una pastilla, porque un circulo de 26px
+     no lo aguanta.
+     En Inventario NO cambia nada: ahi sigue siendo una de tres y necesita su
+     nombre. */
   // Los dos .scan-fab-ring son el MISMO efecto de pulso del botón de escanear del
   // Dashboard (fabPulse + delay) — pedido del usuario: los dos escáneres de la app
   // laten igual y a la misma altura de pantalla.
@@ -409,7 +419,7 @@ function shelfScanFab(zona){
      herramienta (.inv-tool ya es position:relative) para abrirse por debajo del
      nombre y no taparlo. */
   return `
-  <div class="inv-tool" style="min-width:76px;">
+  <div class="inv-tool${hero?' shelf-hero':''}" style="min-width:76px;">
     <span class="shelf-fab-wrap" style="display:block;">
       ${/* data-* y no id: la MISMA herramienta se dibuja en Inventario y en
            Producción, y dos nodos con el mismo id habrían dejado a uno de los
@@ -421,9 +431,9 @@ function shelfScanFab(zona){
         <div class="scan-fab-ring delay"></div>
         ${lineIcon('camera',30)}
       </button>
-      <button type="button" class="shelf-minus-badge" data-shelf-info="${z}" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble===z?'true':'false'}">−</button>
+      <button type="button" class="shelf-minus-badge${hero?' hero':''}" data-shelf-info="${z}" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble===z?'true':'false'}">${hero?'+/−':'−'}</button>
     </span>
-    <span class="inv-tool-label" style="font-weight:800;">${t('shelf_banner_title')}</span>
+    ${hero ? '' : `<span class="inv-tool-label" style="font-weight:800;">${t('shelf_banner_title')}</span>`}
     ${showShelfInfoBubble===z ? `
     <div class="shelf-info-backdrop" data-shelf-info-close="${z}"></div>
     <div class="shelf-info-bubble" data-shelf-info-close="${z}" role="tooltip">
