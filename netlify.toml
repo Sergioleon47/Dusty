@@ -37,3 +37,12 @@
   for = "/*.png"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+# La imagen del preview de links paso de PNG a JPEG (481 KB -> 40 KB, para que
+# WhatsApp la muestre en vez de caer al preview sin foto), asi que la misma regla
+# tiene que cubrir .jpg: si no, la unica imagen que se comparte quedaba fuera de
+# la caché que este bloque existe para darle.
+[[headers]]
+  for = "/*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
