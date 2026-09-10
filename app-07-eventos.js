@@ -164,7 +164,11 @@ let modalTabTrapAttached = false;
 // campo de presupuesto — se consume en el attach del overlay, un solo render.
 // Selector de archivo + resize para la foto de un producto — lo usan el toque en
 // la miniatura sin foto (lista) y el botón "cambiar" del visor de foto.
-function promptItemPhotoUpload(item){
+/* esReceta: una pieza del catálogo guarda la foto igual que un ítem (.photo),
+   pero además hay que subirla a Storage. Antes eso se resolvía sondeando con un
+   setInterval desde el que llamaba; acá se hace donde de verdad se sabe que la
+   foto cambió. */
+function promptItemPhotoUpload(item, esReceta){
   const input = document.createElement('input');
   input.type='file';
   input.accept='image/*';
@@ -183,6 +187,7 @@ function promptItemPhotoUpload(item){
       item.photo = resizeToBase64(img, ITEM_PHOTO_SIDE, ITEM_PHOTO_QUALITY);
       saveState();
       render();
+      if(esReceta) uploadRecipePhoto(item);
     }catch(err){
       showToast(err.message || t('err_img_process'), 'error');
     }
@@ -252,6 +257,12 @@ function attachEvents(){
       if(fresh){ fresh.focus(); fresh.setSelectionRange(fresh.value.length, fresh.value.length); }
     });
   };
+  const prodSortSel=document.getElementById('prod-sort');
+  if(prodSortSel) prodSortSel.onchange=()=>{
+    prodSort=prodSortSel.value;
+    try{ localStorage.setItem('patron_prod_sort', prodSort); }catch(e){}
+    render();
+  };
   document.querySelectorAll('[data-open-finished]').forEach(el=>{
     el.onclick=()=>openFinishedItemModal(el.dataset.openFinished);
   });
@@ -264,14 +275,11 @@ function attachEvents(){
       e.stopPropagation();               // la tarjeta abre la ficha; la foto, no
       const r = recipeById(el.dataset.photoRecipe);
       if(!r) return;
-      const antes = r.photo;
-      promptItemPhotoUpload(r);
-      // La subida a Storage va cuando la foto ya cambió: promptItemPhotoUpload es
-      // asíncrono y no avisa, así que se revisa en el próximo tick de render.
-      const revisar = setInterval(()=>{
-        if(r.photo !== antes){ clearInterval(revisar); uploadRecipePhoto(r); }
-      }, 400);
-      setTimeout(()=>clearInterval(revisar), 60000);
+      // Con foto: se abre grande (así se ve la pieza terminada de verdad, y ahí
+      // mismo están cambiar y quitar). Sin foto: el selector directo, que es lo
+      // único que se puede hacer.
+      if(recipePhotoSrc(r)){ photoViewItemId = r.id; photoViewKind = 'recipe'; render(); }
+      else promptItemPhotoUpload(r, true);
     };
   });
   const btnProdSelect=document.getElementById('btn-prod-select');
@@ -1408,25 +1416,30 @@ function attachEvents(){
       e.stopPropagation();
       const item = inventory.find(x=>x.id===el.dataset.photoItem);
       if(!item) return;
-      if(itemPhotoSrc(item)){ photoViewItemId = item.id; render(); }
+      if(itemPhotoSrc(item)){ photoViewItemId = item.id; photoViewKind='item'; render(); }
       else promptItemPhotoUpload(item);
     };
   });
   const pvOverlay=document.getElementById('photo-viewer-overlay');
   if(pvOverlay){
+    // El visor es el mismo para un ítem del inventario y para una pieza del
+    // catálogo: los dos guardan la foto en .photo, así que cambiar y quitar
+    // corren igual; lo único propio de la pieza es subirla a Storage.
+    const target=()=>{ const tg=photoViewTarget(); return tg ? tg.obj : null; };
     const closeViewer=()=>{ photoViewItemId=null; render(); };
     pvOverlay.onmousedown=(e)=>{ if(e.target===pvOverlay) closeViewer(); };
     document.getElementById('pv-close').onclick=closeViewer;
     document.getElementById('pv-change').onclick=()=>{
-      const item=inventory.find(x=>x.id===photoViewItemId);
-      if(item) promptItemPhotoUpload(item); // el visor queda abierto y muestra la nueva
+      const obj=target();
+      if(obj) promptItemPhotoUpload(obj, photoViewKind==='recipe'); // el visor queda abierto y muestra la nueva
     };
     document.getElementById('pv-delete').onclick=()=>{
-      const item=inventory.find(x=>x.id===photoViewItemId);
-      if(!item) return;
+      const obj=target();
+      if(!obj) return;
       if(!confirm(t('pv_delete_confirm'))) return;
-      item.photo=null;
-      if(currentUser){ item.lastEditedBy=currentUserLabel(); item.lastEditedAt=new Date().toISOString(); }
+      if(photoViewKind==='recipe') dropRecipePhoto(obj);
+      obj.photo=null;
+      if(currentUser){ obj.lastEditedBy=currentUserLabel(); obj.lastEditedAt=new Date().toISOString(); }
       photoViewItemId=null;
       saveState(); render();
     };

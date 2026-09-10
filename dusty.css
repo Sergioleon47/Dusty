@@ -2015,6 +2015,9 @@
   .pv-btn:active{background:rgba(16,19,24,.8);}
   .pv-btn-danger{color:var(--tomato);}
   .pv-caption{text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:var(--ink-mid);}
+  /* De qué está hecha la pieza, debajo del nombre: más chica y más apagada,
+     para que el pie siga siendo el nombre y no un párrafo. */
+  .pv-subcaption{margin-top:3px;font-size:12.5px;font-weight:500;opacity:.72;line-height:1.35;}
   /* Encuesta de salida: pasos que entran con la animación del tutorial (el id del
      contenedor cambia por paso, morphdom lo recrea y la animación corre de nuevo);
      la barra de progreso se anima sola porque su width transiciona. */

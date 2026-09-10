@@ -175,8 +175,36 @@ let prodSelectMode = false;
 let prodSelected = new Set();
 function prodExitSelect(){ prodSelectMode = false; prodSelected.clear(); }
 
+/* El MISMO orden ⇅ que Inventario, con las tres preguntas que tiene sentido
+   hacerle a un catálogo (pedido del usuario 2026-09-10 sobre una captura del
+   control de Inventario). Igual que allá, la preferencia es del aparato: queda
+   guardada en localStorage y no viaja al equipo.
+   Las etiquetas dicen la dirección ("Precio más alto", "Menos hechas") porque
+   una flecha sola no le dice a nadie hacia dónde ordena. */
+let prodSort = 'name'; // 'name' | 'price' | 'made'
+try{ const v = localStorage.getItem('patron_prod_sort'); if(['name','price','made'].includes(v)) prodSort = v; }catch(e){}
+
+function prodSortRecipes(arr){
+  const lista = arr.slice();
+  const porNombre = (a,b)=>String(a.name||'').localeCompare(String(b.name||''));
+  if(prodSort==='price'){
+    // Sin precio no es "cero": es "todavía no lo puse", y va al final para no
+    // ensuciar el podio de las caras.
+    const p = (r)=>{ const n = Number(r.salePrice); return (Number.isFinite(n) && n>0) ? n : -1; };
+    lista.sort((a,b)=>p(b)-p(a) || porNombre(a,b));
+  }else if(prodSort==='made'){
+    const hechas = (r)=>{ const it = finishedItemFor(r); return it ? (Number(it.qtyOnHand)||0) : 0; };
+    lista.sort((a,b)=>hechas(a)-hechas(b) || porNombre(a,b));
+  }else{
+    lista.sort(porNombre);
+  }
+  return lista;
+}
+
+const prodSortIcon = '<svg viewBox="0 0 20 20" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 4v12M6 16l-3-3M6 16l3-3M14 16V4M14 4l-3 3M14 4l3 3"/></svg>';
+
 function produccionView(){
-  const lista = recipes.filter(r=>invMatches(r.name, prodSearch));
+  const lista = prodSortRecipes(recipes.filter(r=>invMatches(r.name, prodSearch)));
   if(recipes.length===0){
     return emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
       `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
@@ -208,7 +236,14 @@ function produccionView(){
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${t('prod_search_ph').replace('{n}', String(recipes.length))}" autocomplete="off">
         </div>
-        ${invLayoutToggleHtml()}
+        ${invLayoutToggleHtml().replace('</div>', `
+          <span class="inv-sort-wrap ${prodSort!=='name'?'on':''}" title="${t('inv_sort_label')}">${prodSortIcon}
+            <select id="prod-sort" aria-label="${t('inv_sort_label')}">
+              <option value="name" ${prodSort==='name'?'selected':''}>${t('prod_sort_name')}</option>
+              <option value="price" ${prodSort==='price'?'selected':''}>${t('prod_sort_price')}</option>
+              <option value="made" ${prodSort==='made'?'selected':''}>${t('prod_sort_made')}</option>
+            </select>
+          </span></div>`)}
         <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe_short')}</button>
       </div>
     </div>`;
@@ -725,6 +760,14 @@ function deleteRecipeFromModal(){
   saveState();
   logActivity('recipe_deleted', rec.name);
   closeRecipeModal();
+}
+
+/* Quitar la foto de una pieza desde el visor. El archivo en Storage se borra
+   best-effort (un huérfano no es grave, pero mejor no acumular basura); el
+   .photo=null y el saveState los hace quien llama. */
+function dropRecipePhoto(rec){
+  if(!rec || !rec.photo || !rec.photo.path || !currentUser) return;
+  try{ firebase.storage().ref(rec.photo.path).delete().catch(()=>{}); }catch(e){}
 }
 
 /* ---------- MODAL: REGISTRAR PRODUCCIÓN ---------- */
