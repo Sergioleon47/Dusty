@@ -398,16 +398,36 @@ function productionHubModal(){
    Los costos se muestran solo a quien puede ver números financieros: esta es la
    pantalla que dice cuánto te cuesta cada pieza, o sea tu margen, y es justo la que
    un cliente no debería ver. */
+/* LA DESCRIPCIÓN DE UNA PIEZA ES LO QUE LLEVA (pedido del usuario 2026-09-10:
+   "es bien importante que se describa cuánto de cada ítem del inventario tiene en
+   la descripción"). "3 × Cable 10-2 · 8 × Breaker 20A" — cantidad por pieza y
+   nombre del insumo, en una línea. Es la misma información que la tabla de
+   composición, comprimida para caber donde no entra una tabla: bajo el nombre en
+   la ficha, y como pie del visor de foto.
+   Un insumo borrado sale marcado, nunca omitido en silencio: una composición a la
+   que le falta un renglón se lee como completa y no lo está. */
+function recipeComposition(rec, max){
+  const filas = bomRows(rec ? rec.components : [], inventory, 1);
+  if(filas.length===0) return '';
+  const tope = max || filas.length;
+  const partes = filas.slice(0, tope).map(f=>
+    f.missing ? '⚠ ' + t('bom_gone') : `${roundQty(f.qty)} × ${f.name}`);
+  if(filas.length > tope) partes.push('+' + (filas.length - tope));
+  return partes.join(' · ');
+}
 let showFinishedItemModal = null; // id de la receta abierta
+// Edición de la composición DENTRO de la ficha: sin salir a otra pantalla, que es
+// lo que hacía falta para que "poder editarlo" sea un toque y no dos.
+let finishedEditMode = false;
 let finishedProduceCount = 1;
 function openFinishedItemModal(recipeId){
-  showFinishedItemModal = recipeId; finishedProduceCount = 1; render();
+  showFinishedItemModal = recipeId; finishedProduceCount = 1; finishedEditMode = false; render();
 }
-function closeFinishedItemModal(){ showFinishedItemModal = null; render(); }
+function closeFinishedItemModal(){ showFinishedItemModal = null; finishedEditMode = false; render(); }
 function finishedItemModal(){
   const rec = recipeById(showFinishedItemModal);
   if(!rec){ showFinishedItemModal = null; return ''; }
-  const n = Math.max(1, Math.round(Number(finishedProduceCount)||1));
+  const n = finishedEditMode ? 1 : Math.max(1, Math.round(Number(finishedProduceCount)||1));
   const filas = bomRows(rec.components, inventory, n);
   const total = bomTotal(filas);
   const term = finishedItemFor(rec);
@@ -438,12 +458,14 @@ function finishedItemModal(){
             return m===null ? '' : ` · <span style="color:${m<15?'var(--saffron-ink)':'var(--basil-ink)'};font-weight:700;">${m.toFixed(0)}%</span>`;
           })()}</div>
           <div class="sub" style="margin:0;">${hechas>0 ? t('prod_in_stock').replace('{n}', String(hechas)) : t('prod_none_made')}${ver && hechas>0 ? ` · ${money(costoUnit)} ${t('prod_cost_each')}` : ''}</div>
+          ${(()=>{ const c = recipeComposition(rec); return c ? `<div class="sub" style="margin:2px 0 0;opacity:.75;">${escapeHtml(c)}</div>` : ''; })()}
         </div>
         <button type="button" class="stock-icon-btn edit" id="btn-edit-recipe-from-item" title="${t('btn_edit')}">
           <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         </button>
       </div>
 
+      ${finishedEditMode ? '' : `
       <div class="field" style="margin-bottom:12px;">
         <label>${t('produce_count_label')}</label>
         <div class="qty-stepper">
@@ -451,25 +473,41 @@ function finishedItemModal(){
           <input id="fi-produce-count" type="number" inputmode="numeric" min="1" step="1" value="${escapeHtml(n)}">
           <button type="button" id="btn-fi-plus">+</button>
         </div>
-      </div>
+      </div>`}
 
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 0 6px;">${t('bom_title')}</label>
-      <div class="bom-table">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px;">
+        <label style="font-size:12px;font-weight:600;color:var(--ink-soft);">${finishedEditMode ? t('bom_edit_title') : t('bom_title')}</label>
+        <button type="button" class="link-btn" id="btn-fi-edit-bom" style="padding:4px 2px;">${finishedEditMode ? '✓ '+t('inv_select_done') : t('bom_edit_btn')}</button>
+      </div>
+      ${/* EN MODO EDICIÓN el multiplicador se esconde y las cantidades vuelven a
+           ser POR PIEZA. Con el multiplicador puesto, la columna mostraría "15 lb"
+           para 5 piezas y editar ahí sería editar un número que no es el que se
+           guarda — la definición de la pieza es cuánto lleva UNA. */''}
+      <div class="bom-table${finishedEditMode ? ' editing' : ''}">
         <div class="bom-row bom-head">
-          <span>${t('bom_col_item')}</span><span>${t('bom_col_qty')}</span>
-          ${ver ? `<span>${t('bom_col_cost')}</span><span>${t('bom_col_subtotal')}</span>` : ''}
+          <span>${t('bom_col_item')}</span><span>${finishedEditMode ? t('bom_col_qty_each') : t('bom_col_qty')}</span>
+          ${ver && !finishedEditMode ? `<span>${t('bom_col_cost')}</span><span>${t('bom_col_subtotal')}</span>` : ''}
+          ${finishedEditMode ? '<span></span>' : ''}
         </div>
-        ${filas.map(f=>`
+        ${filas.map((f,idx)=>`
         <div class="bom-row ${f.missing?'missing':''}">
           <span>${f.name ? escapeHtml(f.name) : `⚠ ${t('bom_gone')}`}</span>
-          <span>${escapeHtml(f.qty)} ${escapeHtml(unitLabel(f.unit))}</span>
-          ${ver ? `<span>${f.cost===null ? '—' : money(f.cost)}</span><span>${f.missing ? '—' : money(f.subtotal)}</span>` : ''}
+          ${finishedEditMode
+            ? `<span><input data-bom-qty="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(f.qtyPerPiece)}" style="width:100%;text-align:right;"></span>
+               <span><button type="button" class="link-btn" data-bom-del="${idx}" title="${t('recipe_remove_component')}" style="color:var(--tomato-ink);padding:2px 4px;">✕</button></span>`
+            : `<span>${escapeHtml(f.qty)} ${escapeHtml(unitLabel(f.unit))}</span>
+               ${ver ? `<span>${f.cost===null ? '—' : money(f.cost)}</span><span>${f.missing ? '—' : money(f.subtotal)}</span>` : ''}`}
         </div>`).join('')}
-        ${ver ? `
+        ${ver && !finishedEditMode ? `
         <div class="bom-row bom-total">
           <span>${t('bom_total')}</span><span></span><span></span><span>${money(total)}</span>
         </div>` : ''}
       </div>
+      ${finishedEditMode ? `
+      <div class="field" style="margin:10px 0 0;">
+        <select id="fi-bom-add">${recipeIngOptions(null)}</select>
+      </div>
+      <div class="helper-note" style="margin:8px 0 0;">${t('bom_edit_helper')}</div>` : ''}
       ${ver && venta>0 ? `<div class="helper-note" style="margin:10px 0 0;">${t('bom_sale_line')
           .replace('{sale}', money(roundQty(venta*n)))
           .replace('{profit}', money(roundQty(venta*n - total)))}</div>` : ''}
@@ -477,7 +515,7 @@ function finishedItemModal(){
 
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-close-finished-item">${t('btn_close')}</button>
-        <button class="btn btn-primary" id="btn-fi-produce" ${filas.length===0?'disabled':''}>${t('bom_produce_btn').replace('{n}', String(n))}</button>
+        ${finishedEditMode ? '' : `<button class="btn btn-primary" id="btn-fi-produce" ${filas.length===0?'disabled':''}>${t('bom_produce_btn').replace('{n}', String(n))}</button>`}
       </div>
     </div>
   </div>`;

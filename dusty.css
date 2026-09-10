@@ -870,6 +870,10 @@
   .bom-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;
     padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink);}
   .bom-table:has(.bom-row > span:nth-child(4)) .bom-row{grid-template-columns:1.4fr .8fr .8fr .8fr;}
+  /* Editando son TRES columnas (insumo · cantidad · quitar), no cuatro: sin esta
+     regla la ✕ se caía a una segunda línea y cada renglón medía el doble. */
+  .bom-table.editing .bom-row{grid-template-columns:1.4fr 1fr auto!important;align-items:center;}
+  .bom-table.editing .bom-row input{padding:6px 8px;font-size:13px;}
   .bom-row:last-child{border-bottom:none;}
   .bom-row > span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-mid);}
   .bom-head{background:var(--inset);font-size:10.5px;font-weight:800;letter-spacing:.03em;

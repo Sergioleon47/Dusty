@@ -314,6 +314,43 @@ function attachEvents(){
     // onchange y no oninput: re-renderizar por tecla haría temblar la tabla entera
     // mientras se escribe, el mismo problema que ya tuvo la ficha de producto.
     if(campo) campo.onchange=()=>{ finishedProduceCount=Math.max(1, Math.round(parseFloat(campo.value)||1)); render(); };
+    /* EDITAR LA COMPOSICIÓN SIN SALIR DE LA FICHA (pedido del usuario 2026-09-10:
+       "poder editarlo"). Cada cambio guarda de una: la composición es la
+       definición de la pieza y tiene que quedar grabada — el usuario que siempre
+       vende lo mismo no puede tener que rehacerla. */
+    const editarBom=document.getElementById('btn-fi-edit-bom');
+    if(editarBom) editarBom.onclick=()=>{ finishedEditMode = !finishedEditMode; finishedProduceCount = 1; render(); };
+    document.querySelectorAll('[data-bom-qty]').forEach(inp=>{
+      // onchange y no oninput: re-renderizar por tecla haría saltar la tabla entera.
+      inp.onchange=()=>{
+        const rec = recipeById(showFinishedItemModal);
+        const c = rec && rec.components[+inp.dataset.bomQty];
+        if(!c) return;
+        const v = roundQty(Math.max(0, parseFloat(inp.value)||0));
+        // Cantidad en cero = el insumo ya no forma parte de la pieza; se saca en
+        // vez de quedar como un renglón que suma $0 y confunde la composición.
+        if(v > 0) c.qty = v; else rec.components.splice(+inp.dataset.bomQty, 1);
+        saveState(); render();
+      };
+    });
+    document.querySelectorAll('[data-bom-del]').forEach(b=>{
+      b.onclick=()=>{
+        const rec = recipeById(showFinishedItemModal);
+        if(!rec) return;
+        rec.components.splice(+b.dataset.bomDel, 1);
+        saveState(); render();
+      };
+    });
+    const agregarBom=document.getElementById('fi-bom-add');
+    if(agregarBom) agregarBom.onchange=()=>{
+      const rec = recipeById(showFinishedItemModal);
+      const id = agregarBom.value;
+      if(!rec || !id) return;
+      // Si ya está, no se duplica el renglón: se deja donde está para que el
+      // usuario le corrija la cantidad en vez de tener el mismo insumo dos veces.
+      if(!rec.components.some(c=>c.ingId===id)) rec.components.push({ingId:id, qty:1});
+      saveState(); render();
+    };
     const producir=document.getElementById('btn-fi-produce');
     if(producir) producir.onclick=()=>{
       const rid = showFinishedItemModal;
