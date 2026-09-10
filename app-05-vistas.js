@@ -441,9 +441,9 @@ function dashboardView(){
       <span class="dash-tile-sub">${lastReceipt ? `${escapeHtml(lastReceipt.supplier)||t('no_supplier_name')} · ${money(lastReceipt.total)} · ${escapeHtml(lastReceipt.date||'')}` : t('dash_last_receipt_none')}</span>
       ${lastReceipt ? '<span class="dash-tile-chev">›</span>' : ''}
     </div>` : `
-    <div class="dash-tile t4 dash-tile-wide" id="dash-calendar-tile" role="button" tabindex="0">
+    <div class="dash-tile t4" id="dash-calendar-tile" role="button" tabindex="0">
       <span class="dash-tile-title">${t('dash_calendar_title')}</span>
-      <span class="dash-tile-sub">${receipts.length>0 ? t('dash_calendar_sub').replace('{n}', String(receipts.length)) : t('dash_last_receipt_none')}</span>
+      <span class="dash-tile-sub">${escapeHtml(monthLabel(localMonthStr(), uiLang))}${receipts.length>0 ? ` · ${t('dash_calendar_sub').replace('{n}', String(receipts.length))}` : ''}</span>
       ${miniCalendarWidget()}
     </div>`}
     <button type="button" class="dash-tile t5" id="btn-production-hub">
@@ -1320,13 +1320,19 @@ let receiptsShownLimit = RECEIPTS_WINDOW_STEP;
    Siempre 6 filas, igual que el grande: así la tarjeta mide lo mismo en febrero
    que en marzo y el Dashboard no da un salto al cambiar de mes. */
 function miniCalendarWidget(){
-  /* SIEMPRE el mes de HOY, no calendarViewMonth (reporte del usuario 2026-09-10:
-     la tarjeta decía "JUL 2026" un día de septiembre). El calendario grande
-     recuerda el último mes que estabas mirando —eso está bien ahí, es donde se
-     navega—, pero esta tarjeta vive bajo el encabezado "HOY" y es de un vistazo:
-     mostrar un mes viejo porque hace rato lo hojeaste no informa, confunde.
-     Al tocarla, openReceiptsSheet lleva el calendario grande a este mismo mes,
-     así lo que tocaste es lo que ves. */
+  /* EL MES EN PUNTOS, para que la tarjeta mida lo mismo que las demás (pedido del
+     usuario 2026-09-10: "lo quiero del mismo tamaño de las demás para que no
+     distorsione nada"). En media tarjeta hay ~21px por columna: un número de día
+     ahí queda en 8px, ilegible, y las seis filas estiraban la tarjeta al doble de
+     alto que su vecina — y como las dos comparten fila de la grilla, la vecina se
+     estiraba con ella. Eso era lo que distorsionaba.
+     Sin números sigue siendo un calendario: se ve la forma del mes y en qué días
+     hubo movimiento, que es lo que se mira de un vistazo. El día exacto, la foto y
+     el monto están a un toque, en Recibos.
+     Siempre 6 filas, igual que el calendario grande: así la tarjeta mide lo mismo
+     en febrero que en marzo y el Dashboard no da un salto al cambiar de mes.
+     El mes va en el subtítulo de la tarjeta, no acá: una línea menos que restar
+     al alto disponible. */
   const mes = localMonthStr();
   const [y,m] = mes.split('-').map(Number);
   const primerDia = new Date(y, m-1, 1).getDay();
@@ -1345,15 +1351,14 @@ function miniCalendarWidget(){
     const f = mes+'-'+String(d).padStart(2,'0');
     const clases = ['mc-day'];
     if(conRecibo.has(f)) clases.push('has');
-    if(conNota.has(f)) clases.push('note');
+    else if(conNota.has(f)) clases.push('note');
     if(f===hoy) clases.push('today');
-    celdas.push(`<i class="${clases.join(' ')}"><b>${d}</b></i>`);
+    celdas.push(`<i class="${clases.join(' ')}"></i>`);
   }
   while(celdas.length < 42) celdas.push('<i class="mc-day out"></i>');
   const dias = (WEEKDAY_NAMES[uiLang] || WEEKDAY_NAMES.es || []);
   return `
   <div class="dash-cal"${showReceiptsSheet ? '' : ' style="view-transition-name:receipts-calendar;"'}>
-    <div class="mc-month">${escapeHtml(monthLabel(mes, uiLang))}</div>
     <div class="mc-week">${dias.map(d=>`<span>${escapeHtml(d)}</span>`).join('')}</div>
     <div class="mc-grid">${celdas.join('')}</div>
   </div>`;
