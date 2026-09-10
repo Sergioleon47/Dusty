@@ -4256,6 +4256,32 @@ function hapticTabTick(){
    (pointermove), así que se saltea el destape + re-medición + espera de dos
    cuadros que sí necesita un toque en la barra — ver más abajo. */
 function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
+  /* SALIR DEL INVENTARIO LIMPIA SU FILTRO RAPIDO (pedido del usuario 2026-09-10:
+     "que le de a dashboard y vaya atras, y asi el sale").
+     Estando dentro de Critico / Toca contar / Sin foto, la unica salida era volver
+     a tocar el chip encendido — que si deshace, pero nada en pantalla lo dice. Y en
+     iPhone no hay boton fisico de atras, asi que el usuario quedaba encerrado: se
+     iba al Dashboard y al volver a Inventario seguia filtrado, igual de atrapado.
+     Ahora irse ES la salida.
+
+     VA AL SALIR, NO AL ENTRAR, y eso importa: la baldosa Critical del Dashboard
+     hace exactamente lo contrario —pone invQuickFilter y DESPUES llama a
+     switchToTab('inventario')—, asi que limpiarlo sin condicion romperia ese
+     camino, que es como se llega al filtro en primer lugar.
+     Se pone antes de la rama sin .view-track para que valga por los dos caminos, y
+     cubre tambien el deslice: irse de la pantalla es irse, se toque la barra o se
+     arrastre. La busqueda escrita NO se toca: esa se ve, tiene su texto a la vista
+     y su propia ✕ — no encierra a nadie. */
+  if(activeTab==='inventario' && tab!=='inventario' && invQuickFilter){
+    invQuickFilter = null;
+    /* Y hay que PEDIR el render completo del asentado, no alcanza con limpiar la
+       variable: commitTabSwitchLight solo ajusta transform, clases y barra de
+       abajo, nunca el contenido. Sin esto la variable quedaba en null pero la
+       pagina de Inventario seguia dibujada con la lista filtrada y el chip
+       encendido — volvias y seguias "adentro". Es el mismo mecanismo que usa un
+       render pospuesto durante la animacion. */
+    renderPendingAfterGesture = true;
+  }
   const track = document.querySelector('.view-track');
   if(!track){
     if(tab!==activeTab){ activeTab=tab; try{ localStorage.setItem('patron_active_tab', activeTab); }catch(e){} }
