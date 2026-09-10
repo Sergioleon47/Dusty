@@ -1001,6 +1001,11 @@
      .empty-state centra todo y una tarjeta centrada no se parece a la lista. */
   .prod-ghost-note{font-size:11.5px;color:var(--ink-soft);margin:22px 2px 8px;line-height:1.4;text-align:left;}
   .prod-ghost-grid{text-align:left;}
+  /* La barra del catalogo vacio: baja al centro de la pantalla, asi que deja de
+     ser un encabezado pegajoso. Sin position:static se quedaria clavada arriba
+     al menor scroll, justo el sitio del que la sacamos. */
+  .prod-empty-bar{margin:14px 0 0;}
+  .prod-empty-bar .inv-sticky{position:static;padding:0;}
   .inv-tile.ghost{pointer-events:none;user-select:none;}
   @media (prefers-reduced-motion: reduce){
     .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-card, .ms-track i{animation:none;}

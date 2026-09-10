@@ -307,20 +307,36 @@ function produccionView(){
           <div class="inv-tile-name">${escapeHtml(g.n)}</div>
         </div>
       </div>`).join('');
-    /* LA BARRA VA ARRIBA TAMBIEN CON EL CATALOGO VACIO (pedido del usuario
-       2026-09-10 sobre una captura de la barra: "esto ponlo encima como
-       siempre"). Antes esta rama salia antes de armarla, asi que la pantalla
-       vacia era la unica de la app sin su barra: se sentia otra pantalla.
-       Y ademas hace juego con las fichas fantasma de abajo — con la barra puesta,
-       lo que se ve ES el catalogo de verdad, vacio, no un cartel aparte.
-       Va la barra de herramientas, no la fila de "Elegir": marcar piezas cuando
-       no hay ninguna no hace nada, y un boton que no puede hacer nada es peor que
-       no ponerlo. */
-    return barra + `<div class="empty-state" style="padding:16px 20px 40px;">
+    /* LA BARRA BAJA AL HUECO DEL BOTON DUPLICADO (pedido del usuario 2026-09-10
+       sobre una captura: el "+ Agregar al catalogo" tachado en rojo, el menu y
+       la nota marcados en verde — "una cosa ya la tienes dos veces y ponlo
+       abajo el menu donde hice la marca verde"). Tenia razon en las dos partes.
+       1) EL DUPLICADO. "+ Agregar" ya vive en la barra, asi que el boton amarillo
+          del centro era el MISMO boton dos veces en una pantalla de tres cosas:
+          los dos llaman a openRecipeModal(null), sin una sola diferencia. Se va
+          el del centro y queda el de la barra. (El otro btn-new-recipe-empty, el
+          de la rama sin inventario de mas arriba, SE QUEDA: alla no hay barra,
+          es el unico camino, y por eso el manejador sigue existiendo.)
+       2) DONDE VA LA BARRA. Con el catalogo vacio, arriba era un techo de
+          controles apagados — buscar entre nada, ordenar nada, tres tamanos de
+          una rejilla que no existe — y encima tapaba lo unico que si hace algo:
+          la camara. Puesta en el hueco que dejo el boton tachado queda pegada a
+          la nota de abajo y hace de puente: primero la accion, despues "asi se
+          va a ver" y las fichas fantasma.
+       Va FUERA del .empty-state y con position:static a proposito: .empty-state
+       centra el texto y le comeria la forma de barra, y quedarse pegada arriba
+       (sticky) no tiene sentido en una pantalla que casi no hace scroll.
+       Sigue siendo la barra de verdad, no un dibujo como las fichas de abajo: su
+       "+ Agregar" es el unico camino para crear la primera pieza.
+       Nada de esto sobrevive a la primera pieza — con una sola, esta rama ya no
+       corre y la barra vuelve sola a su sitio de siempre, arriba. */
+    return `<div class="empty-state" style="padding:16px 20px 0;">
       <div class="inv-tools" style="margin:0 0 14px;">${shelfScanFab('prod', true)}</div>
       <h3 style="margin:0 0 6px;">${t('prod_empty_title')}</h3>
       <p style="margin:0;font-size:13px;">${t('prod_empty_sub')}</p>
-      <div class="empty-state-actions"><button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button></div>
+    </div>
+    <div class="prod-empty-bar">${barra}</div>
+    <div class="empty-state" style="padding:0 20px 40px;">
       <div class="prod-ghost-note">${t('prod_ghost_note')}</div>
       <div class="inv-grid cols3 prod-ghost-grid">${fantasmas}</div>
     </div>`;
