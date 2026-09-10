@@ -189,7 +189,10 @@ function produccionView(){
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${t('prod_search_ph').replace('{n}', String(recipes.length))}" autocomplete="off">
         </div>
-        <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe')}</button>
+        ${/* Corto acá: "+ Agregar al catálogo" al lado del buscador lo deja sin
+             espacio para escribir. En el estado vacío, donde hay lugar de sobra,
+             va la etiqueta entera. */''}
+        <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe_short')}</button>
       </div>
     </div>`;
   const tiles = lista.map(r=>{
