@@ -3619,12 +3619,25 @@ function deleteReceipt(receiptId){
   if(!r) return;
   if(!confirm(t('confirm_delete_receipt'))) return;
   const hasPurchases = Array.isArray(r.purchaseIds) && r.purchaseIds.length>0;
+  /* RECIBO VIEJO, SIN COMPRAS ANOTADAS (reporte del usuario: "borré todos los
+     recibos y el Valor no bajó"). purchaseIds se guarda desde hace un tiempo;
+     los recibos anteriores no lo tienen, así que no hay forma de saber cuánto
+     stock sumó cada línea a cada producto y el borrado no podía restar nada del
+     inventario. Eso era correcto, pero se hacía EN SILENCIO: la app borraba el
+     recibo, el Valor no se movía, y el usuario no tenía cómo saber si había
+     fallado algo. Ahora se dice antes de borrar y se repite en el aviso final.
+     Solo cuenta si el recibo trae líneas de MERCADERÍA: un pago de luz o un
+     gasto manual nunca tocaron el inventario, ahí no hay nada que aclarar. */
+  const legacyStock = !hasPurchases && (r.appliedItems||[]).some(it=>!receiptLineIsExpense(it, finCache()));
+  if(legacyStock && !confirm(t('confirm_revert_inventory_legacy'))) return;
   // Si este recibo de verdad afectó el inventario, preguntamos aparte si también
   // hay que restar esas cantidades — no siempre corresponde: si el usuario ya usó/
   // vendió ese stock, revertirlo a ciegas dejaría el inventario mostrando menos de
   // lo que realmente tiene. Las compras (historial de precio, gasto mensual) se
   // borran siempre junto con el recibo, eso no depende de esta respuesta.
   const revertInventory = hasPurchases && confirm(t('confirm_revert_inventory'));
+  // Cuánto stock se resta de verdad — es lo que dice el aviso del final.
+  let qtyRevertida = 0;
   if(hasPurchases){
     const idSet = new Set(r.purchaseIds);
     if(revertInventory){
@@ -3632,6 +3645,7 @@ function deleteReceipt(receiptId){
       purchases.filter(p=>idSet.has(p.id)).forEach(p=>{
         const ing = inventory.find(i=>i.id===p.ingId);
         if(ing){
+          qtyRevertida += Math.min(ing.qtyOnHand||0, p.qty||0); // lo que se resta de verdad, ya con el tope en 0
           ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - p.qty);
           // Revertir el recibo deshace también la entrada que subió el "lleno":
           // sin esto, la barra quedaría comparando contra un nivel que nunca existió.
@@ -3700,6 +3714,18 @@ function deleteReceipt(receiptId){
   saveState();
   showReceiptDetail = null;
   render();
+  /* EL AVISO QUE FALTABA. Un borrado que no dice nada obliga al usuario a
+     adivinar si la app hizo la cuenta o no — y con el stock, "no se movió" es
+     muchas veces la respuesta correcta (lo dejó a propósito, o el recibo no
+     tenía compras detrás). Ahora siempre se dice qué salió del mes y qué pasó
+     con el inventario. */
+  const partes = [t('receipt_deleted_spend')
+    .replace('{amount}', money(r.total||0))
+    .replace('{month}', monthLabel(monthKey(r.date), uiLang))];
+  if(qtyRevertida>0) partes.push(t('receipt_deleted_stock').replace('{qty}', String(roundQty(qtyRevertida))));
+  else if(legacyStock) partes.push(t('receipt_deleted_stock_manual'));
+  else if(hasPurchases) partes.push(t('receipt_deleted_stock_kept'));
+  showToast(partes.join(' · '), legacyStock ? 'error' : 'info');
 }
 
 function printReceipt(r){

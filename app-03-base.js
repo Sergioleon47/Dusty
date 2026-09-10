@@ -111,6 +111,14 @@ const I18N = {
     confirm_delete_bill_payments:'Este gasto tiene {n} pago(s) registrado(s) este mes por {total}. ¿Borrarlos también?\n\nSi eliges que no, ese dinero sigue contando en el presupuesto del mes — es un gasto que ya ocurrió. Los pagos de meses anteriores no se tocan.',
     confirm_delete_receipt:'¿Eliminar este recibo? También se van a quitar las compras que generó del historial y del gasto mensual.',
     confirm_revert_inventory:'¿También quieres restar del inventario las cantidades que agregó este recibo? Si ya usaste o vendiste ese stock, elige "Cancelar" para dejar las cantidades actuales como están.',
+    /* Qué se restó al borrar (reporte del usuario: "borré todos los recibos y el
+       Valor no bajó"). El borrado no decía nada, así que un número que no se
+       movía se leía como una falla de la app aunque fuera lo correcto. */
+    receipt_deleted_spend:'Recibo borrado · −{amount} en {month}',
+    receipt_deleted_stock:'−{qty} restadas del inventario',
+    receipt_deleted_stock_kept:'las cantidades del inventario quedaron como estaban',
+    receipt_deleted_stock_manual:'su stock hay que corregirlo a mano: este recibo no guardó las compras que generó',
+    confirm_revert_inventory_legacy:'Este recibo se guardó con una versión vieja de Dusty y no anotó las compras que generó, así que las cantidades que haya sumado al inventario NO se pueden restar solas.\n\nSe va a quitar del gasto del mes igual. El stock de esos productos lo vas a tener que corregir a mano desde su ficha.',
     confirm_delete_item:'¿Eliminar "{name}" del inventario?',
     ph_title_prefix:'Historial de precio — ', ph_sub:'Costo por unidad en cada compra registrada, de más vieja a más reciente',
     ph_up:'Subió', ph_down:'Bajó', ph_since_first:'desde tu primera compra registrada',
@@ -647,6 +655,11 @@ const I18N = {
     confirm_delete_bill_payments:"This bill has {n} payment(s) logged this month totaling {total}. Delete those too?\n\nIf you choose no, that money keeps counting toward this month in the budget — it is spending that already happened. Payments from earlier months are left alone.",
     confirm_delete_receipt:"Delete this receipt? This will also remove the purchases it created from your history and monthly spend.",
     confirm_revert_inventory:"Also subtract from inventory the quantities this receipt added? If you already used or sold that stock, choose \"Cancel\" to leave the current quantities as they are.",
+    receipt_deleted_spend:'Receipt deleted · −{amount} in {month}',
+    receipt_deleted_stock:'−{qty} subtracted from inventory',
+    receipt_deleted_stock_kept:'inventory quantities were left as they were',
+    receipt_deleted_stock_manual:"its stock needs fixing by hand: this receipt never recorded the purchases it created",
+    confirm_revert_inventory_legacy:"This receipt was saved by an older version of Dusty and never recorded the purchases it created, so any quantities it added to inventory CANNOT be subtracted automatically.\n\nIt will still be removed from this month's spend. You will have to fix those items' stock by hand from their card.",
     confirm_delete_item:'Delete "{name}" from inventory?',
     ph_title_prefix:'Price history — ', ph_sub:'Cost per unit for each recorded purchase, oldest to most recent',
     ph_up:'Went up', ph_down:'Went down', ph_since_first:'since your first recorded purchase',

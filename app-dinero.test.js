@@ -53,7 +53,9 @@ function nuevaApp(){
     location: { protocol:'https:', href:'https://x/', origin:'https://x' },
     fetch: () => Promise.reject(new Error('sin red')),
     // Respuestas encoladas para los confirm() del flujo de borrado.
-    __confirms: []
+    __confirms: [],
+    // Lo que el borrado le dice al usuario, para poder afirmarlo en las pruebas.
+    __avisos: []
   };
   sandbox.window = sandbox; sandbox.globalThis = sandbox; sandbox.self = sandbox;
   vm.createContext(sandbox);
@@ -74,7 +76,7 @@ function nuevaApp(){
     function render(){ resetFinancialCache(); }
     function renderApp(){ resetFinancialCache(); }
     function logActivity(){}
-    function showToast(){}
+    function showToast(m){ __avisos.push(String(m)); }
     function syncUid(){ return null; }
     function currentUserLabel(){ return 'prueba'; }
     function scheduleCloudSync(){}
@@ -110,7 +112,8 @@ function nuevaApp(){
     function valorInventario(){
       return inventory.filter(i=>!isExpenseItem(i)).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0), 0);
     }
-    function borrar(id, revertirStock){ __confirms = [true, revertirStock!==false]; deleteReceipt(id); }
+    function borrar(id, revertirStock){ __avisos = []; __confirms = [true, revertirStock!==false]; deleteReceipt(id); }
+    function ultimoAviso(){ return __avisos[__avisos.length-1] || ''; }
     function producto(nombre){ return inventory.find(i=>i.name===nombre); }
   `);
   return { correr, sandbox };
@@ -291,4 +294,54 @@ test('borrar un recibo no toca los otros meses', () => {
   assert.equal(redondo(correr(`spendSplitForMonth('2026-08').invested`)), 50, 'agosto queda intacto');
   assert.equal(redondo(correr(`spendSplitForMonth('2026-09').invested`)), 0);
   assert.deepEqual(correr(`JSON.stringify(allMonths())`), '["2026-08"]');
+});
+
+test('borrar un recibo dice qué restó del mes y qué pasó con el stock', () => {
+  // Reporte del usuario: "borré todos los recibos y el Valor no bajó". El borrado
+  // no decía nada, así que un número que no se movía —a veces con razón— se leía
+  // como una falla de la app.
+  const { correr } = nuevaApp();
+  correr(`escanear('A','2026-09-01',[{rawName:'Cable',qty:16,unit:'unidad',totalPrice:720,matchedIngId:'__new__'}],720)`);
+  correr(`borrar(receipts[0].id, true)`);
+  assert.match(correr(`ultimoAviso()`), /−\$720/, 'dice cuánto sale del mes');
+  assert.match(correr(`ultimoAviso()`), /−16 restadas del inventario/);
+
+  const b = nuevaApp();
+  b.correr(`escanear('A','2026-09-01',[{rawName:'Cable',qty:16,unit:'unidad',totalPrice:720,matchedIngId:'__new__'}],720)`);
+  b.correr(`borrar(receipts[0].id, false)`);
+  assert.match(b.correr(`ultimoAviso()`), /quedaron como estaban/, 'dice que el stock se dejó a propósito');
+});
+
+test('un recibo viejo sin compras avisa que el stock no se puede restar solo', () => {
+  // purchaseIds se guarda desde hace un tiempo; los recibos anteriores no lo
+  // tienen, así que no hay cómo saber cuánto sumó cada línea. Antes se borraban
+  // en silencio y el Valor del inventario no se movía sin ninguna explicación.
+  const { correr, sandbox } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable 10-2', unit:'unidad', costPerUnit:45, qtyOnHand:16, stockFullRef:16});
+    receipts.push({id:'rv', images:[], supplier:'Home Depot', date:'2026-09-01', total:720, itemCount:1,
+      appliedItems:[{rawName:'Cable 10-2', qty:16, unit:'unidad', totalPrice:720, ingName:'Cable 10-2', ingId:'i1'}],
+      createdAt:''});
+  `);
+  // Se pregunta ANTES de borrar: cancelar no borra nada.
+  correr(`__avisos=[]; __confirms=[true, false]; deleteReceipt('rv')`);
+  assert.equal(correr(`receipts.length`), 1, 'cancelar el aviso deja el recibo donde estaba');
+
+  correr(`__avisos=[]; __confirms=[true, true]; deleteReceipt('rv')`);
+  assert.equal(correr(`receipts.length`), 0);
+  assert.equal(correr(`valorInventario()`), 720, 'el stock sigue ahí: no hay compras que digan cuánto restar');
+  assert.match(correr(`ultimoAviso()`), /corregirlo a mano/, 'y ahora lo dice, en vez de callarse');
+  assert.equal(sandbox.__confirms.length, 0, 'no pregunta por revertir: no hay nada que revertir');
+});
+
+test('borrar un pago manual no habla de stock que nunca tocó', () => {
+  const { correr } = nuevaApp();
+  correr(`
+    receipts.push({id:'pago1', images:[], supplier:'Renta', date:'2026-09-01', total:900, itemCount:0,
+      appliedItems:[], createdAt:'', purchaseIds:[], manual:true, manualKind:'expense'});
+    __avisos=[]; __confirms=[true]; deleteReceipt('pago1');
+  `);
+  const aviso = correr(`ultimoAviso()`);
+  assert.match(aviso, /−\$900/);
+  assert.doesNotMatch(aviso, /inventario|stock|mano/i, 'un pago nunca tuvo stock: no se menciona');
 });
