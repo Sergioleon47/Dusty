@@ -1821,7 +1821,7 @@ function alertSettingsModal(){
              borró sus recetas y no quiere perder la pestaña. */''}
         <div class="pulse-row">
           <div class="pulse-text"><b>${t('prod_tab_label')}</b><small>${t('prod_tab_helper')}</small></div>
-          <span class="pulse-state">${usesProduction() ? t('pulse_on') : t('pulse_off')}</span>
+          <span class="pulse-state">${usesProduction() ? t('switch_on') : t('switch_off')}</span>
           <label class="pulse-switch" aria-label="${t('prod_tab_label')}">
             <input type="checkbox" id="production-tab-toggle" ${usesProduction()?'checked':''}>
             <i></i>
