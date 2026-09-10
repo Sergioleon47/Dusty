@@ -1619,8 +1619,14 @@ function itemModal(){
         <div style="display:flex;gap:8px;">
           <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-product" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_product')}</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-scan-barcode" ${productScanState==='loading'?'disabled':''} style="flex:1;">${t('btn_scan_barcode')}</button>
+          ${/* Dos entradas para la MISMA lectura, igual que el escáner del catálogo y
+               el de reducción: con capture abre la cámara directo, sin capture abre
+               la galería. Sin la segunda, una foto que ya estaba en el teléfono no
+               se podía usar y había que sacarla de nuevo. */''}
           <input type="file" id="item-scan-photo-file" accept="image/*" capture="environment" style="display:none;">
+          <input type="file" id="item-scan-photo-file-gallery" accept="image/*" style="display:none;">
         </div>
+        ${productScanState==='loading' ? '' : `<button type="button" id="btn-scan-product-gallery" class="dz-gallery-link" style="margin:10px auto 0;">${t('scan_upload_gallery_btn')}</button>`}
         <div class="helper-note" style="margin:8px 0 0;">${t('scan_uses_one')}</div>
         ${productScanState==='loading' ? `<div class="scan-status" style="margin-top:14px;margin-bottom:0;"><div class="spinner"></div> ${t('product_scan_loading')}</div>` : ''}
         ${productScanState==='error' ? `<div class="scan-error" style="margin-top:14px;margin-bottom:0;">⚠ ${productScanError||t('product_scan_error')}</div>` : ''}

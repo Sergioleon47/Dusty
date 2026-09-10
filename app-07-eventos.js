@@ -1481,19 +1481,25 @@ function attachEvents(){
     if(btnRemoveItemPhoto) btnRemoveItemPhoto.onclick=()=>{ draftItem.photo=null; render(); };
     const btnScanProduct=document.getElementById('btn-scan-product');
     const itemScanPhotoFile=document.getElementById('item-scan-photo-file');
-    if(btnScanProduct && itemScanPhotoFile) btnScanProduct.onclick=()=>{
-      // Trial anónimo: la cuenta se crea en segundo plano mientras el usuario elige
-      // la foto; identifyProductFromPhoto() la espera antes de llamar a la API.
-      // Cuenta real desconectada → login de siempre (ver everHadRealAccount).
+    const itemScanGallery=document.getElementById('item-scan-photo-file-gallery');
+    const btnScanProductGallery=document.getElementById('btn-scan-product-gallery');
+    // La cuenta se pide UNA vez, antes de abrir cualquiera de las dos entradas —
+    // la lectura es la misma venga de la cámara o de la galería.
+    // Trial anónimo: la cuenta se crea en segundo plano mientras el usuario elige
+    // la foto; identifyProductFromPhoto() la espera antes de llamar a la API.
+    // Cuenta real desconectada → login de siempre (ver everHadRealAccount).
+    const pedirFotoProducto=(entrada)=>{
       if(!currentUser){
         if(everHadRealAccount()){ ensurePatronFirebaseReady().catch(()=>{}); openAuthModal(t('scan_requires_account')); return; }
         ensureTrialAccount().catch(()=>{});
       }
-      itemScanPhotoFile.click();
+      entrada.click();
     };
-    if(itemScanPhotoFile) itemScanPhotoFile.onchange=async (e)=>{
+    if(btnScanProduct && itemScanPhotoFile) btnScanProduct.onclick=()=>pedirFotoProducto(itemScanPhotoFile);
+    if(btnScanProductGallery && itemScanGallery) btnScanProductGallery.onclick=()=>pedirFotoProducto(itemScanGallery);
+    const onItemScanPhoto=async (e)=>{
       const file=e.target.files[0];
-      itemScanPhotoFile.value='';
+      e.target.value='';
       if(!file || !/^image\//.test(file.type)) return;
       // Token de petición: si se dispara un segundo escaneo antes de que vuelva el
       // primero, la respuesta vieja se descarta — sin esto, una respuesta lenta y
@@ -1543,6 +1549,8 @@ function attachEvents(){
         render();
       }
     };
+    if(itemScanPhotoFile) itemScanPhotoFile.onchange=onItemScanPhoto;
+    if(itemScanGallery) itemScanGallery.onchange=onItemScanPhoto;
     const btnScanBarcode=document.getElementById('btn-scan-barcode');
     if(btnScanBarcode) btnScanBarcode.onclick=openBarcodeScanModal;
     // Chips "Detectado: X · Usar" (identificación con foto sobre campos ya escritos).
