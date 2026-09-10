@@ -1011,6 +1011,24 @@ function inventarioView(){
              (pedido del usuario 2026-09-09) — ver shareSelectedItemPhotos. */''}
         <button type="button" class="btn btn-sm" id="btn-inv-sel-share" ${invSelected.size?'':'disabled'}
           style="margin-left:auto;background:var(--basil);color:var(--on-accent);">${t('inv_share_selected').replace('{n}', invSelected.size)}</button>
+        ${/* Tercer botón (idea del usuario 2026-09-10): marcás lo que usás para
+             hacer una cosa y se arma la pieza del catálogo con eso adentro.
+             Va ANTES de Borrar a propósito — el rojo queda último, que es donde
+             se espera lo que destruye. Los productos NO se van del inventario:
+             ver moveSelectedToProduction en app-08.
+             POR QUE ES DE CONTORNO Y NO RELLENO. La paleta tiene tres colores de
+             accion y dos ya estan tomados: Compartir es --basil y Borrar es
+             --tomato. --sky no servia (es un ALIAS de --basil, dusty.css linea 36:
+             salia del MISMO verde en los 18 temas). --navy choca con el rojo en 7
+             temas y --saffron en 3 (coral, crema, cupertino), donde queda a
+             distancia 32-52 de Borrar: dos botones casi del mismo naranja-rojo y
+             uno destruye. Todo medido tema por tema, no supuesto.
+             La salida no es buscar un cuarto color que la paleta no tiene, sino
+             distinguir por PESO: relleno = las dos acciones de siempre, contorno =
+             la nueva. Asi el unico boton rojo macizo sigue siendo el que borra,
+             que es como tiene que ser. */''}
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-inv-sel-toprod" ${invSelected.size?'':'disabled'}
+          style="border-color:var(--saffron);color:var(--saffron-ink);font-weight:700;">${t('inv_move_to_prod').replace('{n}', invSelected.size)}</button>
         <button type="button" class="btn btn-sm" id="btn-inv-sel-delete" ${invSelected.size?'':'disabled'}
           style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
       </div>

@@ -593,6 +593,55 @@ function openRecipeModal(recipe){
   recipeScanState='idle'; recipeScanError=''; recipeScanNote=''; recipeScanRequestId++;
   showRecipeModal = true; render();
 }
+/* MOVER LO SELECCIONADO DEL INVENTARIO AL CATÁLOGO (idea del usuario 2026-09-10).
+   Marcás en Inventario los productos que usás para hacer UNA cosa y con un botón
+   se arma la pieza: los seleccionados entran como sus insumos, uno de cada uno
+   por pieza, y se abre la ficha para ponerle nombre y foto. Es el camino corto
+   para el usuario que ya tiene su inventario cargado y no quiere volver a elegir
+   producto por producto en un selector.
+
+   SE HACE UNA SOLA PIEZA, no una por producto marcado: si marcaste cable y
+   breakers es porque con los dos hacés un tablero, no dos productos distintos.
+   Eso es lo que pidió el usuario y es además lo único que tiene sentido.
+
+   LOS PRODUCTOS NO SE VAN DEL INVENTARIO, y esto no es un detalle: "mover" acá
+   es "usar como receta", no "sacar de la lista". Producir DESCUENTA esos insumos
+   del inventario, así que si el botón los borrara no quedaría de dónde
+   descontar, la composición apuntaría a productos que ya no existen y la pieza
+   se quedaría sin costo. El stock y el costo de cada insumo son justamente lo
+   que le da precio a la pieza.
+
+   Cantidad 1 de cada uno como punto de partida: marcar productos no dice cuántos
+   lleva cada pieza. Se corrige en la misma ficha, en la tabla de composición, que
+   ya se edita ahí mismo. */
+function moveSelectedToProduction(){
+  // Un gasto (luz, alquiler) no es un insumo: no tiene stock del que descontar.
+  // Y una pieza terminada tampoco entra acá — se filtran sin drama, avisando.
+  const elegidos = inventory.filter(i => i && invSelected.has(i.id) && !isExpenseItem(i) && !i.finishedGood);
+  const descartados = invSelected.size - elegidos.length;
+  if(elegidos.length === 0){
+    showToast(t('move_prod_none'), 'error');
+    return;
+  }
+  // Si tenía Producción apagada, prenderla: sin esto la pieza caía en una pestaña
+  // que el usuario no puede ver.
+  if(!usesProduction()){ productionTabPref = 'on'; try{ localStorage.setItem('patron_production_tab','on'); }catch(e){} }
+  refreshTabOrder();
+  activeTab = 'produccion';
+  draftRecipe = {
+    id: uid('rc'), name: '', photo: null, salePrice: null,
+    components: elegidos.map(i => ({ ingId: i.id, qty: 1 }))
+  };
+  editingRecipeId = null;
+  recipeScanState='idle'; recipeScanError=''; recipeScanNote=''; recipeScanRequestId++;
+  showRecipeModal = true;
+  invExitSelect();
+  showToast(descartados > 0
+    ? t('move_prod_some').replace('{n}', String(elegidos.length)).replace('{f}', String(descartados))
+    : t('move_prod_ok').replace('{n}', String(elegidos.length)));
+  render();
+}
+
 function closeRecipeModal(){ recipeScanRequestId++; showRecipeModal=false; draftRecipe=null; editingRecipeId=null; render(); }
 
 // Opciones del selector de insumo, ordenadas por nombre para encontrarlas rápido.
@@ -666,6 +715,11 @@ function recipeModal(){
           </div>`;
         }).join('')}
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-component" style="margin-top:6px;">${t('recipe_add_component')}</button>
+        ${/* La duda que deja el botón "A producción" del Inventario: ¿mis productos
+             se fueron? No. Se dice acá, donde aparece la respuesta, y no solo en
+             un toast que se va en tres segundos. */''}
+        ${draftRecipe.components.filter(c=>c.ingId).length>0
+          ? `<div class="helper-note" style="margin:8px 0 0;">${t('move_prod_kept')}</div>` : ''}
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
           <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('recipe_cost_line')}</span>
           <span id="recipe-cost-display" style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--money-pos);">${money(cost.total)}</span>

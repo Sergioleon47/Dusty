@@ -171,6 +171,8 @@ function attachInventoryEvents(){
   };
   const btnSelShare=document.getElementById('btn-inv-sel-share');
   if(btnSelShare) btnSelShare.onclick=()=>shareSelectedItemPhotos();
+  const btnSelToProd=document.getElementById('btn-inv-sel-toprod');
+  if(btnSelToProd) btnSelToProd.onclick=moveSelectedToProduction;
   const btnSelDelete=document.getElementById('btn-inv-sel-delete');
   if(btnSelDelete) btnSelDelete.onclick=()=>{
     const n = deleteSelectedInventory([...invSelected]);
