@@ -312,26 +312,71 @@ test('borrar un recibo dice qué restó del mes y qué pasó con el stock', () =
   assert.match(b.correr(`ultimoAviso()`), /quedaron como estaban/, 'dice que el stock se dejó a propósito');
 });
 
-test('un recibo viejo sin compras avisa que el stock no se puede restar solo', () => {
-  // purchaseIds se guarda desde hace un tiempo; los recibos anteriores no lo
-  // tienen, así que no hay cómo saber cuánto sumó cada línea. Antes se borraban
-  // en silencio y el Valor del inventario no se movía sin ninguna explicación.
-  const { correr, sandbox } = nuevaApp();
+test('un recibo VIEJO (sin compras anotadas) igual resta el stock', () => {
+  /* Reporte del usuario: "borré todos los recibos y el Valor no bajó". purchaseIds
+     se guarda desde hace un tiempo; los recibos anteriores no lo tienen, y el
+     borrado no tocaba el inventario. Pero las líneas del recibo (appliedItems)
+     guardan el mismo par producto+cantidad que las compras — son las que la app
+     ya muestra al abrir el recibo — así que sí se puede restar. */
+  const { correr } = nuevaApp();
   correr(`
     inventory.push({id:'i1', name:'Cable 10-2', unit:'unidad', costPerUnit:45, qtyOnHand:16, stockFullRef:16});
     receipts.push({id:'rv', images:[], supplier:'Home Depot', date:'2026-09-01', total:720, itemCount:1,
       appliedItems:[{rawName:'Cable 10-2', qty:16, unit:'unidad', totalPrice:720, ingName:'Cable 10-2', ingId:'i1'}],
+      createdAt:''});  // <- sin purchaseIds
+  `);
+  assert.equal(correr(`valorInventario()`), 720);
+  correr(`borrar('rv', true)`);
+  assert.equal(correr(`producto('Cable 10-2').qtyOnHand`), 0, 'las 16 unidades se restaron');
+  assert.equal(correr(`valorInventario()`), 0, 'y el Valor bajó, que es lo que el usuario esperaba');
+  assert.match(correr(`ultimoAviso()`), /−16 restadas del inventario/);
+});
+
+test('un recibo viejo emparejado por NOMBRE también resta', () => {
+  // Los recibos más viejos todavía no guardaban ingId en sus líneas: solo el
+  // nombre del producto. Es el mismo camino de respaldo que ya usa el reparto
+  // inversión/gasto para esas líneas.
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable 12/3', unit:'unidad', costPerUnit:35, qtyOnHand:22, stockFullRef:22});
+    receipts.push({id:'rv', images:[], supplier:'Home Depot', date:'2026-09-01', total:770, itemCount:1,
+      appliedItems:[{rawName:'CABLE 12/3 250FT', qty:22, unit:'unidad', totalPrice:770, ingName:'Cable 12/3'}],
+      createdAt:''});  // <- ni purchaseIds ni ingId
+  `);
+  correr(`borrar('rv', true)`);
+  assert.equal(correr(`producto('Cable 12/3').qtyOnHand`), 0);
+  assert.equal(correr(`valorInventario()`), 0);
+});
+
+test('un recibo viejo NO borra el producto, solo le resta', () => {
+  /* Sin compras de por medio, que un producto no tenga historial no prueba que lo
+     haya creado este recibo: puede haberse cargado a mano. Borrarlo sería una
+     suposición destructiva — se resta y se deja. */
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable 10-2', unit:'unidad', costPerUnit:45, qtyOnHand:16, stockFullRef:16});
+    receipts.push({id:'rv', images:[], supplier:'HD', date:'2026-09-01', total:720, itemCount:1,
+      appliedItems:[{rawName:'Cable 10-2', qty:16, unit:'unidad', totalPrice:720, ingName:'Cable 10-2', ingId:'i1'}],
       createdAt:''});
   `);
-  // Se pregunta ANTES de borrar: cancelar no borra nada.
-  correr(`__avisos=[]; __confirms=[true, false]; deleteReceipt('rv')`);
-  assert.equal(correr(`receipts.length`), 1, 'cancelar el aviso deja el recibo donde estaba');
+  correr(`borrar('rv', true)`);
+  assert.equal(correr(`inventory.length`), 1, 'el producto sigue en la lista, en cero');
+  assert.equal(correr(`deletedInventoryIds.length`), 0);
+});
 
-  correr(`__avisos=[]; __confirms=[true, true]; deleteReceipt('rv')`);
+test('un recibo viejo de SERVICIO no inventa stock que restar', () => {
+  // Una boleta de luz nunca tocó el inventario: no se pregunta ni se menciona.
+  const { correr, sandbox } = nuevaApp();
+  correr(`
+    inventory.push({id:'i2', name:'Energia', unit:'servicio', costPerUnit:600, qtyOnHand:0, expenseOnly:true});
+    receipts.push({id:'rs', images:[], supplier:'CFE', date:'2026-09-01', total:600, itemCount:1,
+      appliedItems:[{rawName:'Energia', qty:1, unit:'servicio', totalPrice:600, ingName:'Energia', ingId:'i2'}],
+      createdAt:''});
+    __avisos=[]; __confirms=[true]; deleteReceipt('rs');
+  `);
   assert.equal(correr(`receipts.length`), 0);
-  assert.equal(correr(`valorInventario()`), 720, 'el stock sigue ahí: no hay compras que digan cuánto restar');
-  assert.match(correr(`ultimoAviso()`), /corregirlo a mano/, 'y ahora lo dice, en vez de callarse');
-  assert.equal(sandbox.__confirms.length, 0, 'no pregunta por revertir: no hay nada que revertir');
+  assert.equal(sandbox.__confirms.length, 0, 'no pregunta por el stock: no hay ninguno que restar');
+  assert.doesNotMatch(correr(`ultimoAviso()`), /inventario/i);
 });
 
 test('borrar un pago manual no habla de stock que nunca tocó', () => {

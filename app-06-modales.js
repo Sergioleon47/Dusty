@@ -3619,55 +3619,72 @@ function deleteReceipt(receiptId){
   if(!r) return;
   if(!confirm(t('confirm_delete_receipt'))) return;
   const hasPurchases = Array.isArray(r.purchaseIds) && r.purchaseIds.length>0;
-  /* RECIBO VIEJO, SIN COMPRAS ANOTADAS (reporte del usuario: "borré todos los
-     recibos y el Valor no bajó"). purchaseIds se guarda desde hace un tiempo;
-     los recibos anteriores no lo tienen, así que no hay forma de saber cuánto
-     stock sumó cada línea a cada producto y el borrado no podía restar nada del
-     inventario. Eso era correcto, pero se hacía EN SILENCIO: la app borraba el
-     recibo, el Valor no se movía, y el usuario no tenía cómo saber si había
-     fallado algo. Ahora se dice antes de borrar y se repite en el aviso final.
-     Solo cuenta si el recibo trae líneas de MERCADERÍA: un pago de luz o un
-     gasto manual nunca tocaron el inventario, ahí no hay nada que aclarar. */
-  const legacyStock = !hasPurchases && (r.appliedItems||[]).some(it=>!receiptLineIsExpense(it, finCache()));
-  if(legacyStock && !confirm(t('confirm_revert_inventory_legacy'))) return;
+  const idSet = new Set(hasPurchases ? r.purchaseIds : []);
+  /* Cuánto sumó este recibo al stock, y a qué producto. Primero las COMPRAS que
+     generó; y si el recibo no las anotó —los guardados antes de que existiera
+     purchaseIds— sus PROPIAS LÍNEAS, que guardan exactamente el mismo par
+     (producto, cantidad) y son las que la app ya muestra al abrir el recibo.
+     Reporte del usuario: "borré todos los recibos y el Valor no bajó". Esos
+     recibos viejos se borraban sin tocar el inventario y sin decir nada, así que
+     el Valor no se movía y no había forma de saber por qué. */
+  const stockEntries = (()=>{
+    if(hasPurchases){
+      const desdeCompras = purchases.filter(p=>idSet.has(p.id)).map(p=>({ingId:p.ingId, qty:p.qty}));
+      if(desdeCompras.length>0) return desdeCompras;
+    }
+    // Índice armado acá y no con finCache(): esto corre fuera de un render y el
+    // cache puede venir de antes de la última mutación del inventario.
+    const porId = new Map(), porNombre = new Map();
+    inventory.forEach(i=>{ if(i){ porId.set(i.id, i); if(i.name) porNombre.set(i.name, i); } });
+    return (r.appliedItems||[]).map(it=>{
+      // Servicios y consumos Eat out nunca entraron al stock: no hay qué restar.
+      if(it.unit==='servicio' || it.expenseOnly===true) return null;
+      const ing = (it.ingId && porId.get(it.ingId)) || (it.ingName ? porNombre.get(it.ingName) : null);
+      if(!ing || isExpenseItem(ing)) return null;
+      return (it.qty>0) ? {ingId: ing.id, qty: it.qty} : null;
+    }).filter(Boolean);
+  })();
   // Si este recibo de verdad afectó el inventario, preguntamos aparte si también
   // hay que restar esas cantidades — no siempre corresponde: si el usuario ya usó/
   // vendió ese stock, revertirlo a ciegas dejaría el inventario mostrando menos de
   // lo que realmente tiene. Las compras (historial de precio, gasto mensual) se
   // borran siempre junto con el recibo, eso no depende de esta respuesta.
-  const revertInventory = hasPurchases && confirm(t('confirm_revert_inventory'));
+  const revertInventory = stockEntries.length>0 && confirm(t('confirm_revert_inventory'));
   // Cuánto stock se resta de verdad — es lo que dice el aviso del final.
   let qtyRevertida = 0;
+  if(revertInventory){
+    const touchedIngIds = new Set();
+    stockEntries.forEach(e=>{
+      const ing = inventory.find(i=>i.id===e.ingId);
+      if(!ing) return;
+      qtyRevertida += Math.min(ing.qtyOnHand||0, e.qty||0); // lo que se resta de verdad, ya con el tope en 0
+      ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - e.qty);
+      // Revertir el recibo deshace también la entrada que subió el "lleno":
+      // sin esto, la barra quedaría comparando contra un nivel que nunca existió.
+      // "nivel" y no "r": r es el recibo, y sombrearlo acá sería una trampa para
+      // cualquier edición futura de esta función.
+      if(ing.stockFullRef){ const nivel = ing.stockFullRef - e.qty; ing.stockFullRef = nivel>0 ? nivel : null; }
+      touchedIngIds.add(ing.id);
+    });
+    /* Un producto que este recibo tocó y que no tiene NINGUNA otra compra (ni de
+       antes, ni de otro recibo) fue creado enteramente por este recibo — al
+       revertirlo no debe quedar como fantasma en cero, tiene que desaparecer del
+       todo. Uno que sí tiene historia propia (otro recibo, o se cargó a mano) se
+       queda en la lista, solo con la cantidad ya restada arriba.
+       Solo con compras de por medio: sin ellas (recibo viejo) la ausencia de
+       historial no prueba nada — el producto puede haberse cargado a mano — y
+       borrarlo sería una suposición destructiva. Ahí se resta y se deja. */
+    if(hasPurchases) touchedIngIds.forEach(ingId=>{
+      const stillHasOtherPurchases = purchases.some(p=>p.ingId===ingId && !idSet.has(p.id));
+      if(stillHasOtherPurchases) return;
+      const ghostItem = inventory.find(i=>i.id===ingId);
+      inventory = inventory.filter(i=>i.id!==ingId);
+      forgetAliasesFor(ingId);
+      if(!deletedInventoryIds.includes(ingId)) deletedInventoryIds.push(ingId);
+      if(ghostItem) logActivity('item_deleted', ghostItem.name);
+    });
+  }
   if(hasPurchases){
-    const idSet = new Set(r.purchaseIds);
-    if(revertInventory){
-      const touchedIngIds = new Set();
-      purchases.filter(p=>idSet.has(p.id)).forEach(p=>{
-        const ing = inventory.find(i=>i.id===p.ingId);
-        if(ing){
-          qtyRevertida += Math.min(ing.qtyOnHand||0, p.qty||0); // lo que se resta de verdad, ya con el tope en 0
-          ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - p.qty);
-          // Revertir el recibo deshace también la entrada que subió el "lleno":
-          // sin esto, la barra quedaría comparando contra un nivel que nunca existió.
-          if(ing.stockFullRef){ const r = ing.stockFullRef - p.qty; ing.stockFullRef = r>0 ? r : null; }
-          touchedIngIds.add(ing.id);
-        }
-      });
-      // Un producto que este recibo tocó y que no tiene NINGUNA otra compra (ni de
-      // antes, ni de otro recibo) fue creado enteramente por este recibo — al
-      // revertirlo no debe quedar como fantasma en cero, tiene que desaparecer del
-      // todo. Uno que sí tiene historia propia (otro recibo, o se cargó a mano) se
-      // queda en la lista, solo con la cantidad ya restada arriba.
-      touchedIngIds.forEach(ingId=>{
-        const stillHasOtherPurchases = purchases.some(p=>p.ingId===ingId && !idSet.has(p.id));
-        if(stillHasOtherPurchases) return;
-        const ghostItem = inventory.find(i=>i.id===ingId);
-        inventory = inventory.filter(i=>i.id!==ingId);
-        forgetAliasesFor(ingId);
-        if(!deletedInventoryIds.includes(ingId)) deletedInventoryIds.push(ingId);
-        if(ghostItem) logActivity('item_deleted', ghostItem.name);
-      });
-    }
     // Lápidas de las compras borradas: sin esto, un compañero offline las re-subía al
     // reconectar (missingPur en reconcileLocalOnlyData) y el recibo "resucitaba" con ellas.
     r.purchaseIds.forEach(pid=>{ if(!deletedPurchaseIds.includes(pid)) deletedPurchaseIds.push(pid); });
@@ -3723,9 +3740,8 @@ function deleteReceipt(receiptId){
     .replace('{amount}', money(r.total||0))
     .replace('{month}', monthLabel(monthKey(r.date), uiLang))];
   if(qtyRevertida>0) partes.push(t('receipt_deleted_stock').replace('{qty}', String(roundQty(qtyRevertida))));
-  else if(legacyStock) partes.push(t('receipt_deleted_stock_manual'));
-  else if(hasPurchases) partes.push(t('receipt_deleted_stock_kept'));
-  showToast(partes.join(' · '), legacyStock ? 'error' : 'info');
+  else if(stockEntries.length>0) partes.push(t('receipt_deleted_stock_kept'));
+  showToast(partes.join(' · '), 'info');
 }
 
 function printReceipt(r){
