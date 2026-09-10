@@ -409,3 +409,66 @@ test('mergeReceiptPages: truncated solo cuenta en la última página; páginas n
   assert.equal(m.invoice_total, 5);
   assert.equal(mergeReceiptPages([]).invoice_total, null);
 });
+
+/* ---------- Composición de una pieza (BOM) y costeo del producto terminado ---------- */
+const { bomRows, bomTotal, weightedAvgCost } = require('./patron-core.js');
+
+test('bomRows abre la cuenta de una pieza: cantidad, costo unitario y subtotal', () => {
+  const inv = [
+    {id:'i1', name:'Harina', unit:'lb', costPerUnit:5},
+    {id:'i2', name:'Queso',  unit:'lb', costPerUnit:12}
+  ];
+  const comps = [{ingId:'i1', qty:1}, {ingId:'i2', qty:0.2}];
+  const rows = bomRows(comps, inv, 1);
+  assert.deepEqual(rows.map(r=>[r.name, r.qty, r.cost, r.subtotal]), [
+    ['Harina', 1, 5, 5],
+    ['Queso', 0.2, 12, 2.4]
+  ]);
+  assert.equal(bomTotal(rows), 7.4, 'cuesta $7.40 hacer una');
+});
+
+test('bomRows multiplica por la cantidad a producir', () => {
+  const inv = [{id:'i1', name:'Harina', unit:'lb', costPerUnit:5}];
+  const rows = bomRows([{ingId:'i1', qty:1.5}], inv, 10);
+  assert.equal(rows[0].qty, 15, '1.5 lb por pieza × 10 piezas');
+  assert.equal(rows[0].qtyPerPiece, 1.5, 'y se conserva cuánto lleva UNA');
+  assert.equal(bomTotal(rows), 75);
+});
+
+test('un insumo borrado sale marcado, no como $0 en silencio', () => {
+  // Era el bug que ya cazaba recipeCostTotal: un costo que falta no puede
+  // sumar cero calladito, porque deja el costo de producción subestimado.
+  const rows = bomRows([{ingId:'fantasma', qty:2}], [], 1);
+  assert.equal(rows[0].missing, true);
+  assert.equal(rows[0].name, null);
+  assert.equal(rows[0].cost, null);
+  assert.equal(rows[0].subtotal, 0);
+  assert.equal(bomTotal(rows), 0);
+});
+
+test('un costo que no es número usable también se marca', () => {
+  // Dato viejo o sincronizado como "1,50": Number() da NaN.
+  const inv = [{id:'i1', name:'Harina', unit:'lb', costPerUnit:'1,50'}];
+  const rows = bomRows([{ingId:'i1', qty:2}], inv, 1);
+  assert.equal(rows[0].missing, true);
+  assert.equal(rows[0].subtotal, 0);
+});
+
+test('weightedAvgCost promedia las tandas en vez de pisar el costo', () => {
+  // 100 piezas a $4 (=$400) + 50 piezas que costaron $300 => $700 / 150.
+  assert.equal(weightedAvgCost(100, 4, 50, 300), 4.6667);
+  // Primera tanda: no hay nada con qué promediar.
+  assert.equal(weightedAvgCost(0, 0, 100, 400), 4);
+});
+
+test('weightedAvgCost no pisa el costo cuando no entra nada', () => {
+  // Producir 0 piezas (o un dato roto) no puede poner el costo en cero: eso
+  // valuaría el stock existente en $0 sin que nadie lo pidiera.
+  assert.equal(weightedAvgCost(10, 7, 0, 0), 7);
+  assert.equal(weightedAvgCost(10, 7, NaN, 500), 7);
+});
+
+test('weightedAvgCost aguanta stock negativo o basura sin explotar', () => {
+  assert.equal(weightedAvgCost(-5, 4, 10, 40), 4);
+  assert.equal(weightedAvgCost(null, null, 10, 40), 4);
+});

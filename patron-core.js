@@ -259,6 +259,62 @@ function productionPlan(components, count, inventory){
   });
 }
 
+/* LA TABLA DE COMPOSICIÓN de una pieza (Bill of Materials), fila por fila:
+   insumo · cantidad requerida · costo unitario aplicado · subtotal. Es la misma
+   cuenta que hace recipeCostTotal, pero abierta — la pantalla necesita mostrar de
+   dónde sale cada peso, no solo el total.
+   `count` multiplica las cantidades (1 = costo de UNA pieza). Un insumo borrado
+   del inventario, o con un costo que no es número usable, sale con cost:null y
+   subtotal:0 y marcado missing: cuenta parcial y a la vista, nunca un $0 en
+   silencio que subestime lo que cuesta producir. */
+function bomRows(components, inventory, count){
+  const n = Number(count);
+  const mult = (Number.isFinite(n) && n > 0) ? n : 1;
+  return (components||[]).map(c=>{
+    const ing = (inventory||[]).find(i=>i && i.id===c.ingId);
+    const perPiece = Number(c.qty);
+    const qtyOk = Number.isFinite(perPiece) && perPiece >= 0;
+    const cost = ing ? Number(ing.costPerUnit) : NaN;
+    const costOk = Number.isFinite(cost) && cost >= 0;
+    const missing = !ing || !qtyOk || !costOk;
+    const qty = qtyOk ? roundQty(perPiece*mult) : 0;
+    return {
+      ingId: c.ingId,
+      name: ing ? ing.name : null,
+      unit: ing ? ing.unit : '',
+      qtyPerPiece: qtyOk ? perPiece : 0,
+      qty,
+      cost: costOk ? cost : null,
+      subtotal: missing ? 0 : roundQty(qty*cost),
+      missing
+    };
+  });
+}
+function bomTotal(rows){
+  return roundQty((rows||[]).reduce((s,r)=>s+(r.subtotal||0), 0));
+}
+
+/* COSTO PROMEDIO PONDERADO al entrar stock nuevo:
+     (lo que ya tenías × su costo  +  lo que entra) / (cantidad total)
+   Es el método de costeo de cualquier PYME y el correcto para el producto
+   terminado, que se fabrica en tandas a costos distintos: 100 piezas a $4 en
+   enero y 50 a $6 en febrero no dejan "un" costo, dejan un promedio.
+   (El "último precio" —lo que Dusty hace hoy con la materia prima— no es un
+   método de costeo: una compra chica a precio alto revalúa todo el stock.)
+   Sin nada que entrar devuelve el costo que ya había: no se inventa ni se pisa.
+   Cuatro decimales porque es un costo UNITARIO — redondearlo a centavos pierde
+   plata de verdad cuando la pieza vale centavos y el stock son miles. */
+function weightedAvgCost(qtyOnHand, costPerUnit, addQty, addTotalCost){
+  const q0 = Math.max(0, Number(qtyOnHand)||0);
+  const c0 = Math.max(0, Number(costPerUnit)||0);
+  const qn = Number(addQty)||0;
+  const cn = Number(addTotalCost)||0;
+  if(!(qn > 0)) return c0;
+  const qty = q0 + qn;
+  if(!(qty > 0)) return 0;
+  return Math.round(((q0*c0 + cn)/qty)*10000)/10000;
+}
+
 /* Convierte lo que el escáner de estante leyó de UN producto en una cantidad
    concreta, según la forma de lectura que aplicó:
    - conteo directo (objetos discretos visibles) → esa cantidad tal cual;
@@ -383,6 +439,7 @@ if(typeof module!=='undefined' && module.exports){
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
     profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON, hash53, valueHash,
     roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
+    bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
     mergeReceiptPages
   };
