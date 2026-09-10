@@ -26,7 +26,18 @@ function attachDashboardEvents(){
       const k=b.dataset.dashStat;
       invQuickFilter = (k==='crit'||k==='count') ? k : null;
       invSearch='';
-      if(activeTab==='inventario') render(); else switchToTab('inventario');
+      /* El render va SIEMPRE, no solo cuando ya estabas en Inventario. Al cambiar
+         de pestaña, switchToTab se asienta con commitTabSwitchLight, que ajusta el
+         transform, las clases y la barra de abajo pero NO redibuja el contenido —
+         su comentario lo dice: "las tres paginas ya estaban al dia". Eso es cierto
+         al deslizar, y falso justo aca, porque la linea de arriba acaba de cambiar
+         invQuickFilter. Resultado medido: tocar esta baldosa dejaba el filtro
+         puesto en memoria pero llegabas a Inventario con la lista COMPLETA y el
+         chip apagado — la baldosa no filtraba nada. Las tres paginas viven en el
+         DOM, asi que un render antes del cambio deja Inventario al dia y el
+         asentado liviano vuelve a ser correcto. */
+      render();
+      if(activeTab!=='inventario') switchToTab('inventario');
     };
   });
   /* ---------- escanear, aviso de presupuesto ---------- */
