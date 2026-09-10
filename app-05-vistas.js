@@ -422,19 +422,30 @@ function dashboardView(){
       <span class="dash-tile-sub">${critRows.length>0 ? t('dash_suggested_n').replace('{n}', critRows.length) : t('dash_suggested_none')}</span>
       <span class="dash-tile-chev">›</span>
     </button>
-    ${/* 6. EL CALENDARIO, acá (pedido del usuario 2026-09-10). Recibos dejó de
-         ser una pestaña y su calendario pasó a esta tarjeta, dibujado en
-         chiquito: en vez de una línea de texto que decía cuál fue el último
-         recibo, se ve el mes entero y qué días tuvieron movimiento. Tocarlo
-         abre Recibos completo, y el calendario chico se AGRANDA hasta el grande
-         en vez de aparecer de golpe (view-transition-name compartido — ver
-         openReceiptsSheet en app-07).
-         Ocupa las dos columnas: un calendario en media tarjeta no se lee. */''}
+    ${/* 6. EL CALENDARIO — pero SOLO cuando Recibos dejó de ser pestaña
+         (observación del usuario 2026-09-10: "el calendario se queda aunque no
+         produzca??"). Tenía razón: con la pestaña Recibos abajo, el calendario
+         acá arriba es lo mismo dos veces, y encima se come media pantalla para
+         decir "ninguno escaneado". Esta tarjeta existe para REEMPLAZAR la
+         pestaña; si la pestaña está, no hace falta.
+         Así, un negocio que no fabrica ve el Dashboard exactamente como antes:
+         su tarjeta de "Último recibo", que abre esa ficha de un toque.
+         Cuando sí fabrica, Producción toma la pestaña y el calendario aparece
+         acá, a dos columnas — un mes de 7 columnas en media tarjeta no se lee.
+         Tocarlo abre Recibos y el calendario chico se AGRANDA hasta el grande
+         (view-transition-name compartido, ver openReceiptsSheet en app-07). */''}
+    ${TAB_ORDER[2]==='recibos' ? `
+    <div class="dash-tile t4 ${lastReceipt?'':'static'}" ${lastReceipt ? `data-view-receipt="${lastReceipt.id}" role="button" tabindex="0"` : ''}>
+      <span class="dash-tile-icon" aria-hidden="true">🧾</span>
+      <span class="dash-tile-title">${t('dash_last_receipt')}</span>
+      <span class="dash-tile-sub">${lastReceipt ? `${escapeHtml(lastReceipt.supplier)||t('no_supplier_name')} · ${money(lastReceipt.total)} · ${escapeHtml(lastReceipt.date||'')}` : t('dash_last_receipt_none')}</span>
+      ${lastReceipt ? '<span class="dash-tile-chev">›</span>' : ''}
+    </div>` : `
     <div class="dash-tile t4 dash-tile-wide" id="dash-calendar-tile" role="button" tabindex="0">
       <span class="dash-tile-title">${t('dash_calendar_title')}</span>
       <span class="dash-tile-sub">${receipts.length>0 ? t('dash_calendar_sub').replace('{n}', String(receipts.length)) : t('dash_last_receipt_none')}</span>
       ${miniCalendarWidget()}
-    </div>
+    </div>`}
     <button type="button" class="dash-tile t5" id="btn-production-hub">
       <span class="dash-tile-icon" aria-hidden="true">🍳</span>
       <span class="dash-tile-title">${t('prod_section_title')}</span>
@@ -1309,7 +1320,14 @@ let receiptsShownLimit = RECEIPTS_WINDOW_STEP;
    Siempre 6 filas, igual que el grande: así la tarjeta mide lo mismo en febrero
    que en marzo y el Dashboard no da un salto al cambiar de mes. */
 function miniCalendarWidget(){
-  const mes = calendarViewMonth || localMonthStr();
+  /* SIEMPRE el mes de HOY, no calendarViewMonth (reporte del usuario 2026-09-10:
+     la tarjeta decía "JUL 2026" un día de septiembre). El calendario grande
+     recuerda el último mes que estabas mirando —eso está bien ahí, es donde se
+     navega—, pero esta tarjeta vive bajo el encabezado "HOY" y es de un vistazo:
+     mostrar un mes viejo porque hace rato lo hojeaste no informa, confunde.
+     Al tocarla, openReceiptsSheet lleva el calendario grande a este mismo mes,
+     así lo que tocaste es lo que ves. */
+  const mes = localMonthStr();
   const [y,m] = mes.split('-').map(Number);
   const primerDia = new Date(y, m-1, 1).getDay();
   const diasDelMes = new Date(y, m, 0).getDate();
@@ -1821,7 +1839,7 @@ function alertSettingsModal(){
              borró sus recetas y no quiere perder la pestaña. */''}
         <div class="pulse-row">
           <div class="pulse-text"><b>${t('prod_tab_label')}</b><small>${t('prod_tab_helper')}</small></div>
-          <span class="pulse-state">${usesProduction() ? t('pulse_on') : t('pulse_off')}</span>
+          <span class="pulse-state">${usesProduction() ? t('switch_on') : t('switch_off')}</span>
           <label class="pulse-switch" aria-label="${t('prod_tab_label')}">
             <input type="checkbox" id="production-tab-toggle" ${usesProduction()?'checked':''}>
             <i></i>

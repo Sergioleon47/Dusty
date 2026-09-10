@@ -218,6 +218,10 @@ function openReceiptsSheet(){
      caminos: si Recibos todavía es pestaña (negocio que no fabrica), se cambia de
      pestaña como siempre; si Producción le tomó el lugar, se abre la hoja. */
   if(TAB_ORDER[2]==='recibos'){ switchToTab('recibos'); return; }
+  // La tarjeta muestra el mes de HOY: el calendario grande abre en ese mismo mes,
+  // no en el último que se hojeó. Lo que tocaste es lo que ves.
+  calendarViewMonth = localMonthStr();
+  calendarShowYearPicker = false;
   showReceiptsSheet = true;
   if(document.startViewTransition){ document.startViewTransition(()=>render()); return; }
   render();
