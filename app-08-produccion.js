@@ -609,8 +609,15 @@ function recipeModal(){
           <button type="button" class="btn btn-ghost btn-sm" id="btn-recipe-photo" style="flex:1;">${t('btn_upload_photo')}</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-recipe-scan" ${recipeScanState==='loading'?'disabled':''} style="flex:2;">${t('recipe_scan_btn')}</button>
           <input type="file" id="recipe-photo-file" accept="image/*" style="display:none;">
+          ${/* Dos entradas para la MISMA lectura: la de arriba lleva capture y abre
+               la cámara directo (estás parado frente a la pieza); la de abajo, sin
+               capture, abre la galería. Era el único escáner de la app sin salida a
+               la galería — Recibos, Productos y el de reducción ya la tenían, y si
+               la foto de la pieza ya estaba en el teléfono no había forma de usarla. */''}
           <input type="file" id="recipe-scan-file" accept="image/*" capture="environment" style="display:none;">
+          <input type="file" id="recipe-scan-file-gallery" accept="image/*" style="display:none;">
         </div>
+        ${recipeScanState==='loading' ? '' : `<button type="button" id="btn-recipe-scan-gallery" class="dz-gallery-link" style="margin:10px auto 0;">${t('scan_upload_gallery_btn')}</button>`}
         <div class="helper-note" style="margin:8px 0 0;">${t('recipe_scan_hint')}</div>
         ${recipeScanState==='loading' ? `<div class="scan-status" style="margin:12px 0 0;"><div class="spinner"></div> ${t('recipe_scan_loading')}</div>` : ''}
         ${recipeScanState==='error' ? `<div class="scan-error" style="margin:12px 0 0;">⚠ ${escapeHtml(recipeScanError)}</div>` : ''}
@@ -1347,20 +1354,28 @@ function attachProductionEvents(){
       }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
     };
     const scanFile=document.getElementById('recipe-scan-file');
+    const scanGallery=document.getElementById('recipe-scan-file-gallery');
     const btnScan=document.getElementById('btn-recipe-scan');
-    if(btnScan && scanFile) btnScan.onclick=()=>{
+    const btnScanGallery=document.getElementById('btn-recipe-scan-gallery');
+    // La cuenta se pide UNA vez, antes de abrir cualquiera de las dos entradas:
+    // la lectura la hace la IA igual, venga de la cámara o de la galería.
+    const pedirEntrada=(entrada)=>{
       if(!currentUser){
         if(everHadRealAccount()){ ensurePatronFirebaseReady().catch(()=>{}); openAuthModal(t('scan_requires_account')); return; }
         ensureTrialAccount().catch(()=>{});
       }
-      scanFile.click();
+      entrada.click();
     };
-    if(scanFile) scanFile.onchange=(e)=>{
+    if(btnScan && scanFile) btnScan.onclick=()=>pedirEntrada(scanFile);
+    if(btnScanGallery && scanGallery) btnScanGallery.onclick=()=>pedirEntrada(scanGallery);
+    const onRecipeScanFile=(e)=>{
       const file=e.target.files[0];
-      scanFile.value='';
+      e.target.value='';
       if(!file || !/^image\//.test(file.type)) return;
       runRecipeScan(file);
     };
+    if(scanFile) scanFile.onchange=onRecipeScanFile;
+    if(scanGallery) scanGallery.onchange=onRecipeScanFile;
     const btnAddComp=document.getElementById('btn-add-component');
     if(btnAddComp) btnAddComp.onclick=()=>{ if(draftRecipe){ draftRecipe.components.push({ingId:'', qty:''}); render(); } };
     document.querySelectorAll('[data-rcomp-ing]').forEach(sel=>{
