@@ -1234,6 +1234,41 @@
     display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;line-height:1;}
   .inv-tile.sel .inv-tile-check{background:var(--tomato);color:var(--on-accent);}
   .inv-selbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 2px;font-size:13px;}
+  /* ===== AGOTADO: la tarjeta como un FANTASMA, y su regreso a la vida =====
+     Pedido del usuario 2026-09-10: cuando se vende hasta cero, el producto queda
+     "como una sombra a COLOR, no blanco y negro", y al volver a entrar "vuelve a
+     tener color y brillo".
+     LA TARJETA NO CAMBIA DE FORMA. Es la MISMA del catalogo —mismo tamaño, misma
+     estructura, misma foto, mismos textos— solo que translucida. Se probo con un
+     cartelito "AGOTADO" encima de la foto y el usuario lo rechazo con razon: un
+     cartel la convierte en otra tarjeta, y lo que se pidio es la misma en aspecto
+     de fantasma. Que no hay stock ya lo dicen el "0 en stock" de la tarjeta, la
+     barra roja de abajo, el chip Critico y la baldosa del Dashboard.
+     NADA de grayscale: con 40 tarjetas en gris nadie encuentra el aire. Baja la
+     opacidad y el color se mantiene, que es lo que lee como fantasma sin perder
+     de que producto se trata.
+     El vaiven lento es el "desapareciendose": nunca llega a irse del todo (0.50 a
+     0.34 en 3.2s), asi que se lee como algo que se esta yendo y no como un bug de
+     dibujado.
+     LA VUELTA A LA VIDA no necesita codigo: al entrar stock la clase se cae sola
+     en el proximo render —sale de qtyOnHand— y la transicion de .inv-tile anima
+     el regreso a opacidad 1. */
+  .inv-tile{transition:opacity .55s var(--ease-soft);}
+  .inv-tile.agotado{opacity:.5;animation:agotadoRespira 3.2s ease-in-out infinite;}
+  @keyframes agotadoRespira{0%,100%{opacity:.5;}50%{opacity:.34;}}
+  /* El nombre y el precio quedan algo mas legibles que la foto a proposito: el
+     fantasma tiene que decir "no hay", no "no se puede leer". */
+  .inv-tile.agotado .inv-tile-name,
+  .inv-tile.agotado .stock-caption{opacity:.9;}
+  /* Con los latidos apagados o "reducir movimiento" el fantasma SIGUE —es
+     informacion, no adorno—; se congela en el lado visible, igual que el criterio
+     de .field-needs-value: apagado no puede significar invisible. */
+  html[data-dusty-pulse="off"] .inv-tile{transition:none;}
+  html[data-dusty-pulse="off"] .inv-tile.agotado{animation:none;opacity:.5;}
+  @media (prefers-reduced-motion: reduce){
+    .inv-tile{transition:none;}
+    .inv-tile.agotado{animation:none;opacity:.5;}
+  }
   @media (prefers-reduced-motion: reduce){
     .overlay.overlay-fast, .overlay.overlay-fast .modal{animation:none;}
   }
