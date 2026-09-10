@@ -1711,6 +1711,45 @@
   .dash-tile{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:122px;padding:14px;border-radius:18px;border:1px solid var(--tile-border);background:var(--panel);color:var(--tile-ink);text-align:left;font-family:inherit;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s;}
   .dash-tile:active{transform:scale(.97);}
   .dash-tile.static{cursor:default;}
+  /* ===== EL CALENDARIO EN LA TARJETA (pedido del usuario 2026-09-10) =====
+     Ocupa las dos columnas: un mes de 7 columnas en media tarjeta no se lee, se
+     amontona. Cada día es un puntito con su número; lleno = hubo recibos, aro =
+     hoy, punto ámbar debajo = hay nota. Siempre 6 filas, igual que el calendario
+     grande, así el Dashboard no da un salto al cambiar de mes. */
+  .dash-tile-wide{grid-column:1 / -1;}
+  .mini-cal{width:100%;margin-top:10px;}
+  .mc-month{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;opacity:.75;margin-bottom:6px;}
+  .mc-week,.mc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}
+  .mc-week{margin-bottom:3px;}
+  .mc-week span{font-size:9px;font-weight:700;text-align:center;opacity:.5;}
+  /* Alto FIJO por fila y la marca dibujada sobre el número, no sobre la celda:
+     con aspect-ratio la celda se estiraba a lo ancho de la tarjeta (55px de lado)
+     y el "calendario chiquito" ocupaba media pantalla. Así el mes entero mide
+     ~150px pase lo que pase, y los días quedan repartidos a lo ancho. */
+  .mc-day{position:relative;height:24px;display:flex;align-items:center;justify-content:center;font-style:normal;}
+  .mc-day b{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:600;opacity:.6;}
+  .mc-day.out{visibility:hidden;}
+  /* Día con recibo: relleno sólido, que es lo que se busca de un vistazo. */
+  .mc-day.has b{background:color-mix(in srgb, currentColor 24%, transparent);opacity:1;font-weight:800;}
+  .mc-day.today b{box-shadow:inset 0 0 0 1.5px currentColor;opacity:1;font-weight:800;}
+  .mc-day.note::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+    width:3px;height:3px;border-radius:50%;background:var(--saffron);}
+  /* ===== HOJA A PANTALLA COMPLETA (Recibos, que dejó de ser pestaña) =====
+     El calendario chico de la tarjeta y el grande de acá comparten
+     view-transition-name, así que el navegador agranda uno hasta el otro. */
+  .sheet-overlay{align-items:stretch;justify-content:stretch;padding:0;}
+  .full-sheet{display:flex;flex-direction:column;width:100%;max-width:none;height:100%;
+    background:var(--bg);border-radius:0;overflow:hidden;}
+  .full-sheet-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;
+    padding:calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;border-bottom:1px solid var(--line);
+    background:var(--panel);}
+  .full-sheet-bar strong{font-size:16px;color:var(--ink);}
+  .sheet-close{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--raised);
+    color:var(--ink-mid);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+  .sheet-close:active{transform:scale(.94);}
+  .full-sheet-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:16px var(--page-pad-x) calc(env(safe-area-inset-bottom, 0px) + 24px);}
   .dash-tile.t1{background:var(--tile-1);} .dash-tile.t2{background:var(--tile-2);} .dash-tile.t3{background:var(--tile-3);}
   .dash-tile.t4{background:var(--tile-4);} .dash-tile.t5{background:var(--tile-5);} .dash-tile.t6{background:var(--tile-6);}
   /* Críticos con al menos un producto crítico: rojo, como el presupuesto excedido. */

@@ -214,11 +214,15 @@ function renderApp(){
            se scrollea otra pestaña. */''}
         <div class="view-page${tabIdx===0?' active':''}${Math.abs(0-tabIdx)>1?' far':''}">${topbar()}${dashboardView()}</div>
         <div class="view-page${tabIdx===1?' active':''}${Math.abs(1-tabIdx)>1?' far':''}">${inventarioView()}</div>
-        <div class="view-page${tabIdx===2?' active':''}${Math.abs(2-tabIdx)>1?' far':''}">${recibosView()}</div>
+        <div class="view-page${tabIdx===2?' active':''}${Math.abs(2-tabIdx)>1?' far':''}">${produccionView()}</div>
       </div>
     </div>
     ${/* Presupuesto ANTES de itemModal a propósito: sus filas de gastos abren
          la ficha del ítem, que debe apilarse ENCIMA (el orden del DOM manda). */''}
+    ${/* Recibos ya no es una pestaña: se abre entero desde la tarjeta del
+         calendario del Dashboard. Va ANTES de los modales para que cualquiera de
+         ellos (la ficha de un recibo, el modal del día) se apile encima. */''}
+    ${showReceiptsSheet ? receiptsSheet() : ''}
     ${showBudgetModal ? budgetModal() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}
@@ -546,7 +550,7 @@ function bottomNav(){
   const items = [
     {tab:'dashboard', label:t('tab_dashboard'), icon:`<polyline points="3 11 12 4 21 11"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/>`},
     {tab:'inventario', label:t('tab_inventory'), icon:`<polygon points="12 3 21 7.5 21 16.5 12 21 3 16.5 3 7.5"/><polyline points="3 7.5 12 12 21 7.5"/><line x1="12" y1="12" x2="12" y2="21"/>`},
-    {tab:'recibos', label:t('tab_receipts'), icon:`<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/>`},
+    {tab:'produccion', label:t('tab_production'), icon:`<path d="M4 20h16"/><path d="M6 20v-6a6 6 0 0 1 12 0v6"/><path d="M12 8V4"/><path d="M9 4h6"/>`},
   ];
   // Presupuesto en amarillo/rojo (pedido del usuario 2026-09-07: "ponerla a
   // palpitar como aviso"): un punto que late sobre el ícono del Dashboard para

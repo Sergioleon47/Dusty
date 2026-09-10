@@ -110,6 +110,57 @@ function matchStockReading(p){
   return aiMatch || inventory.find(i => i.name.trim().toLowerCase() === (p.name||'').trim().toLowerCase()) || null;
 }
 
+/* ---------- LA PESTAÑA PRODUCCIÓN (pedido del usuario 2026-09-10) ----------
+   Producción tomó el lugar que dejó Recibos en la barra de abajo. Es un CATÁLOGO
+   —lo que este negocio fabrica— con la misma forma que el de Inventario: misma
+   grilla, mismas fichas con foto, mismo buscador laxo (invMatches). Se reusan las
+   clases .inv-grid/.inv-tile a propósito: no es "clonar la arquitectura del
+   inventario", es la misma, con otra lista adentro.
+   Todavía sin stock de producto terminado — eso entra en el paso siguiente, con
+   bomRows y weightedAvgCost (ya en patron-core, con pruebas). */
+let prodSearch = '';
+function produccionView(){
+  const lista = recipes.filter(r=>invMatches(r.name, prodSearch));
+  const cabecera = `
+    <div class="inv-header-row">
+      <h2 class="section-title" style="margin:0;">${t('tab_production')}</h2>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab">${t('prod_new_recipe')}</button>
+    </div>`;
+  if(recipes.length===0){
+    return cabecera + emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
+      `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
+  }
+  const buscador = `
+    <div class="inv-tools" style="margin-bottom:12px;">
+      <div class="inv-search-wrap" style="flex:1;">
+        <input id="prod-search" type="search" placeholder="${t('prod_search_ph').replace('{n}', String(recipes.length))}" value="${escapeHtml(prodSearch)}" autocomplete="off">
+      </div>
+    </div>`;
+  const tiles = lista.map(r=>{
+    const costo = recipeCostTotal(r.components, inventory);
+    const foto = recipePhotoSrc(r);
+    const venta = Number(r.salePrice)||0;
+    // El margen solo para quien puede ver números financieros — mismo criterio
+    // que la lista de Inventario, que sacó los % justamente por las pantallas
+    // que se le muestran a un cliente.
+    const margen = (canSeeFinancials() && venta>0 && costo.total>0) ? profitMarginPct(costo.total, venta) : null;
+    return `
+    <div class="inv-tile" data-key="prodtile:${r.id}" data-open-recipe="${r.id}" role="button" tabindex="0" title="${escapeHtml(r.name)}">
+      <div class="inv-tile-top">
+        <div class="stock-icon-ring" style="width:48px;height:48px;flex-shrink:0;">
+          ${foto ? `<img src="${escapeHtml(foto)}" alt="" loading="lazy">` : lineIcon('tag',20)}
+        </div>
+        <div class="inv-tile-name">${escapeHtml(invShortName(r.name))}</div>
+      </div>
+      <div class="inv-row-meta">${venta>0 ? money(venta) : t('prod_no_sale_price')}${margen!==null ? ` · <span style="color:${margen<15?'var(--saffron-ink)':'var(--basil-ink)'};">${margen.toFixed(0)}%</span>` : ''}</div>
+      <div class="stock-caption" style="margin:0;">${canSeeFinancials() ? `${money(costo.total)} ${t('prod_cost_each')}` : t('prod_components_n').replace('{n}', (r.components||[]).length)}${costo.missing>0 ? ' ⚠' : ''}</div>
+    </div>`;
+  }).join('');
+  // Misma clase de grilla que Inventario, y la MISMA preferencia de columnas:
+  // si el usuario eligió ver su inventario en 3 columnas, su producción también.
+  return cabecera + buscador + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
+}
+
 /* ---------- VISTA: sección en Inventario ---------- */
 /* El escáner de estante como ÚNICO botón redondo junto al título de Inventario
    (mismo lenguaje que el FAB del Dashboard). Producción entra como un botón normal

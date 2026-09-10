@@ -95,13 +95,24 @@ let calendarBlinkDates = []; // fechas "YYYY-MM-DD" que coinciden con calendarAm
 // volver a abrir la app) te sacaba de la pestaña en la que estabas — ahora se recuerda
 // la última pestaña usada en este dispositivo.
 let activeTab = 'dashboard';
-const TAB_ORDER = ['dashboard','inventario','recibos'];
-// La pestaña recordada puede ser una que ya no existe (el Catálogo se eliminó):
-// sin este filtro, el dispositivo que quedó ahí arrancaba en una pestaña muerta.
+/* RECIBOS SALIÓ DE LA BARRA (pedido del usuario 2026-09-10). El calendario pasó
+   a vivir en el Dashboard —en la tarjeta grande, dibujado en chiquito— y se abre
+   entero desde ahí; el lugar que dejó en la barra lo toma Producción, que es un
+   catálogo y no cabía en un modal. Recibos NO se perdió: showReceiptsSheet lo
+   abre a pantalla completa con la misma vista de siempre. */
+const TAB_ORDER = ['dashboard','inventario','produccion'];
+// La pestaña recordada puede ser una que ya no existe (el Catálogo se eliminó, y
+// ahora Recibos): sin este filtro, el dispositivo que quedó ahí arrancaba en una
+// pestaña muerta — pantalla en blanco hasta tocar otra.
 try{
   const saved = localStorage.getItem('patron_active_tab');
   if(TAB_ORDER.indexOf(saved) >= 0) activeTab = saved;
 }catch(e){}
+/* Recibos a pantalla completa, abierto desde la tarjeta del calendario. Se abre
+   con una View Transition que agranda el calendario chiquito hasta el grande
+   (ver openReceiptsSheet en app-07): el mismo mecanismo que ya usa el cambio de
+   vista del Inventario, no una animación nueva. */
+let showReceiptsSheet = false;
 let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
 /* Auditoría de primer minuto 2026-09-07 (ver helpModal, teamIntroModal, itemModal
    y celebrateFirstScan en app-06):

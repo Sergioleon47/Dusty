@@ -420,12 +420,18 @@ function dashboardView(){
       <span class="dash-tile-sub">${critRows.length>0 ? t('dash_suggested_n').replace('{n}', critRows.length) : t('dash_suggested_none')}</span>
       <span class="dash-tile-chev">›</span>
     </button>
-    ${/* 6. Último recibo (abre su ficha), Producción y Cambios. */''}
-    <div class="dash-tile t4 ${lastReceipt?'':'static'}" ${lastReceipt ? `data-view-receipt="${lastReceipt.id}" role="button" tabindex="0"` : ''}>
-      <span class="dash-tile-icon" aria-hidden="true">🧾</span>
-      <span class="dash-tile-title">${t('dash_last_receipt')}</span>
-      <span class="dash-tile-sub">${lastReceipt ? `${escapeHtml(lastReceipt.supplier)||t('no_supplier_name')} · ${money(lastReceipt.total)} · ${escapeHtml(lastReceipt.date||'')}` : t('dash_last_receipt_none')}</span>
-      ${lastReceipt ? '<span class="dash-tile-chev">›</span>' : ''}
+    ${/* 6. EL CALENDARIO, acá (pedido del usuario 2026-09-10). Recibos dejó de
+         ser una pestaña y su calendario pasó a esta tarjeta, dibujado en
+         chiquito: en vez de una línea de texto que decía cuál fue el último
+         recibo, se ve el mes entero y qué días tuvieron movimiento. Tocarlo
+         abre Recibos completo, y el calendario chico se AGRANDA hasta el grande
+         en vez de aparecer de golpe (view-transition-name compartido — ver
+         openReceiptsSheet en app-07).
+         Ocupa las dos columnas: un calendario en media tarjeta no se lee. */''}
+    <div class="dash-tile t4 dash-tile-wide" id="dash-calendar-tile" role="button" tabindex="0">
+      <span class="dash-tile-title">${t('dash_calendar_title')}</span>
+      <span class="dash-tile-sub">${receipts.length>0 ? t('dash_calendar_sub').replace('{n}', String(receipts.length)) : t('dash_last_receipt_none')}</span>
+      ${miniCalendarWidget()}
     </div>
     <button type="button" class="dash-tile t5" id="btn-production-hub">
       <span class="dash-tile-icon" aria-hidden="true">🍳</span>
@@ -1200,8 +1206,12 @@ function receiptCalendarWidget(){
   const tail = 42 - cells.length;
   for(let d=1; d<=tail; d++) cells.push(`<div class="cal-day out"><span class="cal-day-num">${d}</span></div>`);
 
+  /* El nombre de View Transition lo lleva UNO SOLO a la vez (ver miniCalendarWidget
+     y openReceiptsSheet): con el chiquito de la tarjeta y este puestos al mismo
+     tiempo, el navegador descarta la transición entera y la hoja aparece de golpe.
+     Con la hoja abierta manda este; con la hoja cerrada, el de la tarjeta. */
   return `
-  <div class="cal-widget">
+  <div class="cal-widget"${showReceiptsSheet ? ' style="view-transition-name:receipts-calendar;"' : ''}>
     <div class="cal-header">
       <button class="cal-nav-btn" id="btn-cal-prev" title="${t('btn_cal_prev')}">‹</button>
       <button class="cal-month-label" id="btn-cal-month-label" title="${t('btn_cal_year_view')}">${monthLabel(calendarViewMonth, uiLang)}<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -1287,6 +1297,67 @@ function dayModal(){
 // de a pasos con "Mostrar más". El buscador la resetea (app-07).
 const RECEIPTS_WINDOW_STEP = 60;
 let receiptsShownLimit = RECEIPTS_WINDOW_STEP;
+/* EL CALENDARIO EN CHIQUITO para la tarjeta del Dashboard. Es el mismo mes que
+   muestra el grande (calendarViewMonth), con las mismas marcas, pero sin nada
+   tocable adentro: la tarjeta entera es el botón. Se dibuja aparte y no
+   reusando receiptCalendarWidget porque aquel trae encabezado de mes con
+   flechas, fotos de recibo por día, puntos de nota y celdas de 44px — en 160px
+   de alto eso no se lee, se amontona. Acá cada día es un punto: lleno si hubo
+   recibos, aro si es hoy.
+   Siempre 6 filas, igual que el grande: así la tarjeta mide lo mismo en febrero
+   que en marzo y el Dashboard no da un salto al cambiar de mes. */
+function miniCalendarWidget(){
+  const mes = calendarViewMonth || localMonthStr();
+  const [y,m] = mes.split('-').map(Number);
+  const primerDia = new Date(y, m-1, 1).getDay();
+  const diasDelMes = new Date(y, m, 0).getDate();
+  const hoy = localDateStr();
+  const conRecibo = new Set();
+  receipts.forEach(r=>{ if(r && r.date && r.date.slice(0,7)===mes) conRecibo.add(r.date); });
+  const conNota = new Set();
+  for(let d=1; d<=diasDelMes; d++){
+    const f = mes+'-'+String(d).padStart(2,'0');
+    if(calNotesOnDate(calNotes, f).length) conNota.add(f);
+  }
+  const celdas = [];
+  for(let i=0; i<primerDia; i++) celdas.push('<i class="mc-day out"></i>');
+  for(let d=1; d<=diasDelMes; d++){
+    const f = mes+'-'+String(d).padStart(2,'0');
+    const clases = ['mc-day'];
+    if(conRecibo.has(f)) clases.push('has');
+    if(conNota.has(f)) clases.push('note');
+    if(f===hoy) clases.push('today');
+    celdas.push(`<i class="${clases.join(' ')}"><b>${d}</b></i>`);
+  }
+  while(celdas.length < 42) celdas.push('<i class="mc-day out"></i>');
+  const dias = (WEEKDAY_NAMES[uiLang] || WEEKDAY_NAMES.es || []);
+  return `
+  <div class="mini-cal"${showReceiptsSheet ? '' : ' style="view-transition-name:receipts-calendar;"'}>
+    <div class="mc-month">${escapeHtml(monthLabel(mes, uiLang))}</div>
+    <div class="mc-week">${dias.map(d=>`<span>${escapeHtml(d)}</span>`).join('')}</div>
+    <div class="mc-grid">${celdas.join('')}</div>
+  </div>`;
+}
+
+/* RECIBOS A PANTALLA COMPLETA. La misma vista de siempre (recibosView), ahora
+   dentro de una hoja que se abre desde la tarjeta del calendario en vez de ser
+   una pestaña. No se duplicó una línea de recibosView: solo cambió por dónde se
+   entra. */
+function receiptsSheet(){
+  return `
+  <div class="overlay sheet-overlay" id="receipts-sheet-overlay">
+    <div class="full-sheet">
+      <div class="full-sheet-bar">
+        <strong>${t('tab_receipts')}</strong>
+        <button type="button" class="sheet-close" id="btn-close-receipts-sheet" aria-label="${t('btn_close')}">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="full-sheet-body">${recibosView()}</div>
+    </div>
+  </div>`;
+}
+
 function recibosView(){
   const query = receiptSearchQuery.trim().toLowerCase();
   const filtered = receipts.filter(r=>{

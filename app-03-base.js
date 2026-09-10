@@ -48,6 +48,7 @@ function setMoneyFormatPref(f){
 const I18N = {
   es: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventario', tab_receipts:'Recibos',
+    tab_production:'Producción',
     dash_see_all_months:'Ver todos los meses',
     dash_budget_of:'Presupuesto:', dash_edit_budget:'Editar',
     dash_scan_receipt:'Escanear recibo', price_updated:'precio actualizado',
@@ -572,6 +573,10 @@ const I18N = {
     dash_stat_crit:'Críticos', dash_stat_count:'Toca contar', dash_stat_health:'Salud del stock',
     dash_suggested_none:'Nada por reponer esta semana', dash_suggested_n:'{n} producto(s) por reponer',
     dash_last_receipt:'Último recibo', dash_last_receipt_none:'Todavía no escaneaste ninguno',
+    dash_calendar_title:'Recibos', dash_calendar_sub:'{n} escaneados · tocá para ver el mes',
+    prod_empty_title:'Todavía no fabricás nada',
+    prod_empty_sub:'Armá una receta con los insumos que lleva cada pieza y Dusty te dice cuánto te cuesta hacerla.',
+    prod_search_ph:'Buscar entre {n}...', prod_no_sale_price:'Sin precio de venta',
     dash_activity_none:'Sin cambios nuevos', dash_activity_n:'{n} cambio(s) sin ver', dash_production_sub:'Recetas, producir y salidas',
     // Dashboard "anillo + cuadrícula" (maqueta aprobada 2026-09-08).
     dash_badge_ok:'OK', dash_badge_alert:'Alerta', dash_badge_due:'Toca',
@@ -609,6 +614,7 @@ const I18N = {
   },
   en: {
     tab_dashboard:'Dashboard', tab_inventory:'Inventory', tab_receipts:'Receipts',
+    tab_production:'Production',
     dash_see_all_months:'See all months',
     dash_budget_of:'Budget:', dash_edit_budget:'Edit',
     dash_scan_receipt:'Scan receipt', price_updated:'price updated',
@@ -1111,6 +1117,10 @@ const I18N = {
     dash_stat_crit:'Critical', dash_stat_count:'To count', dash_stat_health:'Stock health',
     dash_suggested_none:'Nothing to restock this week', dash_suggested_n:'{n} product(s) to restock',
     dash_last_receipt:'Last receipt', dash_last_receipt_none:'None scanned yet',
+    dash_calendar_title:'Receipts', dash_calendar_sub:'{n} scanned · tap to see the month',
+    prod_empty_title:'You are not making anything yet',
+    prod_empty_sub:'Build a recipe with the supplies each piece takes and Dusty tells you what it costs to make.',
+    prod_search_ph:'Search {n}...', prod_no_sale_price:'No sale price',
     dash_activity_none:'No new changes', dash_activity_n:'{n} unseen change(s)', dash_production_sub:'Recipes, produce and outflows',
     dash_badge_ok:'OK', dash_badge_alert:'Alert', dash_badge_due:'Due',
     dash_tile_health:'{p}% stock health', dash_tile_health_none:'No data yet', dash_tile_count_none:'Nothing pending',
