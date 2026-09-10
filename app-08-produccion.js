@@ -121,19 +121,23 @@ function matchStockReading(p){
 let prodSearch = '';
 function produccionView(){
   const lista = recipes.filter(r=>invMatches(r.name, prodSearch));
-  const cabecera = `
-    <div class="inv-header-row">
-      <h2 class="section-title" style="margin:0;">${t('tab_production')}</h2>
-      <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab">${t('prod_new_recipe')}</button>
-    </div>`;
+  /* Sin título de página: ninguna pestaña de Dusty lo tiene (la barra de abajo ya
+     dice dónde estás) y el <h2> que había acá se dibujaba con el tamaño por
+     defecto del navegador — enorme y ajeno al resto de la app. Misma barra
+     pegajosa que Inventario, con su mismo marcado: buscador con lupa a la
+     izquierda y la acción a la derecha. */
   if(recipes.length===0){
-    return cabecera + emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
+    return emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
       `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
   }
   const buscador = `
-    <div class="inv-tools" style="margin-bottom:12px;">
-      <div class="inv-search-wrap" style="flex:1;">
-        <input id="prod-search" type="search" placeholder="${t('prod_search_ph').replace('{n}', String(recipes.length))}" value="${escapeHtml(prodSearch)}" autocomplete="off">
+    <div class="inv-sticky">
+      <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
+        <div class="inv-search-wrap">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${t('prod_search_ph').replace('{n}', String(recipes.length))}" autocomplete="off">
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe')}</button>
       </div>
     </div>`;
   const tiles = lista.map(r=>{
@@ -158,7 +162,7 @@ function produccionView(){
   }).join('');
   // Misma clase de grilla que Inventario, y la MISMA preferencia de columnas:
   // si el usuario eligió ver su inventario en 3 columnas, su producción también.
-  return cabecera + buscador + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
+  return buscador + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
 }
 
 /* ---------- VISTA: sección en Inventario ---------- */

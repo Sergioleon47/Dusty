@@ -1332,7 +1332,7 @@ function miniCalendarWidget(){
   while(celdas.length < 42) celdas.push('<i class="mc-day out"></i>');
   const dias = (WEEKDAY_NAMES[uiLang] || WEEKDAY_NAMES.es || []);
   return `
-  <div class="mini-cal"${showReceiptsSheet ? '' : ' style="view-transition-name:receipts-calendar;"'}>
+  <div class="dash-cal"${showReceiptsSheet ? '' : ' style="view-transition-name:receipts-calendar;"'}>
     <div class="mc-month">${escapeHtml(monthLabel(mes, uiLang))}</div>
     <div class="mc-week">${dias.map(d=>`<span>${escapeHtml(d)}</span>`).join('')}</div>
     <div class="mc-grid">${celdas.join('')}</div>
