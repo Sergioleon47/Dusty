@@ -50,7 +50,12 @@ let showShelfModal = false, shelfState = 'camera', shelfItems = [], shelfUnmatch
    8 productos 7 se vendieron y 1 se pudrió es el caso normal, no el raro. */
 let shelfReason = null;
 // Burbuja de instrucciones del badge "−" del escáner de estante (ver shelfScanFab).
-let showShelfInfoBubble = false;
+/* Qué zona tiene abierta la burbuja de instrucciones: null | 'inv' | 'prod'.
+   Dejó de ser un booleano cuando el escáner pasó a vivir en DOS pantallas: el
+   .shelf-info-backdrop es position:fixed sobre toda la ventana, así que con un
+   booleano las dos copias lo dibujaban a la vez y la de la pantalla oculta
+   quedaba igual tapando los toques de la visible. */
+let showShelfInfoBubble = null;
 let shelfCamStream = null;
 
 function recipeById(id){ return recipes.find(r => r.id === id); }
@@ -213,6 +218,13 @@ function produccionView(){
      seleccionar, borrar, compartir y las columnas. Se reusan sus clases y su
      preferencia de columnas (invLayout) a propósito — son la misma pantalla con
      otra lista adentro, y que se sientan distintas sería el error. */
+  /* El escáner de reducción también acá (pedido del usuario 2026-09-10: "qué tal
+     si ponemos ese mismo scanner en la pantalla de producción"). Es exactamente
+     el mismo —mismo modal, mismos motivos venta/producción/merma— porque las
+     piezas terminadas YA son ítems del inventario (ensureFinishedItem), así que
+     la IA las reconoce y las cuenta sin ningún cambio. Lo que faltaba era la
+     puerta: para descontar dos tableros vendidos había que irse a Inventario. */
+  const herramienta = `<div class="inv-tools">${shelfScanFab('prod')}</div>`;
   const chips = `
     <div class="inv-chips">
       <button type="button" class="category-chip quick ${prodSelectMode?'on':''}" id="btn-prod-select">${prodSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
@@ -278,7 +290,7 @@ function produccionView(){
       </div>
     </div>`;
   }).join('');
-  return chips + barra + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
+  return herramienta + chips + barra + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
 }
 
 /* Compartir el CATÁLOGO con un cliente: foto, nombre y precio de venta. Nunca el
@@ -343,7 +355,8 @@ function deleteSelectedRecipes(){
    (mismo lenguaje que el FAB del Dashboard). Producción entra como un botón normal
    más en la fila de acciones (ver inv-header-actions en app-05) — sin elementos
    visuales nuevos compitiendo con el FAB. */
-function shelfScanFab(){
+function shelfScanFab(zona){
+  const z = zona || 'inv';
   if(inventory.length === 0) return '';
   // Los dos .scan-fab-ring son el MISMO efecto de pulso del botón de escanear del
   // Dashboard (fabPulse + delay) — pedido del usuario: los dos escáneres de la app
@@ -367,19 +380,22 @@ function shelfScanFab(){
   return `
   <div class="inv-tool" style="min-width:76px;">
     <span class="shelf-fab-wrap" style="display:block;">
-      <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
+      ${/* data-* y no id: la MISMA herramienta se dibuja en Inventario y en
+           Producción, y dos nodos con el mismo id habrían dejado a uno de los
+           dos sin handler (getElementById devuelve solo el primero). */''}
+      <button type="button" class="shelf-scan-fab" data-shelf-scan="${z}"
         title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
         aria-label="${t('shelf_banner_title')}">
         <div class="scan-fab-ring"></div>
         <div class="scan-fab-ring delay"></div>
         ${lineIcon('camera',30)}
       </button>
-      <button type="button" class="shelf-minus-badge" id="btn-shelf-info" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble?'true':'false'}">−</button>
+      <button type="button" class="shelf-minus-badge" data-shelf-info="${z}" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble===z?'true':'false'}">−</button>
     </span>
     <span class="inv-tool-label" style="font-weight:800;">${t('shelf_banner_title')}</span>
-    ${showShelfInfoBubble ? `
-    <div class="shelf-info-backdrop" id="shelf-info-backdrop"></div>
-    <div class="shelf-info-bubble" id="shelf-info-bubble" role="tooltip">
+    ${showShelfInfoBubble===z ? `
+    <div class="shelf-info-backdrop" data-shelf-info-close="${z}"></div>
+    <div class="shelf-info-bubble" data-shelf-info-close="${z}" role="tooltip">
       <strong>${t('shelf_info_title')}</strong>
       ${t('shelf_info_text')}
     </div>` : ''}
@@ -951,7 +967,7 @@ function outflowsModal(){
 
 /* ---------- MODAL: ESCÁNER DE ESTANTE ---------- */
 function openShelfModal(){
-  showShelfInfoBubble = false; // abrir el escáner cierra la burbuja de instrucciones
+  showShelfInfoBubble = null; // abrir el escáner cierra la burbuja de instrucciones
   if(!currentUser){
     // Mismo trato que los otros escáneres: cuenta real desconectada → login;
     // si no, trial anónimo en segundo plano y el modal abre al instante.
@@ -1026,8 +1042,16 @@ async function processShelfSource(source){
   shelfPendingImg = null; shelfQualityWarn = null; shelfLastSource = source;
   shelfState='loading'; shelfError=''; beginAiWait(); render();
   try{
-    // 2000 px (antes 1400): las etiquetas de un estante entero necesitan píxeles.
-    const image = resizeToBase64(source, 2000, 0.88);
+    /* La foto más nítida que manda la app (pedido del usuario 2026-09-10: "que
+       esta cámara tome fotos más nítidas, con las mismas funciones"). Antes iba
+       a 2000/0.88; ahora al mismo techo que el escáner de recibos —el más alto
+       que Dusty ya usa en producción, así que no es un número inventado: 2576 px
+       de lado largo y 0.92 de calidad. resizeToBase64 nunca agranda, así que
+       esto no infla una foto chica: solo deja de tirar píxeles cuando la cámara
+       del teléfono los dio (un celular saca 3000-4000 px de lado). Importa acá
+       más que en ningún otro escáner porque hay que leer etiquetas chicas y
+       CONTAR piezas en una repisa entera, no un solo producto de cerca. */
+    const image = resizeToBase64(source, SCAN_MAX_SIDE_FOR_READING, 0.92);
     const products = await readStockFromPhoto(image);
     endAiWait();
     if(requestId !== shelfRequestId || !showShelfModal) return;
@@ -1301,16 +1325,22 @@ function applyShelfAdjust(){
 // como propiedades on* (morphdom puede conservar nodos entre renders; asignar pisa
 // en vez de apilar), y campos de texto que escriben en el estado sin re-render.
 function attachProductionEvents(){
-  const btnShelfScan=document.getElementById('btn-shelf-scan');
-  if(btnShelfScan) btnShelfScan.onclick=openShelfModal;
+  // Una herramienta por pantalla (Inventario y Producción): se enganchan TODAS,
+  // no la primera que aparezca.
+  document.querySelectorAll('[data-shelf-scan]').forEach(el=>{ el.onclick=openShelfModal; });
   // Badge "−" y su burbuja de instrucciones: el badge la abre/cierra; tocar la
   // burbuja o cualquier parte de afuera (backdrop transparente) la cierra.
-  const btnShelfInfo=document.getElementById('btn-shelf-info');
-  if(btnShelfInfo) btnShelfInfo.onclick=(e)=>{ e.stopPropagation(); showShelfInfoBubble=!showShelfInfoBubble; render(); };
-  const shelfInfoBackdrop=document.getElementById('shelf-info-backdrop');
-  if(shelfInfoBackdrop) shelfInfoBackdrop.onclick=()=>{ showShelfInfoBubble=false; render(); };
-  const shelfInfoBubble=document.getElementById('shelf-info-bubble');
-  if(shelfInfoBubble) shelfInfoBubble.onclick=()=>{ showShelfInfoBubble=false; render(); };
+  document.querySelectorAll('[data-shelf-info]').forEach(el=>{
+    el.onclick=(e)=>{
+      e.stopPropagation();
+      const z = el.dataset.shelfInfo;
+      showShelfInfoBubble = (showShelfInfoBubble===z) ? null : z;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-shelf-info-close]').forEach(el=>{
+    el.onclick=()=>{ showShelfInfoBubble=null; render(); };
+  });
   const btnProductionHub=document.getElementById('btn-production-hub');
   if(btnProductionHub) btnProductionHub.onclick=()=>{ showProductionHub=true; render(); };
   const hubOverlay=document.getElementById('production-hub-overlay');
