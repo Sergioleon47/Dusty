@@ -157,6 +157,16 @@ async function readStockFromPhoto(image){
   return Array.isArray(parsed.products) ? parsed.products : [];
 }
 
+/* El % de llenado que devolvió la IA, o null. El contrato dice "número o null",
+   pero si el servidor OMITE la clave llega undefined, y undefined!==null es true:
+   con esa comparación suelta la fila mostraba "~undefined% del envase", pedía una
+   capacidad que no hacía falta, y al escribirla calculaba cap × undefined = NaN.
+   Un solo lugar decide qué cuenta como porcentaje. */
+function fillPct(v){
+  const n = Number(v);
+  return (v===null || v===undefined || v==='' || !Number.isFinite(n)) ? null : n;
+}
+
 // Empareja una lectura del modo stock contra el inventario: primero el match de la
 // IA (entiende abreviaturas/marcas), después la coincidencia literal de nombre —
 // mismo criterio en cascada que ya usa processProductBatchSource.
@@ -503,7 +513,9 @@ function finishedItemModal(){
           <h3 class="basil" style="margin:0 0 2px;">${escapeHtml(rec.name)}</h3>
           ${/* Precio, margen, stock y costo: todo lo que se sacó de la tarjeta
                para no mostrárselo a un cliente aparece acá, un toque adentro. */''}
-          <div class="sub" style="margin:0;">${venta>0 ? `<b>${money(venta)}</b>` : t('prod_no_sale_price')}${(()=>{
+          ${/* Sin precio no es un dato que falta y ya: es lo que decide si vender
+               esta pieza suma ingresos o solo resta costo. Va en el color de aviso. */''}
+          <div class="sub" style="margin:0;">${venta>0 ? `<b>${money(venta)}</b>` : `<b style="color:var(--saffron-ink);">⚠ ${t('prod_no_sale_price')}</b>`}${(()=>{
             if(!ver) return '';
             const m = (venta>0 && total>0) ? profitMarginPct(roundQty(total/n), venta) : null;
             return m===null ? '' : ` · <span style="color:${m<15?'var(--saffron-ink)':'var(--basil-ink)'};font-weight:700;">${m.toFixed(0)}%</span>`;
@@ -663,9 +675,16 @@ function recipeModal(){
              Cierre de mes estime ingresos de una producción — antes se valuaban
              los insumos consumidos al salePrice de cada insumo, que inventaba
              ingresos o pérdidas (revisión de contador 2026-09-04). */''}
+        ${/* El precio LATE cuando falta, igual que el costo y el precio de venta de
+             un ítem del inventario (needsValueClass, app-06). Es el mismo aviso
+             porque es el mismo agujero: medido 2026-09-10, vender 2 piezas de $231
+             sin precio cargado daba $0 de ingresos y $462 de costo — una venta real
+             registrada como pérdida pura. Sigue sin ser obligatorio (una pieza
+             puede fabricarse solo para consumo interno), pero ya no se pasa por
+             alto sin querer. */''}
         <div class="field" style="margin:12px 0 0;">
           <label for="recipe-sale-price">${t('recipe_sale_price_label')}</label>
-          <input id="recipe-sale-price" type="number" step="0.01" min="0" inputmode="decimal" value="${draftRecipe.salePrice??''}" placeholder="0.00">
+          <input id="recipe-sale-price"${needsValueClass(draftRecipe.salePrice)} type="number" step="0.01" min="0" inputmode="decimal" value="${draftRecipe.salePrice??''}" placeholder="0.00">
           <div class="helper-note" style="margin:6px 0 0;">${t('recipe_sale_price_helper')}</div>
         </div>
       </div>
@@ -1082,10 +1101,10 @@ async function processShelfSource(source){
       }
       // fill_percent sin capacidad declarada: la fila queda esperando ese dato —
       // se pide inline y el % se convierte solo, sin obligar a abrir el producto.
-      const needsCapacity = detected===null && !blockedNote && p.fill_percent!==null && !(Number(ing.capacityFull)>0);
+      const needsCapacity = detected===null && !blockedNote && fillPct(p.fill_percent)!==null && !(Number(ing.capacityFull)>0);
       shelfItems.push({
         ingId: ing.id,
-        reading: p.reading, count: p.count, fill_percent: p.fill_percent,
+        reading: p.reading, count: p.count, fill_percent: fillPct(p.fill_percent),
         sticker_color: p.sticker_color, confidence: p.confidence, visible_note: blockedNote || p.visible_note,
         detected, finalQty: detected!==null ? detected : '',
         needsCapacity, capacityDraft: '',
@@ -1187,7 +1206,7 @@ function shelfScanModal(){
           const metaBits = [];
           metaBits.push(`${t('shelf_current')}: <strong style="color:var(--ink);">${escapeHtml(ing.qtyOnHand||0)} ${escapeHtml(unitLabel(ing.unit))}</strong>`);
           if(it.detected!==null) metaBits.push(`${t('shelf_detected')}: <strong style="color:var(--ink);">${escapeHtml(it.detected)} ${escapeHtml(unitLabel(ing.unit))}</strong>`);
-          if(it.fill_percent!==null && it.reading!=='unidades') metaBits.push(t('shelf_fill_note').replace('{p}', it.fill_percent));
+          if(fillPct(it.fill_percent)!==null && it.reading!=='unidades') metaBits.push(t('shelf_fill_note').replace('{p}', fillPct(it.fill_percent)));
           if(it.sticker_color) metaBits.push(t('shelf_sticker_note').replace('{c}', escapeHtml(it.sticker_color)));
           return `
           <div class="matched-item" style="${it.include?'':'opacity:.55;'}">
@@ -1231,7 +1250,10 @@ function shelfScanModal(){
             ${it.include && it.reason==='sale' ? `
             <div class="mi-fields" style="align-items:center;margin-top:6px;">
               <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>
-              <input data-shelf-price="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
+              ${/* Late cuando está vacío, como cualquier casilla que la contabilidad
+                   necesita. Es el último punto donde se puede evitar registrar una
+                   venta con $0 de ingreso y el costo completo. */''}
+              <input data-shelf-price="${idx}"${it.salePriceDraft==='' ? ' class="field-needs-value"' : ''} type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
               <span style="font-size:12px;color:var(--ink-soft);">$/${escapeHtml(unitLabel(ing.unit))}</span>
             </div>
             ${it.salePriceDraft==='' ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}
@@ -1519,14 +1541,15 @@ function attachProductionEvents(){
         it.capacityDraft=inp.value;
         // Con la capacidad puesta, el % pendiente se convierte en cantidad en vivo.
         const cap=parseFloat(inp.value);
-        if(Number.isFinite(cap) && cap>0 && it.fill_percent!==null){
+        const pct = fillPct(it.fill_percent);
+        if(Number.isFinite(cap) && cap>0 && pct!==null){
           // Tope en el stock actual: este escáner solo descuenta, y sin el tope la
           // conversión cap×% podía pintar un "+N" verde que applyShelfAdjust
           // después descartaba en silencio — la UI prometía una suba que jamás
           // se aplicaba.
           const ingCur = inventory.find(i=>i.id===it.ingId);
           const curQty = roundQty(Number(ingCur && ingCur.qtyOnHand)||0);
-          it.finalQty = Math.min(roundQty(cap * Math.min(it.fill_percent,100) / 100), curQty);
+          it.finalQty = Math.min(roundQty(cap * Math.min(pct,100) / 100), curQty);
           it.detected = it.finalQty;
           const finalInp=document.querySelector(`[data-shelf-final="${idx}"]`);
           if(finalInp) finalInp.value=it.finalQty;
