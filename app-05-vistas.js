@@ -1011,6 +1011,34 @@ function inventarioView(){
              (pedido del usuario 2026-09-09) — ver shareSelectedItemPhotos. */''}
         <button type="button" class="btn btn-sm" id="btn-inv-sel-share" ${invSelected.size?'':'disabled'}
           style="margin-left:auto;background:var(--basil);color:var(--on-accent);">${t('inv_share_selected').replace('{n}', invSelected.size)}</button>
+        ${/* Tercer botón (idea del usuario 2026-09-10): marcás lo que usás para
+             hacer una cosa y se arma la pieza del catálogo con eso adentro.
+             Va ANTES de Borrar a propósito — el rojo queda último, que es donde
+             se espera lo que destruye. Los productos NO se van del inventario:
+             ver moveSelectedToProduction en app-08.
+             POR QUE ES DE CONTORNO Y NO RELLENO. La paleta tiene tres colores de
+             accion y dos ya estan tomados: Compartir es --basil y Borrar es
+             --tomato. --sky no servia (es un ALIAS de --basil, dusty.css linea 36:
+             salia del MISMO verde en los 18 temas). --navy choca con el rojo en 7
+             temas y --saffron en 3 (coral, crema, cupertino), donde queda a
+             distancia 32-52 de Borrar: dos botones casi del mismo naranja-rojo y
+             uno destruye. Todo medido tema por tema, no supuesto.
+             La salida no es buscar un cuarto color que la paleta no tiene, sino
+             distinguir por PESO: relleno = las dos acciones de siempre, contorno =
+             la nueva. Asi el unico boton rojo macizo sigue siendo el que borra,
+             que es como tiene que ser. */''}
+        ${(()=>{
+          /* El número del botón cuenta los que DE VERDAD van a entrar, no los
+             marcados a secas: con un gasto marcado entre tres, decía "(3)" y
+             movía 2. Un botón no puede prometer un número y hacer otro.
+             Si quedaron marcados que no sirven, se dice acá mismo y antes de
+             tocar nada, no después en un aviso que se va solo. */''
+          const listos = (typeof prodEligibleSelected==='function') ? prodEligibleSelected().length : invSelected.size;
+          const fuera = invSelected.size - listos;
+          return `<button type="button" class="btn btn-ghost btn-sm" id="btn-inv-sel-toprod" ${listos?'':'disabled'}
+            title="${fuera>0 ? escapeHtml(t('inv_move_to_prod_skip').replace('{f}', String(fuera))) : ''}"
+            style="border-color:var(--saffron);color:var(--saffron-ink);font-weight:700;">${t('inv_move_to_prod').replace('{n}', listos)}${fuera>0 ? ` <span style="opacity:.7;font-weight:600;">−${fuera}</span>` : ''}</button>`;
+        })()}
         <button type="button" class="btn btn-sm" id="btn-inv-sel-delete" ${invSelected.size?'':'disabled'}
           style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
       </div>
