@@ -59,6 +59,58 @@ function recipePhotoSrc(r){
   if(r.photo.base64) return `data:${r.photo.mediaType || 'image/jpeg'};base64,${r.photo.base64}`;
   return r.photo.url || null;
 }
+/* ================= EL PRODUCTO TERMINADO ES UN ÍTEM DEL INVENTARIO =================
+   (spec del usuario 2026-09-10: "para guardar lo que se produce, tu aplicación
+   debe tener una categoría separada en el inventario llamada Productos
+   Terminados", y "a la hora de la venta salga todo calculado del inventario y
+   ganancias del mes".)
+
+   La decisión de fondo: NO es una categoría, es una BANDERA del ítem
+   (finishedGood). Una categoría es una etiqueta que el usuario renombra, borra y
+   llena con lo que quiera; la diferencia entre materia prima y producto terminado
+   es estructural —cambia la contabilidad— y no puede depender de que nadie toque
+   una etiqueta. Dusty ya usa ese patrón con expenseOnly.
+
+   Y es un ítem del inventario, no una lista aparte, porque así el producto
+   terminado hereda GRATIS todo lo que ya existe: entra en el Valor del inventario,
+   el escáner de reducción lo puede vender (con su motivo por renglón), outflowPL
+   le calcula ingreso y costo de lo vendido, y el Cierre de mes lo suma. Una lista
+   paralela habría obligado a duplicar las cuatro cosas.
+
+   La receta sigue siendo la COMPOSICIÓN (qué lleva); el ítem es el STOCK (cuántas
+   hay y a cuánto salieron). Se emparejan por recipeId. */
+function finishedItemFor(recipe){
+  if(!recipe) return null;
+  return inventory.find(i => i && i.finishedGood && i.recipeId === recipe.id) || null;
+}
+/* Lo crea si todavía no existe. Nace en CERO y sin costo: la primera producción
+   es la que le pone cantidad y precio (ver applyProduction). Un producto terminado
+   que naciera con stock sería inventario que nadie fabricó. */
+function ensureFinishedItem(recipe){
+  let item = finishedItemFor(recipe);
+  if(item) return item;
+  item = {
+    id: uid('i'), name: recipe.name, unit: 'unidad',
+    costPerUnit: 0, qtyOnHand: 0, stockFullRef: null,
+    salePrice: Number(recipe.salePrice)>0 ? recipe.salePrice : 0,
+    photo: recipe.photo || null,
+    finishedGood: true, recipeId: recipe.id, categoryId: null
+  };
+  if(currentUser){ item.lastEditedBy = currentUserLabel(); item.lastEditedAt = new Date().toISOString(); }
+  inventory.push(item);
+  return item;
+}
+/* El nombre, la foto y el precio de venta viven en la RECETA y se espejan al ítem
+   al guardarla: si no, renombrar la receta dejaba el stock con el nombre viejo y
+   el usuario veía dos cosas distintas que en realidad son una. El costo y la
+   cantidad NO se espejan nunca — esos los pone producir y vender, no el formulario. */
+function syncFinishedItem(recipe){
+  const item = finishedItemFor(recipe);
+  if(!item) return;
+  item.name = recipe.name;
+  item.photo = recipe.photo || null;
+  if(Number(recipe.salePrice) > 0) item.salePrice = recipe.salePrice;
+}
 function recordOutflow(entry){
   outflows.unshift(entry);
   if(outflows.length > OUTFLOWS_MAX){
@@ -108,6 +160,67 @@ function matchStockReading(p){
     ? inventory.find(i => i.name.trim().toLowerCase() === p.matched_inventory_name.trim().toLowerCase())
     : null;
   return aiMatch || inventory.find(i => i.name.trim().toLowerCase() === (p.name||'').trim().toLowerCase()) || null;
+}
+
+/* ---------- LA PESTAÑA PRODUCCIÓN (pedido del usuario 2026-09-10) ----------
+   Producción tomó el lugar que dejó Recibos en la barra de abajo. Es un CATÁLOGO
+   —lo que este negocio fabrica— con la misma forma que el de Inventario: misma
+   grilla, mismas fichas con foto, mismo buscador laxo (invMatches). Se reusan las
+   clases .inv-grid/.inv-tile a propósito: no es "clonar la arquitectura del
+   inventario", es la misma, con otra lista adentro.
+   Todavía sin stock de producto terminado — eso entra en el paso siguiente, con
+   bomRows y weightedAvgCost (ya en patron-core, con pruebas). */
+let prodSearch = '';
+function produccionView(){
+  const lista = recipes.filter(r=>invMatches(r.name, prodSearch));
+  /* Sin título de página: ninguna pestaña de Dusty lo tiene (la barra de abajo ya
+     dice dónde estás) y el <h2> que había acá se dibujaba con el tamaño por
+     defecto del navegador — enorme y ajeno al resto de la app. Misma barra
+     pegajosa que Inventario, con su mismo marcado: buscador con lupa a la
+     izquierda y la acción a la derecha. */
+  if(recipes.length===0){
+    return emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
+      `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
+  }
+  const buscador = `
+    <div class="inv-sticky">
+      <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
+        <div class="inv-search-wrap">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${t('prod_search_ph').replace('{n}', String(recipes.length))}" autocomplete="off">
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe')}</button>
+      </div>
+    </div>`;
+  const tiles = lista.map(r=>{
+    const costo = recipeCostTotal(r.components, inventory);
+    const foto = recipePhotoSrc(r);
+    const venta = Number(r.salePrice)||0;
+    const term = finishedItemFor(r);
+    const hechas = term ? (Number(term.qtyOnHand)||0) : 0;
+    // El margen solo para quien puede ver números financieros — mismo criterio
+    // que la lista de Inventario, que sacó los % justamente por las pantallas
+    // que se le muestran a un cliente.
+    const margen = (canSeeFinancials() && venta>0 && costo.total>0) ? profitMarginPct(costo.total, venta) : null;
+    return `
+    <div class="inv-tile" data-key="prodtile:${r.id}" data-open-finished="${r.id}" role="button" tabindex="0" title="${escapeHtml(r.name)}">
+      <div class="inv-tile-top">
+        <div class="stock-icon-ring" style="width:48px;height:48px;flex-shrink:0;">
+          ${foto ? `<img src="${escapeHtml(foto)}" alt="" loading="lazy">` : lineIcon('tag',20)}
+        </div>
+        <div class="inv-tile-name">${escapeHtml(invShortName(r.name))}</div>
+      </div>
+      <div class="inv-row-meta">${venta>0 ? money(venta) : t('prod_no_sale_price')}${margen!==null ? ` · <span style="color:${margen<15?'var(--saffron-ink)':'var(--basil-ink)'};">${margen.toFixed(0)}%</span>` : ''}</div>
+      ${/* Cuántas hay HECHAS — es el dato que esta pestaña vino a dar. El costo
+           por pieza pasa a segunda línea, y solo para quien ve números. */''}
+      <div class="stock-caption" style="margin:0;">${hechas>0
+        ? t('prod_in_stock').replace('{n}', String(roundQty(hechas)))
+        : t('prod_none_made')}${canSeeFinancials() ? ` · ${money(costo.total)} ${t('prod_cost_each')}` : ''}${costo.missing>0 ? ' ⚠' : ''}</div>
+    </div>`;
+  }).join('');
+  // Misma clase de grilla que Inventario, y la MISMA preferencia de columnas:
+  // si el usuario eligió ver su inventario en 3 columnas, su producción también.
+  return buscador + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
 }
 
 /* ---------- VISTA: sección en Inventario ---------- */
@@ -190,6 +303,91 @@ function productionHubModal(){
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-close-production-hub">${t('btn_close')}</button>
         <button class="btn btn-primary" id="btn-new-recipe">${t('prod_new_recipe')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- FICHA DEL PRODUCTO TERMINADO (spec del usuario 2026-09-10) ----------
+   "Al ejecutar onClick sobre una tarjeta o foto de producto terminado, desplegar
+   una vista detallada estructurada en columnas: Insumo · Cantidad Requerida ·
+   Costo Unitario Aplicado · Subtotal."
+   Las cuatro columnas salen de bomRows (patron-core, con pruebas). El multiplicador
+   de arriba las recalcula en vivo: con 1 se lee "qué lleva UNA", con 20 se lee "qué
+   necesito para el lote" — la misma tabla contesta las dos preguntas.
+   Los costos se muestran solo a quien puede ver números financieros: esta es la
+   pantalla que dice cuánto te cuesta cada pieza, o sea tu margen, y es justo la que
+   un cliente no debería ver. */
+let showFinishedItemModal = null; // id de la receta abierta
+let finishedProduceCount = 1;
+function openFinishedItemModal(recipeId){
+  showFinishedItemModal = recipeId; finishedProduceCount = 1; render();
+}
+function closeFinishedItemModal(){ showFinishedItemModal = null; render(); }
+function finishedItemModal(){
+  const rec = recipeById(showFinishedItemModal);
+  if(!rec){ showFinishedItemModal = null; return ''; }
+  const n = Math.max(1, Math.round(Number(finishedProduceCount)||1));
+  const filas = bomRows(rec.components, inventory, n);
+  const total = bomTotal(filas);
+  const term = finishedItemFor(rec);
+  const hechas = term ? roundQty(Number(term.qtyOnHand)||0) : 0;
+  const costoUnit = term ? Number(term.costPerUnit)||0 : 0;
+  const venta = Number(rec.salePrice)||0;
+  const plan = productionPlan(rec.components, n, inventory);
+  const falta = plan.some(p=>p.short>0 || p.missing);
+  const ver = canSeeFinancials();
+  const foto = recipePhotoSrc(rec);
+  return `
+  <div class="overlay" id="finished-item-overlay">
+    <div class="modal wide">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <div class="stock-icon-ring" style="width:52px;height:52px;flex-shrink:0;">
+          ${foto ? `<img src="${escapeHtml(foto)}" alt="">` : lineIcon('tag',22)}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <h3 class="basil" style="margin:0 0 2px;">${escapeHtml(rec.name)}</h3>
+          <div class="sub" style="margin:0;">${hechas>0 ? t('prod_in_stock').replace('{n}', String(hechas)) : t('prod_none_made')}${ver && hechas>0 ? ` · ${money(costoUnit)} ${t('prod_cost_each')}` : ''}</div>
+        </div>
+        <button type="button" class="stock-icon-btn edit" id="btn-edit-recipe-from-item" title="${t('btn_edit')}">
+          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+      </div>
+
+      <div class="field" style="margin-bottom:12px;">
+        <label>${t('produce_count_label')}</label>
+        <div class="qty-stepper">
+          <button type="button" id="btn-fi-minus" ${n<=1?'disabled':''}>−</button>
+          <input id="fi-produce-count" type="number" inputmode="numeric" min="1" step="1" value="${escapeHtml(n)}">
+          <button type="button" id="btn-fi-plus">+</button>
+        </div>
+      </div>
+
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 0 6px;">${t('bom_title')}</label>
+      <div class="bom-table">
+        <div class="bom-row bom-head">
+          <span>${t('bom_col_item')}</span><span>${t('bom_col_qty')}</span>
+          ${ver ? `<span>${t('bom_col_cost')}</span><span>${t('bom_col_subtotal')}</span>` : ''}
+        </div>
+        ${filas.map(f=>`
+        <div class="bom-row ${f.missing?'missing':''}">
+          <span>${f.name ? escapeHtml(f.name) : `⚠ ${t('bom_gone')}`}</span>
+          <span>${escapeHtml(f.qty)} ${escapeHtml(unitLabel(f.unit))}</span>
+          ${ver ? `<span>${f.cost===null ? '—' : money(f.cost)}</span><span>${f.missing ? '—' : money(f.subtotal)}</span>` : ''}
+        </div>`).join('')}
+        ${ver ? `
+        <div class="bom-row bom-total">
+          <span>${t('bom_total')}</span><span></span><span></span><span>${money(total)}</span>
+        </div>` : ''}
+      </div>
+      ${ver && venta>0 ? `<div class="helper-note" style="margin:10px 0 0;">${t('bom_sale_line')
+          .replace('{sale}', money(roundQty(venta*n)))
+          .replace('{profit}', money(roundQty(venta*n - total)))}</div>` : ''}
+      ${falta ? `<div style="font-size:11.5px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:7px 10px;border-radius:8px;margin-top:10px;">⚠ ${t('bom_short_note')}</div>` : ''}
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-finished-item">${t('btn_close')}</button>
+        <button class="btn btn-primary" id="btn-fi-produce" ${filas.length===0?'disabled':''}>${t('bom_produce_btn').replace('{n}', String(n))}</button>
       </div>
     </div>
   </div>`;
@@ -357,6 +555,9 @@ function saveRecipeFromModal(){
   if(currentUser){ rec.lastEditedBy = currentUserLabel(); rec.lastEditedAt = new Date().toISOString(); }
   const idx = editingRecipeId ? recipes.findIndex(r=>r.id===editingRecipeId) : -1;
   if(idx!==-1) recipes[idx]=rec; else recipes.push(rec);
+  // El stock de esta pieza (si ya se produjo alguna vez) sigue al nombre, la foto
+  // y el precio de la receta — ver syncFinishedItem.
+  syncFinishedItem(rec);
   saveState();
   // Fire-and-forget, como las fotos de recibos: la foto se sube a Storage y por
   // meta viaja solo la referencia; si falla, catchUpRecipePhotoUploads reintenta.
@@ -489,15 +690,38 @@ function applyProduction(){
   // receta: descuentos, precio del día), o el de la receta si el campo quedó
   // vacío/inválido. Sin ninguno de los dos, la corrida queda fuera del P&L.
   const costTotal = roundQty(items.reduce((s,it)=>s + Math.abs(it.qty)*it.costAt, 0));
-  const priceDraft = parseFloat(produceSalePrice);
-  const unitSale = (Number.isFinite(priceDraft) && priceDraft>0) ? priceDraft : (Number(rec.salePrice)||0);
-  const saleTotal = unitSale>0 ? roundQty(count * unitSale) : null;
+  /* LA SEGUNDA PATA DE LA TRANSFERENCIA. Producir saca materia prima (arriba) y
+     mete PRODUCTO TERMINADO acá. Sin esto la plata desaparecía: salía la harina y
+     no entraba la pizza, así que el Valor del inventario bajaba sin motivo y el
+     P&L se inventaba un ingreso al FABRICAR para tapar el agujero.
+     El costo del terminado sale del PROMEDIO PONDERADO (weightedAvgCost, en
+     patron-core con pruebas): 100 piezas a $4 más una tanda de 50 que costó $300
+     dan $4.6667, no $6. Es lo que hace que fabricar en tandas a precios distintos
+     deje un costo real y no el de la última tanda. */
+  const terminado = ensureFinishedItem(rec);
+  const stockPrevio = Number(terminado.qtyOnHand)||0;
+  terminado.costPerUnit = weightedAvgCost(stockPrevio, terminado.costPerUnit, count, costTotal);
+  terminado.qtyOnHand = roundQty(stockPrevio + count);
+  // Entrada de stock: este nivel es el nuevo "lleno" de la barra, igual que una
+  // compra en el inventario de siempre.
+  terminado.stockFullRef = terminado.qtyOnHand;
+  if(currentUser){ terminado.lastEditedBy = currentUserLabel(); terminado.lastEditedAt = new Date().toISOString(); }
+  /* PRODUCIR NO ES VENDER, y desde que el terminado existe como stock, contarlo
+     como ingreso sería contarlo DOS VECES (al fabricar y al vender). Por eso esta
+     corrida ya no lleva saleTotal: producedItemId la marca como del modelo nuevo y
+     outflowPL la deja fuera del P&L (ver app-03). Las producciones VIEJAS conservan
+     su saleTotal y su comportamiento, así que los meses cerrados no se mueven. */
   recordOutflow({
     id: uid('o'), type:'production', recipeId: rec.id, recipeName: rec.name, count,
-    items, saleTotal, costTotal, date: localDateStr(), createdAt: new Date().toISOString(),
+    producedItemId: terminado.id, producedUnitCost: terminado.costPerUnit,
+    items, costTotal, date: localDateStr(), createdAt: new Date().toISOString(),
     by: currentUser ? currentUser.uid : null, byLabel: currentUser ? currentUserLabel() : ''
   });
   saveState();
+  showToast(t('produce_done')
+    .replace('{n}', String(count))
+    .replace('{name}', rec.name)
+    .replace('{amount}', money(costTotal)));
   logActivity('production', rec.name, String(count));
   closeProduceModal();
 }

@@ -104,7 +104,11 @@ function ensureModalBackBtn(ov, modal){
    la ✕ inyectada arriba y el botón físico "atrás" de Android (ver
    attachHardwareBackButton), así los dos cierran exactamente igual. */
 function closeOverlayLikeBackBtn(ov){
-  const modal = ov.querySelector('.modal');
+  // .full-sheet además de .modal: Recibos dejó de ser pestaña y se abre como
+  // hoja a pantalla completa (ver receiptsSheet en app-05), que no usa .modal.
+  // Sin esto, "atrás" caía al mousedown de abajo — funcionaba de casualidad, no
+  // por diseño, y sin pasar por el cierre con transición.
+  const modal = ov.querySelector('.modal') || ov.querySelector('.full-sheet');
   const own = modal && (modal.querySelector('button[id^="btn-close-"]:not(.modal-back-btn)')
     || modal.querySelector('button[id^="btn-cancel-"]'));
   if(own){ own.click(); return; }
@@ -201,8 +205,78 @@ function attachModalTabTrap(){
     else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
   });
 }
+/* RECIBOS A PANTALLA COMPLETA, desde la tarjeta del calendario del Dashboard
+   (pedido del usuario 2026-09-10: "a la hora de tocar salga tipo iOS dinámico").
+   El calendario chiquito de la tarjeta y el grande de la hoja comparten el mismo
+   view-transition-name, así que el navegador AGRANDA uno hasta el otro en vez de
+   que la hoja aparezca de golpe. Es el mismo mecanismo que ya usa el cambio de
+   vista del Inventario (invLayoutVtActive en app-04), no una animación nueva.
+   Donde no hay View Transitions (Safari viejo, Firefox) el if de abajo cae al
+   render de siempre: se abre igual, sin el agrandado. */
+function openReceiptsSheet(){
+  /* Un solo destino mental —"tocá el calendario y vas a tus recibos"— por dos
+     caminos: si Recibos todavía es pestaña (negocio que no fabrica), se cambia de
+     pestaña como siempre; si Producción le tomó el lugar, se abre la hoja. */
+  if(TAB_ORDER[2]==='recibos'){ switchToTab('recibos'); return; }
+  showReceiptsSheet = true;
+  if(document.startViewTransition){ document.startViewTransition(()=>render()); return; }
+  render();
+}
+function closeReceiptsSheet(){
+  showReceiptsSheet = false;
+  if(document.startViewTransition){ document.startViewTransition(()=>render()); return; }
+  render();
+}
 function attachEvents(){
   document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
+  const calTile=document.getElementById('dash-calendar-tile');
+  if(calTile) calTile.onclick=openReceiptsSheet;
+  const btnCloseReceipts=document.getElementById('btn-close-receipts-sheet');
+  if(btnCloseReceipts) btnCloseReceipts.onclick=closeReceiptsSheet;
+  const receiptsOverlay=document.getElementById('receipts-sheet-overlay');
+  // Tocar el fondo cierra, igual que el resto de las hojas de la app.
+  if(receiptsOverlay) receiptsOverlay.onmousedown=(e)=>{ if(e.target===receiptsOverlay) closeReceiptsSheet(); };
+  const btnNewRecipeTab=document.getElementById('btn-new-recipe-tab');
+  if(btnNewRecipeTab) btnNewRecipeTab.onclick=()=>openRecipeModal(null);
+  const btnNewRecipeEmpty=document.getElementById('btn-new-recipe-empty');
+  if(btnNewRecipeEmpty) btnNewRecipeEmpty.onclick=()=>openRecipeModal(null);
+  const prodSearchInp=document.getElementById('prod-search');
+  if(prodSearchInp) prodSearchInp.oninput=()=>{
+    prodSearch = prodSearchInp.value;
+    scheduleSearchTriggeredRender(()=>{
+      const fresh=document.getElementById('prod-search');
+      if(fresh){ fresh.focus(); fresh.setSelectionRange(fresh.value.length, fresh.value.length); }
+    });
+  };
+  document.querySelectorAll('[data-open-finished]').forEach(el=>{
+    el.onclick=()=>openFinishedItemModal(el.dataset.openFinished);
+  });
+  const fiOverlay=document.getElementById('finished-item-overlay');
+  if(fiOverlay){
+    fiOverlay.onmousedown=(e)=>{ if(e.target===fiOverlay) closeFinishedItemModal(); };
+    const cerrar=document.getElementById('btn-close-finished-item');
+    if(cerrar) cerrar.onclick=closeFinishedItemModal;
+    const editar=document.getElementById('btn-edit-recipe-from-item');
+    if(editar) editar.onclick=()=>{ const r=recipeById(showFinishedItemModal); closeFinishedItemModal(); if(r) openRecipeModal(r); };
+    const menos=document.getElementById('btn-fi-minus');
+    if(menos) menos.onclick=()=>{ finishedProduceCount=Math.max(1, (Number(finishedProduceCount)||1)-1); render(); };
+    const mas=document.getElementById('btn-fi-plus');
+    if(mas) mas.onclick=()=>{ finishedProduceCount=(Number(finishedProduceCount)||1)+1; render(); };
+    const campo=document.getElementById('fi-produce-count');
+    // onchange y no oninput: re-renderizar por tecla haría temblar la tabla entera
+    // mientras se escribe, el mismo problema que ya tuvo la ficha de producto.
+    if(campo) campo.onchange=()=>{ finishedProduceCount=Math.max(1, Math.round(parseFloat(campo.value)||1)); render(); };
+    const producir=document.getElementById('btn-fi-produce');
+    if(producir) producir.onclick=()=>{
+      const rid = showFinishedItemModal;
+      produceRecipeId = rid;
+      produceCount = Math.max(1, Math.round(Number(finishedProduceCount)||1));
+      applyProduction();          // descuenta insumos y suma producto terminado
+      showFinishedItemModal = rid; // la ficha se queda abierta, ya con el stock nuevo
+      finishedProduceCount = 1;
+      render();
+    };
+  }
   manageModalA11y();
   attachModalTabTrap();
   document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts').forEach(makeKeyboardClickable);
@@ -213,6 +287,16 @@ function attachEvents(){
   if(btnLangToggle) btnLangToggle.onclick=()=>setLang(uiLang==='es'?'en':'es');
   // Latidos de aviso (Ajustes): interruptor, se aplica al instante y queda en el
   // dispositivo — misma mecánica que el tema.
+  /* ¿Este negocio fabrica? Prende o apaga la pestaña Producción. Se guarda como
+     'on'/'off' explícito: una vez que el usuario opina, deja de decidirlo la
+     cantidad de recetas — si no, borrar la última receta le sacaría la pestaña
+     que acaba de pedir. */
+  const productionTabToggle=document.getElementById('production-tab-toggle');
+  if(productionTabToggle) productionTabToggle.onchange=()=>{
+    productionTabPref = productionTabToggle.checked ? 'on' : 'off';
+    try{ localStorage.setItem('patron_production_tab', productionTabPref); }catch(e){}
+    render();
+  };
   const pulseToggle=document.getElementById('pulse-toggle');
   if(pulseToggle) pulseToggle.onchange=()=>{
     dustyPulse = !!pulseToggle.checked;
@@ -1398,10 +1482,23 @@ function attachEvents(){
       const el = document.getElementById('fi-profit-display');
       if(el){ el.textContent = display; el.style.color = color; }
     }
+    /* La casilla vacía late (ver .field-needs-value en dusty.css) y tiene que
+       dejar de latir EN CUANTO se escribe algo, no al guardar: si siguiera
+       latiendo mientras el usuario tipea, el aviso pasaría de recordatorio a
+       molestia. Se toca solo la clase de ese input —igual que el numerito de la
+       ganancia acá arriba— y no se re-renderiza la ficha: un render por tecla es
+       justo lo que hacía temblar esta ventana. */
+    function refreshNeedsValue(el){
+      if(!el) return;
+      el.classList.toggle('field-needs-value', fieldNeedsValue(el.value));
+    }
     const fiCostInp=document.getElementById('fi-cost');
     const fiSalePriceInp=document.getElementById('fi-sale-price');
-    if(fiCostInp) fiCostInp.oninput=handleProfitFieldInput;
-    if(fiSalePriceInp) fiSalePriceInp.oninput=handleProfitFieldInput;
+    // El precio de venta no existe en el alta rápida ni en la ficha de gasto, y
+    // handleProfitFieldInput se va sin hacer nada cuando falta — por eso el
+    // latido se refresca aparte y no colgado de esa función.
+    if(fiCostInp) fiCostInp.oninput=()=>{ refreshNeedsValue(fiCostInp); handleProfitFieldInput(); };
+    if(fiSalePriceInp) fiSalePriceInp.oninput=()=>{ refreshNeedsValue(fiSalePriceInp); handleProfitFieldInput(); };
     // Crear categoría sin salir de la ficha: elegir "＋ Crear categoría nueva…"
     // muestra el campo de nombre (el foco acá SÍ corresponde: el usuario acaba de
     // pedir escribir); Enter o salir del campo la crea y la deja seleccionada,

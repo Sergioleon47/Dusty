@@ -68,6 +68,7 @@ function nuevaApp(){
   cargar('app-01-estado.js');
   cargar('app-03-base.js');
   cargar('app-06-modales.js');
+  cargar('app-08-produccion.js');
 
   // Lo que vive en los módulos que no se cargan (nube, render, eventos, producción).
   correr(`
@@ -91,13 +92,20 @@ function nuevaApp(){
     function loadNextQueuedReceipt(){ return false; }
     function finishScanBatch(){}
     function recipesForCloud(){ return recipes; }
-    function recipeById(){ return null; }
+    function lastSalePriceFor(){ return ''; }
+    function callDustyAI(){ return Promise.reject(new Error('sin red')); }
+    function cropToBase64(){ return null; }
+    function endAiWait(){}
+    function stockIconSvg(){ return ''; }
+    function lineIcon(){ return ''; }
+    function uploadRecipePhoto(){}
+    function openUpgradeModal(){}
+    function isTrialUser(){ return false; }
     var currentUser = null;
     var priceAlertThreshold = 15, businessName = '', monthlyBudget = null;
     var budgetMeta = normalizeBudgetMeta(null);
     var profitsVisibleToMembers = false, categories = null, expenseCategories = [];
     var cycleCountPct = 20, cycleCountIntervalDays = 3, cycleCountLastDate = null, cycleCountCursor = 0;
-    var recipes = [], deletedRecipeIds = [], outflows = [], outflowArchive = {};
 
     /* Ayudantes de las pruebas */
     function escanear(proveedor, fecha, lineas, totalImpreso){
@@ -389,4 +397,107 @@ test('borrar un pago manual no habla de stock que nunca tocó', () => {
   const aviso = correr(`ultimoAviso()`);
   assert.match(aviso, /−\$900/);
   assert.doesNotMatch(aviso, /inventario|stock|mano/i, 'un pago nunca tuvo stock: no se menciona');
+});
+
+/* ---------- PRODUCTO TERMINADO: fabricar, costear y vender ---------- */
+
+test('fabricar mueve la plata de materia prima a producto terminado, sin inventarla', () => {
+  /* La transferencia tiene DOS patas. Antes solo estaba la primera: salía el
+     insumo y no entraba nada, así que el Valor del inventario bajaba sin motivo y
+     el P&L se inventaba un ingreso al FABRICAR para tapar el agujero. */
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:1000, salePrice:0});
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:10}]});
+  `);
+  const valorAntes = correr(`valorInventario()`);
+  correr(`produceRecipeId='rc1'; produceCount=20; applyProduction(); resetFinancialCache()`);
+  assert.equal(correr(`inventory[0].qtyOnHand`), 800, 'salieron 200 cables');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).qtyOnHand`), 20, 'entraron 20 tableros');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).costPerUnit`), 40, '10 cables a $4 cada tablero');
+  assert.equal(correr(`valorInventario()`), valorAntes, 'el valor total no se mueve: la plata cambió de forma');
+  assert.equal(correr(`periodFinancials(localMonthStr()).revenue`), 0, 'fabricar no es vender');
+});
+
+test('el costo del terminado es el PROMEDIO de las tandas, no el de la última', () => {
+  // Fabricar en tandas a precios distintos no deja "un" costo, deja un promedio.
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:1000, salePrice:0});
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:10}]});
+    produceRecipeId='rc1'; produceCount=20; applyProduction();
+    inventory[0].costPerUnit = 7;              // el cable subió
+    produceRecipeId='rc1'; produceCount=10; applyProduction();
+  `);
+  // 20 a $40 = $800, más 10 a $70 = $700  ->  $1500 / 30 = $50
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).qtyOnHand`), 30);
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).costPerUnit`), 50);
+});
+
+test('vender el terminado da ingreso y costo de lo vendido en el mes', () => {
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:1000, salePrice:0});
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:10}]});
+    produceRecipeId='rc1'; produceCount=20; applyProduction();
+    // Sale de estante con motivo "Lo vendí", igual que cualquier producto.
+    const term = finishedItemFor(recipeById('rc1'));
+    term.qtyOnHand = term.qtyOnHand - 12;
+    outflows.push({id:'o1', type:'adjust', reason:'sale', date: localDateStr(), items:[
+      {ingId: term.id, ingName: term.name, qty:12, unit:'unidad', reason:'sale', costAt: term.costPerUnit, priceAt:100}]});
+    resetFinancialCache();
+  `);
+  const fin = JSON.parse(correr(`JSON.stringify(periodFinancials(localMonthStr()))`));
+  assert.equal(fin.revenue, 1200, '12 x $100');
+  assert.equal(fin.cogs, 480, '12 x $40, el costo con el que se fabricaron');
+  assert.equal(fin.gross, 720);
+});
+
+test('el producto terminado queda marcado para no mezclarse con lo que se compra', () => {
+  /* Es un ítem del inventario (así hereda el Valor, el escáner de venta y el P&L),
+     pero lleva la bandera finishedGood, que es por la que stockRowsData (app-05)
+     lo deja fuera de la grilla de Inventario: son stock igual, pero mezclarlos
+     haría parecer que se compran cuando se fabrican. La bandera se prueba acá; la
+     grilla vive en la capa de vistas, que este harness no carga. */
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:100, salePrice:0});
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:10}]});
+    produceRecipeId='rc1'; produceCount=5; applyProduction();
+  `);
+  assert.equal(correr(`inventory.length`), 2, 'el terminado existe como ítem del inventario');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).finishedGood`), true);
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).recipeId`), 'rc1', 'emparejado con su receta');
+  // El mismo filtro que aplica la grilla de Inventario.
+  assert.equal(correr(`JSON.stringify(inventory.filter(i=>!isExpenseItem(i) && !i.finishedGood).map(i=>i.name))`), '["Cable"]');
+});
+
+test('renombrar la receta renombra su stock, pero no le toca el costo', () => {
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:100, salePrice:0});
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:10}]});
+    produceRecipeId='rc1'; produceCount=5; applyProduction();
+    recipes[0].name = 'Tablero grande'; recipes[0].salePrice = 150;
+    syncFinishedItem(recipes[0]);
+  `);
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).name`), 'Tablero grande');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).salePrice`), 150);
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).costPerUnit`), 40, 'el costo lo pone producir, no el formulario');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).qtyOnHand`), 5);
+});
+
+test('una produccion VIEJA sigue contando como antes: los meses cerrados no se mueven', () => {
+  // Sin producedItemId = modelo viejo, estimaba el ingreso por el precio de la pieza.
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:100, salePrice:0});
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:10}]});
+    outflows.push({id:'o1', type:'production', recipeId:'rc1', recipeName:'Tablero', count:5,
+      items:[{ingId:'i1', ingName:'Cable', qty:50, unit:'unidad', costAt:4}],
+      saleTotal:500, costTotal:200, date:'2026-08-10'});
+    resetFinancialCache();
+  `);
+  assert.equal(correr(`periodFinancials('2026-08').revenue`), 500, 'agosto queda como estaba');
+  assert.equal(correr(`periodFinancials('2026-08').cogs`), 200);
 });
