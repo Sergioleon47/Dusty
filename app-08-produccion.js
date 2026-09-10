@@ -238,11 +238,37 @@ function produccionView(){
       return emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
         `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
     }
+    /* SOMBRAS DE COMO SE VERA EL CATALOGO (pedido del usuario 2026-09-10: "pon
+       items ficticios o sombras asi mismo, como lo hiciste"). Mismo recurso que
+       ya usan el Pedido sugerido y Gasto por mes, y por la misma razon que quedo
+       escrita alla: la pantalla vacia decia que no hay nada pero no dejaba
+       entender QUE aparece aca cuando si lo hay.
+       Son fichas de EJEMPLO de verdad —mismas clases .inv-grid/.inv-tile, misma
+       grilla de 3 columnas, misma forma— pero DESENFOCADAS y desvanecidas, con el
+       blur creciendo hacia abajo: se lee la forma sin poder confundirlas con
+       datos propios. Los nombres son genericos, NUNCA del inventario del usuario.
+       aria-hidden y pointer-events:none — no son tocables ni las anuncia un
+       lector de pantalla: son un dibujo, no contenido.
+       Se van solas apenas exista una pieza, porque esta rama solo corre con el
+       catalogo vacio. */
+    const fantasmas = [
+      {n:t('prod_ex1'), o:'.62', blur:'1.1px'},
+      {n:t('prod_ex2'), o:'.42', blur:'2px'},
+      {n:t('prod_ex3'), o:'.26', blur:'2.9px'},
+    ].map(g=>`
+      <div class="inv-tile ghost" aria-hidden="true" style="opacity:${g.o};filter:blur(${g.blur});">
+        <div class="inv-tile-top">
+          <div class="stock-icon-ring" style="width:48px;height:48px;flex-shrink:0;">${lineIcon('tag',20)}</div>
+          <div class="inv-tile-name">${escapeHtml(g.n)}</div>
+        </div>
+      </div>`).join('');
     return `<div class="empty-state" style="padding:16px 20px 40px;">
       <div class="inv-tools" style="margin:0 0 14px;">${shelfScanFab('prod', true)}</div>
       <h3 style="margin:0 0 6px;">${t('prod_empty_title')}</h3>
       <p style="margin:0;font-size:13px;">${t('prod_empty_sub')}</p>
       <div class="empty-state-actions"><button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button></div>
+      <div class="prod-ghost-note">${t('prod_ghost_note')}</div>
+      <div class="inv-grid cols3 prod-ghost-grid">${fantasmas}</div>
     </div>`;
   }
   /* Las MISMAS capacidades que Inventario (pedido del usuario 2026-09-10): foto,

@@ -994,6 +994,14 @@
      que crece hacia abajo): se lee la forma de una fila real sin que el texto
      pueda tomarse por un dato propio. */
   .matched-item.ghost{pointer-events:none;user-select:none;}
+  /* Fichas fantasma del CATALOGO vacio (ver produccionView). Mismo recurso y
+     mismo criterio que las filas del pedido sugerido: son tarjetas reales
+     —.inv-tile en su grilla— desenfocadas, para que se entienda la forma sin que
+     puedan tomarse por datos propios. El texto va a la izquierda porque
+     .empty-state centra todo y una tarjeta centrada no se parece a la lista. */
+  .prod-ghost-note{font-size:11.5px;color:var(--ink-soft);margin:22px 2px 8px;line-height:1.4;text-align:left;}
+  .prod-ghost-grid{text-align:left;}
+  .inv-tile.ghost{pointer-events:none;user-select:none;}
   @media (prefers-reduced-motion: reduce){
     .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card, .budget-alert-card .ba-icon, .nav-alert-dot, .nav-alert-dot::after, .bycat-row, .bycat-bar i, .ms-card, .ms-track i{animation:none;}
   }

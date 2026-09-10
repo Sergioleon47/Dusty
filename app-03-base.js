@@ -62,6 +62,8 @@ const I18N = {
     /* Nombres de ejemplo de las filas borrosas: productos comunes, cortos, que se
        entienden en cualquier rubro. No son datos del usuario. */
     so_ex1:'Arroz', so_ex2:'Aceite', so_ex3:'Servilletas',
+    prod_ghost_note:'Así se va a ver tu catálogo cuando agregues lo que fabricas:',
+    prod_ex1:'Collar Luna', prod_ex2:'Tablero 8 circuitos', prod_ex3:'Vela de soja',
     cc_btn:'Conteo cíclico', cc_title:'Conteo cíclico', cc_sub:'Cada cierto número de días, cuentas a mano una parte del inventario para mantener los datos al día — cada vez le toca a productos distintos.',
     cc_due_note:'Toca contar {n} producto(s) hoy. Anota lo que ves en el estante; lo que dejes en blanco no se modifica.',
     cc_not_due_note:'Ya estás al día. El próximo conteo te toca el', cc_next_now:'hoy',
@@ -662,6 +664,8 @@ const I18N = {
     suggested_order_empty:'No products are at a critical level right now.', suggested_order_row_note:'You have',
     suggested_order_ghost_note:'This is how it will look when a product hits a critical level:',
     so_ex1:'Rice', so_ex2:'Oil', so_ex3:'Napkins',
+    prod_ghost_note:'This is how your catalog will look once you add what you make:',
+    prod_ex1:'Luna necklace', prod_ex2:'8-circuit panel', prod_ex3:'Soy candle',
     cc_btn:'Cycle count', cc_title:'Cycle count', cc_sub:"Every few days, you count a slice of inventory by hand to keep the data fresh — a different set of products each time.",
     cc_due_note:"{n} product(s) are due for a count today. Fill in what you see on the shelf; anything left blank won't change.",
     cc_not_due_note:"You're all caught up. Next count is due on", cc_next_now:'today',
