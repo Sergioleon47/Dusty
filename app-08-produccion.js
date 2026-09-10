@@ -221,8 +221,29 @@ const prodSortIcon = '<svg viewBox="0 0 20 20" width="16" height="16" stroke="cu
 function produccionView(){
   const lista = prodSortRecipes(recipes.filter(r=>invMatches(r.name, prodSearch)));
   if(recipes.length===0){
-    return emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
-      `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
+    /* EL CATALOGO VACIO LLEVA LA CAMARA DE REDUCCION EN LUGAR DEL MEDALLON
+       (pedido del usuario 2026-09-10 sobre una captura, con el circulo marcado:
+       "quita ese circulo de raiz y pon la camara roja que reduce").
+       El medallon del emptyState es decorativo: ocupa el lugar mas visible de la
+       pantalla sin hacer nada. La camara ahi si hace algo — y ademas resuelve que
+       hasta ahora la herramienta de Reduccion NO aparecia con el catalogo vacio,
+       porque esta rama sale antes de dibujarla.
+       Se arma a mano en vez de con emptyState() porque emptyState lo usa TODA la
+       app (inventario vacio, recibos vacios, filtros sin resultado) y ahi el
+       medallon sigue siendo lo correcto: se copia su estructura, no se toca.
+       SIN INVENTARIO NO SE PONE: un escaner que resta no tiene nada que restar, y
+       un boton que no puede hacer nada es peor que el dibujo. Ahi vuelve el
+       medallon de siempre. */
+    if(inventory.length === 0){
+      return emptyState('tag', t('prod_empty_title'), t('prod_empty_sub'), true,
+        `<button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button>`);
+    }
+    return `<div class="empty-state" style="padding:16px 20px 40px;">
+      <div class="inv-tools" style="margin:0 0 14px;">${shelfScanFab('prod')}</div>
+      <h3 style="margin:0 0 6px;">${t('prod_empty_title')}</h3>
+      <p style="margin:0;font-size:13px;">${t('prod_empty_sub')}</p>
+      <div class="empty-state-actions"><button type="button" class="btn btn-primary" id="btn-new-recipe-empty">${t('prod_new_recipe')}</button></div>
+    </div>`;
   }
   /* Las MISMAS capacidades que Inventario (pedido del usuario 2026-09-10): foto,
      seleccionar, borrar, compartir y las columnas. Se reusan sus clases y su
