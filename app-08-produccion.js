@@ -212,15 +212,18 @@ function produccionView(){
         <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe_short')}</button>
       </div>
     </div>`;
+  /* LA FICHA DEL CATÁLOGO: FOTO Y NOMBRE, NADA MÁS (pedido del usuario
+     2026-09-10: "que se vean exactamente como estos pero sin descripción, que
+     esté oculta y solo salga cuando se haga click").
+     Y hay una razón de peso además de la estética: esta es la pantalla que se le
+     muestra —o se le manda— a un cliente. Con el precio de venta y el % de
+     ganancia impresos en cada tarjeta, mostrar el catálogo era regalar el margen.
+     Precio, margen, costo por pieza y cuántas hay hechas viven un toque adentro,
+     en la ficha, y ahí además están detrás de canSeeFinancials.
+     Es la misma tarjeta de Inventario, con las mismas clases: sin las dos líneas
+     de meta, todas quedan del mismo alto y ninguna se estira. */
   const tiles = lista.map(r=>{
-    const costo = recipeCostTotal(r.components, inventory);
     const foto = recipePhotoSrc(r);
-    const venta = Number(r.salePrice)||0;
-    const term = finishedItemFor(r);
-    const hechas = term ? (Number(term.qtyOnHand)||0) : 0;
-    // El margen solo para quien puede ver números financieros — mismo criterio
-    // que la lista de Inventario, que sacó los % por las pantallas compartidas.
-    const margen = (canSeeFinancials() && venta>0 && costo.total>0) ? profitMarginPct(costo.total, venta) : null;
     const marcado = prodSelectMode && prodSelected.has(r.id);
     return `
     <div class="inv-tile${marcado?' sel':''}" data-key="prodtile:${r.id}" ${prodSelectMode
@@ -228,17 +231,16 @@ function produccionView(){
         : `data-open-finished="${r.id}"`} role="button" tabindex="0" title="${escapeHtml(r.name)}">
       ${prodSelectMode ? `<span class="inv-tile-check" aria-hidden="true">${marcado?'✓':''}</span>` : ''}
       <div class="inv-tile-top">
-        ${/* Tocar la foto la cambia, igual que en Inventario. En modo selección
-             se le quita el gancho: ahí tocar CUALQUIER parte marca. */''}
-        <div class="stock-icon-ring"${prodSelectMode ? '' : ` data-photo-recipe="${r.id}" title="${t('btn_upload_photo')}"`} style="${prodSelectMode?'':'cursor:pointer;'}width:48px;height:48px;flex-shrink:0;">
+        ${/* La foto NO abre el selector de foto acá. En la grilla ocupa casi toda
+             la tarjeta, así que tocar el centro —lo que cualquiera hace para ver
+             un producto— terminaba abriendo la galería en vez de los detalles.
+             En un catálogo la foto ES el contenido: la tarjeta entera abre la
+             ficha, y la foto se cambia desde adentro. */''}
+        <div class="stock-icon-ring" style="width:48px;height:48px;flex-shrink:0;">
           ${foto ? `<img src="${escapeHtml(foto)}" alt="" loading="lazy">` : lineIcon('tag',20)}
         </div>
         <div class="inv-tile-name">${escapeHtml(invShortName(r.name))}</div>
       </div>
-      <div class="inv-row-meta">${venta>0 ? money(venta) : t('prod_no_sale_price')}${margen!==null ? ` · <span style="color:${margen<15?'var(--saffron-ink)':'var(--basil-ink)'};">${margen.toFixed(0)}%</span>` : ''}</div>
-      <div class="stock-caption" style="margin:0;">${hechas>0
-        ? t('prod_in_stock').replace('{n}', String(roundQty(hechas)))
-        : t('prod_none_made')}${canSeeFinancials() ? ` · ${money(costo.total)} ${t('prod_cost_each')}` : ''}${costo.missing>0 ? ' ⚠' : ''}</div>
     </div>`;
   }).join('');
   return chips + barra + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
@@ -420,11 +422,21 @@ function finishedItemModal(){
   <div class="overlay" id="finished-item-overlay">
     <div class="modal wide">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <div class="stock-icon-ring" style="width:52px;height:52px;flex-shrink:0;">
+        ${/* Acá SÍ: la foto de la ficha abierta se toca para cambiarla. Es un
+             gesto deliberado, sobre un elemento chico y con su tooltip — no el
+             centro de una tarjeta que el usuario tocó para ver el producto. */''}
+        <div class="stock-icon-ring" data-photo-recipe="${rec.id}" title="${t('btn_upload_photo')}" style="cursor:pointer;width:52px;height:52px;flex-shrink:0;">
           ${foto ? `<img src="${escapeHtml(foto)}" alt="">` : lineIcon('tag',22)}
         </div>
         <div style="flex:1;min-width:0;">
           <h3 class="basil" style="margin:0 0 2px;">${escapeHtml(rec.name)}</h3>
+          ${/* Precio, margen, stock y costo: todo lo que se sacó de la tarjeta
+               para no mostrárselo a un cliente aparece acá, un toque adentro. */''}
+          <div class="sub" style="margin:0;">${venta>0 ? `<b>${money(venta)}</b>` : t('prod_no_sale_price')}${(()=>{
+            if(!ver) return '';
+            const m = (venta>0 && total>0) ? profitMarginPct(roundQty(total/n), venta) : null;
+            return m===null ? '' : ` · <span style="color:${m<15?'var(--saffron-ink)':'var(--basil-ink)'};font-weight:700;">${m.toFixed(0)}%</span>`;
+          })()}</div>
           <div class="sub" style="margin:0;">${hechas>0 ? t('prod_in_stock').replace('{n}', String(hechas)) : t('prod_none_made')}${ver && hechas>0 ? ` · ${money(costoUnit)} ${t('prod_cost_each')}` : ''}</div>
         </div>
         <button type="button" class="stock-icon-btn edit" id="btn-edit-recipe-from-item" title="${t('btn_edit')}">
