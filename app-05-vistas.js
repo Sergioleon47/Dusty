@@ -994,8 +994,13 @@ function inventarioView(){
          Adentro: Seleccionar primero (es lo que se busca al querer borrar
          varios), después los tres filtros rápidos y al final las categorías.
          La fila scrollea a lo ancho, como ya lo hacían las dos por separado. */''}
+    ${/* Seleccionar SALIO de esta fila (pedido del usuario 2026-09-10) y la razon
+         es de fondo: los otros tres ACHICAN la lista, Seleccionar cambia lo que
+         hace tocar una tarjeta. Juntos en la misma fila, la fila enseñaba algo
+         falso. Ahora esta fila es solo filtros, y Seleccionar vive con los otros
+         controles de la lista (vista, orden), que ademas quedan pegados arriba
+         al scrollear. */''}
     <div class="inv-chips">
-      <button type="button" class="category-chip quick ${invSelectMode?'on':''}" id="btn-inv-select">${invSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
       ${quickChip('crit', t('inv_quick_crit'))}${quickChip('count', t('inv_quick_count'))}${quickChip('nophoto', t('inv_quick_nophoto'))}
     </div>
     ${/* Barra de selección: reemplaza a la de búsqueda mientras el modo está
@@ -1005,6 +1010,12 @@ function inventarioView(){
     ${invSelectMode ? `
     <div class="inv-sticky">
       <div class="inv-selbar">
+        ${/* LA SALIDA vive acá, y es obligatoria: esta barra REEMPLAZA a la del
+             buscador, asi que el boton "Seleccionar" de arriba no existe mientras
+             estas adentro. Antes se salia por ese mismo boton, que vivia en la
+             fila de filtros y quedaba visible; al mudarlo, sin este el modo
+             seleccion no tenia ninguna salida. */''}
+        <button type="button" class="category-chip quick on" id="btn-inv-sel-exit">✓ ${t('inv_select_done')}</button>
         <strong>${t('inv_selected_n').replace('{n}', invSelected.size)}</strong>
         <button type="button" class="link-btn" id="btn-inv-sel-all">${t('inv_select_all')}</button>
         ${/* Compartir las fotos de lo marcado por la hoja nativa del sistema
@@ -1049,6 +1060,8 @@ function inventarioView(){
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input id="inv-search" type="search" value="${escapeHtml(invSearch)}" placeholder="${t('inv_search_ph').replace('{n}', total)}" aria-label="${t('inv_search_aria')}" autocomplete="off">
         </div>
+        ${/* En el medio, entre el buscador y vista/orden (donde lo puso el usuario). */''}
+        <button type="button" class="category-chip quick" id="btn-inv-select" style="flex-shrink:0;">${t('inv_select_btn')}</button>
         ${toolbar}
       </div>
     </div>`}

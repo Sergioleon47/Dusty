@@ -148,12 +148,20 @@ function attachInventoryEvents(){
   /* MODO SELECCIÓN DEL INVENTARIO (borrado en lote, pedido del usuario
      2026-09-09). Al salir del modo se limpia la selección: dejarla viva
      invisible es la receta para borrar algo que ya no recordás haber marcado. */
-  const btnInvSelect=document.getElementById('btn-inv-select');
-  if(btnInvSelect) btnInvSelect.onclick=()=>{
+  /* Dos botones distintos porque nunca conviven: el de entrar vive en la barra
+     del buscador y el de salir en la barra de seleccion, y esas dos barras se
+     reemplazan una a la otra. Ids distintos a proposito — dos nodos con el mismo
+     id es justo el bug que dejo sin handler a una de las dos herramientas de
+     Reduccion cuando paso a vivir en dos pantallas. */
+  const alternarSeleccion=()=>{
     if(invSelectMode) invExitSelect();
     else { invSelectMode=true; invSelected.clear(); showToast(t('inv_select_hint'), 'info'); }
     render();
   };
+  const btnInvSelect=document.getElementById('btn-inv-select');
+  if(btnInvSelect) btnInvSelect.onclick=alternarSeleccion;
+  const btnInvSelExit=document.getElementById('btn-inv-sel-exit');
+  if(btnInvSelExit) btnInvSelExit.onclick=alternarSeleccion;
   document.querySelectorAll('[data-inv-select]').forEach(el=>{
     el.onclick=()=>{
       const id=el.dataset.invSelect;
