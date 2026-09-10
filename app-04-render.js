@@ -228,6 +228,7 @@ function renderApp(){
          ellos (la ficha de un recibo, el modal del día) se apile encima. */''}
     ${showReceiptsSheet && TAB_ORDER[2]!=='recibos' ? receiptsSheet() : ''}
     ${showBudgetModal ? budgetModal() : ''}
+    ${showFinishedItemModal ? finishedItemModal() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}
     ${showCategoriesModal ? categoriesModal() : ''}

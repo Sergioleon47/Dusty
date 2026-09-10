@@ -579,6 +579,14 @@ const I18N = {
     prod_empty_title:'Todavía no fabricás nada',
     prod_empty_sub:'Armá una receta con los insumos que lleva cada pieza y Dusty te dice cuánto te cuesta hacerla.',
     prod_search_ph:'Buscar entre {n}...', prod_no_sale_price:'Sin precio de venta',
+    prod_in_stock:'{n} hechas', prod_none_made:'Todavía no hiciste ninguna',
+    produce_done:'Hiciste {n} de {name} · {amount} en materiales',
+    bom_title:'Qué lleva', bom_col_item:'Insumo', bom_col_qty:'Cantidad',
+    bom_col_cost:'Costo/u', bom_col_subtotal:'Subtotal',
+    bom_total:'Te cuesta hacerlo', bom_gone:'Insumo borrado',
+    bom_sale_line:'Si las vendés: {sale} · te quedan {profit}',
+    bom_short_note:'No te alcanza el stock de algún insumo. Podés producir igual: lo que falte queda en cero y lo corregís después.',
+    bom_produce_btn:'Hacer {n}',
     dash_activity_none:'Sin cambios nuevos', dash_activity_n:'{n} cambio(s) sin ver', dash_production_sub:'Recetas, producir y salidas',
     // Dashboard "anillo + cuadrícula" (maqueta aprobada 2026-09-08).
     dash_badge_ok:'OK', dash_badge_alert:'Alerta', dash_badge_due:'Toca',
@@ -1125,6 +1133,14 @@ const I18N = {
     prod_empty_title:'You are not making anything yet',
     prod_empty_sub:'Build a recipe with the supplies each piece takes and Dusty tells you what it costs to make.',
     prod_search_ph:'Search {n}...', prod_no_sale_price:'No sale price',
+    prod_in_stock:'{n} made', prod_none_made:'None made yet',
+    produce_done:'Made {n} of {name} · {amount} in materials',
+    bom_title:'What it takes', bom_col_item:'Supply', bom_col_qty:'Quantity',
+    bom_col_cost:'Cost/u', bom_col_subtotal:'Subtotal',
+    bom_total:'Costs you to make', bom_gone:'Supply deleted',
+    bom_sale_line:'If you sell them: {sale} · you keep {profit}',
+    bom_short_note:'You are short on some supply. You can still make them: whatever is missing lands at zero and you fix it after.',
+    bom_produce_btn:'Make {n}',
     dash_activity_none:'No new changes', dash_activity_n:'{n} unseen change(s)', dash_production_sub:'Recipes, produce and outflows',
     dash_badge_ok:'OK', dash_badge_alert:'Alert', dash_badge_due:'Due',
     dash_tile_health:'{p}% stock health', dash_tile_health_none:'No data yet', dash_tile_count_none:'Nothing pending',
@@ -1920,6 +1936,17 @@ function outflowPL(o){
   if(!o) return null;
   const cache = finCache();
   if(o.type==='production'){
+    /* PRODUCIR ES UN TRASPASO, NO UNA VENTA (revisión contable 2026-09-10).
+       Desde que el producto terminado existe como stock (producedItemId), fabricar
+       no aporta NADA al resultado del mes: la plata no se gana ni se pierde, cambia
+       de forma — sale de materia prima y entra al terminado, con el Valor del
+       inventario igual antes y después. El ingreso aparece cuando esa pieza SE
+       VENDE, y ahí lo calcula la salida de estante con su costo promedio.
+       Contarlo acá además sería contarlo dos veces.
+       Las producciones VIEJAS (sin producedItemId) conservan su comportamiento —
+       estimaban el ingreso por el precio de la pieza— para que los meses ya
+       cerrados no se reescriban solos. */
+    if(o.producedItemId) return null;
     const rec = typeof recipeById==='function' ? recipeById(o.recipeId) : null;
     const sale = (typeof o.saleTotal==='number' && o.saleTotal>0) ? o.saleTotal
       : (rec && (rec.salePrice||0)>0 ? (o.count||0)*rec.salePrice : 0);

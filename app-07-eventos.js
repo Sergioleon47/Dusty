@@ -248,9 +248,35 @@ function attachEvents(){
       if(fresh){ fresh.focus(); fresh.setSelectionRange(fresh.value.length, fresh.value.length); }
     });
   };
-  document.querySelectorAll('[data-open-recipe]').forEach(el=>{
-    el.onclick=()=>{ const r=recipeById(el.dataset.openRecipe); if(r) openRecipeModal(r); };
+  document.querySelectorAll('[data-open-finished]').forEach(el=>{
+    el.onclick=()=>openFinishedItemModal(el.dataset.openFinished);
   });
+  const fiOverlay=document.getElementById('finished-item-overlay');
+  if(fiOverlay){
+    fiOverlay.onmousedown=(e)=>{ if(e.target===fiOverlay) closeFinishedItemModal(); };
+    const cerrar=document.getElementById('btn-close-finished-item');
+    if(cerrar) cerrar.onclick=closeFinishedItemModal;
+    const editar=document.getElementById('btn-edit-recipe-from-item');
+    if(editar) editar.onclick=()=>{ const r=recipeById(showFinishedItemModal); closeFinishedItemModal(); if(r) openRecipeModal(r); };
+    const menos=document.getElementById('btn-fi-minus');
+    if(menos) menos.onclick=()=>{ finishedProduceCount=Math.max(1, (Number(finishedProduceCount)||1)-1); render(); };
+    const mas=document.getElementById('btn-fi-plus');
+    if(mas) mas.onclick=()=>{ finishedProduceCount=(Number(finishedProduceCount)||1)+1; render(); };
+    const campo=document.getElementById('fi-produce-count');
+    // onchange y no oninput: re-renderizar por tecla haría temblar la tabla entera
+    // mientras se escribe, el mismo problema que ya tuvo la ficha de producto.
+    if(campo) campo.onchange=()=>{ finishedProduceCount=Math.max(1, Math.round(parseFloat(campo.value)||1)); render(); };
+    const producir=document.getElementById('btn-fi-produce');
+    if(producir) producir.onclick=()=>{
+      const rid = showFinishedItemModal;
+      produceRecipeId = rid;
+      produceCount = Math.max(1, Math.round(Number(finishedProduceCount)||1));
+      applyProduction();          // descuenta insumos y suma producto terminado
+      showFinishedItemModal = rid; // la ficha se queda abierta, ya con el stock nuevo
+      finishedProduceCount = 1;
+      render();
+    };
+  }
   manageModalA11y();
   attachModalTabTrap();
   document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts').forEach(makeKeyboardClickable);

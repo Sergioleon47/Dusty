@@ -252,7 +252,9 @@ function budgetStatus(pct){ return pct>=100 ? 'crit' : pct>=80 ? 'warn' : 'ok'; 
 function stockRowsData(){
   // Los ítems de GASTO (servicios, Eat out) no son mercadería: viven en el
   // botón de Presupuesto, no en estas grillas (pedido del usuario 2026-09-05).
-  return inventory.filter(i=>!isExpenseItem(i)).map(i=>{
+  // Y los PRODUCTOS TERMINADOS viven en la pestaña Producción: son stock igual,
+  // pero mezclarlos acá haría parecer que se compran, cuando se fabrican.
+  return inventory.filter(i=>!isExpenseItem(i) && !i.finishedGood).map(i=>{
     const hasHistory = (i.qtyOnHand||0)>0 || purchasesForIng(i.id).length>0;
     const target = i.stockFullRef || i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
     const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
