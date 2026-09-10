@@ -43,6 +43,8 @@ function attachInventoryEvents(){
   /* ---------- pedido sugerido ---------- */
   const btnSuggestedOrder=document.getElementById('btn-suggested-order');
   if(btnSuggestedOrder) btnSuggestedOrder.onclick=()=>{ showSuggestedOrderModal=true; render(); };
+  const btnShareSuggested=document.getElementById('btn-share-suggested-order');
+  if(btnShareSuggested) btnShareSuggested.onclick=shareSuggestedOrder;
   const suggestedOrderOverlay=document.getElementById('suggested-order-overlay');
   if(suggestedOrderOverlay){
     suggestedOrderOverlay.onmousedown=(e)=>{ if(e.target===suggestedOrderOverlay){ showSuggestedOrderModal=false; render(); } };
@@ -181,6 +183,8 @@ function attachInventoryEvents(){
   if(btnSelShare) btnSelShare.onclick=()=>shareSelectedItemPhotos();
   const btnSelToProd=document.getElementById('btn-inv-sel-toprod');
   if(btnSelToProd) btnSelToProd.onclick=moveSelectedToProduction;
+  const btnSelOrder=document.getElementById('btn-inv-sel-order');
+  if(btnSelOrder) btnSelOrder.onclick=shareSelectedOrder;
   const btnSelDelete=document.getElementById('btn-inv-sel-delete');
   if(btnSelDelete) btnSelDelete.onclick=()=>{
     const n = deleteSelectedInventory([...invSelected]);

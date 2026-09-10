@@ -687,6 +687,67 @@ function invShortName(name){
    busque mientras seleccionás, cosa que no pasaría con índices. */
 let invSelectMode = false;
 let invSelected = new Set();
+/* ===== COMPARTIR EL PEDIDO (idea del usuario 2026-09-10) =====
+   "Pedido sugerido" ya calculaba qué falta, pero solo tenía botón de Cerrar: veías
+   la lista y no había forma de mandársela a nadie. Y "Compartir" del modo selección
+   manda FOTOS —sirve para mostrarle algo a un cliente, no para pedirle a un
+   proveedor—, así que faltaba justo el paso final.
+
+   AGRUPADO POR PROVEEDOR, que es lo que el usuario pidió ("a quien tenga que
+   ordenar"): un pedido con cables de una ferretería y breakers de otra no se manda
+   junto. Los que no tienen proveedor cargado van al final, en su propio grupo, sin
+   inventarles uno.
+
+   CUÁNTO PEDIR sale del mismo cálculo que ya usa el Pedido sugerido: target menos
+   lo que hay, con piso en 0 — el target es stockFullRef, el nivel al que llegó la
+   última vez que entró mercadería. No se inventa un número nuevo ni se pide el
+   doble "por las dudas".
+
+   NO manda precios de venta ni márgenes: esto va a un proveedor. */
+function orderTextForRows(rows){
+  const porProveedor = new Map();
+  rows.forEach(r=>{
+    const falta = Math.max(roundQty((r.target||0) - (r.ing.qtyOnHand||0)), 0);
+    if(!(falta > 0)) return;
+    const prov = (r.ing.supplier||'').trim();
+    if(!porProveedor.has(prov)) porProveedor.set(prov, []);
+    porProveedor.get(prov).push('• ' + r.ing.name + ' — ' + falta + ' ' + unitLabel(r.ing.unit));
+  });
+  if(porProveedor.size === 0) return '';
+  // Los sin proveedor van ULTIMOS, siempre: son los que el usuario todavia tiene
+  // que decidir a quien pedirle, y arriba de todo empujaban abajo a los grupos que
+  // si estan listos para mandar. (Se intento con un \u0000 al principio del nombre
+  // para que ordenara solo; localeCompare lo pone PRIMERO, no ultimo.)
+  const bloques = [...porProveedor.entries()]
+    .sort((a,b)=>{
+      if(!a[0] && b[0]) return 1;
+      if(a[0] && !b[0]) return -1;
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([prov, lineas])=>(prov || t('order_no_supplier')) + '\n' + lineas.join('\n'));
+  return (businessName ? businessName + ' — ' : '') + t('order_share_title') + '\n\n' + bloques.join('\n\n');
+}
+async function shareOrderText(texto){
+  if(!texto){ showToast(t('order_nothing'), 'error'); return; }
+  try{
+    if(navigator.share){ await navigator.share({text: texto}); return; }
+    await navigator.clipboard.writeText(texto);
+    showToast(t('order_copied'));
+  }catch(e){
+    if(e && e.name==='AbortError') return;   // cerró el panel de compartir
+    try{ await navigator.clipboard.writeText(texto); showToast(t('order_copied')); }catch(e2){}
+  }
+}
+// Desde el modo selección: solo lo marcado.
+function shareSelectedOrder(){
+  const rows = stockRowsData().filter(r=>invSelected.has(r.ing.id));
+  shareOrderText(orderTextForRows(rows));
+}
+// Desde "Pedido sugerido": todo lo que está en nivel crítico.
+function shareSuggestedOrder(){
+  shareOrderText(orderTextForRows(stockRowsData().filter(r=>r.status==='crit')));
+}
+
 function invExitSelect(){ invSelectMode = false; invSelected.clear(); }
 function stockRowHtml(r, ccDueIds){
   const i = r.ing;
@@ -1049,7 +1110,15 @@ function inventarioView(){
              La salida no es buscar un cuarto color que la paleta no tiene, sino
              distinguir por PESO: relleno = las dos acciones de siempre, contorno =
              la nueva. Asi el unico boton rojo macizo sigue siendo el que borra,
-             que es como tiene que ser. */''}
+             que es como tiene que ser.
+             EL TEXTO VA EN --ink, NO EN --saffron-ink. Los tokens -ink estan hechos
+             para leerse sobre su propio -soft, no sobre --panel: medido sobre los
+             pixeles dibujados, con --saffron-ink este boton caia a 1.7:1 en
+             "electrico" y 2.5:1 en "miel" — ilegible. Con --ink sobre el -soft el
+             contraste lo garantiza el tema, y el color sigue estando en el borde y
+             en el fondo, que es donde hace de identidad. La primera verificacion no
+             lo vio porque medi que los botones se distinguieran ENTRE SI, no que su
+             texto se leyera. */''}
         ${(()=>{
           /* El número del botón cuenta los que DE VERDAD van a entrar, no los
              marcados a secas: con un gasto marcado entre tres, decía "(3)" y
@@ -1060,8 +1129,16 @@ function inventarioView(){
           const fuera = invSelected.size - listos;
           return `<button type="button" class="btn btn-ghost btn-sm" id="btn-inv-sel-toprod" ${listos?'':'disabled'}
             title="${fuera>0 ? escapeHtml(t('inv_move_to_prod_skip').replace('{f}', String(fuera))) : ''}"
-            style="border-color:var(--saffron);color:var(--saffron-ink);font-weight:700;">${t('inv_move_to_prod').replace('{n}', listos)}${fuera>0 ? ` <span style="opacity:.7;font-weight:600;">−${fuera}</span>` : ''}</button>`;
+            style="background:var(--saffron-soft);border-color:var(--saffron);color:var(--ink);font-weight:700;">${t('inv_move_to_prod').replace('{n}', listos)}${fuera>0 ? ` <span style="opacity:.7;font-weight:600;">−${fuera}</span>` : ''}</button>`;
         })()}
+        ${/* Pedir: manda el PEDIDO (texto, agrupado por proveedor), no las fotos.
+             Son dos acciones distintas con dos destinatarios distintos —Compartir
+             es para mostrarle algo a un cliente, Pedir es para el proveedor— y por
+             eso tienen nombres distintos y no un solo boton ambiguo.
+             De contorno como "A produccion": el unico relleno rojo sigue siendo el
+             que borra. */''}
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-inv-sel-order" ${invSelected.size?'':'disabled'}
+          style="border-color:var(--basil);color:var(--ink);font-weight:700;">${t('inv_order_selected').replace('{n}', invSelected.size)}</button>
         <button type="button" class="btn btn-sm" id="btn-inv-sel-delete" ${invSelected.size?'':'disabled'}
           style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
       </div>

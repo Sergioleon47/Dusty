@@ -158,8 +158,12 @@ function suggestedOrderModal(){
           </div>`;
         }).join('')}
       </div>`}
+      ${/* Faltaba el paso final: se veia QUE pedir y no habia forma de mandarlo.
+           Solo aparece si hay algo que pedir — con la lista vacia el boton seria
+           una promesa vacia. */''}
       <div class="modal-actions">
-        <button class="btn btn-primary" id="btn-close-suggested-order">${t('btn_close')}</button>
+        <button class="btn btn-ghost" id="btn-close-suggested-order">${t('btn_close')}</button>
+        ${rows.length>0 ? `<button class="btn btn-primary" id="btn-share-suggested-order">${t('suggested_order_share')}</button>` : ''}
       </div>
     </div>
   </div>`;
