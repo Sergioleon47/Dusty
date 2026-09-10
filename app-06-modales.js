@@ -1102,7 +1102,10 @@ function monthRecapModal(){
     }
     const nowKey = recapMode==='year' ? localMonthStr().slice(0,4) : localMonthStr();
     const focusKey = demo ? nowKey : (recapMode==='year' ? (monthRecapKey||nowKey).slice(0,4) : (monthRecapKey||nowKey));
-    const invValue = demo ? 14350 : inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
+    // Sin los ítems de GASTO (servicios, Eat out): no son mercadería, su plata ya
+    // está contada en el gasto del mes — ver la nota en la creación de líneas de
+    // servicio en applyScanResults.
+    const invValue = demo ? 14350 : inventory.filter(i=>!isExpenseItem(i)).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
     const potential = demo ? 22980 : inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.salePrice||0),0);
     const posNeg = (v)=> v>=0 ? 'var(--money-pos)' : 'var(--money-neg)';
     // Formato contable: negativos con signo "−" adelante, nunca "$-120.00".
@@ -3414,6 +3417,13 @@ function applyScanResults(){
   scanExtracted.forEach(item=>{
     if(item.qty<=0 || item.totalPrice<=0 || !item.rawName || !item.rawName.trim()) return;
     let ingId = item.matchedIngId;
+    /* El producto emparejado puede haber dejado de existir entre que se eligió y
+       que se confirma: lo borró este mismo usuario (o el recibo que lo creó), o
+       lo borró un compañero y llegó por la nube. Antes ninguna rama de abajo
+       enganchaba y la línea entraba MUDA: compra registrada contra un id
+       fantasma, plata contada como inversión, y ni stock ni nombre de producto.
+       Se la trata como línea nueva, que es lo que de hecho es. */
+    if(ingId!=='__new__' && ingId!=='__eatout__' && !inventory.some(i=>i.id===ingId)) ingId = '__new__';
     let ingName = '';
     if(ingId==='__eatout__'){
       // Consumo del momento (café, almuerzo): cuenta como GASTO (el recibo entero
@@ -3462,9 +3472,18 @@ function applyScanResults(){
       // mercadería), el id elegido puede ser del universo equivocado — se
       // descarta en vez de guardar una referencia que ningún listado encuentra.
       if(scanCatId && !(isSvcLine ? expenseCategories : categories).some(c=>c.id===scanCatId)) scanCatId = null;
-      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true, qtyOnHand:item.qty, stockFullRef:item.qty, categoryId:isSvcLine?null:scanCatId};
+      /* Un SERVICIO (luz, internet, renta) no es mercadería: entra al Presupuesto,
+         no al inventario. Antes se creaba igual que un producto —qtyOnHand:1 y
+         costPerUnit = el monto de la boleta— y aunque no aparecía en ninguna
+         grilla de stock (stockRowsData filtra los ítems de gasto), SÍ entraba en
+         el "Valor del inventario": una boleta de luz de $600 sumaba $600 al gasto
+         del mes Y $600 al valor del inventario, la misma plata contada dos veces
+         en el mismo Cierre de mes. Sin cantidad y marcado como gasto, igual que
+         los consumos de Eat out de más arriba, que ya se creaban así. */
+      const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true,
+        qtyOnHand: isSvcLine ? 0 : item.qty, stockFullRef: isSvcLine ? null : item.qty, categoryId:isSvcLine?null:scanCatId};
       // Un servicio agrupa en el modal de Presupuesto por su categoría de GASTO.
-      if(isSvcLine && scanCatId) newIng.expenseCategoryId = scanCatId;
+      if(isSvcLine){ newIng.expenseOnly = true; if(scanCatId) newIng.expenseCategoryId = scanCatId; }
       if(currentUser){ newIng.lastEditedBy = currentUserLabel(); newIng.lastEditedAt = new Date().toISOString(); }
       inventory.push(newIng);
       ingId = newIng.id;
@@ -3568,6 +3587,29 @@ function applyScanResults(){
   closeScanModal();
 }
 
+/* La compra más reciente que le queda a un producto — "más reciente" por FECHA
+   del recibo (no por orden de carga: escanear hoy una factura de la semana
+   pasada no debe ganarle a la de ayer), y a igualdad de fecha, la última
+   cargada. Es de dónde sale el precio al que vuelve un producto cuando se borra
+   el recibo que se lo había pisado. */
+function latestPurchaseFor(ingId){
+  let best = null, bestIdx = -1;
+  purchases.forEach((p, idx)=>{
+    if(!p || p.ingId!==ingId) return;
+    if(!best || String(p.date||'') > String(best.date||'') || (String(p.date||'')===String(best.date||'') && idx>bestIdx)){
+      best = p; bestIdx = idx;
+    }
+  });
+  return best;
+}
+/* Un alias aprendido ("tomate roma" -> este producto) que apunta a un producto
+   YA BORRADO es una trampa silenciosa: el próximo escaneo lo da por emparejado,
+   no encuentra el producto, y la línea entra igual — compra registrada y plata
+   contada como inversión, pero SIN stock y sin nombre de producto. Se olvida el
+   alias junto con el producto. */
+function forgetAliasesFor(ingId){
+  Object.keys(aliasMap).forEach(k=>{ if(aliasMap[k]===ingId) delete aliasMap[k]; });
+}
 /* Borra un recibo y las compras que generó (así el gasto mensual y el historial de
    precio no quedan contaminados con un recibo escaneado por error o duplicado).
    Los recibos guardados antes de este cambio no tienen purchaseIds — en ese caso
@@ -3607,6 +3649,7 @@ function deleteReceipt(receiptId){
         if(stillHasOtherPurchases) return;
         const ghostItem = inventory.find(i=>i.id===ingId);
         inventory = inventory.filter(i=>i.id!==ingId);
+        forgetAliasesFor(ingId);
         if(!deletedInventoryIds.includes(ingId)) deletedInventoryIds.push(ingId);
         if(ghostItem) logActivity('item_deleted', ghostItem.name);
       });
@@ -3614,7 +3657,30 @@ function deleteReceipt(receiptId){
     // Lápidas de las compras borradas: sin esto, un compañero offline las re-subía al
     // reconectar (missingPur en reconcileLocalOnlyData) y el recibo "resucitaba" con ellas.
     r.purchaseIds.forEach(pid=>{ if(!deletedPurchaseIds.includes(pid)) deletedPurchaseIds.push(pid); });
+    // A qué productos les tocaba este recibo el precio (se anota ANTES de filtrar).
+    const pricedIngIds = new Set(purchases.filter(p=>idSet.has(p.id)).map(p=>p.ingId));
     purchases = purchases.filter(p=>!idSet.has(p.id));
+    /* EL PRECIO TAMBIÉN VUELVE ATRÁS (revisión de matemáticas 2026-09-10).
+       Aplicar un recibo pisa ing.costPerUnit con el precio de ESE recibo. Borrarlo
+       borraba la compra del historial (el % de cambio de precio desaparecía) pero
+       dejaba el costo pisado: un recibo de $8/lb borrado seguía valuando el stock a
+       $8/lb aunque la única compra que quedaba fuera de $5/lb. Y ese costo no es un
+       número suelto — de él salen el Valor del inventario, el COGS de las salidas sin
+       snapshot, el margen y el "comprometido" del presupuesto. Ahora el costo vuelve
+       al de la compra más reciente que SOBREVIVE (y con ella su unidad, por el mismo
+       motivo por el que aplicar un cambio de unidad reescribe ing.unit).
+       Sin compras que queden no hay a qué volver: el costo se deja como está (puede
+       haberlo puesto el usuario a mano) — nunca se pone en cero, que valuaría el
+       inventario en $0 sin que nadie lo haya pedido. Esto corre SIEMPRE, se hayan
+       revertido las cantidades o no: el historial de compras se borra en los dos casos. */
+    pricedIngIds.forEach(ingId=>{
+      const ing = inventory.find(i=>i.id===ingId);
+      if(!ing) return;
+      const prev = latestPurchaseFor(ingId);
+      if(!prev || !(prev.qty>0) || !(prev.totalPrice>0)) return;
+      ing.costPerUnit = prev.totalPrice/prev.qty;
+      if(prev.unit) ing.unit = prev.unit;
+    });
   }
   receipts = receipts.filter(x=>x.id!==receiptId);
   // Lápida del recibo borrado — mismo motivo: evita que reaparezca desde otro dispositivo.
@@ -3730,6 +3796,7 @@ async function shareReceipt(r){
 function removeInventoryItem(id){
   const deletedItem = inventory.find(i=>i.id===id);
   inventory = inventory.filter(i=>i.id!==id);
+  forgetAliasesFor(id); // ver la nota en forgetAliasesFor
   if(!deletedInventoryIds.includes(id)) deletedInventoryIds.push(id);
   saveState();
   if(deletedItem) logActivity('item_deleted', deletedItem.name);
@@ -3796,7 +3863,7 @@ function deleteSelectedInventory(ids){
     }
   }
   inventory = inventory.filter(i=>!idSet.has(i.id));
-  lista.forEach(i=>{ if(!deletedInventoryIds.includes(i.id)) deletedInventoryIds.push(i.id); });
+  lista.forEach(i=>{ forgetAliasesFor(i.id); if(!deletedInventoryIds.includes(i.id)) deletedInventoryIds.push(i.id); });
   saveState();
   // Un solo registro para toda la acción (ver la nota de arriba).
   if(lista.length===1) logActivity('item_deleted', lista[0].name);

@@ -1672,19 +1672,22 @@ function expenseByCategoryForMonth(key){
   // Clave por id de categoría ('' = sin categoría) para poder cruzar con los topes.
   const add = (cid, amt)=>{ const k = (cid && expenseCategories.some(c=>c.id===cid)) ? cid : ''; sums[k]=(sums[k]||0)+(amt||0); };
   receipts.filter(r=>monthKey(r.date)===key).forEach(r=>{
+    const s = receiptSplit(r, cache);
+    if(!(s.expense>0)) return;
     if(r.manual){
-      if(r.manualKind==='investment') return;
       let cid = r.expenseCategoryId||null;
       if(!cid && r.billItemId){ const it = cache.byId.get(r.billItemId); cid = it ? (it.expenseCategoryId||null) : null; }
-      add(cid, r.total);
+      add(cid, s.expense);
       return;
     }
-    (r.appliedItems||[]).forEach(it=>{
-      const isExp = it.unit==='servicio' || it.expenseOnly===true;
-      if(!isExp) return;
+    // Mismo factor pro-rata que la barra del presupuesto: los dos números salen
+    // del mismo reparto, así no pueden contar historias distintas.
+    const f = s.factor||1;
+    s.expenseLines.forEach(it=>{
       const ing = it.ingId ? cache.byId.get(it.ingId) : null;
-      add(ing ? (ing.expenseCategoryId||null) : null, it.totalPrice);
+      add(ing ? (ing.expenseCategoryId||null) : null, (it.totalPrice||0)*f);
     });
+    if(s.unassignedExpense>0) add(null, s.unassignedExpense);
   });
   return Object.keys(sums).map(id=>{
     const c = id ? expenseCategories.find(c=>c.id===id) : null;
@@ -1782,31 +1785,55 @@ function finCache(){
   }
   return finRenderCache;
 }
+/* ¿Esta línea de un recibo escaneado es GASTO (servicio, consumo) o INVERSIÓN
+   (mercadería que entra al inventario)? Clasificación con snapshot: expenseOnly
+   se congela al aplicar el escaneo (renombrar o borrar el producto ya no
+   reclasifica meses cerrados). Las líneas viejas sin snapshot caen al lookup por
+   id/nombre de siempre. Vive suelta porque la usan DOS cálculos que tienen que
+   contar exactamente lo mismo: la barra del presupuesto (spendSplitForMonth) y
+   el desglose por categoría (expenseByCategoryForMonth). */
+function receiptLineIsExpense(it, cache){
+  if(!it) return false;
+  if(it.unit==='servicio') return true;
+  if(typeof it.expenseOnly==='boolean') return it.expenseOnly;
+  const ing = (it.ingId && cache.byId.get(it.ingId)) || (it.ingName ? cache.byName.get(it.ingName) : null);
+  return !!(ing && ing.expenseOnly);
+}
+/* Reparte UN recibo escaneado entre inversión y gasto, con el factor que
+   distribuye impuestos/cargos que no vienen como línea (y normaliza si el total
+   impreso quedó por debajo de la suma de las líneas). Devuelve también las
+   líneas de gasto YA multiplicadas por ese factor, para que el desglose por
+   categoría sume exactamente lo mismo que la barra — antes el desglose usaba
+   totalPrice crudo y se quedaba corto justo por los impuestos, y un recibo sin
+   ninguna línea aplicada (nada se pudo emparejar) desaparecía entero del
+   desglose aunque su total sí contara como gasto en la barra. */
+function receiptSplit(r, cache){
+  const total = r.total||0;
+  if(r.manual){
+    return r.manualKind==='investment'
+      ? {invested: total, expense: 0, expenseLines: [], unassignedExpense: 0}
+      : {invested: 0, expense: total, expenseLines: [], unassignedExpense: 0}; // el gasto manual sí tiene categoría propia
+  }
+  let inv=0, exp=0; const expLines=[];
+  (r.appliedItems||[]).forEach(it=>{
+    const amt = it.totalPrice||0;
+    if(receiptLineIsExpense(it, cache)){ exp += amt; expLines.push(it); }
+    else inv += amt;
+  });
+  const itemsSum = inv+exp;
+  // Sin líneas con monto, el recibo entero es gasto y no hay a qué categoría
+  // atribuirlo por línea: queda "sin asignar" (lo toma "Sin categoría").
+  if(itemsSum<=0) return {invested: 0, expense: total, expenseLines: [], unassignedExpense: total};
+  const factor = total/itemsSum;
+  return {invested: inv*factor, expense: exp*factor, expenseLines: expLines, factor, unassignedExpense: 0};
+}
 function spendSplitForMonth(key){
   const cache = finCache();
   if(cache.split[key]) return cache.split[key];
   let invested=0, expense=0;
   receipts.filter(r=>monthKey(r.date)===key).forEach(r=>{
-    const total = r.total||0;
-    if(r.manual){ if(r.manualKind==='investment') invested+=total; else expense+=total; return; }
-    let inv=0, exp=0;
-    (r.appliedItems||[]).forEach(it=>{
-      // Clasificación con snapshot: expenseOnly se congela al aplicar el escaneo
-      // (renombrar o borrar el producto ya no reclasifica meses cerrados). Las
-      // líneas viejas sin snapshot caen al lookup por id/nombre de siempre.
-      let isExpense;
-      if(it.unit==='servicio') isExpense = true;
-      else if(typeof it.expenseOnly==='boolean') isExpense = it.expenseOnly;
-      else{
-        const ing = (it.ingId && cache.byId.get(it.ingId)) || (it.ingName ? cache.byName.get(it.ingName) : null);
-        isExpense = !!(ing && ing.expenseOnly);
-      }
-      if(isExpense) exp += it.totalPrice||0; else inv += it.totalPrice||0;
-    });
-    const itemsSum = inv+exp;
-    if(itemsSum<=0){ expense+=total; return; }
-    const factor = total/itemsSum; // reparte impuestos/cargos pro-rata (y normaliza si total < suma)
-    invested += inv*factor; expense += exp*factor;
+    const s = receiptSplit(r, cache);
+    invested += s.invested; expense += s.expense;
   });
   return (cache.split[key] = {invested, expense});
 }

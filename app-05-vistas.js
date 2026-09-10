@@ -907,7 +907,10 @@ function inventarioView(){
     ? groupRowsByCategory(rows)
     : [{id:'__rank', name: invSort==='stock' ? t('inv_sort_stock') : t('inv_sort_value'), rows}];
   const total = sellRows.length;
-  const invValue = inventory.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
+  // Los ítems de GASTO no cuentan: no son mercadería y ninguna fila de esta
+  // pestaña los muestra (stockRowsData ya los filtra) — sumarlos hacía que el
+  // número de arriba no coincidiera con nada de lo que se ve abajo.
+  const invValue = inventory.filter(i=>!isExpenseItem(i)).reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   const fmt = (n)=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const withSale = inventory.filter(i=>!i.expenseOnly && (i.salePrice||0)>0);
   const missingSale = inventory.filter(i=>!i.expenseOnly && !(i.salePrice>0) && (i.qtyOnHand||0)>0).length;
