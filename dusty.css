@@ -1892,6 +1892,56 @@
     color:var(--ink-mid);font-size:13px;font-weight:600;cursor:pointer;transition:border-color .2s, background .2s, transform .15s;}
   .exit-reason-chip:active{transform:scale(.96);}
   .exit-reason-chip.on{border-color:var(--saffron);background:var(--saffron-soft);color:var(--saffron-ink);}
+  /* ===== MOTIVO DE SALIDA en el escáner de reducción (revisión contable
+     2026-09-10) ===== La pregunta que convierte "restar inventario" en un
+     movimiento con significado. Las tres opciones son botones ALTOS con su
+     consecuencia escrita debajo ("entra plata" / "no entra plata todavía" /
+     "plata que perdiste"): la respuesta no puede depender de saber contabilidad.
+     Ninguna viene marcada — el color solo aparece cuando el usuario elige. */
+  .exit-reason-ask{background:var(--inset);border-radius:12px;padding:12px;margin:0 0 14px;}
+  .era-title{font-size:14.5px;font-weight:800;color:var(--ink);margin-bottom:2px;}
+  .era-sub{font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;line-height:1.35;}
+  .era-options{display:flex;flex-direction:column;gap:7px;}
+  .era-option{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+    padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+    text-align:left;cursor:pointer;transition:border-color .2s, background .2s, transform .15s;}
+  .era-option:active{transform:scale(.985);}
+  .era-option-label{font-size:13.5px;font-weight:700;color:var(--ink);}
+  .era-option-hint{font-size:11px;color:var(--ink-soft);line-height:1.3;}
+  /* Cada motivo con SU color, y el mismo en los tres lugares donde aparece
+     (opción de la cabecera, chip del renglón, nota del renglón). El verde no
+     puede significar las tres cosas: "se dañó" pintado de verde al elegirlo,
+     con su aviso en rojo justo debajo, decía dos cosas opuestas a la vez.
+     Vendí = verde (entra plata) · Usé = ámbar (cambió de forma, ni ganancia ni
+     pérdida) · Se dañó = rojo (plata que se fue). */
+  .era-option.on[data-shelf-reason="sale"]{border-color:var(--basil);background:var(--basil-soft);}
+  .era-option.on[data-shelf-reason="sale"] .era-option-label,
+  .era-option.on[data-shelf-reason="sale"] .era-option-hint{color:var(--basil-ink);}
+  .era-option.on[data-shelf-reason="internal"]{border-color:var(--saffron);background:var(--saffron-soft);}
+  .era-option.on[data-shelf-reason="internal"] .era-option-label,
+  .era-option.on[data-shelf-reason="internal"] .era-option-hint{color:var(--saffron-ink);}
+  .era-option.on[data-shelf-reason="loss"]{border-color:var(--tomato);background:var(--tomato-soft);}
+  .era-option.on[data-shelf-reason="loss"] .era-option-label,
+  .era-option.on[data-shelf-reason="loss"] .era-option-hint{color:var(--tomato-ink);}
+  .era-option.on .era-option-hint{opacity:.85;}
+  /* El motivo de UN renglón: chips chicos, para corregir el que salió distinto
+     sin tener que volver a la cabecera. */
+  .row-reason{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;}
+  .rr-label{font-size:10.5px;font-weight:700;color:var(--ink-soft);white-space:nowrap;}
+  .rr-chip{padding:5px 9px;border-radius:14px;border:1px solid var(--line);background:var(--raised);
+    color:var(--ink-mid);font-size:11px;font-weight:600;cursor:pointer;
+    transition:border-color .2s, background .2s, transform .15s;}
+  .rr-chip:active{transform:scale(.94);}
+  .rr-chip.on[data-reason-val="sale"]{border-color:var(--basil);background:var(--basil-soft);color:var(--basil-ink);}
+  .rr-chip.on[data-reason-val="internal"]{border-color:var(--saffron);background:var(--saffron-soft);color:var(--saffron-ink);}
+  .rr-chip.on[data-reason-val="loss"]{border-color:var(--tomato);background:var(--tomato-soft);color:var(--tomato-ink);}
+  /* Qué le va a pasar a la plata de este renglón, dicho en el renglón. */
+  .row-reason-note{font-size:11px;font-weight:600;padding:6px 9px;border-radius:6px;margin-top:6px;line-height:1.35;}
+  .row-reason-note.internal{color:var(--saffron-ink);background:var(--saffron-soft);}
+  .row-reason-note.loss{color:var(--tomato-ink);background:var(--tomato-soft);}
+  /* Por qué el botón de guardar está apagado. */
+  .reason-missing-note{font-size:11.5px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);
+    padding:8px 10px;border-radius:8px;margin:12px 0 0;text-align:center;}
   /* scaleX y no width (segunda pasada 2026-09-08): era la única barra que
      quedó animando una propiedad de layout tras pasar las demás al compositor
      — cada cuadro de estos 450ms recalculaba el layout del modal entero, y el

@@ -521,8 +521,25 @@ const I18N = {
     recap_wf_rev:'Ing.', recap_wf_cogs:'COGS', recap_wf_exp:'Gtos.', recap_wf_net:'Neta',
     recipe_sale_price_label:'Precio de venta por pieza (opcional)',
     recipe_sale_price_helper:'Con esto el Cierre de mes puede estimar los ingresos de tus producciones. Sin precio, la producción no entra a los resultados (nunca inventamos números).',
+    /* MOTIVO DE SALIDA (revisión contable 2026-09-10). Antes esto era UN motivo
+       para toda la foto y arrancaba en "Ventas", así que sacar una foto del
+       estante daba por vendido todo lo que hubiera bajado — inflaba los Ingresos
+       sin que nadie lo eligiera. Ahora se pregunta, sin nada preseleccionado, y
+       cada renglón puede ir por su lado (de 8 productos, 7 se vendieron y 1 se
+       pudrió es lo normal). Sin tecnicismos: la pantalla nunca dice "motivo de
+       salida", "COGS" ni "transferencia de costo". */
     shelf_reason_label:'Estas salidas fueron:',
-    shelf_reason_sale:'Ventas', shelf_reason_loss:'Pérdida / merma',
+    shelf_reason_ask:'¿Qué pasó con esto?',
+    shelf_reason_ask_sub:'Elige una y se aplica a toda la lista. Después puedes cambiar cualquier renglón.',
+    shelf_reason_sale:'💵 Lo vendí', shelf_reason_loss:'🗑️ Se dañó o se perdió',
+    shelf_reason_internal:'🍕 Lo usé para hacer algo',
+    shelf_reason_sale_hint:'Entra plata. La ganancia se calcula con lo que te costó.',
+    shelf_reason_internal_hint:'No entra plata todavía. Ese costo pasa a lo que estás fabricando.',
+    shelf_reason_loss_hint:'Plata que perdiste. No es una venta.',
+    shelf_row_reason:'En este renglón:',
+    shelf_internal_note:'El costo de lo que sacaste pasa a lo que estás fabricando — no cuenta como venta.',
+    shelf_loss_note:'Se cuenta como pérdida, no como venta.',
+    shelf_reason_missing:'Falta decir qué pasó con {n} renglón(es).',
     scan_total_mismatch:'El total del recibo ({total}) difiere mucho de la suma de las líneas ({sum}) — revisa los montos antes de guardar.',
     inv_potential_label:'Potencial de venta', inv_potential_missing:'{n} sin precio de venta',
     team_profits_toggle:'Los miembros pueden ver ganancias y el valor del inventario',
@@ -1051,7 +1068,17 @@ const I18N = {
     recipe_sale_price_label:'Sale price per piece (optional)',
     recipe_sale_price_helper:'This lets the Month recap estimate revenue from your production runs. Without a price, production stays out of the results (we never invent numbers).',
     shelf_reason_label:'These outflows were:',
-    shelf_reason_sale:'Sales', shelf_reason_loss:'Loss / shrinkage',
+    shelf_reason_ask:'What happened to this?',
+    shelf_reason_ask_sub:'Pick one and it applies to the whole list. You can change any row afterwards.',
+    shelf_reason_sale:'💵 I sold it', shelf_reason_loss:'🗑️ It broke or went bad',
+    shelf_reason_internal:'🍕 I used it to make something',
+    shelf_reason_sale_hint:'Money comes in. Profit is worked out from what it cost you.',
+    shelf_reason_internal_hint:'No money yet. That cost moves to what you are making.',
+    shelf_reason_loss_hint:'Money you lost. Not a sale.',
+    shelf_row_reason:'On this row:',
+    shelf_internal_note:'What you took out moves its cost to what you are making — it does not count as a sale.',
+    shelf_loss_note:'Counted as a loss, not a sale.',
+    shelf_reason_missing:'Still need to say what happened to {n} row(s).',
     scan_total_mismatch:'The receipt total ({total}) is far from the line-item sum ({sum}) — double-check the amounts before saving.',
     inv_potential_label:'Sale potential', inv_potential_missing:'{n} without sale price',
     team_profits_toggle:'Members can see profits and inventory value',
@@ -1894,7 +1921,7 @@ function outflowPL(o){
     }
     return {revenue: sale, cogs};
   }
-  let revenue=0, cogs=0, any=false;
+  let revenue=0, cogs=0, internalUse=0, any=false;
   (o.items||[]).forEach(it=>{
     const q = Math.abs(it.qty||0);
     if(!q) return;
@@ -1905,17 +1932,31 @@ function outflowPL(o){
     const cost = hasSnap ? it.costAt : (ing.costPerUnit||0);
     const price = (typeof it.priceAt==='number') ? it.priceAt : (ing ? ing.salePrice||0 : 0);
     any = true;
+    /* MOTIVO POR RENGLÓN (revisión contable 2026-09-10). Las salidas viejas no lo
+       tienen por línea: ahí manda el del ajuste entero, como siempre. */
+    const reason = it.reason || (o.reason==='loss' ? 'loss' : o.reason==='internal' ? 'internal' : 'sale');
+    if(reason==='internal'){
+      /* CONSUMO INTERNO: la mercadería salió del estante para fabricar otra cosa.
+         No es una venta (no entra plata) y NO es costo de lo vendido — el COGS es
+         el costo de lo que SE VENDIÓ. Su costo es un TRASPASO: deja de ser materia
+         prima y pasa a valer dentro de lo que estás fabricando. Se lleva aparte
+         para poder mostrarlo como lo que es y no como ganancia ni como pérdida.
+         Mientras el producto terminado no exista como stock, esta cifra es la
+         única huella de esa plata — por eso no se descarta. */
+      internalUse += q*cost;
+      return;
+    }
     cogs += q*cost;
-    if(o.reason!=='loss' && price>0) revenue += q*price;
+    if(reason!=='loss' && price>0) revenue += q*price;
   });
-  return any ? {revenue, cogs} : null;
+  return any ? {revenue, cogs, internalUse} : null;
 }
 function periodFinancials(key){
   const cache = finCache();
   if(cache.fin[key]) return cache.fin[key];
   const sp = periodSpendSplit(key);
   const inPeriod = d => key.length===4 ? String(d||'').slice(0,4)===key : monthKey(d)===key;
-  let revenue=0, cogs=0, hadOutflows=false;
+  let revenue=0, cogs=0, internalUse=0, hadOutflows=false;
   outflows.forEach(o=>{
     if(!o || !inPeriod(o.date)) return;
     const pl = outflowPL(o);
@@ -1923,6 +1964,7 @@ function periodFinancials(key){
     hadOutflows = true;
     revenue += pl.revenue;
     cogs += pl.cogs;
+    internalUse += pl.internalUse||0;
   });
   // Salidas viejas que el cap de 400 evictó: su aporte vive consolidado por mes
   // en outflowArchive (app-08) — el P&L histórico ya no se achica en silencio.
@@ -1938,6 +1980,9 @@ function periodFinancials(key){
   const net = gross - sp.expense;
   return (cache.fin[key] = {
     invested: sp.invested, expense: sp.expense,
+    // Materiales que salieron del estante para fabricar. No suma ni resta en el
+    // resultado: es plata que cambió de forma, no que se ganó ni se perdió.
+    internalUse,
     revenue, cogs, gross, net,
     grossMarginPct: revenue>0 ? gross/revenue*100 : null,
     netMarginPct: revenue>0 ? net/revenue*100 : null,
