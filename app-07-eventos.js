@@ -255,6 +255,50 @@ function attachEvents(){
   document.querySelectorAll('[data-open-finished]').forEach(el=>{
     el.onclick=()=>openFinishedItemModal(el.dataset.openFinished);
   });
+  /* Las MISMAS capacidades que Inventario en Producción (pedido del usuario
+     2026-09-10): foto, seleccionar, borrar, compartir y columnas. Se reusan sus
+     mismos ayudantes — promptItemPhotoUpload sirve igual para una receta porque
+     también tiene .photo; lo único propio es subirla a Storage después. */
+  document.querySelectorAll('[data-photo-recipe]').forEach(el=>{
+    el.onclick=(e)=>{
+      e.stopPropagation();               // la tarjeta abre la ficha; la foto, no
+      const r = recipeById(el.dataset.photoRecipe);
+      if(!r) return;
+      const antes = r.photo;
+      promptItemPhotoUpload(r);
+      // La subida a Storage va cuando la foto ya cambió: promptItemPhotoUpload es
+      // asíncrono y no avisa, así que se revisa en el próximo tick de render.
+      const revisar = setInterval(()=>{
+        if(r.photo !== antes){ clearInterval(revisar); uploadRecipePhoto(r); }
+      }, 400);
+      setTimeout(()=>clearInterval(revisar), 60000);
+    };
+  });
+  const btnProdSelect=document.getElementById('btn-prod-select');
+  if(btnProdSelect) btnProdSelect.onclick=()=>{
+    if(prodSelectMode) prodExitSelect(); else { prodSelectMode = true; prodSelected.clear(); }
+    render();
+  };
+  document.querySelectorAll('[data-prod-select]').forEach(el=>{
+    el.onclick=()=>{
+      const id = el.dataset.prodSelect;
+      if(prodSelected.has(id)) prodSelected.delete(id); else prodSelected.add(id);
+      render();
+    };
+  });
+  const btnProdSelAll=document.getElementById('btn-prod-sel-all');
+  if(btnProdSelAll) btnProdSelAll.onclick=()=>{
+    // Marca lo que el buscador está mostrando, no el catálogo entero: "todos"
+    // significa "todos los que veo", que es lo que el usuario tiene delante.
+    const visibles = recipes.filter(r=>invMatches(r.name, prodSearch));
+    const faltan = visibles.some(r=>!prodSelected.has(r.id));
+    visibles.forEach(r=>{ if(faltan) prodSelected.add(r.id); else prodSelected.delete(r.id); });
+    render();
+  };
+  const btnProdSelShare=document.getElementById('btn-prod-sel-share');
+  if(btnProdSelShare) btnProdSelShare.onclick=shareSelectedRecipes;
+  const btnProdSelDelete=document.getElementById('btn-prod-sel-delete');
+  if(btnProdSelDelete) btnProdSelDelete.onclick=deleteSelectedRecipes;
   const fiOverlay=document.getElementById('finished-item-overlay');
   if(fiOverlay){
     fiOverlay.onmousedown=(e)=>{ if(e.target===fiOverlay) closeFinishedItemModal(); };
