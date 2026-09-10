@@ -1347,6 +1347,132 @@ function applyShelfAdjust(){
 // como propiedades on* (morphdom puede conservar nodos entre renders; asignar pisa
 // en vez de apilar), y campos de texto que escriben en el estado sin re-render.
 function attachProductionEvents(){
+  /* ---------- la pestaña Catálogo ---------- */
+  const btnNewRecipeTab=document.getElementById('btn-new-recipe-tab');
+  if(btnNewRecipeTab) btnNewRecipeTab.onclick=()=>openRecipeModal(null);
+  const btnNewRecipeEmpty=document.getElementById('btn-new-recipe-empty');
+  if(btnNewRecipeEmpty) btnNewRecipeEmpty.onclick=()=>openRecipeModal(null);
+  const prodSearchInp=document.getElementById('prod-search');
+  if(prodSearchInp) prodSearchInp.oninput=()=>{
+    prodSearch = prodSearchInp.value;
+    scheduleSearchTriggeredRender(()=>{
+      const fresh=document.getElementById('prod-search');
+      if(fresh){ fresh.focus(); fresh.setSelectionRange(fresh.value.length, fresh.value.length); }
+    });
+  };
+  const prodSortSel=document.getElementById('prod-sort');
+  if(prodSortSel) prodSortSel.onchange=()=>{
+    prodSort=prodSortSel.value;
+    try{ localStorage.setItem('patron_prod_sort', prodSort); }catch(e){}
+    render();
+  };
+  document.querySelectorAll('[data-open-finished]').forEach(el=>{
+    el.onclick=()=>openFinishedItemModal(el.dataset.openFinished);
+  });
+  /* Las MISMAS capacidades que Inventario en Producción (pedido del usuario
+     2026-09-10): foto, seleccionar, borrar, compartir y columnas. Se reusan sus
+     mismos ayudantes — promptItemPhotoUpload sirve igual para una receta porque
+     también tiene .photo; lo único propio es subirla a Storage después. */
+  document.querySelectorAll('[data-photo-recipe]').forEach(el=>{
+    el.onclick=(e)=>{
+      e.stopPropagation();               // la tarjeta abre la ficha; la foto, no
+      const r = recipeById(el.dataset.photoRecipe);
+      if(!r) return;
+      // Con foto: se abre grande (así se ve la pieza terminada de verdad, y ahí
+      // mismo están cambiar y quitar). Sin foto: el selector directo, que es lo
+      // único que se puede hacer.
+      if(recipePhotoSrc(r)){ photoViewItemId = r.id; photoViewKind = 'recipe'; render(); }
+      else promptItemPhotoUpload(r, true);
+    };
+  });
+  const btnProdSelect=document.getElementById('btn-prod-select');
+  if(btnProdSelect) btnProdSelect.onclick=()=>{
+    if(prodSelectMode) prodExitSelect(); else { prodSelectMode = true; prodSelected.clear(); }
+    render();
+  };
+  document.querySelectorAll('[data-prod-select]').forEach(el=>{
+    el.onclick=()=>{
+      const id = el.dataset.prodSelect;
+      if(prodSelected.has(id)) prodSelected.delete(id); else prodSelected.add(id);
+      render();
+    };
+  });
+  const btnProdSelAll=document.getElementById('btn-prod-sel-all');
+  if(btnProdSelAll) btnProdSelAll.onclick=()=>{
+    // Marca lo que el buscador está mostrando, no el catálogo entero: "todos"
+    // significa "todos los que veo", que es lo que el usuario tiene delante.
+    const visibles = recipes.filter(r=>invMatches(r.name, prodSearch));
+    const faltan = visibles.some(r=>!prodSelected.has(r.id));
+    visibles.forEach(r=>{ if(faltan) prodSelected.add(r.id); else prodSelected.delete(r.id); });
+    render();
+  };
+  const btnProdSelShare=document.getElementById('btn-prod-sel-share');
+  if(btnProdSelShare) btnProdSelShare.onclick=shareSelectedRecipes;
+  const btnProdSelDelete=document.getElementById('btn-prod-sel-delete');
+  if(btnProdSelDelete) btnProdSelDelete.onclick=deleteSelectedRecipes;
+  const fiOverlay=document.getElementById('finished-item-overlay');
+  if(fiOverlay){
+    fiOverlay.onmousedown=(e)=>{ if(e.target===fiOverlay) closeFinishedItemModal(); };
+    const cerrar=document.getElementById('btn-close-finished-item');
+    if(cerrar) cerrar.onclick=closeFinishedItemModal;
+    const editar=document.getElementById('btn-edit-recipe-from-item');
+    if(editar) editar.onclick=()=>{ const r=recipeById(showFinishedItemModal); closeFinishedItemModal(); if(r) openRecipeModal(r); };
+    const menos=document.getElementById('btn-fi-minus');
+    if(menos) menos.onclick=()=>{ finishedProduceCount=Math.max(1, (Number(finishedProduceCount)||1)-1); render(); };
+    const mas=document.getElementById('btn-fi-plus');
+    if(mas) mas.onclick=()=>{ finishedProduceCount=(Number(finishedProduceCount)||1)+1; render(); };
+    const campo=document.getElementById('fi-produce-count');
+    // onchange y no oninput: re-renderizar por tecla haría temblar la tabla entera
+    // mientras se escribe, el mismo problema que ya tuvo la ficha de producto.
+    if(campo) campo.onchange=()=>{ finishedProduceCount=Math.max(1, Math.round(parseFloat(campo.value)||1)); render(); };
+    /* EDITAR LA COMPOSICIÓN SIN SALIR DE LA FICHA (pedido del usuario 2026-09-10:
+       "poder editarlo"). Cada cambio guarda de una: la composición es la
+       definición de la pieza y tiene que quedar grabada — el usuario que siempre
+       vende lo mismo no puede tener que rehacerla. */
+    const editarBom=document.getElementById('btn-fi-edit-bom');
+    if(editarBom) editarBom.onclick=()=>{ finishedEditMode = !finishedEditMode; finishedProduceCount = 1; render(); };
+    document.querySelectorAll('[data-bom-qty]').forEach(inp=>{
+      // onchange y no oninput: re-renderizar por tecla haría saltar la tabla entera.
+      inp.onchange=()=>{
+        const rec = recipeById(showFinishedItemModal);
+        const c = rec && rec.components[+inp.dataset.bomQty];
+        if(!c) return;
+        const v = roundQty(Math.max(0, parseFloat(inp.value)||0));
+        // Cantidad en cero = el insumo ya no forma parte de la pieza; se saca en
+        // vez de quedar como un renglón que suma $0 y confunde la composición.
+        if(v > 0) c.qty = v; else rec.components.splice(+inp.dataset.bomQty, 1);
+        saveState(); render();
+      };
+    });
+    document.querySelectorAll('[data-bom-del]').forEach(b=>{
+      b.onclick=()=>{
+        const rec = recipeById(showFinishedItemModal);
+        if(!rec) return;
+        rec.components.splice(+b.dataset.bomDel, 1);
+        saveState(); render();
+      };
+    });
+    const agregarBom=document.getElementById('fi-bom-add');
+    if(agregarBom) agregarBom.onchange=()=>{
+      const rec = recipeById(showFinishedItemModal);
+      const id = agregarBom.value;
+      if(!rec || !id) return;
+      // Si ya está, no se duplica el renglón: se deja donde está para que el
+      // usuario le corrija la cantidad en vez de tener el mismo insumo dos veces.
+      if(!rec.components.some(c=>c.ingId===id)) rec.components.push({ingId:id, qty:1});
+      saveState(); render();
+    };
+    const producir=document.getElementById('btn-fi-produce');
+    if(producir) producir.onclick=()=>{
+      const rid = showFinishedItemModal;
+      produceRecipeId = rid;
+      produceCount = Math.max(1, Math.round(Number(finishedProduceCount)||1));
+      applyProduction();          // descuenta insumos y suma producto terminado
+      showFinishedItemModal = rid; // la ficha se queda abierta, ya con el stock nuevo
+      finishedProduceCount = 1;
+      render();
+    };
+  }
   // Una herramienta por pantalla (Inventario y Producción): se enganchan TODAS,
   // no la primera que aparezca.
   document.querySelectorAll('[data-shelf-scan]').forEach(el=>{ el.onclick=openShelfModal; });

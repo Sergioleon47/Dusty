@@ -476,7 +476,12 @@
 // chips) quedan afuera a proposito. (b) Vibracion al confirmar: los avisos de
 // exito y de error, y cada borrado. Mismo plugin Haptics que ya usaba el cambio
 // de pestana, sin permisos nuevos; en el navegador no hace nada — css + app-03/06.
-const CACHE_NAME = 'patron-shell-v132';
+// v133: attachEvents() se partio en cinco archivos nuevos por pantalla
+// (app-09..13) mas el trozo del Catalogo que se fue a app-08. Sin el bump, un
+// cliente con el shell viejo cacheado se quedaria con el index nuevo pidiendo
+// cinco scripts que su cache no tiene, o con el index viejo sin pedirlos: en los
+// dos casos attachEvents llamaria a funciones que no existen.
+const CACHE_NAME = 'patron-shell-v133';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
@@ -498,6 +503,11 @@ const PRECACHE_URLS = [
   '/app-06-modales.js',
   '/app-07-eventos.js',
   '/app-08-produccion.js',
+  '/app-09-eventos-dashboard.js',
+  '/app-10-eventos-inventario.js',
+  '/app-11-eventos-ajustes.js',
+  '/app-12-eventos-cuenta.js',
+  '/app-13-eventos-escaneres.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
