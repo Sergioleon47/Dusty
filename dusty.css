@@ -1254,20 +1254,23 @@
      en el proximo render —sale de qtyOnHand— y la transicion de .inv-tile anima
      el regreso a opacidad 1. */
   .inv-tile{transition:opacity .55s var(--ease-soft);}
-  .inv-tile.agotado{opacity:.5;animation:agotadoRespira 3.2s ease-in-out infinite;}
-  @keyframes agotadoRespira{0%,100%{opacity:.5;}50%{opacity:.34;}}
-  /* El nombre y el precio quedan algo mas legibles que la foto a proposito: el
-     fantasma tiene que decir "no hay", no "no se puede leer". */
-  .inv-tile.agotado .inv-tile-name,
-  .inv-tile.agotado .stock-caption{opacity:.9;}
+  /* El color de la tarjeta viene de LA FOTO, asi que la foto se apaga mucho mas
+     que el resto (pedido del usuario 2026-09-10: "todavia tiene un poquito mucho
+     de color"). Bajar la tarjeta entera por igual no servia: para sacarle el
+     color habia que bajarla tanto que el nombre dejaba de leerse.
+     Asi el fantasma queda casi sin color —la foto a .62 x .22 = .14 real— y el
+     nombre y el precio siguen legibles a .62. */
+  .inv-tile.agotado{opacity:.62;}
+  .inv-tile.agotado .stock-icon-ring{opacity:.22;animation:agotadoRespira 3.2s ease-in-out infinite;}
+  @keyframes agotadoRespira{0%,100%{opacity:.22;}50%{opacity:.10;}}
   /* Con los latidos apagados o "reducir movimiento" el fantasma SIGUE —es
      informacion, no adorno—; se congela en el lado visible, igual que el criterio
      de .field-needs-value: apagado no puede significar invisible. */
   html[data-dusty-pulse="off"] .inv-tile{transition:none;}
-  html[data-dusty-pulse="off"] .inv-tile.agotado{animation:none;opacity:.5;}
+  html[data-dusty-pulse="off"] .inv-tile.agotado .stock-icon-ring{animation:none;opacity:.22;}
   @media (prefers-reduced-motion: reduce){
     .inv-tile{transition:none;}
-    .inv-tile.agotado{animation:none;opacity:.5;}
+    .inv-tile.agotado .stock-icon-ring{animation:none;opacity:.22;}
   }
   @media (prefers-reduced-motion: reduce){
     .overlay.overlay-fast, .overlay.overlay-fast .modal{animation:none;}
