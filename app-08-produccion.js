@@ -220,6 +220,51 @@ const prodSortIcon = '<svg viewBox="0 0 20 20" width="16" height="16" stroke="cu
 
 function produccionView(){
   const lista = prodSortRecipes(recipes.filter(r=>invMatches(r.name, prodSearch)));
+  /* Las MISMAS capacidades que Inventario (pedido del usuario 2026-09-10): foto,
+     seleccionar, borrar, compartir y las columnas. Se reusan sus clases y su
+     preferencia de columnas (invLayout) a propósito — son la misma pantalla con
+     otra lista adentro, y que se sientan distintas sería el error. */
+  /* El escáner de reducción también acá (pedido del usuario 2026-09-10: "qué tal
+     si ponemos ese mismo scanner en la pantalla de producción"). Es exactamente
+     el mismo —mismo modal, mismos motivos venta/producción/merma— porque las
+     piezas terminadas YA son ítems del inventario (ensureFinishedItem), así que
+     la IA las reconoce y las cuenta sin ningún cambio. Lo que faltaba era la
+     puerta: para descontar dos tableros vendidos había que irse a Inventario. */
+  const herramienta = `<div class="inv-tools">${shelfScanFab('prod')}</div>`;
+  const chips = `
+    <div class="inv-chips">
+      <button type="button" class="category-chip quick ${prodSelectMode?'on':''}" id="btn-prod-select">${prodSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
+    </div>`;
+  const barra = prodSelectMode ? `
+    <div class="inv-sticky">
+      <div class="inv-selbar">
+        <strong>${t('inv_selected_n').replace('{n}', prodSelected.size)}</strong>
+        <button type="button" class="link-btn" id="btn-prod-sel-all">${t('inv_select_all')}</button>
+        ${/* Compartir = el catálogo para el cliente: foto, nombre y PRECIO. Nunca
+             el costo ni el margen — ver shareSelectedRecipes. */''}
+        <button type="button" class="btn btn-sm" id="btn-prod-sel-share" ${prodSelected.size?'':'disabled'}
+          style="margin-left:auto;background:var(--basil);color:var(--on-accent);">${t('prod_share_selected').replace('{n}', prodSelected.size)}</button>
+        <button type="button" class="btn btn-sm" id="btn-prod-sel-delete" ${prodSelected.size?'':'disabled'}
+          style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', prodSelected.size)}</button>
+      </div>
+    </div>` : `
+    <div class="inv-sticky">
+      <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
+        <div class="inv-search-wrap">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${recipes.length ? t('prod_search_ph').replace('{n}', String(recipes.length)) : t('prod_search_ph_empty')}" autocomplete="off">
+        </div>
+        ${invLayoutToggleHtml().replace('</div>', `
+          <span class="inv-sort-wrap ${prodSort!=='name'?'on':''}" title="${t('inv_sort_label')}">${prodSortIcon}
+            <select id="prod-sort" aria-label="${t('inv_sort_label')}">
+              <option value="name" ${prodSort==='name'?'selected':''}>${t('prod_sort_name')}</option>
+              <option value="price" ${prodSort==='price'?'selected':''}>${t('prod_sort_price')}</option>
+              <option value="made" ${prodSort==='made'?'selected':''}>${t('prod_sort_made')}</option>
+            </select>
+          </span></div>`)}
+        <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe_short')}</button>
+      </div>
+    </div>`;
   if(recipes.length===0){
     /* EL CATALOGO VACIO LLEVA LA CAMARA DE REDUCCION EN LUGAR DEL MEDALLON
        (pedido del usuario 2026-09-10 sobre una captura, con el circulo marcado:
@@ -262,7 +307,16 @@ function produccionView(){
           <div class="inv-tile-name">${escapeHtml(g.n)}</div>
         </div>
       </div>`).join('');
-    return `<div class="empty-state" style="padding:16px 20px 40px;">
+    /* LA BARRA VA ARRIBA TAMBIEN CON EL CATALOGO VACIO (pedido del usuario
+       2026-09-10 sobre una captura de la barra: "esto ponlo encima como
+       siempre"). Antes esta rama salia antes de armarla, asi que la pantalla
+       vacia era la unica de la app sin su barra: se sentia otra pantalla.
+       Y ademas hace juego con las fichas fantasma de abajo — con la barra puesta,
+       lo que se ve ES el catalogo de verdad, vacio, no un cartel aparte.
+       Va la barra de herramientas, no la fila de "Elegir": marcar piezas cuando
+       no hay ninguna no hace nada, y un boton que no puede hacer nada es peor que
+       no ponerlo. */
+    return barra + `<div class="empty-state" style="padding:16px 20px 40px;">
       <div class="inv-tools" style="margin:0 0 14px;">${shelfScanFab('prod', true)}</div>
       <h3 style="margin:0 0 6px;">${t('prod_empty_title')}</h3>
       <p style="margin:0;font-size:13px;">${t('prod_empty_sub')}</p>
@@ -271,51 +325,7 @@ function produccionView(){
       <div class="inv-grid cols3 prod-ghost-grid">${fantasmas}</div>
     </div>`;
   }
-  /* Las MISMAS capacidades que Inventario (pedido del usuario 2026-09-10): foto,
-     seleccionar, borrar, compartir y las columnas. Se reusan sus clases y su
-     preferencia de columnas (invLayout) a propósito — son la misma pantalla con
-     otra lista adentro, y que se sientan distintas sería el error. */
-  /* El escáner de reducción también acá (pedido del usuario 2026-09-10: "qué tal
-     si ponemos ese mismo scanner en la pantalla de producción"). Es exactamente
-     el mismo —mismo modal, mismos motivos venta/producción/merma— porque las
-     piezas terminadas YA son ítems del inventario (ensureFinishedItem), así que
-     la IA las reconoce y las cuenta sin ningún cambio. Lo que faltaba era la
-     puerta: para descontar dos tableros vendidos había que irse a Inventario. */
-  const herramienta = `<div class="inv-tools">${shelfScanFab('prod')}</div>`;
-  const chips = `
-    <div class="inv-chips">
-      <button type="button" class="category-chip quick ${prodSelectMode?'on':''}" id="btn-prod-select">${prodSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
-    </div>`;
-  const barra = prodSelectMode ? `
-    <div class="inv-sticky">
-      <div class="inv-selbar">
-        <strong>${t('inv_selected_n').replace('{n}', prodSelected.size)}</strong>
-        <button type="button" class="link-btn" id="btn-prod-sel-all">${t('inv_select_all')}</button>
-        ${/* Compartir = el catálogo para el cliente: foto, nombre y PRECIO. Nunca
-             el costo ni el margen — ver shareSelectedRecipes. */''}
-        <button type="button" class="btn btn-sm" id="btn-prod-sel-share" ${prodSelected.size?'':'disabled'}
-          style="margin-left:auto;background:var(--basil);color:var(--on-accent);">${t('prod_share_selected').replace('{n}', prodSelected.size)}</button>
-        <button type="button" class="btn btn-sm" id="btn-prod-sel-delete" ${prodSelected.size?'':'disabled'}
-          style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', prodSelected.size)}</button>
-      </div>
-    </div>` : `
-    <div class="inv-sticky">
-      <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
-        <div class="inv-search-wrap">
-          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${t('prod_search_ph').replace('{n}', String(recipes.length))}" autocomplete="off">
-        </div>
-        ${invLayoutToggleHtml().replace('</div>', `
-          <span class="inv-sort-wrap ${prodSort!=='name'?'on':''}" title="${t('inv_sort_label')}">${prodSortIcon}
-            <select id="prod-sort" aria-label="${t('inv_sort_label')}">
-              <option value="name" ${prodSort==='name'?'selected':''}>${t('prod_sort_name')}</option>
-              <option value="price" ${prodSort==='price'?'selected':''}>${t('prod_sort_price')}</option>
-              <option value="made" ${prodSort==='made'?'selected':''}>${t('prod_sort_made')}</option>
-            </select>
-          </span></div>`)}
-        <button type="button" class="btn btn-primary btn-sm" id="btn-new-recipe-tab" style="flex-shrink:0;">${t('prod_new_recipe_short')}</button>
-      </div>
-    </div>`;
+
   /* LA FICHA DEL CATÁLOGO: FOTO Y NOMBRE, NADA MÁS (pedido del usuario
      2026-09-10: "que se vean exactamente como estos pero sin descripción, que
      esté oculta y solo salga cuando se haga click").
