@@ -593,6 +593,15 @@ function openRecipeModal(recipe){
   recipeScanState='idle'; recipeScanError=''; recipeScanNote=''; recipeScanRequestId++;
   showRecipeModal = true; render();
 }
+/* Cuáles de los marcados pueden ser insumo de verdad. Vive aparte porque la
+   cuenta la necesitan DOS lugares y tienen que decir lo mismo: el número del
+   botón ("vas a mover N") y la acción ("moví N"). Cuando el botón contaba los
+   marcados a secas, prometía 3 y movía 2 — un gasto marcado entre los tres
+   inflaba el número y el usuario se enteraba después, por el toast. */
+function prodEligibleSelected(){
+  return inventory.filter(i => i && invSelected.has(i.id) && !isExpenseItem(i) && !i.finishedGood);
+}
+
 /* MOVER LO SELECCIONADO DEL INVENTARIO AL CATÁLOGO (idea del usuario 2026-09-10).
    Marcás en Inventario los productos que usás para hacer UNA cosa y con un botón
    se arma la pieza: los seleccionados entran como sus insumos, uno de cada uno
@@ -617,7 +626,7 @@ function openRecipeModal(recipe){
 function moveSelectedToProduction(){
   // Un gasto (luz, alquiler) no es un insumo: no tiene stock del que descontar.
   // Y una pieza terminada tampoco entra acá — se filtran sin drama, avisando.
-  const elegidos = inventory.filter(i => i && invSelected.has(i.id) && !isExpenseItem(i) && !i.finishedGood);
+  const elegidos = prodEligibleSelected();
   const descartados = invSelected.size - elegidos.length;
   if(elegidos.length === 0){
     showToast(t('move_prod_none'), 'error');

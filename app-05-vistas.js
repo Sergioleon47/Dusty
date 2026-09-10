@@ -1027,8 +1027,18 @@ function inventarioView(){
              distinguir por PESO: relleno = las dos acciones de siempre, contorno =
              la nueva. Asi el unico boton rojo macizo sigue siendo el que borra,
              que es como tiene que ser. */''}
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-inv-sel-toprod" ${invSelected.size?'':'disabled'}
-          style="border-color:var(--saffron);color:var(--saffron-ink);font-weight:700;">${t('inv_move_to_prod').replace('{n}', invSelected.size)}</button>
+        ${(()=>{
+          /* El número del botón cuenta los que DE VERDAD van a entrar, no los
+             marcados a secas: con un gasto marcado entre tres, decía "(3)" y
+             movía 2. Un botón no puede prometer un número y hacer otro.
+             Si quedaron marcados que no sirven, se dice acá mismo y antes de
+             tocar nada, no después en un aviso que se va solo. */''
+          const listos = (typeof prodEligibleSelected==='function') ? prodEligibleSelected().length : invSelected.size;
+          const fuera = invSelected.size - listos;
+          return `<button type="button" class="btn btn-ghost btn-sm" id="btn-inv-sel-toprod" ${listos?'':'disabled'}
+            title="${fuera>0 ? escapeHtml(t('inv_move_to_prod_skip').replace('{f}', String(fuera))) : ''}"
+            style="border-color:var(--saffron);color:var(--saffron-ink);font-weight:700;">${t('inv_move_to_prod').replace('{n}', listos)}${fuera>0 ? ` <span style="opacity:.7;font-weight:600;">−${fuera}</span>` : ''}</button>`;
+        })()}
         <button type="button" class="btn btn-sm" id="btn-inv-sel-delete" ${invSelected.size?'':'disabled'}
           style="background:var(--tomato);color:var(--on-accent);">${t('inv_delete_selected').replace('{n}', invSelected.size)}</button>
       </div>
