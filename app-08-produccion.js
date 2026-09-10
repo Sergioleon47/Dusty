@@ -50,7 +50,12 @@ let showShelfModal = false, shelfState = 'camera', shelfItems = [], shelfUnmatch
    8 productos 7 se vendieron y 1 se pudrió es el caso normal, no el raro. */
 let shelfReason = null;
 // Burbuja de instrucciones del badge "−" del escáner de estante (ver shelfScanFab).
-let showShelfInfoBubble = false;
+/* Qué zona tiene abierta la burbuja de instrucciones: null | 'inv' | 'prod'.
+   Dejó de ser un booleano cuando el escáner pasó a vivir en DOS pantallas: el
+   .shelf-info-backdrop es position:fixed sobre toda la ventana, así que con un
+   booleano las dos copias lo dibujaban a la vez y la de la pantalla oculta
+   quedaba igual tapando los toques de la visible. */
+let showShelfInfoBubble = null;
 let shelfCamStream = null;
 
 function recipeById(id){ return recipes.find(r => r.id === id); }
@@ -152,6 +157,16 @@ async function readStockFromPhoto(image){
   return Array.isArray(parsed.products) ? parsed.products : [];
 }
 
+/* El % de llenado que devolvió la IA, o null. El contrato dice "número o null",
+   pero si el servidor OMITE la clave llega undefined, y undefined!==null es true:
+   con esa comparación suelta la fila mostraba "~undefined% del envase", pedía una
+   capacidad que no hacía falta, y al escribirla calculaba cap × undefined = NaN.
+   Un solo lugar decide qué cuenta como porcentaje. */
+function fillPct(v){
+  const n = Number(v);
+  return (v===null || v===undefined || v==='' || !Number.isFinite(n)) ? null : n;
+}
+
 // Empareja una lectura del modo stock contra el inventario: primero el match de la
 // IA (entiende abreviaturas/marcas), después la coincidencia literal de nombre —
 // mismo criterio en cascada que ya usa processProductBatchSource.
@@ -213,6 +228,13 @@ function produccionView(){
      seleccionar, borrar, compartir y las columnas. Se reusan sus clases y su
      preferencia de columnas (invLayout) a propósito — son la misma pantalla con
      otra lista adentro, y que se sientan distintas sería el error. */
+  /* El escáner de reducción también acá (pedido del usuario 2026-09-10: "qué tal
+     si ponemos ese mismo scanner en la pantalla de producción"). Es exactamente
+     el mismo —mismo modal, mismos motivos venta/producción/merma— porque las
+     piezas terminadas YA son ítems del inventario (ensureFinishedItem), así que
+     la IA las reconoce y las cuenta sin ningún cambio. Lo que faltaba era la
+     puerta: para descontar dos tableros vendidos había que irse a Inventario. */
+  const herramienta = `<div class="inv-tools">${shelfScanFab('prod')}</div>`;
   const chips = `
     <div class="inv-chips">
       <button type="button" class="category-chip quick ${prodSelectMode?'on':''}" id="btn-prod-select">${prodSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
@@ -278,7 +300,7 @@ function produccionView(){
       </div>
     </div>`;
   }).join('');
-  return chips + barra + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
+  return herramienta + chips + barra + `<div class="inv-grid ${invLayout}">${tiles}</div>`;
 }
 
 /* Compartir el CATÁLOGO con un cliente: foto, nombre y precio de venta. Nunca el
@@ -343,7 +365,8 @@ function deleteSelectedRecipes(){
    (mismo lenguaje que el FAB del Dashboard). Producción entra como un botón normal
    más en la fila de acciones (ver inv-header-actions en app-05) — sin elementos
    visuales nuevos compitiendo con el FAB. */
-function shelfScanFab(){
+function shelfScanFab(zona){
+  const z = zona || 'inv';
   if(inventory.length === 0) return '';
   // Los dos .scan-fab-ring son el MISMO efecto de pulso del botón de escanear del
   // Dashboard (fabPulse + delay) — pedido del usuario: los dos escáneres de la app
@@ -367,19 +390,22 @@ function shelfScanFab(){
   return `
   <div class="inv-tool" style="min-width:76px;">
     <span class="shelf-fab-wrap" style="display:block;">
-      <button type="button" class="shelf-scan-fab" id="btn-shelf-scan"
+      ${/* data-* y no id: la MISMA herramienta se dibuja en Inventario y en
+           Producción, y dos nodos con el mismo id habrían dejado a uno de los
+           dos sin handler (getElementById devuelve solo el primero). */''}
+      <button type="button" class="shelf-scan-fab" data-shelf-scan="${z}"
         title="${t('shelf_banner_title')} — ${t('shelf_banner_sub')}"
         aria-label="${t('shelf_banner_title')}">
         <div class="scan-fab-ring"></div>
         <div class="scan-fab-ring delay"></div>
         ${lineIcon('camera',30)}
       </button>
-      <button type="button" class="shelf-minus-badge" id="btn-shelf-info" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble?'true':'false'}">−</button>
+      <button type="button" class="shelf-minus-badge" data-shelf-info="${z}" aria-label="${t('shelf_info_badge_aria')}" aria-expanded="${showShelfInfoBubble===z?'true':'false'}">−</button>
     </span>
     <span class="inv-tool-label" style="font-weight:800;">${t('shelf_banner_title')}</span>
-    ${showShelfInfoBubble ? `
-    <div class="shelf-info-backdrop" id="shelf-info-backdrop"></div>
-    <div class="shelf-info-bubble" id="shelf-info-bubble" role="tooltip">
+    ${showShelfInfoBubble===z ? `
+    <div class="shelf-info-backdrop" data-shelf-info-close="${z}"></div>
+    <div class="shelf-info-bubble" data-shelf-info-close="${z}" role="tooltip">
       <strong>${t('shelf_info_title')}</strong>
       ${t('shelf_info_text')}
     </div>` : ''}
@@ -487,7 +513,9 @@ function finishedItemModal(){
           <h3 class="basil" style="margin:0 0 2px;">${escapeHtml(rec.name)}</h3>
           ${/* Precio, margen, stock y costo: todo lo que se sacó de la tarjeta
                para no mostrárselo a un cliente aparece acá, un toque adentro. */''}
-          <div class="sub" style="margin:0;">${venta>0 ? `<b>${money(venta)}</b>` : t('prod_no_sale_price')}${(()=>{
+          ${/* Sin precio no es un dato que falta y ya: es lo que decide si vender
+               esta pieza suma ingresos o solo resta costo. Va en el color de aviso. */''}
+          <div class="sub" style="margin:0;">${venta>0 ? `<b>${money(venta)}</b>` : `<b style="color:var(--saffron-ink);">⚠ ${t('prod_no_sale_price')}</b>`}${(()=>{
             if(!ver) return '';
             const m = (venta>0 && total>0) ? profitMarginPct(roundQty(total/n), venta) : null;
             return m===null ? '' : ` · <span style="color:${m<15?'var(--saffron-ink)':'var(--basil-ink)'};font-weight:700;">${m.toFixed(0)}%</span>`;
@@ -609,8 +637,15 @@ function recipeModal(){
           <button type="button" class="btn btn-ghost btn-sm" id="btn-recipe-photo" style="flex:1;">${t('btn_upload_photo')}</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-recipe-scan" ${recipeScanState==='loading'?'disabled':''} style="flex:2;">${t('recipe_scan_btn')}</button>
           <input type="file" id="recipe-photo-file" accept="image/*" style="display:none;">
+          ${/* Dos entradas para la MISMA lectura: la de arriba lleva capture y abre
+               la cámara directo (estás parado frente a la pieza); la de abajo, sin
+               capture, abre la galería. Era el único escáner de la app sin salida a
+               la galería — Recibos, Productos y el de reducción ya la tenían, y si
+               la foto de la pieza ya estaba en el teléfono no había forma de usarla. */''}
           <input type="file" id="recipe-scan-file" accept="image/*" capture="environment" style="display:none;">
+          <input type="file" id="recipe-scan-file-gallery" accept="image/*" style="display:none;">
         </div>
+        ${recipeScanState==='loading' ? '' : `<button type="button" id="btn-recipe-scan-gallery" class="dz-gallery-link" style="margin:10px auto 0;">${t('scan_upload_gallery_btn')}</button>`}
         <div class="helper-note" style="margin:8px 0 0;">${t('recipe_scan_hint')}</div>
         ${recipeScanState==='loading' ? `<div class="scan-status" style="margin:12px 0 0;"><div class="spinner"></div> ${t('recipe_scan_loading')}</div>` : ''}
         ${recipeScanState==='error' ? `<div class="scan-error" style="margin:12px 0 0;">⚠ ${escapeHtml(recipeScanError)}</div>` : ''}
@@ -640,9 +675,16 @@ function recipeModal(){
              Cierre de mes estime ingresos de una producción — antes se valuaban
              los insumos consumidos al salePrice de cada insumo, que inventaba
              ingresos o pérdidas (revisión de contador 2026-09-04). */''}
+        ${/* El precio LATE cuando falta, igual que el costo y el precio de venta de
+             un ítem del inventario (needsValueClass, app-06). Es el mismo aviso
+             porque es el mismo agujero: medido 2026-09-10, vender 2 piezas de $231
+             sin precio cargado daba $0 de ingresos y $462 de costo — una venta real
+             registrada como pérdida pura. Sigue sin ser obligatorio (una pieza
+             puede fabricarse solo para consumo interno), pero ya no se pasa por
+             alto sin querer. */''}
         <div class="field" style="margin:12px 0 0;">
           <label for="recipe-sale-price">${t('recipe_sale_price_label')}</label>
-          <input id="recipe-sale-price" type="number" step="0.01" min="0" inputmode="decimal" value="${draftRecipe.salePrice??''}" placeholder="0.00">
+          <input id="recipe-sale-price"${needsValueClass(draftRecipe.salePrice)} type="number" step="0.01" min="0" inputmode="decimal" value="${draftRecipe.salePrice??''}" placeholder="0.00">
           <div class="helper-note" style="margin:6px 0 0;">${t('recipe_sale_price_helper')}</div>
         </div>
       </div>
@@ -944,7 +986,7 @@ function outflowsModal(){
 
 /* ---------- MODAL: ESCÁNER DE ESTANTE ---------- */
 function openShelfModal(){
-  showShelfInfoBubble = false; // abrir el escáner cierra la burbuja de instrucciones
+  showShelfInfoBubble = null; // abrir el escáner cierra la burbuja de instrucciones
   if(!currentUser){
     // Mismo trato que los otros escáneres: cuenta real desconectada → login;
     // si no, trial anónimo en segundo plano y el modal abre al instante.
@@ -1019,8 +1061,16 @@ async function processShelfSource(source){
   shelfPendingImg = null; shelfQualityWarn = null; shelfLastSource = source;
   shelfState='loading'; shelfError=''; beginAiWait(); render();
   try{
-    // 2000 px (antes 1400): las etiquetas de un estante entero necesitan píxeles.
-    const image = resizeToBase64(source, 2000, 0.88);
+    /* La foto más nítida que manda la app (pedido del usuario 2026-09-10: "que
+       esta cámara tome fotos más nítidas, con las mismas funciones"). Antes iba
+       a 2000/0.88; ahora al mismo techo que el escáner de recibos —el más alto
+       que Dusty ya usa en producción, así que no es un número inventado: 2576 px
+       de lado largo y 0.92 de calidad. resizeToBase64 nunca agranda, así que
+       esto no infla una foto chica: solo deja de tirar píxeles cuando la cámara
+       del teléfono los dio (un celular saca 3000-4000 px de lado). Importa acá
+       más que en ningún otro escáner porque hay que leer etiquetas chicas y
+       CONTAR piezas en una repisa entera, no un solo producto de cerca. */
+    const image = resizeToBase64(source, SCAN_MAX_SIDE_FOR_READING, 0.92);
     const products = await readStockFromPhoto(image);
     endAiWait();
     if(requestId !== shelfRequestId || !showShelfModal) return;
@@ -1051,10 +1101,10 @@ async function processShelfSource(source){
       }
       // fill_percent sin capacidad declarada: la fila queda esperando ese dato —
       // se pide inline y el % se convierte solo, sin obligar a abrir el producto.
-      const needsCapacity = detected===null && !blockedNote && p.fill_percent!==null && !(Number(ing.capacityFull)>0);
+      const needsCapacity = detected===null && !blockedNote && fillPct(p.fill_percent)!==null && !(Number(ing.capacityFull)>0);
       shelfItems.push({
         ingId: ing.id,
-        reading: p.reading, count: p.count, fill_percent: p.fill_percent,
+        reading: p.reading, count: p.count, fill_percent: fillPct(p.fill_percent),
         sticker_color: p.sticker_color, confidence: p.confidence, visible_note: blockedNote || p.visible_note,
         detected, finalQty: detected!==null ? detected : '',
         needsCapacity, capacityDraft: '',
@@ -1156,7 +1206,7 @@ function shelfScanModal(){
           const metaBits = [];
           metaBits.push(`${t('shelf_current')}: <strong style="color:var(--ink);">${escapeHtml(ing.qtyOnHand||0)} ${escapeHtml(unitLabel(ing.unit))}</strong>`);
           if(it.detected!==null) metaBits.push(`${t('shelf_detected')}: <strong style="color:var(--ink);">${escapeHtml(it.detected)} ${escapeHtml(unitLabel(ing.unit))}</strong>`);
-          if(it.fill_percent!==null && it.reading!=='unidades') metaBits.push(t('shelf_fill_note').replace('{p}', it.fill_percent));
+          if(fillPct(it.fill_percent)!==null && it.reading!=='unidades') metaBits.push(t('shelf_fill_note').replace('{p}', fillPct(it.fill_percent)));
           if(it.sticker_color) metaBits.push(t('shelf_sticker_note').replace('{c}', escapeHtml(it.sticker_color)));
           return `
           <div class="matched-item" style="${it.include?'':'opacity:.55;'}">
@@ -1200,7 +1250,10 @@ function shelfScanModal(){
             ${it.include && it.reason==='sale' ? `
             <div class="mi-fields" style="align-items:center;margin-top:6px;">
               <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>
-              <input data-shelf-price="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
+              ${/* Late cuando está vacío, como cualquier casilla que la contabilidad
+                   necesita. Es el último punto donde se puede evitar registrar una
+                   venta con $0 de ingreso y el costo completo. */''}
+              <input data-shelf-price="${idx}"${it.salePriceDraft==='' ? ' class="field-needs-value"' : ''} type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
               <span style="font-size:12px;color:var(--ink-soft);">$/${escapeHtml(unitLabel(ing.unit))}</span>
             </div>
             ${it.salePriceDraft==='' ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}
@@ -1294,16 +1347,22 @@ function applyShelfAdjust(){
 // como propiedades on* (morphdom puede conservar nodos entre renders; asignar pisa
 // en vez de apilar), y campos de texto que escriben en el estado sin re-render.
 function attachProductionEvents(){
-  const btnShelfScan=document.getElementById('btn-shelf-scan');
-  if(btnShelfScan) btnShelfScan.onclick=openShelfModal;
+  // Una herramienta por pantalla (Inventario y Producción): se enganchan TODAS,
+  // no la primera que aparezca.
+  document.querySelectorAll('[data-shelf-scan]').forEach(el=>{ el.onclick=openShelfModal; });
   // Badge "−" y su burbuja de instrucciones: el badge la abre/cierra; tocar la
   // burbuja o cualquier parte de afuera (backdrop transparente) la cierra.
-  const btnShelfInfo=document.getElementById('btn-shelf-info');
-  if(btnShelfInfo) btnShelfInfo.onclick=(e)=>{ e.stopPropagation(); showShelfInfoBubble=!showShelfInfoBubble; render(); };
-  const shelfInfoBackdrop=document.getElementById('shelf-info-backdrop');
-  if(shelfInfoBackdrop) shelfInfoBackdrop.onclick=()=>{ showShelfInfoBubble=false; render(); };
-  const shelfInfoBubble=document.getElementById('shelf-info-bubble');
-  if(shelfInfoBubble) shelfInfoBubble.onclick=()=>{ showShelfInfoBubble=false; render(); };
+  document.querySelectorAll('[data-shelf-info]').forEach(el=>{
+    el.onclick=(e)=>{
+      e.stopPropagation();
+      const z = el.dataset.shelfInfo;
+      showShelfInfoBubble = (showShelfInfoBubble===z) ? null : z;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-shelf-info-close]').forEach(el=>{
+    el.onclick=()=>{ showShelfInfoBubble=null; render(); };
+  });
   const btnProductionHub=document.getElementById('btn-production-hub');
   if(btnProductionHub) btnProductionHub.onclick=()=>{ showProductionHub=true; render(); };
   const hubOverlay=document.getElementById('production-hub-overlay');
@@ -1347,20 +1406,28 @@ function attachProductionEvents(){
       }catch(err){ showToast(err.message || t('err_img_process'), 'error'); }
     };
     const scanFile=document.getElementById('recipe-scan-file');
+    const scanGallery=document.getElementById('recipe-scan-file-gallery');
     const btnScan=document.getElementById('btn-recipe-scan');
-    if(btnScan && scanFile) btnScan.onclick=()=>{
+    const btnScanGallery=document.getElementById('btn-recipe-scan-gallery');
+    // La cuenta se pide UNA vez, antes de abrir cualquiera de las dos entradas:
+    // la lectura la hace la IA igual, venga de la cámara o de la galería.
+    const pedirEntrada=(entrada)=>{
       if(!currentUser){
         if(everHadRealAccount()){ ensurePatronFirebaseReady().catch(()=>{}); openAuthModal(t('scan_requires_account')); return; }
         ensureTrialAccount().catch(()=>{});
       }
-      scanFile.click();
+      entrada.click();
     };
-    if(scanFile) scanFile.onchange=(e)=>{
+    if(btnScan && scanFile) btnScan.onclick=()=>pedirEntrada(scanFile);
+    if(btnScanGallery && scanGallery) btnScanGallery.onclick=()=>pedirEntrada(scanGallery);
+    const onRecipeScanFile=(e)=>{
       const file=e.target.files[0];
-      scanFile.value='';
+      e.target.value='';
       if(!file || !/^image\//.test(file.type)) return;
       runRecipeScan(file);
     };
+    if(scanFile) scanFile.onchange=onRecipeScanFile;
+    if(scanGallery) scanGallery.onchange=onRecipeScanFile;
     const btnAddComp=document.getElementById('btn-add-component');
     if(btnAddComp) btnAddComp.onclick=()=>{ if(draftRecipe){ draftRecipe.components.push({ingId:'', qty:''}); render(); } };
     document.querySelectorAll('[data-rcomp-ing]').forEach(sel=>{
@@ -1474,14 +1541,15 @@ function attachProductionEvents(){
         it.capacityDraft=inp.value;
         // Con la capacidad puesta, el % pendiente se convierte en cantidad en vivo.
         const cap=parseFloat(inp.value);
-        if(Number.isFinite(cap) && cap>0 && it.fill_percent!==null){
+        const pct = fillPct(it.fill_percent);
+        if(Number.isFinite(cap) && cap>0 && pct!==null){
           // Tope en el stock actual: este escáner solo descuenta, y sin el tope la
           // conversión cap×% podía pintar un "+N" verde que applyShelfAdjust
           // después descartaba en silencio — la UI prometía una suba que jamás
           // se aplicaba.
           const ingCur = inventory.find(i=>i.id===it.ingId);
           const curQty = roundQty(Number(ingCur && ingCur.qtyOnHand)||0);
-          it.finalQty = Math.min(roundQty(cap * Math.min(it.fill_percent,100) / 100), curQty);
+          it.finalQty = Math.min(roundQty(cap * Math.min(pct,100) / 100), curQty);
           it.detected = it.finalQty;
           const finalInp=document.querySelector(`[data-shelf-final="${idx}"]`);
           if(finalInp) finalInp.value=it.finalQty;
