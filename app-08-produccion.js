@@ -495,8 +495,19 @@ function openRecipeModal(recipe){
 function closeRecipeModal(){ recipeScanRequestId++; showRecipeModal=false; draftRecipe=null; editingRecipeId=null; render(); }
 
 // Opciones del selector de insumo, ordenadas por nombre para encontrarlas rápido.
+/* Qué puede ser insumo de una pieza. Dos exclusiones:
+   - LA PIEZA MISMA. Su producto terminado no puede ser insumo de sí mismo:
+     producir consumiría justo lo que está creando, y el costo se perseguiría la
+     cola. Se excluye SOLO el propio, no todos los terminados — usar una pieza que
+     también fabricás dentro de otra (una caja de registro dentro de un tablero)
+     es manufactura legítima y hay que dejarla.
+   - LOS ÍTEMS DE GASTO (luz, internet, Eat out). Un tablero no se construye con
+     una boleta de luz; ofrecerla como insumo solo sirve para meter la pata. */
 function recipeIngOptions(selectedId){
-  const sorted = [...inventory].sort((a,b)=>a.name.localeCompare(b.name));
+  const propio = (draftRecipe && finishedItemFor(draftRecipe)) || null;
+  const sorted = inventory
+    .filter(i => i && !isExpenseItem(i) && !(propio && i.id===propio.id))
+    .sort((a,b)=>a.name.localeCompare(b.name));
   return `<option value="">${t('recipe_pick_product')}</option>` +
     sorted.map(i=>`<option value="${i.id}" ${selectedId===i.id?'selected':''}>${escapeHtml(i.name)} (${escapeHtml(unitLabel(i.unit))})</option>`).join('');
 }
@@ -597,9 +608,13 @@ async function runRecipeScan(file){
     if(requestId !== recipeScanRequestId || !showRecipeModal || !draftRecipe) return;
     const unmatched = [];
     let added = 0;
+    const propio = (draftRecipe && finishedItemFor(draftRecipe)) || null;
     products.forEach(p=>{
       const ing = matchStockReading(p);
-      if(!ing){ unmatched.push(p.name); return; }
+      // Mismo criterio que el selector de insumos (ver recipeIngOptions): ni la
+      // pieza misma ni un ítem de gasto pueden entrar como insumo, aunque la IA
+      // los reconozca en la foto.
+      if(!ing || isExpenseItem(ing) || (propio && ing.id===propio.id)){ unmatched.push(p.name); return; }
       const qty = detectedQtyFromReading(p, ing.capacityFull);
       const existing = draftRecipe.components.find(c=>c.ingId===ing.id);
       if(existing){
