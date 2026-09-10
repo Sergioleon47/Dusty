@@ -244,7 +244,27 @@ function attachEvents(){
      El orden entre pantallas no importa: cada bloque engancha elementos distintos,
      y makeKeyboardClickable llama a el.click() en el momento del evento, no al
      enganchar. Lo global va primero igual, como corria antes. */
-  document.querySelectorAll('.bottom-nav-item').forEach(t=>{ t.onclick=()=>{ switchToTab(t.dataset.tab); }; });
+  /* TOCAR LA PESTANA EN LA QUE YA ESTAS LA REINICIA (pedido del usuario
+     2026-09-10: "con tan solo cliquear, me vuelva para el menu de inventory").
+     Estando en Critico / Toca contar / Sin foto, lo primero que hace cualquiera
+     para salir es tocar INVENTARIO abajo — y hasta ahora eso no hacia nada,
+     porque switchToTab con la pestana ya activa solo asienta el carrusel. Es el
+     gesto de siempre en cualquier app: la pestana activa te devuelve al inicio.
+     Irse a otra pestana YA limpiaba el filtro (ver switchToTab en app-06); esto
+     cubre el caso de quedarse, que es el que dejaba encerrado.
+     La busqueda escrita no se toca: se ve, tiene su texto a la vista y su propia
+     equis. El filtro es el que no tenia salida visible. */
+  document.querySelectorAll('.bottom-nav-item').forEach(t=>{
+    t.onclick=()=>{
+      const destino = t.dataset.tab;
+      if(destino===activeTab && destino==='inventario' && invQuickFilter){
+        invQuickFilter = null;
+        render();
+        return;
+      }
+      switchToTab(destino);
+    };
+  });
   manageModalA11y();
   attachModalTabTrap();
   document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts').forEach(makeKeyboardClickable);
