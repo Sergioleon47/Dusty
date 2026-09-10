@@ -164,7 +164,11 @@ let modalTabTrapAttached = false;
 // campo de presupuesto — se consume en el attach del overlay, un solo render.
 // Selector de archivo + resize para la foto de un producto — lo usan el toque en
 // la miniatura sin foto (lista) y el botón "cambiar" del visor de foto.
-function promptItemPhotoUpload(item){
+/* esReceta: una pieza del catálogo guarda la foto igual que un ítem (.photo),
+   pero además hay que subirla a Storage. Antes eso se resolvía sondeando con un
+   setInterval desde el que llamaba; acá se hace donde de verdad se sabe que la
+   foto cambió. */
+function promptItemPhotoUpload(item, esReceta){
   const input = document.createElement('input');
   input.type='file';
   input.accept='image/*';
@@ -183,6 +187,7 @@ function promptItemPhotoUpload(item){
       item.photo = resizeToBase64(img, ITEM_PHOTO_SIDE, ITEM_PHOTO_QUALITY);
       saveState();
       render();
+      if(esReceta) uploadRecipePhoto(item);
     }catch(err){
       showToast(err.message || t('err_img_process'), 'error');
     }
@@ -252,6 +257,12 @@ function attachEvents(){
       if(fresh){ fresh.focus(); fresh.setSelectionRange(fresh.value.length, fresh.value.length); }
     });
   };
+  const prodSortSel=document.getElementById('prod-sort');
+  if(prodSortSel) prodSortSel.onchange=()=>{
+    prodSort=prodSortSel.value;
+    try{ localStorage.setItem('patron_prod_sort', prodSort); }catch(e){}
+    render();
+  };
   document.querySelectorAll('[data-open-finished]').forEach(el=>{
     el.onclick=()=>openFinishedItemModal(el.dataset.openFinished);
   });
@@ -264,14 +275,11 @@ function attachEvents(){
       e.stopPropagation();               // la tarjeta abre la ficha; la foto, no
       const r = recipeById(el.dataset.photoRecipe);
       if(!r) return;
-      const antes = r.photo;
-      promptItemPhotoUpload(r);
-      // La subida a Storage va cuando la foto ya cambió: promptItemPhotoUpload es
-      // asíncrono y no avisa, así que se revisa en el próximo tick de render.
-      const revisar = setInterval(()=>{
-        if(r.photo !== antes){ clearInterval(revisar); uploadRecipePhoto(r); }
-      }, 400);
-      setTimeout(()=>clearInterval(revisar), 60000);
+      // Con foto: se abre grande (así se ve la pieza terminada de verdad, y ahí
+      // mismo están cambiar y quitar). Sin foto: el selector directo, que es lo
+      // único que se puede hacer.
+      if(recipePhotoSrc(r)){ photoViewItemId = r.id; photoViewKind = 'recipe'; render(); }
+      else promptItemPhotoUpload(r, true);
     };
   });
   const btnProdSelect=document.getElementById('btn-prod-select');
@@ -314,6 +322,43 @@ function attachEvents(){
     // onchange y no oninput: re-renderizar por tecla haría temblar la tabla entera
     // mientras se escribe, el mismo problema que ya tuvo la ficha de producto.
     if(campo) campo.onchange=()=>{ finishedProduceCount=Math.max(1, Math.round(parseFloat(campo.value)||1)); render(); };
+    /* EDITAR LA COMPOSICIÓN SIN SALIR DE LA FICHA (pedido del usuario 2026-09-10:
+       "poder editarlo"). Cada cambio guarda de una: la composición es la
+       definición de la pieza y tiene que quedar grabada — el usuario que siempre
+       vende lo mismo no puede tener que rehacerla. */
+    const editarBom=document.getElementById('btn-fi-edit-bom');
+    if(editarBom) editarBom.onclick=()=>{ finishedEditMode = !finishedEditMode; finishedProduceCount = 1; render(); };
+    document.querySelectorAll('[data-bom-qty]').forEach(inp=>{
+      // onchange y no oninput: re-renderizar por tecla haría saltar la tabla entera.
+      inp.onchange=()=>{
+        const rec = recipeById(showFinishedItemModal);
+        const c = rec && rec.components[+inp.dataset.bomQty];
+        if(!c) return;
+        const v = roundQty(Math.max(0, parseFloat(inp.value)||0));
+        // Cantidad en cero = el insumo ya no forma parte de la pieza; se saca en
+        // vez de quedar como un renglón que suma $0 y confunde la composición.
+        if(v > 0) c.qty = v; else rec.components.splice(+inp.dataset.bomQty, 1);
+        saveState(); render();
+      };
+    });
+    document.querySelectorAll('[data-bom-del]').forEach(b=>{
+      b.onclick=()=>{
+        const rec = recipeById(showFinishedItemModal);
+        if(!rec) return;
+        rec.components.splice(+b.dataset.bomDel, 1);
+        saveState(); render();
+      };
+    });
+    const agregarBom=document.getElementById('fi-bom-add');
+    if(agregarBom) agregarBom.onchange=()=>{
+      const rec = recipeById(showFinishedItemModal);
+      const id = agregarBom.value;
+      if(!rec || !id) return;
+      // Si ya está, no se duplica el renglón: se deja donde está para que el
+      // usuario le corrija la cantidad en vez de tener el mismo insumo dos veces.
+      if(!rec.components.some(c=>c.ingId===id)) rec.components.push({ingId:id, qty:1});
+      saveState(); render();
+    };
     const producir=document.getElementById('btn-fi-produce');
     if(producir) producir.onclick=()=>{
       const rid = showFinishedItemModal;
@@ -1371,25 +1416,30 @@ function attachEvents(){
       e.stopPropagation();
       const item = inventory.find(x=>x.id===el.dataset.photoItem);
       if(!item) return;
-      if(itemPhotoSrc(item)){ photoViewItemId = item.id; render(); }
+      if(itemPhotoSrc(item)){ photoViewItemId = item.id; photoViewKind='item'; render(); }
       else promptItemPhotoUpload(item);
     };
   });
   const pvOverlay=document.getElementById('photo-viewer-overlay');
   if(pvOverlay){
+    // El visor es el mismo para un ítem del inventario y para una pieza del
+    // catálogo: los dos guardan la foto en .photo, así que cambiar y quitar
+    // corren igual; lo único propio de la pieza es subirla a Storage.
+    const target=()=>{ const tg=photoViewTarget(); return tg ? tg.obj : null; };
     const closeViewer=()=>{ photoViewItemId=null; render(); };
     pvOverlay.onmousedown=(e)=>{ if(e.target===pvOverlay) closeViewer(); };
     document.getElementById('pv-close').onclick=closeViewer;
     document.getElementById('pv-change').onclick=()=>{
-      const item=inventory.find(x=>x.id===photoViewItemId);
-      if(item) promptItemPhotoUpload(item); // el visor queda abierto y muestra la nueva
+      const obj=target();
+      if(obj) promptItemPhotoUpload(obj, photoViewKind==='recipe'); // el visor queda abierto y muestra la nueva
     };
     document.getElementById('pv-delete').onclick=()=>{
-      const item=inventory.find(x=>x.id===photoViewItemId);
-      if(!item) return;
+      const obj=target();
+      if(!obj) return;
       if(!confirm(t('pv_delete_confirm'))) return;
-      item.photo=null;
-      if(currentUser){ item.lastEditedBy=currentUserLabel(); item.lastEditedAt=new Date().toISOString(); }
+      if(photoViewKind==='recipe') dropRecipePhoto(obj);
+      obj.photo=null;
+      if(currentUser){ obj.lastEditedBy=currentUserLabel(); obj.lastEditedAt=new Date().toISOString(); }
       photoViewItemId=null;
       saveState(); render();
     };

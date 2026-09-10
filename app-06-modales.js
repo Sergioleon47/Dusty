@@ -2682,22 +2682,47 @@ function applyProductBatch(){
    del usuario: "elegante y no muy pronunciado". Sin foto, tocar la miniatura
    sigue abriendo el selector para subir una (promptItemPhotoUpload, app-07). */
 let photoViewItemId = null;
+/* El MISMO visor sirve para una pieza del catálogo (pedido del usuario 2026-09-10:
+   "todas estas funciones debe tener"). Una receta también tiene .photo, así que
+   sólo cambia de dónde se resuelve el objeto y qué dice el pie: en el inventario
+   el nombre; en el catálogo, además, de qué está hecha. */
+let photoViewKind = 'item';
 
-function itemPhotoViewerModal(){
+function photoViewTarget(){
+  if(photoViewKind === 'recipe'){
+    const rec = (typeof recipeById === 'function') ? recipeById(photoViewItemId) : null;
+    if(!rec) return null;
+    const src = recipePhotoSrc(rec);
+    if(!src) return null;
+    // Tope de 5: el pie de una foto no es la tabla de insumos (esa está en la
+    // ficha, completa). Con más, recipeComposition cierra con "+N".
+    // Y va en su propia línea, más chica: el nombre es el pie, de qué está hecha
+    // es la aclaración — juntos en una sola línea eran cuatro renglones en negrita.
+    const de = (typeof recipeComposition === 'function') ? recipeComposition(rec, 5) : '';
+    return { obj: rec, src, name: rec.name,
+      captionHtml: escapeHtml(rec.name) + (de ? `<div class="pv-subcaption">${escapeHtml(de)}</div>` : '') };
+  }
   const item = inventory.find(i=>i.id===photoViewItemId);
   const src = item && itemPhotoSrc(item);
-  if(!item || !src){ photoViewItemId = null; return ''; }
+  if(!item || !src) return null;
+  return { obj: item, src, name: item.name, captionHtml: escapeHtml(item.name) };
+}
+
+function itemPhotoViewerModal(){
+  const target = photoViewTarget();
+  if(!target){ photoViewItemId = null; return ''; }
+  const src = target.src;
   const icon = (paths)=>`<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
   return `
   <div class="overlay pv-overlay" id="photo-viewer-overlay">
-    <div class="photo-viewer" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('pv_photo_of').replace('{name}', item.name))}">
+    <div class="photo-viewer" role="dialog" aria-modal="true" aria-label="${escapeHtml(t('pv_photo_of').replace('{name}', target.name))}">
       <div class="pv-actions">
         <button type="button" class="pv-btn" id="pv-change" title="${t('pv_change')}" aria-label="${t('pv_change')}">${icon('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}</button>
         <button type="button" class="pv-btn pv-btn-danger" id="pv-delete" title="${t('btn_remove_photo')}" aria-label="${t('btn_remove_photo')}">${icon('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>')}</button>
         <button type="button" class="pv-btn" id="pv-close" title="${t('oc_close')}" aria-label="${t('oc_close')}">${icon('<path d="M18 6L6 18M6 6l12 12"/>')}</button>
       </div>
-      <img src="${escapeHtml(src)}" alt="${escapeHtml(item.name)}">
-      <div class="pv-caption">${escapeHtml(item.name)}</div>
+      <img src="${escapeHtml(src)}" alt="${escapeHtml(target.name)}">
+      <div class="pv-caption">${target.captionHtml}</div>
     </div>
   </div>`;
 }
