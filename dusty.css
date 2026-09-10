@@ -815,6 +815,27 @@
   html[data-dusty-pulse="off"] .inv-tile.crit-flash::after,
   html[data-dusty-pulse="off"] .cal-day.blink::after{opacity:.7;}
   html[data-dusty-pulse="off"] .nav-alert-dot::after{opacity:0;}
+  /* ===== CASILLA VACÍA QUE PIDE ATENCIÓN (pedido del usuario 2026-09-10) =====
+     El costo y el precio de venta son los dos números de los que sale TODO lo
+     demás: el Valor del inventario, el margen, el COGS de cada salida. Un
+     producto sin ellos entra al inventario y arrastra el error a cada cuenta que
+     lo toque, en silencio. La casilla late mientras está vacía y se queda quieta
+     apenas se escribe algo — es un recordatorio, no un reproche, así que el latido
+     es un resplandor suave de 2s y no un parpadeo.
+     El aro se dibuja con box-shadow (no con border) para no mover el layout: un
+     borde más grueso al aparecer correría el campo un pixel. */
+  @keyframes emptyFieldPulse{
+    0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--saffron) 0%, transparent);}
+    50%{box-shadow:0 0 0 3px color-mix(in srgb, var(--saffron) 30%, transparent);}
+  }
+  .field-needs-value{border-color:var(--saffron)!important;animation:emptyFieldPulse 2s ease-in-out infinite;}
+  /* Respeta el interruptor de palpitaciones y "reducir movimiento": el aviso
+     sigue estando (borde ámbar fijo), solo deja de moverse. */
+  html[data-dusty-pulse="off"] .field-needs-value{animation:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--saffron) 22%, transparent);}
+  @media (prefers-reduced-motion: reduce){
+    .field-needs-value{animation:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--saffron) 22%, transparent);}
+  }
+
   /* El interruptor en sí. */
   .pulse-row{display:flex;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
   .pulse-row .pulse-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}

@@ -1398,10 +1398,23 @@ function attachEvents(){
       const el = document.getElementById('fi-profit-display');
       if(el){ el.textContent = display; el.style.color = color; }
     }
+    /* La casilla vacía late (ver .field-needs-value en dusty.css) y tiene que
+       dejar de latir EN CUANTO se escribe algo, no al guardar: si siguiera
+       latiendo mientras el usuario tipea, el aviso pasaría de recordatorio a
+       molestia. Se toca solo la clase de ese input —igual que el numerito de la
+       ganancia acá arriba— y no se re-renderiza la ficha: un render por tecla es
+       justo lo que hacía temblar esta ventana. */
+    function refreshNeedsValue(el){
+      if(!el) return;
+      el.classList.toggle('field-needs-value', fieldNeedsValue(el.value));
+    }
     const fiCostInp=document.getElementById('fi-cost');
     const fiSalePriceInp=document.getElementById('fi-sale-price');
-    if(fiCostInp) fiCostInp.oninput=handleProfitFieldInput;
-    if(fiSalePriceInp) fiSalePriceInp.oninput=handleProfitFieldInput;
+    // El precio de venta no existe en el alta rápida ni en la ficha de gasto, y
+    // handleProfitFieldInput se va sin hacer nada cuando falta — por eso el
+    // latido se refresca aparte y no colgado de esa función.
+    if(fiCostInp) fiCostInp.oninput=()=>{ refreshNeedsValue(fiCostInp); handleProfitFieldInput(); };
+    if(fiSalePriceInp) fiSalePriceInp.oninput=()=>{ refreshNeedsValue(fiSalePriceInp); handleProfitFieldInput(); };
     // Crear categoría sin salir de la ficha: elegir "＋ Crear categoría nueva…"
     // muestra el campo de nombre (el foco acá SÍ corresponde: el usuario acaba de
     // pedir escribir); Enter o salir del campo la crea y la deja seleccionada,

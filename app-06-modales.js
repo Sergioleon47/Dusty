@@ -1539,6 +1539,17 @@ function expandItemModal(){
   render();
 }
 // profitMarginPct ahora vive en patron-core.js.
+/* ¿Esta casilla de plata está sin llenar? (pedido del usuario 2026-09-10)
+   Vacía, en cero o con texto que no es un número: las tres dejan al producto sin
+   ese dato. El 0 cuenta como vacío a propósito — un costo de $0.00 no es un
+   precio real, es el hueco que dejó no haberlo puesto, y es justamente el que
+   hace que el Valor del inventario y el margen mientan sin avisar. */
+function fieldNeedsValue(v){
+  const n = parseFloat(v);
+  return !(Number.isFinite(n) && n > 0);
+}
+// La clase que hace latir la casilla, o nada si ya tiene valor.
+function needsValueClass(v){ return fieldNeedsValue(v) ? ' class="field-needs-value"' : ''; }
 function itemModal(){
   /* FICHA DE GASTO simplificada (pedido del usuario 2026-09-05): una cuenta de
      luz o un consumo Eat out no se vende ni lleva stock — su ficha es nombre,
@@ -1561,7 +1572,7 @@ function itemModal(){
       <div class="settings-card quick-add-card">
         <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
         <div class="field-row">
-          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost"${needsValueClass(draftItem.costPerUnit)} type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
           <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
             <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
           </div>
@@ -1624,7 +1635,7 @@ function itemModal(){
         ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('item_section_basic'))}
         <div class="field"><label for="fi-name">${t('lbl_name')}</label><input id="fi-name" type="text" value="${escapeHtml(draftItem.name)}" placeholder="${t('ph_name_example')}"></div>
         ${isExp ? `
-        <div class="field"><label for="fi-cost">${t('lbl_bill_amount')}</label><input id="fi-cost" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+        <div class="field"><label for="fi-cost">${t('lbl_bill_amount')}</label><input id="fi-cost"${needsValueClass(draftItem.costPerUnit)} type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         <div class="field"><label for="fi-supplier">${t('lbl_item_supplier')}</label><input id="fi-supplier" type="text" value="${escapeHtml(draftItem.supplier||'')}" placeholder="${t('ph_supplier_example')}"></div>
         ${/* Solo al CREAR: registrar de una el pago de este mes como recibo
              manual — sin esto, el ítem era puro catálogo y la barra del
@@ -1677,7 +1688,7 @@ function itemModal(){
           <div class="field"><label for="fi-unit">${t('lbl_unit')}</label>
             <select id="fi-unit">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${draftItem.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
           </div>
-          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
+          <div class="field"><label for="fi-cost">${t('lbl_cost_unit')}</label><input id="fi-cost"${needsValueClass(draftItem.costPerUnit)} type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.costPerUnit)}" placeholder="0.00"></div>
         </div>
         ${/* Precio de venta y % de ganancia: SOLO para quien el dueño lo permite
              (canSeeFinancials) — un miembro sin permiso ve costo y stock, pero no
@@ -1685,7 +1696,7 @@ function itemModal(){
              se renderiza (ver el guard en app-07). */''}
         ${canSeeFinancials() ? `
         <div class="field-row" style="margin-bottom:0;">
-          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
+          <div class="field" style="margin-bottom:0;"><label for="fi-sale-price">${t('lbl_sale_price')}</label><input id="fi-sale-price"${needsValueClass(draftItem.salePrice)} type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(draftItem.salePrice||'')}" placeholder="0.00"></div>
           <div class="field" style="margin-bottom:0;"><label id="fi-profit-label">${t('lbl_profit_pct')}</label>
             ${(()=>{
               const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
