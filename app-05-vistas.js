@@ -258,7 +258,14 @@ function stockRowsData(){
     const hasHistory = (i.qtyOnHand||0)>0 || purchasesForIng(i.id).length>0;
     const target = i.stockFullRef || i.stockTarget || Math.max(Math.round((i.qtyOnHand||0)*1.5), 10);
     const pct = target>0 ? Math.min(100, Math.round(((i.qtyOnHand||0)/target)*100)) : 0;
-    return {ing:i, target, pct, status: hasHistory ? stockStatus(pct) : 'none'};
+    /* AGOTADO: tuvo movimiento alguna vez y hoy esta en CERO — vendiste todo.
+       Es EXACTAMENTE la misma condicion que ya lo volvia critico, asi que no
+       cambia ningun numero: sigue contando en la baldosa del Dashboard y en el
+       chip Critico, que es donde el usuario quiere verlo para reponerlo. Lo
+       unico nuevo es que ahora tiene nombre, y con nombre se puede dibujar
+       distinto. Un producto que NUNCA tuvo stock no es agotado: es nuevo. */
+    const agotado = hasHistory && (i.qtyOnHand||0)===0;
+    return {ing:i, target, pct, agotado, status: hasHistory ? stockStatus(pct) : 'none'};
   });
 }
 
@@ -704,7 +711,12 @@ function stockRowHtml(r, ccDueIds){
        llena la tarjeta, su toque —abrir el visor o pedir una foto— se comía casi
        toda el área de marcado. En modo selección se le quita data-photo-item, así
        que tocar CUALQUIER parte del ítem marca. */''}
-  <div class="inv-tile ${ccDueIds.has(i.id)?'cc-due-blink':''}${invSelectMode && invSelected.has(i.id)?' sel':''}" data-key="invtile:${i.id}" ${invSelectMode ? `data-inv-select="${i.id}" aria-pressed="${invSelected.has(i.id)}"` : `data-open-item="${i.id}"`} role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
+  ${/* .agotado la pinta como una sombra A COLOR (pedido del usuario 2026-09-10:
+       "una sombra a color, no blanco y negro"). Al volver a entrar stock la
+       clase se cae sola —sale de qtyOnHand— y la tarjeta revive con su
+       transicion. No hace falta ningun estado guardado ni ninguna accion del
+       usuario: es el mismo dato de siempre, dibujado distinto. */''}
+  <div class="inv-tile ${r.agotado?'agotado ':''}${ccDueIds.has(i.id)?'cc-due-blink':''}${invSelectMode && invSelected.has(i.id)?' sel':''}" data-key="invtile:${i.id}" ${invSelectMode ? `data-inv-select="${i.id}" aria-pressed="${invSelected.has(i.id)}"` : `data-open-item="${i.id}"`} role="button" tabindex="0" data-ing-id="${i.id}" data-status="${r.status}" title="${escapeHtml(i.name)}"${vtName ? ` style="view-transition-name:${vtName};"` : ''}>
     ${invSelectMode ? `<span class="inv-tile-check" aria-hidden="true">${invSelected.has(i.id)?'✓':''}</span>` : ''}
     <div class="inv-tile-top">
       <div class="stock-icon-ring ${r.status!=='ok'?r.status:''}"${invSelectMode ? '' : ` data-photo-item="${i.id}" title="${t('btn_upload_photo')}"`} style="${invSelectMode?'':'cursor:pointer;'}width:48px;height:48px;flex-shrink:0;">${stockIconSvg(i)}</div>
