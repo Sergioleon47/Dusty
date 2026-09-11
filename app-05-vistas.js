@@ -575,7 +575,11 @@ function invDetailModal(){
   const total = priced.reduce((s,i)=>s+amt(i),0);
   const costOfPriced = priced.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
   const profit = total - costOfPriced;
-  const fmt = (n)=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  // El signo va ANTES del $ ("-$24.00", no "$-24.00"): un producto con precio
+  // de venta por debajo del costo muestra ganancia negativa en su fila y puede
+  // dejar negativa la ganancia potencial del encabezado.
+  const fmt = (n)=>(n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const nProd = (n)=> n===1 ? t('ivd_products_1') : t('ivd_products_n').replace('{n}', n);
   const byCat = groupRowsByCategory(priced.map(i=>({ing:i}))).map(g=>({name:g.name, n:g.rows.length, sum:g.rows.reduce((s,r)=>s+amt(r.ing),0)})).sort((a,b)=>b.sum-a.sum);
   const rows = priced.slice().sort((a,b)=>amt(b)-amt(a));
   // Mismos colores que las tarjetas de arriba: verde (--tile-ok / --money-pos)
@@ -605,11 +609,11 @@ function invDetailModal(){
       <div class="ivd-cats">
         ${byCat.map(c=>`
         <div class="ivd-cat">
-          <div class="ivd-cat-top"><span>${escapeHtml(c.name)} <small>${t('ivd_products_n').replace('{n}', c.n)}</small></span><b style="color:${color};">${fmt(c.sum)} <small>· ${total>0?Math.round(c.sum/total*100):0}%</small></b></div>
+          <div class="ivd-cat-top"><span>${escapeHtml(c.name)} <small>${nProd(c.n)}</small></span><b style="color:${color};">${fmt(c.sum)} <small>· ${total>0?Math.round(c.sum/total*100):0}%</small></b></div>
           <div class="ivd-bar"><i style="width:${total>0?Math.max(2,Math.round(c.sum/total*100)):0}%;background:${color};"></i></div>
         </div>`).join('')}
       </div>` : ''}
-      <div class="ivd-section">${t('ivd_by_product')} <small>${t('ivd_products_n').replace('{n}', rows.length)}</small><span class="ivd-section-tools">${ivdLayoutToggleHtml()}</span></div>
+      <div class="ivd-section">${t('ivd_by_product')} <small>${nProd(rows.length)}</small><span class="ivd-section-tools">${ivdLayoutToggleHtml()}</span></div>
       ${/* El id cambia con la vista: morphdom RECREA el contenedor al cambiar de
            lista a columnas (y viceversa) y los hijos entran con la animación
            escalonada de ivdItemIn (--i = su posición); en los redibujados de
@@ -634,7 +638,7 @@ function invDetailModal(){
         </div>`;}).join('')}
       </div>
       ${unpriced.length ? `
-      <div class="ivd-section" style="color:var(--saffron-ink);">${t('ivd_no_price')} <small>${t('ivd_products_n').replace('{n}', unpriced.length)}</small></div>
+      <div class="ivd-section" style="color:var(--saffron-ink);">${t('ivd_no_price')} <small>${nProd(unpriced.length)}</small></div>
       <div class="ivd-rows">
         ${unpriced.map(i=>`
         <div class="ivd-row" data-open-item="${i.id}" role="button" tabindex="0">
