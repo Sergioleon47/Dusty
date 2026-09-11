@@ -529,6 +529,13 @@ function firstStepsCard(){
 // Primer día: nada escaneado, nada cargado a mano. Sin esto, el Dashboard quedaba
 // con solo la tarjeta de gasto ($0.00) y el botón de escanear — funcional, pero sin
 // nada que le explique al usuario qué hacer primero ni por qué está tan vacío.
+// Un solo botón a propósito (auditoría de UX 2026-09-10): esta tarjeta vivía justo
+// debajo de la fila de herramientas (Productos/Escanear recibo/A mano) repitiendo
+// las 3 mismas acciones con otro estilo — 6 botones para 3 caminos antes de cargar
+// un solo producto. La fila de arriba es el patrón permanente de la app (se repite
+// igual en Inventario y Producción, no se toca acá); esta tarjeta se queda solo con
+// el primer paso más natural — escanear un recibo — y confía en que la fila de
+// arriba, un dedo más arriba, cubre "Productos" y "A mano" con el mismo nombre.
 function dashboardEmptyState(){
   // Ver dashEmptyCardAnimated más arriba: solo anima la primera vez que se dibuja en
   // esta sesión de la app — no en cada redibujado ni cada vez que se vuelve a esta
@@ -543,8 +550,6 @@ function dashboardEmptyState(){
     <p>${t('dash_empty_sub')}</p>
     <div class="dash-empty-actions">
       <button class="btn btn-primary" id="btn-dash-empty-scan">${t('dash_empty_scan_btn')}</button>
-      <button class="btn btn-ghost" id="btn-dash-empty-batch">${t('pb_open_btn')}</button>
-      <button class="btn btn-ghost" id="btn-dash-empty-manual">${t('dash_empty_manual_btn')}</button>
     </div>
   </div>`;
 }
@@ -1965,7 +1970,7 @@ function alertSettingsModal(){
         <div style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;">${t('theme_title')}</div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;">
           ${DUSTY_THEMES.map(th=>`
-          <button type="button" data-set-theme="${th.id}" aria-pressed="${dustyTheme===th.id}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;">
+          <button type="button" data-set-theme="${th.id}" aria-pressed="${dustyTheme===th.id}" title="${uiLang==='en'?th.en:th.es}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;">
             <span style="width:38px;height:38px;border-radius:50%;background:${th.bg};border:2.5px solid ${dustyTheme===th.id?'var(--navy)':'var(--line)'};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);">
               <span style="width:16px;height:16px;border-radius:50%;background:${th.accent};"></span>
             </span>

@@ -481,7 +481,7 @@
 // cliente con el shell viejo cacheado se quedaria con el index nuevo pidiendo
 // cinco scripts que su cache no tiene, o con el index viejo sin pedirlos: en los
 // dos casos attachEvents llamaria a funciones que no existen.
-const CACHE_NAME = 'patron-shell-v137';
+const CACHE_NAME = 'patron-shell-v138';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

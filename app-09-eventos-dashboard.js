@@ -221,10 +221,6 @@ function attachDashboardEvents(){
   if(btnScanFab) btnScanFab.onclick=openScanModal;
   const btnDashEmptyScan=document.getElementById('btn-dash-empty-scan');
   if(btnDashEmptyScan) btnDashEmptyScan.onclick=openScanModal;
-  const btnDashEmptyManual=document.getElementById('btn-dash-empty-manual');
-  if(btnDashEmptyManual) btnDashEmptyManual.onclick=()=>openItemModal(null);
-  const btnDashEmptyBatch=document.getElementById('btn-dash-empty-batch');
-  if(btnDashEmptyBatch) btnDashEmptyBatch.onclick=openProductBatchModal;
   const btnScanProducts=document.getElementById('btn-scan-products');
   if(btnScanProducts) btnScanProducts.onclick=openProductBatchModal;
 
