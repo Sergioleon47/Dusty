@@ -322,9 +322,9 @@ function equipoView(){
   <h3 class="svc-page-title">${t('svc_title_equipo')}</h3>
   ${canSeeFinancials() ? `
   <div class="inv-stats">
-    <div class="inv-stat"><div class="inv-stat-label">${t('svc_stat_assets')}</div><div class="inv-stat-value">${assets.length}</div></div>
-    <div class="inv-stat svc-stat-mid"><div class="inv-stat-label">${t('svc_stat_value')}</div><div class="inv-stat-value">${svcMoneyShort(value)}</div></div>
-    <div class="inv-stat"><div class="inv-stat-label">${t('svc_stat_month_spend')}</div><div class="inv-stat-value">${svcMoneyShort(monthSpend)}</div></div>
+    <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_assets')}</div><div class="inv-stat-value">${assets.length}</div></div>
+    <div class="inv-stat static svc-stat-mid"><div class="inv-stat-label">${t('svc_stat_value')}</div><div class="inv-stat-value">${svcMoneyShort(value)}</div></div>
+    <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_month_spend')}</div><div class="inv-stat-value">${svcMoneyShort(monthSpend)}</div></div>
   </div>` : ''}
   <div class="inv-tools" style="margin:0 0 6px;">
     <button type="button" class="inv-tool" id="btn-new-asset" title="${t('svc_asset_new')}">
@@ -455,9 +455,9 @@ function collectSheet(){
   const body = `
     <div class="sub svc-sub">${t('svc_collect_sub2')}</div>
     <div class="inv-stats">
-      <div class="inv-stat"><div class="inv-stat-label">${t('svc_stat_pending')}</div><div class="inv-stat-value">${svcMoneyShort(cs.pending)}</div></div>
-      <div class="inv-stat svc-stat-mid"><div class="inv-stat-label">${t('svc_stat_overdue')}</div><div class="inv-stat-value">${svcMoneyShort(cs.overdue)}</div></div>
-      <div class="inv-stat"><div class="inv-stat-label">${t('svc_stat_paid_month')}</div><div class="inv-stat-value">${svcMoneyShort(cs.paidMonth)}</div></div>
+      <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_pending')}</div><div class="inv-stat-value">${svcMoneyShort(cs.pending)}</div></div>
+      <div class="inv-stat static svc-stat-mid"><div class="inv-stat-label">${t('svc_stat_overdue')}</div><div class="inv-stat-value">${svcMoneyShort(cs.overdue)}</div></div>
+      <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_paid_month')}</div><div class="inv-stat-value">${svcMoneyShort(cs.paidMonth)}</div></div>
     </div>
     ${cs.list.length===0 ? `<div class="oc-empty">${t('svc_collect_empty')}</div>` : cs.list.map(j=>{
       const over = jobIsOverdue(j, today);
@@ -980,6 +980,24 @@ function svcWhatsappReminder(j){
   try{ window.open(url, '_blank', 'noopener'); }catch(e){ location.href = url; }
 }
 
+// Abrir/cerrar una hoja con el MISMO fundido que la hoja de Recibos (View
+// Transition, ver openReceiptsSheet en app-07); sin soporte, redibuja y listo.
+function svcShow(fn){
+  fn();
+  if(document.startViewTransition){
+    // Si el navegador la aborta (pestaña oculta, otra transición encima) el
+    // redibujo ya pasó igual: solo se silencia la promesa rechazada.
+    // Con la app en segundo plano el navegador la aborta SIN correr el redibujo
+    // (visto en pruebas): se redibuja a mano para no dejar el estado a medias.
+    if(document.visibilityState==='hidden'){ render(); return; }
+    let drawn = false;
+    const vt = document.startViewTransition(()=>{ drawn = true; render(); });
+    try{ vt.ready.catch(()=>{}); vt.finished.catch(()=>{}); vt.updateCallbackDone.catch(()=>{ if(!drawn) render(); }); }catch(e){}
+    return;
+  }
+  render();
+}
+
 /* ---------- EVENTOS ---------- */
 function attachServicesEvents(){
   const g = (id)=>document.getElementById(id);
@@ -989,31 +1007,34 @@ function attachServicesEvents(){
   /* Dashboard */
   on('btn-new-job', ()=>openJobModal(null));
   on('btn-svc-spend', ()=>openManualSpendModal());
-  on('btn-svc-jobs', ()=>{ showJobsSheet = true; render(); });
-  on('btn-svc-collect', ()=>{ showCollectSheet = true; render(); });
-  on('btn-collect-alert', ()=>{ showCollectSheet = true; render(); });
+  on('btn-svc-jobs', ()=>svcShow(()=>{ showJobsSheet = true; }));
+  on('btn-svc-collect', ()=>svcShow(()=>{ showCollectSheet = true; }));
+  on('btn-collect-alert', ()=>svcShow(()=>{ showCollectSheet = true; }));
   on('btn-svc-maint', ()=>{
     // Abre Equipo (pestaña u hoja): ahí está cada activo con su estado.
     if(TAB_ORDER[1]==='equipo'){ switchToTab('equipo'); return; }
-    showEquipoSheet = true; render();
+    svcShow(()=>{ showEquipoSheet = true; });
   });
-  on('btn-svc-equipo', ()=>{ showEquipoSheet = true; render(); });
+  on('btn-svc-equipo', ()=>svcShow(()=>{ showEquipoSheet = true; }));
 
   /* Equipo y activos */
   on('btn-new-asset', ()=>openAssetModal(null));
   on('btn-scan-fab-equipo', ()=>openScanModal());
   on('btn-log-maint', ()=>openMaintLogModal(null));
+  // Buscadores: mismo mecanismo que el del Inventario (render diferido y foco
+  // devuelto con el cursor donde estaba), para que no parpadee al escribir.
+  const searchLive = (inp, set)=>{ inp.oninput = (e)=>{ const pos = e.target.selectionStart; set(e.target.value); scheduleSearchTriggeredRender(()=>{ const fresh = document.getElementById(inp.id); if(fresh){ fresh.focus(); try{ fresh.setSelectionRange(pos,pos); }catch(err){} } }); }; };
   const es = g('equipo-search');
-  if(es){
-    es.oninput = ()=>{ equipoSearch = es.value; render(); };
-  }
-  document.querySelectorAll('[data-open-asset]').forEach(el=>{ el.onclick = ()=>{ showAssetSheet = el.dataset.openAsset; render(); }; });
-  overlayClose('equipo-sheet-overlay', ()=>{ showEquipoSheet = false; render(); });
-  on('btn-close-equipo-sheet', ()=>{ showEquipoSheet = false; render(); });
+  if(es) searchLive(es, v=>{ equipoSearch = v; });
+  document.querySelectorAll('[data-open-asset]').forEach(el=>{ el.onclick = ()=>svcShow(()=>{ showAssetSheet = el.dataset.openAsset; }); });
+  const closeEquipo = ()=>svcShow(()=>{ showEquipoSheet = false; });
+  overlayClose('equipo-sheet-overlay', closeEquipo);
+  on('btn-close-equipo-sheet', closeEquipo);
 
   /* Ficha de activo */
-  overlayClose('asset-sheet-overlay', ()=>{ showAssetSheet = null; render(); });
-  on('btn-close-asset-sheet', ()=>{ showAssetSheet = null; render(); });
+  const closeAsset = ()=>svcShow(()=>{ showAssetSheet = null; });
+  overlayClose('asset-sheet-overlay', closeAsset);
+  on('btn-close-asset-sheet', closeAsset);
   on('btn-edit-asset', ()=>openAssetModal(showAssetSheet));
   on('btn-add-maint', ()=>openMaintModal(showAssetSheet, null));
   on('btn-asset-log-maint', ()=>openMaintLogModal(showAssetSheet));
@@ -1022,8 +1043,9 @@ function attachServicesEvents(){
   document.querySelectorAll('[data-edit-maint]').forEach(el=>{ el.onclick = ()=>openMaintModal(showAssetSheet, el.dataset.editMaint); });
 
   /* Por cobrar */
-  overlayClose('collect-sheet-overlay', ()=>{ showCollectSheet = false; render(); });
-  on('btn-close-collect-sheet', ()=>{ showCollectSheet = false; render(); });
+  const closeCollect = ()=>svcShow(()=>{ showCollectSheet = false; });
+  overlayClose('collect-sheet-overlay', closeCollect);
+  on('btn-close-collect-sheet', closeCollect);
   document.querySelectorAll('[data-wa-job]').forEach(b=>{ b.onclick = (e)=>{ e.stopPropagation(); const j = jobById(b.dataset.waJob); if(j) svcWhatsappReminder(j); }; });
   document.querySelectorAll('[data-paid-job]').forEach(b=>{ b.onclick = (e)=>{
     e.stopPropagation();
@@ -1035,15 +1057,17 @@ function attachServicesEvents(){
   document.querySelectorAll('[data-open-job]').forEach(el=>{ el.onclick = ()=>openJobModal(el.dataset.openJob); });
 
   /* Trabajos */
-  overlayClose('jobs-sheet-overlay', ()=>{ showJobsSheet = false; render(); });
-  on('btn-close-jobs-sheet', ()=>{ showJobsSheet = false; render(); });
+  const closeJobs = ()=>svcShow(()=>{ showJobsSheet = false; });
+  overlayClose('jobs-sheet-overlay', closeJobs);
+  on('btn-close-jobs-sheet', closeJobs);
   on('btn-jobs-new', ()=>openJobModal(null));
   const js = g('jobs-search');
-  if(js) js.oninput = ()=>{ jobsSearch = js.value; render(); };
+  if(js) searchLive(js, v=>{ jobsSearch = v; });
 
   /* Mis servicios */
-  overlayClose('services-sheet-overlay', ()=>{ showServicesSheet = false; render(); });
-  on('btn-close-services-sheet', ()=>{ showServicesSheet = false; render(); });
+  const closeServices = ()=>svcShow(()=>{ showServicesSheet = false; reopenSettingsIfPending(); });
+  overlayClose('services-sheet-overlay', closeServices);
+  on('btn-close-services-sheet', closeServices);
   on('btn-service-new', ()=>openServiceModal(null));
   document.querySelectorAll('[data-edit-service]').forEach(el=>{ el.onclick = ()=>openServiceModal(el.dataset.editService); });
   overlayClose('service-overlay', closeServiceModal);
@@ -1140,6 +1164,6 @@ function attachServicesEvents(){
   if(remT) remT.onchange = ()=>{ bizProfile.remindOverdue = !!remT.checked; saveState(); render(); };
   const md = g('svc-maint-days');
   if(md) md.onchange = ()=>{ bizProfile.maintDays = parseInt(md.value,10)||7; saveState(); render(); };
-  on('btn-svc-catalog', ()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showServicesSheet = true; render(); });
+  on('btn-svc-catalog', ()=>svcShow(()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showServicesSheet = true; }));
   on('btn-svc-categories', ()=>{ settingsReturnPending = true; showAlertSettingsModal = false; openCategoriesModal(); });
 }

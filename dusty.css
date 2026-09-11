@@ -2787,9 +2787,16 @@
   .svc-sheet-title{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:calc(18px * var(--fs, 1));font-weight:800;color:var(--navy);}
   .svc-title-edit{margin-left:auto;background:var(--raised);color:var(--ink-mid);}
   .svc-sub{font-size:calc(12.5px * var(--fs, 1));color:var(--ink-mid);margin-bottom:14px;}
-  .svc-row{display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:14px;}
+  /* Misma pulsación que las tarjetas del Inventario y los botones: escala suave con
+     la curva de la app, y un toque más oscuro al apretar. */
+  .svc-row{display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:14px;transition:transform .2s var(--ease-soft), filter .2s var(--ease-soft), box-shadow .2s var(--ease-soft);}
   .svc-row.static{cursor:default;}
-  .svc-row:active:not(.static){transform:scale(.985);}
+  .svc-row:active:not(.static){transform:scale(.975);filter:brightness(.96);}
+  .svc-plan{transition:opacity .2s var(--ease-soft), transform .2s var(--ease-soft);}
+  .svc-plan:active{opacity:.6;transform:scale(.985);}
+  /* Franja de números informativa (Equipo, Por cobrar): no es botón, no se hunde. */
+  .inv-stat.static{cursor:default;pointer-events:none;}
+  .inv-tool[disabled]{opacity:.45;pointer-events:none;}
   .svc-row-crit{border-color:color-mix(in srgb, var(--money-neg) 45%, var(--line));}
   .svc-row-ic{flex-shrink:0;width:40px;height:40px;border-radius:12px;background:var(--inset);display:flex;align-items:center;justify-content:center;font-size:calc(20px * var(--fs, 1));}
   .svc-row-crit .svc-row-ic{background:var(--money-neg-soft);}

@@ -233,14 +233,12 @@ function openReceiptsSheet(){
   // no en el último que se hojeó. Lo que tocaste es lo que ves.
   calendarViewMonth = localMonthStr();
   calendarShowYearPicker = false;
-  showReceiptsSheet = true;
-  if(document.startViewTransition){ document.startViewTransition(()=>render()); return; }
-  render();
+  // Mismo fundido que las hojas de Servicios (svcShow, app-15), que además
+  // redibuja a mano si el navegador aborta la transición con la app en segundo plano.
+  svcShow(()=>{ showReceiptsSheet = true; });
 }
 function closeReceiptsSheet(){
-  showReceiptsSheet = false;
-  if(document.startViewTransition){ document.startViewTransition(()=>render()); return; }
-  render();
+  svcShow(()=>{ showReceiptsSheet = false; });
 }
 function attachEvents(){
   /* Esta funcion tenia 1753 lineas y hacia TODO. Ahora es lo que deberia ser: lo
@@ -273,7 +271,7 @@ function attachEvents(){
   });
   manageModalA11y();
   attachModalTabTrap();
-  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts').forEach(makeKeyboardClickable);
+  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts, [data-open-asset], [data-open-job], [data-edit-maint], [data-edit-service]').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   attachHardwareBackButton();
   attachCategoryChipDragHandlers();
