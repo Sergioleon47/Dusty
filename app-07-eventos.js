@@ -275,6 +275,7 @@ function attachEvents(){
   attachHardwareBackButton();
   attachCategoryChipDragHandlers();
   attachDashboardEvents();
+  attachReportEvents();
   attachInventoryEvents();
   attachScannerEvents();
   attachSettingsEvents();

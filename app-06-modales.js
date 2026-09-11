@@ -1565,6 +1565,8 @@ function monthRecapModal(){
   <div class="oc-sheet ${showMonthRecap?'open':''}" id="recap-sheet" role="dialog" aria-modal="true" aria-label="${t('recap_title')}"${showMonthRecap?'':' aria-hidden="true"'}>
     <div class="oc-sheet-head">
       <span class="oc-title" style="flex:1;">${t('recap_title')}</span>
+      ${/* "Reports": el informe del período enfocado en PDF (app-14). */''}
+      ${showMonthRecap && monthRecapKey && !recapDemo ? reportButtonHtml(monthRecapKey) : ''}
       <button type="button" class="oc-close" id="btn-close-month-recap" aria-label="${t('btn_close')}">✕</button>
     </div>
     ${body}

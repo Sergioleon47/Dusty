@@ -1737,6 +1737,8 @@ function monthlySpendCard(m, currentMonthKey){
         <span class="ms-card-month">${escapeHtml(monthLabel(m, uiLang))}${isCurrent ? `<span class="ms-card-badge">${t('ms_current_month')}</span>` : ''}</span>
         <span class="ms-card-amount">${money(s.expense)}</span>
       </div>
+      ${/* "Reports": el informe de ESTE mes en PDF (app-14). */''}
+      <div class="ms-card-tools">${reportButtonHtml(m)}</div>
       ${b ? `<div class="ms-track"><i style="width:${Math.min(pct, 100)}%;"></i></div>` : ''}
       <div class="ms-card-line">${line}</div>
       ${s.invested > 0 ? `<div class="ms-card-goods">${t('ms_card_goods').replace('{inv}', money(s.invested))}</div>` : ''}

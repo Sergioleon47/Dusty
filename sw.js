@@ -497,7 +497,12 @@
 // "Vamos a armar tu inventario" (escondian las baldosas y empujaban a escanear;
 // pedido del usuario 2026-09-11: "que entre al dashboard completo y que el
 // usuario haga lo que quiera desde ahi") — app-01/03/05/09 + dusty.css.
-const CACHE_NAME = 'patron-shell-v142';
+// v143: "Reports" — el informe del mes (resumen, gastos por categoria, detalle
+// de recibos, compras por producto) en PDF generado en el dispositivo, sin
+// librerias; se comparte (telefono) o descarga (escritorio). Archivo NUEVO
+// app-14-reportes.js (precache + index + build-www) + botones en el Cierre de
+// mes y en cada tarjeta de mes — app-03/05/06/07 + css.
+const CACHE_NAME = 'patron-shell-v143';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
@@ -524,6 +529,7 @@ const PRECACHE_URLS = [
   '/app-11-eventos-ajustes.js',
   '/app-12-eventos-cuenta.js',
   '/app-13-eventos-escaneres.js',
+  '/app-14-reportes.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',

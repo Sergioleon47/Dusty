@@ -2517,3 +2517,9 @@
   .ro-banner button{margin-left:auto;flex-shrink:0;border:none;border-radius:99px;background:var(--navy);color:#fff;font:inherit;font-size:12px;font-weight:800;padding:8px 12px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.14);}
   @media (max-height:700px){ .pw-page{gap:9px;padding-top:16px;} .pw-title{font-size:26px;} .pw-step{padding:12px 14px;gap:8px;} }
   @media (prefers-reduced-motion: reduce){ .pw-in,.pw-wait,.pw-big-ok{animation:none;opacity:1;} .pw{transition:none;} }
+
+  /* ===== REPORTS (informe del mes en PDF, app-14) ===== */
+  /* Botón "Reports": pastilla fantasma chica; en la cabecera del Cierre de mes va
+     al lado de la ✕, en cada tarjeta de mes va en su propia fila a la derecha. */
+  .rp-btn{white-space:nowrap;font-weight:700;}
+  .ms-card-tools{display:flex;justify-content:flex-end;margin:-4px 0 6px;}

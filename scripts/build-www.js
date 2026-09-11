@@ -23,6 +23,16 @@ const FILES = [
   'app-06-modales.js',
   'app-07-eventos.js',
   'app-08-produccion.js',
+  // 2026-09-11: faltaban desde que attachEvents() se partió en cinco archivos
+  // (SW v133) — el paquete de la app instalada se armaba SIN los eventos del
+  // Dashboard, Inventario, Ajustes, Cuenta y escáneres. Cualquier archivo nuevo
+  // de la app va acá, en index.html y en PRECACHE_URLS de sw.js: los tres.
+  'app-09-eventos-dashboard.js',
+  'app-10-eventos-inventario.js',
+  'app-11-eventos-ajustes.js',
+  'app-12-eventos-cuenta.js',
+  'app-13-eventos-escaneres.js',
+  'app-14-reportes.js',
   'manifest.json',
   // AUDITORÍA 2026-09-09: faltaban en el paquete. privacy.html y
   // delete-account.html se enlazan desde Ajustes › Cuenta y daban 404 DENTRO
