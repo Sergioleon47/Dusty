@@ -520,7 +520,10 @@
 // retentionOffers por email, canjeado en getAccessState al volver); "quedate
 // un mes gratis" de la encuesta previa ahora suma 30 dias de verdad
 // (claim-retention); la encuesta ya no pregunta el motivo — app-03/06/07/12 + css.
-const CACHE_NAME = 'patron-shell-v151';
+// v152: el cambio lista / 2 / 3 columnas del desglose de Valor y Potencial ya no
+// salta de golpe — entrada escalonada (45 ms por producto, tope en el 12.º) solo
+// al cambiar de vista, no en redibujados de fondo — app-05 + css.
+const CACHE_NAME = 'patron-shell-v152';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

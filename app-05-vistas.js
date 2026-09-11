@@ -610,19 +610,24 @@ function invDetailModal(){
         </div>`).join('')}
       </div>` : ''}
       <div class="ivd-section">${t('ivd_by_product')} <small>${t('ivd_products_n').replace('{n}', rows.length)}</small><span class="ivd-section-tools">${ivdLayoutToggleHtml()}</span></div>
-      <div class="${ivdLayout==='list' ? 'ivd-rows' : 'ivd-grid '+ivdLayout}">
-        ${rows.map(i=>{
+      ${/* El id cambia con la vista: morphdom RECREA el contenedor al cambiar de
+           lista a columnas (y viceversa) y los hijos entran con la animación
+           escalonada de ivdItemIn (--i = su posición); en los redibujados de
+           fondo el id es el mismo, el nodo se conserva y nada vuelve a animar
+           (pedido del usuario 2026-09-11: "que no entren tan rápido"). */''}
+      <div class="${ivdLayout==='list' ? 'ivd-rows' : 'ivd-grid '+ivdLayout}" id="ivd-list-${kind}-${ivdLayout}">
+        ${rows.map((i, idx)=>{
           const unit = isVal ? (i.costPerUnit||0) : (i.salePrice||0);
           const m = !isVal ? (i.qtyOnHand||0)*((i.salePrice||0)-(i.costPerUnit||0)) : 0;
           if(ivdLayout!=='list') return `
-        <div class="ivd-tile" data-open-item="${i.id}" role="button" tabindex="0" title="${escapeHtml(i.name)}">
+        <div class="ivd-tile" data-open-item="${i.id}" role="button" tabindex="0" title="${escapeHtml(i.name)}" style="--i:${idx};">
           <span class="stock-icon-ring" style="width:40px;height:40px;flex-shrink:0;overflow:hidden;">${stockIconSvg(i)}</span>
           <span class="ivd-tile-name">${escapeHtml(i.name)}</span>
           <b class="ivd-tile-amt" style="color:${color};">${fmt(amt(i))}</b>
           <span class="ivd-tile-calc">${escapeHtml(i.qtyOnHand||0)} × ${fmt(unit)}${!isVal ? `<br><span style="color:${m>=0?'var(--money-pos)':'var(--money-neg, var(--tomato))'};">${m>=0?'+':''}${fmt(m)}</span>` : ''}</span>
         </div>`;
           return `
-        <div class="ivd-row" data-open-item="${i.id}" role="button" tabindex="0">
+        <div class="ivd-row" data-open-item="${i.id}" role="button" tabindex="0" style="--i:${idx};">
           <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;overflow:hidden;">${stockIconSvg(i)}</span>
           <span class="ivd-row-main"><span class="ivd-row-name">${escapeHtml(i.name)}</span><span class="ivd-row-calc">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} × ${fmt(unit)}${!isVal ? ` · <span style="color:${m>=0?'var(--money-pos)':'var(--money-neg, var(--tomato))'};">${m>=0?'+':''}${fmt(m)}</span>` : ''}</span></span>
           <b class="ivd-row-amt" style="color:${color};">${fmt(amt(i))}</b>

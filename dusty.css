@@ -2645,7 +2645,16 @@
      2026-09-11: el mismo selector de columnas del Inventario, en los dos
      desgloses). El selector reutiliza .inv-layout-toggle, más chico. */
   .ivd .ivd-section-tools{margin-left:auto;}
-  .ivd .ivd-layout button{width:26px;height:26px;}
+  .ivd .ivd-layout button{width:26px;height:26px;transition:background .25s var(--ease-soft), color .25s var(--ease-soft), transform .12s;}
+  .ivd .ivd-layout button:active{transform:scale(.92);}
+  /* Entrada escalonada al cambiar de vista (pedido del usuario 2026-09-11: "que
+     no entren tan rápido"): cada producto aparece 45 ms después del anterior,
+     con tope en el 12.º para que una lista larga no tarde segundos. Corre solo
+     cuando el contenedor se crea (su id cambia con la vista, ver invDetailModal);
+     un redibujado de fondo conserva el nodo y no la repite. */
+  .ivd .ivd-rows > *, .ivd .ivd-grid > *{animation:ivdItemIn .5s var(--ease-soft) both;animation-delay:calc(min(var(--i, 0), 12) * 45ms);}
+  @keyframes ivdItemIn{from{opacity:0;transform:translateY(8px) scale(.985);} to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .ivd .ivd-rows > *, .ivd .ivd-grid > *{animation:none;} }
   .ivd .ivd-grid{display:grid;gap:8px;}
   .ivd .ivd-grid.cols2{grid-template-columns:1fr 1fr;}
   .ivd .ivd-grid.cols3{grid-template-columns:1fr 1fr 1fr;gap:6px;}
