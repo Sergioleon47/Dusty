@@ -508,6 +508,7 @@ function dashboardView(){
       ${unread>0 ? `<span class="dash-tile-count">${unread>99?'99+':unread}</span>` : '<span class="dash-tile-chev">›</span>'}
     </button>` : ''}
   </div>`}
+  ${svcAgendaHtml()}
   ${priceAlertsCard()}
   `;
 }
@@ -1411,7 +1412,8 @@ function receiptCalendarWidget(){
     const coverSrc = cover ? receiptImgSrc(cover) : null;
     const dots = [];
     if(dayReceipts && !coverSrc) for(let d=0; d<Math.min(dayReceipts.length,3); d++) dots.push('<i></i>');
-    if(dayNotes.length) dots.push('<i class="note"></i>');
+    // 5. Un punto por TIPO de nota (modo Servicios): trabajo, cobro, mantenimiento, nota.
+    if(dayNotes.length){ const kinds = new Set(dayNotes.map(n=>n.svcKind||'note')); ['note','job','due','maint'].forEach(k=>{ if(kinds.has(k)) dots.push(`<i class="note${k==='note'?'':' svc-'+k}"></i>`); }); }
     cells.push(`
       <div class="cal-day ${r?'has-receipt':''} ${coverSrc?'has-photo':''} ${dayNotes.length?'has-note':''} ${isToday?'today':''} ${isBlink?'blink':''}" data-key="cal:${dateStr}" data-cal-day="${dateStr}" ${r?`title="${multi?dayReceipts.length+' '+t('products_plural'):escapeHtml(r.supplier)||t('no_supplier_name')}"`:dayNotes.length?`title="${escapeHtml(dayNotes[0].text)}"`:''}>
         ${/* Día con recibo: el ICONO de recibo en lugar del número (pedido del
@@ -1459,6 +1461,7 @@ function receiptCalendarWidget(){
          todo y la línea sobraría. El ×N de cada casilla sigue contando los del
          día; este cuenta el mes entero. */''}
     ${monthReceiptCount > 1 ? `<div class="cal-month-count">${t('cal_month_receipts').replace('{n}', monthReceiptCount)}</div>` : ''}
+    ${usesServices() ? `<div class="svc-legend"><span><i class="svc-job"></i>${t('svc_legend_job')}</span><span><i class="svc-due"></i>${t('svc_legend_due')}</span><span><i class="svc-maint"></i>${t('svc_legend_maint')}</span><span><i></i>${t('svc_legend_note')}</span></div>` : ''}
     ${/* Cierre de mes, ubicado acá (decisión del usuario): resume el mes que el
          calendario está mostrando — la conclusión del arco, junto a sus datos. */''}
     <button type="button" class="cal-recap-btn" id="btn-month-recap">${t('recap_btn')}</button>
@@ -1509,6 +1512,7 @@ function dayModal(){
             <div class="cal-note-text">${escapeHtml(n.text)}</div>
             ${calNoteWhenText(n) ? `<div class="cal-note-when">${escapeHtml(calNoteWhenText(n))}</div>` : ''}
           </div>
+          ${n.svcKind==='due' && n.jobId ? `<button type="button" class="btn btn-ghost btn-sm" data-wa-job="${escapeHtml(n.jobId)}" title="${t('svc_whatsapp')}" style="flex-shrink:0;padding:6px 9px;">💬</button>` : ''}
           <button class="stock-row-x-btn" data-delete-note="${n.id}" title="${t('note_delete_title')}">✕</button>
         </div>`).join('')}
       </div>` : ''}
@@ -1558,10 +1562,11 @@ function miniCalendarWidget(){
   const hoy = localDateStr();
   const conRecibo = new Set();
   receipts.forEach(r=>{ if(r && r.date && r.date.slice(0,7)===mes) conRecibo.add(r.date); });
-  const conNota = new Set();
+  const conNota = new Map(); // fecha → tipo más urgente (cobro > mantenimiento > trabajo > nota)
   for(let d=1; d<=diasDelMes; d++){
     const f = mes+'-'+String(d).padStart(2,'0');
-    if(calNotesOnDate(calNotes, f).length) conNota.add(f);
+    const ns = calNotesOnDate(calNotes, f);
+    if(ns.length){ const ks = new Set(ns.map(n=>n.svcKind||'note')); conNota.set(f, ks.has('due') ? 'svc-due' : ks.has('maint') ? 'svc-maint' : ks.has('job') ? 'svc-job' : ''); }
   }
   const celdas = [];
   for(let i=0; i<primerDia; i++) celdas.push('<i class="mc-day out"></i>');
@@ -1569,7 +1574,7 @@ function miniCalendarWidget(){
     const f = mes+'-'+String(d).padStart(2,'0');
     const clases = ['mc-day'];
     if(conRecibo.has(f)) clases.push('has');
-    else if(conNota.has(f)) clases.push('note');
+    else if(conNota.has(f)){ clases.push('note'); if(conNota.get(f)) clases.push(conNota.get(f)); }
     if(f===hoy) clases.push('today');
     celdas.push(`<i class="${clases.join(' ')}"></i>`);
   }

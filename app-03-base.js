@@ -706,6 +706,13 @@ const I18N = {
     font_size_label:'Tamaño de letra', font_size_helper:'Para leer más cómodo. Se aplica a toda la app: deslizá y mirá.', font_size_reset:'Normal',
     switch_on:'Prendido', switch_off:'Apagado',
     /* ===== Modo Servicios (2026-09-11, app-15) ===== */
+    svc_tomorrow:'Mañana', svc_agenda_title:'Próximos 7 días', svc_agenda_more:'+{n} más en el calendario',
+    svc_rep_label:'Se repite', svc_rep_none:'No', svc_rep_weekly:'Cada semana', svc_rep_biweekly:'Cada 2 semanas', svc_rep_monthly:'Cada mes',
+    svc_rep_child:'Parte de un contrato: Dusty lo creó solo. Podés editarlo o borrarlo sin tocar los demás.',
+    svc_clash_confirm:'{asset} ya tiene un trabajo ese día ({client}). ¿Guardar igual?',
+    svc_toast_due_soon:'💵 {n} cobro(s) vencen en {days} días: {amount}.',
+    svc_set_remind_days:'Avisar cobros', svc_remind_same_day:'El mismo día',
+    svc_legend_job:'Trabajo', svc_legend_due:'Cobro', svc_legend_maint:'Mantenimiento', svc_legend_note:'Nota',
     svc_note_due:'Cobrar {client} · {amount}',
     svc_toast_overdue:'💵 {n} cobro(s) vencido(s): {amount}. Tocá Por cobrar para recordar.', svc_toast_due_today:'💵 Hoy vence(n) {n} cobro(s): {amount}.',
     svc_toast_maint_overdue:'🔧 Mantenimiento vencido: {what} (y {n} en total).', svc_toast_maint_soon:'🔧 Se acerca un mantenimiento: {what}, {when}.',
@@ -1423,6 +1430,13 @@ const I18N = {
     font_size_label:'Text size', font_size_helper:'For easier reading. Applies to the whole app: slide and see.', font_size_reset:'Normal',
     switch_on:'On', switch_off:'Off',
     /* ===== Services mode (2026-09-11, app-15) ===== */
+    svc_tomorrow:'Tomorrow', svc_agenda_title:'Next 7 days', svc_agenda_more:'+{n} more in the calendar',
+    svc_rep_label:'Repeats', svc_rep_none:'No', svc_rep_weekly:'Every week', svc_rep_biweekly:'Every 2 weeks', svc_rep_monthly:'Every month',
+    svc_rep_child:'Part of a contract: Dusty created it for you. Edit or delete it without touching the others.',
+    svc_clash_confirm:'{asset} already has a job that day ({client}). Save anyway?',
+    svc_toast_due_soon:'💵 {n} payment(s) due in {days} days: {amount}.',
+    svc_set_remind_days:'Payment notice', svc_remind_same_day:'Same day',
+    svc_legend_job:'Job', svc_legend_due:'Payment', svc_legend_maint:'Maintenance', svc_legend_note:'Note',
     svc_note_due:'Collect from {client} · {amount}',
     svc_toast_overdue:'💵 {n} overdue payment(s): {amount}. Open To collect to remind.', svc_toast_due_today:'💵 {n} payment(s) due today: {amount}.',
     svc_toast_maint_overdue:'🔧 Maintenance overdue: {what} ({n} in total).', svc_toast_maint_soon:'🔧 Maintenance coming up: {what}, {when}.',
@@ -1736,6 +1750,7 @@ let stateLoadFailed = false;
 function saveState(){
   // Modo Servicios (app-15): trabajos, cobros y mantenimientos como notas del
   // calendario, siempre al día con los datos. Idempotente.
+  if(typeof svcGenerateRecurring==='function') try{ svcGenerateRecurring(); }catch(e){}
   if(typeof svcSyncCalendar==='function') try{ svcSyncCalendar(); }catch(e){}
   if(stateLoadFailed){
     // Un dato real nuevo (importar respaldo, un producto, un recibo) significa

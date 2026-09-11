@@ -511,8 +511,8 @@ function jobsSheet(){
     <div class="matched-item svc-row ${over?'svc-row-crit':''}" data-open-job="${escapeHtml(j.id)}" role="button" tabindex="0">
       <span class="svc-row-ic">${asset ? escapeHtml(asset.emoji||'🚚') : '🧾'}</span>
       <span class="svc-row-tx">
-        <b>${escapeHtml(j.client||'')}</b>
-        <small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${asset ? ` · ${escapeHtml(asset.name)}` : ''}${exp>0 ? ` · ${t('svc_expenses_short')} ${svcMoneyShort(exp)}` : ''}</small>
+        <b>${j.repeat ? '🔁 ' : ''}${escapeHtml(j.client||'')}</b>
+        <small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${asset ? ` · ${escapeHtml(asset.name)}` : ''}${j.repeat ? ` · ${svcRepeatLabel(j.repeat).toLowerCase()}` : ''}${exp>0 ? ` · ${t('svc_expenses_short')} ${svcMoneyShort(exp)}` : ''}</small>
         <span class="dash-tile-badge svc-tag ${j.paid?'ok':over?'crit':'warn'}">${j.paid ? t('svc_tag_paid') : over ? t('svc_tag_overdue') : t('svc_tag_pending')}</span>
       </span>
       <span class="svc-row-amt"><b style="color:${j.paid?'var(--money-pos)':over?'var(--money-neg)':'var(--ink)'};">${svcMoneyShort(j.price||0)}</b></span>
@@ -541,8 +541,9 @@ function openJobModal(jobId, presetAssetId){
   const j = jobId ? jobById(jobId) : null;
   draftJob = j ? {
     id:j.id, client:j.client||'', serviceName:j.serviceName||'', serviceId:j.serviceId||null, date:j.date||localDateStr(),
-    assetId:j.assetId||null, price:j.price||'', paid:!!j.paid, dueDays: (j.dueDate && j.date) ? Math.max(1, daysBetweenStr(j.date, j.dueDate)) : 15, pending:[]
-  } : { id:null, client:'', serviceName:'', serviceId:null, date:localDateStr(), assetId:presetAssetId||null, price:'', paid:false, dueDays:15, pending:[] };
+    assetId:j.assetId||null, price:j.price||'', paid:!!j.paid, dueDays: j.dueDays || ((j.dueDate && j.date) ? Math.max(1, daysBetweenStr(j.date, j.dueDate)) : 15), pending:[],
+    repeat: j.repeat||null, parentId: j.parentId||null
+  } : { id:null, client:'', serviceName:'', serviceId:null, date:localDateStr(), assetId:presetAssetId||null, price:'', paid:false, dueDays:15, pending:[], repeat:null, parentId:null };
   showJobModal = true; jobExpenseFormOpen = false; jobModalError = '';
   render();
 }
@@ -612,6 +613,13 @@ function jobModal(){
         </div>`}
       </div>
       <div class="recap-row svc-line-big" style="margin-top:8px;"><span class="recap-label">${t('svc_job_profit')}</span><span class="recap-col-val" id="svc-job-profit">${jobProfitHtml()}</span></div>
+      ${/* 3. Contrato recurrente: el trabajo se repite y Dusty crea los siguientes. */''}
+      ${d.parentId ? `<div class="helper-note" style="margin:0 0 12px;">🔁 ${t('svc_rep_child')}</div>` : `
+      <div class="field"><label>${t('svc_rep_label')}</label>
+        <div class="svc-seg">
+          ${[null].concat(SVC_REPEATS).map(r=>`<button type="button" class="exit-reason-chip ${(d.repeat||null)===r?'on':''}" data-job-repeat="${r||''}">${r?'🔁 ':''}${svcRepeatLabel(r)}</button>`).join('')}
+        </div>
+      </div>`}
       <div class="field" style="margin-top:12px;"><label>${t('svc_collect_label')}</label>
         <div class="svc-seg">
           <button type="button" class="exit-reason-chip ${d.paid?'on':''}" data-job-paid="1">${t('svc_paid')}</button>
@@ -644,16 +652,22 @@ function saveJobFromDraft(){
   const d = draftJob;
   const price = parseFloat(d.price);
   if(!d.client || !(price>=0) || isNaN(price)){ jobModalError = t('svc_job_err'); render(); return null; }
+  // 4. Choque de equipo: se avisa y se deja decidir.
+  const clash = svcClash(d);
+  if(clash && !confirm(t('svc_clash_confirm').replace('{asset}', (assetById(d.assetId)||{}).name||'').replace('{client}', clash.client||''))) return null;
   let job = d.id ? jobById(d.id) : null;
   const dueDate = d.paid ? null : addDaysStr(d.date, d.dueDays||15);
+  const repeat = (!d.parentId && SVC_REPEATS.indexOf(d.repeat)>=0) ? d.repeat : null;
   if(job){
     const wasPaid = job.paid;
+    // Cambió la regla del contrato: las próximas salen desde la fecha nueva.
+    if(job.repeat!==repeat || job.date!==d.date) job.lastGenerated = null;
     Object.assign(job, { client:d.client, serviceName:d.serviceName, serviceId:d.serviceId, date:d.date, assetId:d.assetId||null,
-      price: Math.round(price*100)/100, paid:d.paid, dueDate, paidDate: d.paid ? (wasPaid ? (job.paidDate||localDateStr()) : localDateStr()) : null,
+      price: Math.round(price*100)/100, paid:d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate: d.paid ? (wasPaid ? (job.paidDate||localDateStr()) : localDateStr()) : null,
       lastEditedAt: new Date().toISOString() });
   } else {
     job = { id: uid('job'), type:'service', date:d.date, client:d.client, serviceName:d.serviceName, serviceId:d.serviceId, assetId:d.assetId||null,
-      price: Math.round(price*100)/100, paid:d.paid, dueDate, paidDate: d.paid ? localDateStr() : null,
+      price: Math.round(price*100)/100, paid:d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate: d.paid ? localDateStr() : null,
       items: [], createdAt: new Date().toISOString(), byLabel: (typeof currentUserLabel==='function' && currentUser) ? currentUserLabel() : '' };
     recordOutflow(job);
   }
@@ -968,6 +982,10 @@ function svcSettingsServicesCard(){
           <select id="svc-maint-days">${[3,7,14,30].map(n=>`<option value="${n}" ${bizProfile.maintDays===n?'selected':''}>${t('svc_days_before').replace('{n}', String(n))}</option>`).join('')}</select>
         </div>
         <div class="field" style="margin:12px 0 0;">
+          <label for="svc-remind-days">${t('svc_set_remind_days')}</label>
+          <select id="svc-remind-days">${[0,1,3,7].map(n=>`<option value="${n}" ${bizProfile.remindDays===n?'selected':''}>${n===0 ? t('svc_remind_same_day') : t('svc_days_before').replace('{n}', String(n))}</option>`).join('')}</select>
+        </div>
+        <div class="field" style="margin:12px 0 0;">
           <label for="svc-dist-unit">${t('svc_set_dist')}</label>
           <select id="svc-dist-unit"><option value="km" ${distU()==='km'?'selected':''}>${t('svc_unit_km_long')}</option><option value="mi" ${distU()==='mi'?'selected':''}>${t('svc_unit_mi_long')}</option></select>
         </div>
@@ -1110,6 +1128,7 @@ function attachServicesEvents(){
     };
     document.querySelectorAll('[data-job-asset]').forEach(b=>{ b.onclick = ()=>{ readJobDraftFromDom(); draftJob.assetId = b.dataset.jobAsset || null; render(); }; });
     document.querySelectorAll('[data-job-paid]').forEach(b=>{ b.onclick = ()=>{ readJobDraftFromDom(); draftJob.paid = b.dataset.jobPaid==='1'; render(); }; });
+    document.querySelectorAll('[data-job-repeat]').forEach(b=>{ b.onclick = ()=>{ readJobDraftFromDom(); draftJob.repeat = b.dataset.jobRepeat || null; render(); }; });
     const due = g('job-due');
     if(due) due.onchange = ()=>{ readJobDraftFromDom(); render(); };
     on('btn-job-exp-open', ()=>{ readJobDraftFromDom(); jobExpenseFormOpen = true; render(); });
@@ -1172,6 +1191,8 @@ function attachServicesEvents(){
   if(remT) remT.onchange = ()=>{ bizProfile.remindOverdue = !!remT.checked; saveState(); render(); };
   const md = g('svc-maint-days');
   if(md) md.onchange = ()=>{ bizProfile.maintDays = parseInt(md.value,10)||7; saveState(); render(); };
+  const rdays = g('svc-remind-days');
+  if(rdays) rdays.onchange = ()=>{ bizProfile.remindDays = parseInt(rdays.value,10)||0; saveState(); render(); };
   const du = g('svc-dist-unit');
   if(du) du.onchange = ()=>{ bizProfile.distUnit = du.value==='mi' ? 'mi' : 'km'; saveState(); render(); };
   on('btn-svc-catalog', ()=>svcShow(()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showServicesSheet = true; }));
@@ -1239,6 +1260,10 @@ function checkServiceAlerts(){
     const cs = collectStats();
     const dueToday = cs.list.filter(j=>j.dueDate===today);
     if(cs.overdueCount && map.due!==today){ msgs.push([t('svc_toast_overdue').replace('{n}', String(cs.overdueCount)).replace('{amount}', money(cs.overdue)), 'error']); map.due = today; }
+    else if(bizProfile.remindDays>0 && map.dueSoon!==today && cs.list.some(j=>j.dueDate && j.dueDate>today && j.dueDate<=addDaysStr(today, bizProfile.remindDays))){
+      const soon = cs.list.filter(j=>j.dueDate && j.dueDate>today && j.dueDate<=addDaysStr(today, bizProfile.remindDays));
+      msgs.push([t('svc_toast_due_soon').replace('{n}', String(soon.length)).replace('{days}', String(bizProfile.remindDays)).replace('{amount}', money(soon.reduce((s,j)=>s+(Number(j.price)||0),0))), 'info']); map.dueSoon = today;
+    }
     else if(dueToday.length && map.dueToday!==today){ msgs.push([t('svc_toast_due_today').replace('{n}', String(dueToday.length)).replace('{amount}', money(dueToday.reduce((s,j)=>s+(Number(j.price)||0),0))), 'info']); map.dueToday = today; }
     const mo = svcMaintOverview();
     if(mo.overdue.length && map.maint!==today){ const f = mo.overdue[0]; msgs.push([t('svc_toast_maint_overdue').replace('{what}', `${f.plan.name} · ${f.asset.name}`).replace('{n}', String(mo.overdue.length)), 'error']); map.maint = today; }
@@ -1374,4 +1399,100 @@ function svcReportSection(pdf, key){
       per.map(x=>({name: x.a.name, rev: money(x.rev), exp: money(x.exp), net: (x.rev-x.exp<0?'-':'')+money(Math.abs(x.rev-x.exp))})));
     pdf.gap(14);
   }
+}
+
+/* ================= CALENDARIO INTELIGENTE (2026-09-11, 3.ª tanda) =================
+   Las cinco mejoras aprobadas por el usuario ("manos a la obra"), sobre el
+   MISMO calendario: 1) agenda de los próximos 7 días en el Dashboard;
+   2) aviso N días antes de cada cobro, con WhatsApp desde la nota; 3) contratos
+   recurrentes que generan los trabajos solos; 4) choques de equipo al guardar;
+   5) color por tipo en los puntitos. */
+
+/* ---------- 1. agenda: próximos 7 días ---------- */
+function svcDayLabel(d, today){
+  if(d===today) return t('svc_today');
+  if(d===addDaysStr(today, 1)) return t('svc_tomorrow');
+  const dt = new Date(d+'T00:00:00');
+  const wd = (CAL_NOTE_WEEKDAYS[uiLang]||CAL_NOTE_WEEKDAYS.en)[dt.getDay()];
+  return wd.charAt(0).toUpperCase()+wd.slice(1)+' '+dt.getDate();
+}
+function svcAgendaHtml(){
+  if(!usesServices()) return '';
+  const today = localDateStr();
+  const rows = [];
+  for(let i=0; i<7; i++){
+    const d = addDaysStr(today, i);
+    calNotesOnDate(calNotes, d).forEach(n=>rows.push({d, n}));
+  }
+  if(!rows.length) return '';
+  const MAX = 8;
+  const shown = rows.slice(0, MAX);
+  const cap = (s)=> s.charAt(0).toUpperCase()+s.slice(1);
+  let lastDay = '';
+  return `
+  <div class="dash-section-label" style="margin-top:14px;">${t('svc_agenda_title')}</div>
+  <div class="svc-agenda">
+    ${shown.map(({d, n})=>{
+      const head = d!==lastDay ? `<span class="svc-agenda-day">${svcDayLabel(d, today)}</span>` : '<span class="svc-agenda-day"></span>';
+      lastDay = d;
+      const wa = (n.svcKind==='due' && n.jobId) ? `<button type="button" class="btn btn-ghost btn-sm svc-agenda-wa" data-wa-job="${escapeHtml(n.jobId)}" title="${t('svc_whatsapp')}">💬</button>` : '';
+      return `
+    <div class="svc-agenda-row ${n.svcKind ? 'k-'+n.svcKind : 'k-note'}" data-cal-day="${d}" role="button" tabindex="0">
+      ${head}
+      <span class="svc-agenda-ic">${escapeHtml(n.icon||'📌')}</span>
+      <span class="svc-agenda-tx">${escapeHtml(cap(n.text))}${calNoteWhenText(n) && n.hour!==null && n.hour!==undefined ? ` <small>${escapeHtml(calNoteTimeStr(n.hour, n.minute))}</small>` : ''}</span>
+      ${wa}
+    </div>`; }).join('')}
+    ${rows.length>MAX ? `<div class="helper-note" style="margin:6px 2px 0;">${t('svc_agenda_more').replace('{n}', String(rows.length-MAX))}</div>` : ''}
+  </div>`;
+}
+
+/* ---------- 3. contratos recurrentes ---------- */
+const SVC_REPEATS = ['weekly','biweekly','monthly'];
+function svcRepeatLabel(r){ return r==='weekly' ? t('svc_rep_weekly') : r==='biweekly' ? t('svc_rep_biweekly') : r==='monthly' ? t('svc_rep_monthly') : t('svc_rep_none'); }
+function svcNextDate(dateStr, repeat){
+  if(repeat==='weekly') return addDaysStr(dateStr, 7);
+  if(repeat==='biweekly') return addDaysStr(dateStr, 14);
+  if(repeat==='monthly'){
+    const d = new Date(dateStr+'T00:00:00'); const day = d.getDate();
+    d.setDate(1); d.setMonth(d.getMonth()+1);
+    const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    d.setDate(Math.min(day, last));
+    return localDateStr(d);
+  }
+  return null;
+}
+// Genera las próximas ocurrencias de cada contrato hasta 14 días adelante. Cada
+// ocurrencia es un trabajo normal (se edita, se cobra, se imprime) colgado del
+// contrato por parentId; una ocurrencia borrada no se vuelve a crear. Corre al
+// principio de cada saveState, antes de sincronizar el calendario.
+function svcGenerateRecurring(){
+  if(!usesServices()) return false;
+  const horizon = addDaysStr(localDateStr(), 14);
+  let changed = false;
+  svcJobs().filter(j=>j.repeat && SVC_REPEATS.indexOf(j.repeat)>=0 && !j.parentId).forEach(tpl=>{
+    let last = tpl.lastGenerated || tpl.date, guard = 0;
+    while(guard++ < 60){
+      const next = svcNextDate(last, tpl.repeat);
+      if(!next || next>horizon) break;
+      const exists = outflows.some(o=>o && o.type==='service' && o.parentId===tpl.id && o.date===next);
+      if(!exists){
+        recordOutflow({ id: uid('job'), type:'service', date: next, client: tpl.client, serviceName: tpl.serviceName, serviceId: tpl.serviceId||null,
+          assetId: tpl.assetId||null, price: tpl.price, paid: false, dueDate: addDaysStr(next, tpl.dueDays||15), paidDate: null, dueDays: tpl.dueDays||15,
+          parentId: tpl.id, items: [], createdAt: new Date().toISOString(), byLabel: tpl.byLabel||'' });
+        changed = true;
+      }
+      last = next;
+      if(tpl.lastGenerated!==next){ tpl.lastGenerated = next; changed = true; }
+    }
+  });
+  return changed;
+}
+
+/* ---------- 4. choques de equipo ---------- */
+// Otro trabajo del MISMO equipo el MISMO día (que no sea este). Se pregunta,
+// no se prohíbe: un camión puede hacer dos viajes cortos.
+function svcClash(d){
+  if(!d.assetId || !d.date) return null;
+  return svcJobs().find(j=>j.id!==d.id && j.assetId===d.assetId && j.date===d.date) || null;
 }
