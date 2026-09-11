@@ -486,6 +486,8 @@ test('normalizeBizProfile: vacío o basura cae a vende productos, sin servicios'
   assert.equal(normalizeBizProfile({distUnit: 'mi'}).distUnit, 'mi');
   assert.equal(normalizeBizProfile({distUnit: 'leguas'}).distUnit, 'km');
   assert.equal(p.remindDays, 3);
+  assert.equal(p.useOdometer, true); assert.equal(p.catsSeeded, false);
+  assert.equal(normalizeBizProfile({useOdometer: false}).useOdometer, false);
   assert.equal(normalizeBizProfile({remindDays: 7}).remindDays, 7);
   assert.equal(normalizeBizProfile({remindDays: 5}).remindDays, 3);
 });

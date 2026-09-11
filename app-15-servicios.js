@@ -37,6 +37,7 @@ let showMaintModal = false, draftMaint = null, maintModalError = '';
 let showMaintLogModal = false, maintLogAssetId = null, maintLogPlanId = '', maintLogError = '';
 let showServiceModal = false, draftService = null, serviceModalError = '';
 let equipoSearch = '', jobsSearch = '';
+let showExpenseCatsSheet = false;
 
 const SVC_ASSET_EMOJIS = ['🚚','🚛','🚐','🚗','🏍️','❄️','🏗️','🔧','🧰','🖥️','🏠','⚙️'];
 const SVC_MAINT_EMOJIS = ['🛢️','🛞','📋','🔧','🧊','🔋','🧯','🧹','⚙️'];
@@ -59,7 +60,7 @@ function setBizFlags(sells, services){
   if(!sells && !services) sells = true;
   bizProfile.sells = !!sells;
   bizProfile.services = !!services;
-  if(services) ensureServiceCategories();
+  if(services && !bizProfile.catsSeeded){ ensureServiceCategories(); bizProfile.catsSeeded = true; }
   saveState();
   refreshTabOrder();
   render();
@@ -262,13 +263,14 @@ function svcDashTilesHtml(){
       <span class="dash-tile-title">${t('svc_tile_collect')}</span>
       <span class="dash-tile-sub">${cs.pending>0 ? t('svc_collect_sub').replace('{c}', String(cs.clients)).replace('{o}', String(cs.overdueCount)) : t('svc_collect_none')}</span>
     </button>
+    ${(bizProfile.assets||[]).length ? `
     <button type="button" class="dash-tile ${mo.overdue.length?'alert':'t3'}" id="btn-svc-maint">
       <span class="dash-tile-badge ${maintBadge.cls}">${maintBadge.label}</span>
       <span class="dash-tile-icon" aria-hidden="true">🔧</span>
       <b class="dash-tile-num ${mo.overdue.length?'crit':''}">${maintNum}</b>
       <span class="dash-tile-title">${t('svc_tile_maint')}</span>
       <span class="dash-tile-sub">${maintFirst ? `${escapeHtml(maintFirst.asset.name)} · ${escapeHtml(maintFirst.plan.name.toLowerCase())}` : t('svc_maint_all_ok')}</span>
-    </button>`;
+    </button>` : ''}`;
 }
 // Con productos Y servicios, Equipo y activos no es pestaña: es esta baldosa.
 function svcEquipoTileHtml(){
@@ -535,6 +537,25 @@ function servicesSheet(){
   return svcSheet('services-sheet-overlay', t('svc_catalog_title'), body, 'btn-close-services-sheet');
 }
 
+/* ---------- CATEGORÍAS DE GASTO (renombrar, borrar, agregar) ----------
+   Pedido del usuario 2026-09-11: "que el usuario pueda quitar lo que no use".
+   Las categorías de gasto (Combustible, Peajes...) no tenían dónde borrarse: el
+   modal de Categorías de Ajustes es el del inventario. Un recibo cuya categoría
+   se borra queda "Sin categoría"; su tope de presupuesto se borra con ella. */
+function expenseCatsSheet(){
+  const list = expenseCategories.slice();
+  const body = `
+    <div class="sub svc-sub">${t('svc_xcats_sub')}</div>
+    <button class="btn btn-primary" id="btn-xcat-add" style="width:100%;margin-bottom:12px;">${t('svc_xcat_add')}</button>
+    ${list.length===0 ? `<div class="helper-note" style="margin:8px 0;">${t('svc_xcats_empty')}</div>` : list.map(c=>`
+    <div class="matched-item svc-row static svc-xcat-row">
+      <span class="svc-row-ic">${svcCatEmoji(c.name)}</span>
+      <input type="text" class="svc-xcat-input" data-xcat-name="${escapeHtml(c.id)}" value="${escapeHtml(c.name)}" maxlength="40" aria-label="${t('svc_service_name')}">
+      <button type="button" class="stock-row-x-btn" data-xcat-del="${escapeHtml(c.id)}" title="${t('btn_delete')}">✕</button>
+    </div>`).join('')}`;
+  return svcSheet('xcats-sheet-overlay', t('svc_set_categories'), body, 'btn-close-xcats-sheet');
+}
+
 /* ---------- MODAL: NUEVO TRABAJO ---------- */
 function openJobModal(jobId, presetAssetId){
   if(!requireWriteAccess()) return;
@@ -687,7 +708,7 @@ function openAssetModal(assetId){
   if(!requireWriteAccess()) return;
   const a = assetId ? assetById(assetId) : null;
   draftAsset = a ? {id:a.id, name:a.name, model:a.model||'', emoji:a.emoji||'🚚', purchaseDate:a.purchaseDate||'', purchasePrice:a.purchasePrice||'', km:(a.km===null||a.km===undefined)?'':a.km}
-    : {id:null, name:'', model:'', emoji:'🚚', purchaseDate:'', purchasePrice:'', km:''};
+    : {id:null, name:'', model:'', emoji: useOdo() ? '🚚' : '🧰', purchaseDate:'', purchasePrice:'', km:''};
   showAssetModal = true; assetModalError = ''; render();
 }
 function closeAssetModal(){ showAssetModal = false; draftAsset = null; render(); }
@@ -710,8 +731,9 @@ function assetModal(){
         <div class="field"><label for="asset-date">${t('svc_purchase_date')}</label><input id="asset-date" type="date" value="${escapeHtml(d.purchaseDate)}"></div>
         <div class="field"><label for="asset-price">${t('svc_purchase_price')}</label><input id="asset-price" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(d.purchasePrice)}" placeholder="0.00"></div>
       </div>
+      ${useOdo() ? `
       <div class="field"><label for="asset-km">${tu('svc_km')}</label><input id="asset-km" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.km)}" placeholder="—"></div>
-      <div class="helper-note">${t('svc_km_helper')}</div>
+      <div class="helper-note">${t('svc_km_helper')}</div>` : ''}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-asset">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-asset">${t('btn_save')}</button>
@@ -727,7 +749,7 @@ function saveAssetFromDraft(){
   d.model = g('asset-model') ? g('asset-model').value.trim() : '';
   d.purchaseDate = g('asset-date') ? g('asset-date').value : '';
   d.purchasePrice = g('asset-price') ? g('asset-price').value : '';
-  d.km = g('asset-km') ? g('asset-km').value : '';
+  d.km = g('asset-km') ? g('asset-km').value : ((d.km===null||d.km===undefined) ? '' : d.km);
   if(!d.name){ assetModalError = t('svc_asset_err'); render(); return false; }
   const num = (v)=>{ const n = parseFloat(v); return (v!=='' && Number.isFinite(n) && n>=0) ? n : null; };
   let a = d.id ? assetById(d.id) : null;
@@ -765,12 +787,12 @@ function maintModal(){
         ${maintModalError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${maintModalError}</div>` : ''}
       </div>
       <div class="field-row">
-        <div class="field"><label for="maint-km">${tu('svc_every_km_label')}</label><input id="maint-km" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyKm)}" placeholder="5000"></div>
+        ${useOdo(a) ? `<div class="field"><label for="maint-km">${tu('svc_every_km_label')}</label><input id="maint-km" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyKm)}" placeholder="5000"></div>` : ''}
         <div class="field"><label for="maint-months">${t('svc_every_months_label')}</label><input id="maint-months" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyMonths)}" placeholder="3"></div>
       </div>
       <div class="field-row">
         <div class="field"><label for="maint-last">${t('svc_last_done')}</label><input id="maint-last" type="date" value="${escapeHtml(d.lastDate)}"></div>
-        <div class="field"><label for="maint-lastkm">${tu('svc_last_km')}</label><input id="maint-lastkm" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.lastKm)}" placeholder="—"></div>
+        ${useOdo(a) ? `<div class="field"><label for="maint-lastkm">${tu('svc_last_km')}</label><input id="maint-lastkm" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.lastKm)}" placeholder="—"></div>` : ''}
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-maint">${t('btn_cancel')}</button>
@@ -785,12 +807,13 @@ function saveMaintFromDraft(){
   const d = draftMaint; const a = assetById(d.assetId); if(!a) return false;
   d.name = g('maint-name') ? g('maint-name').value.trim() : '';
   const num = (v, min)=>{ const n = parseFloat(v); return (v!=='' && Number.isFinite(n) && n>=min) ? n : null; };
-  const everyKm = num(g('maint-km').value, 1), everyMonths = num(g('maint-months').value, 1);
+  // Campos de km ocultos (sin odómetro): se conserva lo que ya tenía el plan.
+  const everyKm = g('maint-km') ? num(g('maint-km').value, 1) : num(d.everyKm, 1), everyMonths = num(g('maint-months').value, 1);
   if(!d.name || (!everyKm && !everyMonths)){ maintModalError = t('svc_maint_err'); render(); return false; }
   let m = d.id ? (a.maint||[]).find(x=>x.id===d.id) : null;
   if(!m){ m = {id: uid('mt')}; a.maint = a.maint||[]; a.maint.push(m); }
   const lastDate = g('maint-last').value;
-  Object.assign(m, {name:d.name, emoji:d.emoji||'🔧', everyKm, everyMonths, lastDate: /^\d{4}-\d{2}-\d{2}$/.test(lastDate) ? lastDate : null, lastKm: num(g('maint-lastkm').value, 0)});
+  Object.assign(m, {name:d.name, emoji:d.emoji||'🔧', everyKm, everyMonths, lastDate: /^\d{4}-\d{2}-\d{2}$/.test(lastDate) ? lastDate : null, lastKm: g('maint-lastkm') ? num(g('maint-lastkm').value, 0) : num(d.lastKm, 0)});
   saveState();
   return true;
 }
@@ -826,7 +849,7 @@ function maintLogModal(){
       <div class="field" id="mlog-desc-wrap" ${maintLogPlanId?'hidden':''}><label for="mlog-desc">${t('svc_maint_name')}</label><input id="mlog-desc" type="text" maxlength="60" placeholder="${t('svc_log_desc_ph')}"></div>
       <div class="field-row">
         <div class="field"><label for="mlog-date">${t('lbl_date')}</label><input id="mlog-date" type="date" value="${localDateStr()}"></div>
-        <div class="field"><label for="mlog-km">${tu('svc_log_km')}</label><input id="mlog-km" type="number" min="0" step="1" inputmode="numeric" value="${(a.km===null||a.km===undefined)?'':escapeHtml(a.km)}" placeholder="—"></div>
+        ${useOdo(a) ? `<div class="field"><label for="mlog-km">${tu('svc_log_km')}</label><input id="mlog-km" type="number" min="0" step="1" inputmode="numeric" value="${(a.km===null||a.km===undefined)?'':escapeHtml(a.km)}" placeholder="—"></div>` : ''}
       </div>
       <div class="field"><label for="mlog-cost">${t('svc_log_cost')}</label><input id="mlog-cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
         ${maintLogError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${maintLogError}</div>` : ''}
@@ -985,10 +1008,19 @@ function svcSettingsServicesCard(){
           <label for="svc-remind-days">${t('svc_set_remind_days')}</label>
           <select id="svc-remind-days">${[0,1,3,7].map(n=>`<option value="${n}" ${bizProfile.remindDays===n?'selected':''}>${n===0 ? t('svc_remind_same_day') : t('svc_days_before').replace('{n}', String(n))}</option>`).join('')}</select>
         </div>
+        <div class="pulse-row">
+          <div class="pulse-text"><b>${t('svc_set_odo')}</b><small>${t('svc_set_odo_sub')}</small></div>
+          <span class="pulse-state">${useOdo() ? t('switch_on') : t('switch_off')}</span>
+          <label class="pulse-switch" aria-label="${t('svc_set_odo')}">
+            <input type="checkbox" id="svc-odo-toggle" ${useOdo()?'checked':''}>
+            <i></i>
+          </label>
+        </div>
+        ${useOdo() ? `
         <div class="field" style="margin:12px 0 0;">
           <label for="svc-dist-unit">${t('svc_set_dist')}</label>
           <select id="svc-dist-unit"><option value="km" ${distU()==='km'?'selected':''}>${t('svc_unit_km_long')}</option><option value="mi" ${distU()==='mi'?'selected':''}>${t('svc_unit_mi_long')}</option></select>
-        </div>
+        </div>` : ''}
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
           <button class="btn btn-ghost btn-sm" id="btn-svc-catalog">${t('svc_set_catalog')}</button>
           <button class="btn btn-ghost btn-sm" id="btn-svc-categories">${t('svc_set_categories')}</button>
@@ -1193,10 +1225,27 @@ function attachServicesEvents(){
   if(md) md.onchange = ()=>{ bizProfile.maintDays = parseInt(md.value,10)||7; saveState(); render(); };
   const rdays = g('svc-remind-days');
   if(rdays) rdays.onchange = ()=>{ bizProfile.remindDays = parseInt(rdays.value,10)||0; saveState(); render(); };
+  const odo = g('svc-odo-toggle');
+  if(odo) odo.onchange = ()=>{ bizProfile.useOdometer = !!odo.checked; saveState(); render(); };
   const du = g('svc-dist-unit');
   if(du) du.onchange = ()=>{ bizProfile.distUnit = du.value==='mi' ? 'mi' : 'km'; saveState(); render(); };
   on('btn-svc-catalog', ()=>svcShow(()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showServicesSheet = true; }));
-  on('btn-svc-categories', ()=>{ settingsReturnPending = true; showAlertSettingsModal = false; openCategoriesModal(); });
+  on('btn-svc-categories', ()=>svcShow(()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showExpenseCatsSheet = true; }));
+  /* Categorías de gasto */
+  const closeXcats = ()=>svcShow(()=>{ showExpenseCatsSheet = false; reopenSettingsIfPending(); });
+  overlayClose('xcats-sheet-overlay', closeXcats);
+  on('btn-close-xcats-sheet', closeXcats);
+  on('btn-xcat-add', ()=>{ if(!requireWriteAccess()) return; expenseCategories.push({id: uid('xcat'), name: t('svc_xcat_new_name')}); saveState(); render(); });
+  document.querySelectorAll('[data-xcat-name]').forEach(inp=>{ inp.onchange = ()=>{ const c = expenseCategories.find(x=>x.id===inp.dataset.xcatName); const v = inp.value.trim(); if(!c) return; if(!v){ inp.value = c.name; return; } c.name = v; saveState(); }; });
+  document.querySelectorAll('[data-xcat-del]').forEach(b=>{ b.onclick = ()=>{
+    if(!requireWriteAccess()) return;
+    const c = expenseCategories.find(x=>x.id===b.dataset.xcatDel); if(!c) return;
+    const used = receipts.filter(r=>r && r.expenseCategoryId===c.id).length;
+    if(!confirm(t('svc_xcat_del_confirm').replace('{name}', c.name).replace('{n}', String(used)))) return;
+    expenseCategories = expenseCategories.filter(x=>x.id!==c.id);
+    if(budgetMeta && budgetMeta.byCategory) delete budgetMeta.byCategory[c.id];
+    saveState(); render();
+  }; });
 }
 
 /* ================= CALENDARIO, AVISOS, MILLAS E IMPRESIÓN (2026-09-11, 2.ª tanda) =================
@@ -1207,6 +1256,9 @@ function attachServicesEvents(){
 
 /* ---------- unidad de distancia ---------- */
 // km o millas: solo cambia la etiqueta; los números se guardan como se escriben.
+// ¿Este equipo lleva kilómetros? Global (Ajustes) y, por activo, solo si tiene
+// odómetro cargado. Apagado, todo lo de km desaparece de los formularios.
+function useOdo(asset){ return bizProfile.useOdometer!==false && (!asset || (asset.km!==null && asset.km!==undefined)); }
 function distU(){ return (bizProfile && bizProfile.distUnit==='mi') ? 'mi' : 'km'; }
 function tu(key){ return t(key).replace('{u}', distU()); }
 

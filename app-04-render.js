@@ -237,6 +237,7 @@ function renderApp(){
     ${showJobsSheet ? jobsSheet() : ''}
     ${showCollectSheet ? collectSheet() : ''}
     ${showServicesSheet ? servicesSheet() : ''}
+    ${showExpenseCatsSheet ? expenseCatsSheet() : ''}
     ${showAssetSheet ? assetSheet() : ''}
     ${showBudgetModal ? budgetModal() : ''}
     ${showFinishedItemModal ? finishedItemModal() : ''}

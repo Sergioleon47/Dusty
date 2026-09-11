@@ -2870,3 +2870,7 @@
   .svc-agenda-tx{flex:1;min-width:0;font-size:calc(13px * var(--fs, 1));font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .svc-agenda-tx small{color:var(--ink-soft);font-weight:500;}
   .svc-agenda-wa{flex-shrink:0;padding:5px 9px;}
+  /* Categorías de gasto: fila con el nombre editable en el lugar. */
+  .svc-xcat-row{cursor:default;}
+  .svc-xcat-input{flex:1;min-width:0;border:1px solid transparent;background:transparent;font:inherit;font-size:calc(13.5px * var(--fs, 1));font-weight:700;color:var(--ink);padding:6px 8px;border-radius:8px;}
+  .svc-xcat-input:focus{outline:none;border-color:var(--navy);background:var(--inset);}

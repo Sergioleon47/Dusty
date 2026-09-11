@@ -513,7 +513,7 @@ function startOnboarding(){
     const pick = (k)=> !!root.querySelector('[data-ob-biz="'+k+'"].on');
     bizProfile.sells = pick('sells') || !pick('services');
     bizProfile.services = pick('services');
-    if(bizProfile.services) ensureServiceCategories();
+    if(bizProfile.services && !bizProfile.catsSeeded){ ensureServiceCategories(); bizProfile.catsSeeded = true; }
     if(pick('makes')){ productionTabPref = 'on'; try{ localStorage.setItem('patron_production_tab','on'); }catch(e){} }
     saveState();
     refreshTabOrder();
