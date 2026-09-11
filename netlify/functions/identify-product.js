@@ -13,7 +13,7 @@
 const {
   isAllowedOrigin, verifyCallerInfo,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage,
-  checkIpRateLimit,
+  checkIpRateLimit, getAccessState, subscriptionRequiredResponse,
   withCors
 } = require('./lib/patron-admin');
 
@@ -243,6 +243,9 @@ exports.handler = withCors(async (event) => {
     if (!hasAccess) {
       return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta', code: 'no_access' }) };
     }
+    // Primer mes vencido y sin suscripción: 402 antes de gastar cupo ni Claude
+    // (ver getAccessState — apagado hasta DUSTY_BILLING_ENABLED=1).
+    if ((await getAccessState(ownerUid, caller)).locked) return subscriptionRequiredResponse();
     if (!(await checkIpRateLimit(event))) {
       return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados escaneos seguidos desde esta conexión — espera un rato y prueba de nuevo', code: 'rate_limited' }) };
     }

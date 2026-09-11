@@ -486,7 +486,14 @@
 // #app — startOnboarding en app-06 — y fuera de raiz el modal de idioma y el
 // tutorial viejos. Cambios cruzados en app-01/03/04/05/06/07/11 + dusty.css:
 // un cliente con app-04 viejo cacheado pediria langChoiceModal(), que ya no existe.
-const CACHE_NAME = 'patron-shell-v140';
+// v141: suscripcion ("primer mes por nuestra cuenta"). Pagina de suscripcion
+// (openPaywall, app-06), candado requireWriteAccess en cada accion que escribe,
+// franja de solo lectura, listener de meta/billing y access-state en app-02;
+// funciones nuevas access-state / create-checkout / stripe-webhook y 402 en las
+// de IA. TODO APAGADO hasta DUSTY_BILLING_ENABLED=1 en Netlify. Cambios cruzados
+// en app-01..09 + dusty.css: sin el bump, un app-06 viejo no tendria openPaywall
+// y el 402 del servidor reventaria en callDustyAI.
+const CACHE_NAME = 'patron-shell-v141';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

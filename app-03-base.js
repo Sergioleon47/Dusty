@@ -527,6 +527,25 @@ const I18N = {
     srv_rate_limited:'Demasiados escaneos seguidos — espera un rato y prueba de nuevo.',
     srv_quota_check_failed:'No se pudo verificar tu cupo de escaneos — intenta de nuevo.',
     srv_upstream_error:'El lector de IA está saturado en este momento — tu cupo no se descontó, prueba en un minuto.',
+    srv_subscription_required:'Tu primer mes gratis terminó — suscríbete para seguir escaneando.',
+    srv_account_required:'Guarda tu cuenta antes de suscribirte.',
+    srv_owner_only:'Solo el dueño de la cuenta puede suscribirla.',
+    srv_billing_not_configured:'El pago todavía no está habilitado — inténtalo más tarde.',
+    srv_checkout_failed:'No se pudo abrir la página de pago — intenta de nuevo.',
+    /* Página de suscripción (openPaywall, app-06). */
+    pw_kicker:'Tu primer mes terminó', pw_title:'Sigue con Dusty', pw_sub:'Para seguir escaneando y editando, completa estos dos pasos.',
+    pw_safe:'Tus datos están salvos',
+    pw_s1:'Guarda tu cuenta', pw_s1_small:'30 segundos', pw_s1_why:'Así tu inventario queda atado a ti, no a este teléfono.',
+    pw_s1_btn:'Guardar cuenta', pw_s1_done:'Cuenta guardada: {email}',
+    pw_s2:'Elige tu plan', pw_month_sub:'al mes', pw_year_sub:'al año · 2 meses gratis', pw_tag:'MEJOR',
+    pw_cta:'Continuar al pago', pw_opening:'Abriendo el pago seguro…',
+    pw_note:'Se abre la página segura de Stripe. Dusty nunca ve tu tarjeta.',
+    pw_ro_link:'Ver mis datos mientras tanto (solo lectura)',
+    pw_paying:'Confirmando tu pago…', pw_paying_sub:'Vuelves a Dusty en un momento.',
+    pw_ok_title:'¡Listo! Dusty sigue contigo', pw_ok_sub:'Todo como lo dejaste.',
+    pw_ro_title:'Solo lectura', pw_ro_sub:'Puedes ver todo, pero no escanear ni editar hasta suscribirte.', pw_ro_btn:'Suscribirme',
+    pw_pay_pending:'Tu pago se está confirmando — si ya pagaste, en un momento se destraba solo.',
+    pw_cancelled:'Pago cancelado. Puedes retomarlo cuando quieras.',
     srv_internal:'Algo falló en el servidor — prueba de nuevo.',
     shelf_info_badge_aria:'Qué hace este escáner',
     shelf_info_title:'Escáner de salidas — solo descuenta',
@@ -1124,6 +1143,24 @@ const I18N = {
     srv_rate_limited:'Too many scans in a row — wait a bit and try again.',
     srv_quota_check_failed:'Could not verify your scan quota — try again.',
     srv_upstream_error:'The AI reader is overloaded right now — your quota was not charged, try again in a minute.',
+    srv_subscription_required:'Your first free month is over — subscribe to keep scanning.',
+    srv_account_required:'Save your account before subscribing.',
+    srv_owner_only:'Only the account owner can subscribe it.',
+    srv_billing_not_configured:'Payments aren’t enabled yet — please try later.',
+    srv_checkout_failed:'Couldn’t open the payment page — try again.',
+    pw_kicker:'Your first month is over', pw_title:'Keep going with Dusty', pw_sub:'To keep scanning and editing, complete these two steps.',
+    pw_safe:'Your data is safe',
+    pw_s1:'Save your account', pw_s1_small:'30 seconds', pw_s1_why:'So your inventory belongs to you, not to this phone.',
+    pw_s1_btn:'Save account', pw_s1_done:'Account saved: {email}',
+    pw_s2:'Pick your plan', pw_month_sub:'per month', pw_year_sub:'per year · 2 months free', pw_tag:'BEST',
+    pw_cta:'Continue to payment', pw_opening:'Opening secure payment…',
+    pw_note:'Opens Stripe’s secure page. Dusty never sees your card.',
+    pw_ro_link:'See my data meanwhile (read-only)',
+    pw_paying:'Confirming your payment…', pw_paying_sub:'Back to Dusty in a moment.',
+    pw_ok_title:'Done! Dusty stays with you', pw_ok_sub:'Everything just as you left it.',
+    pw_ro_title:'Read-only', pw_ro_sub:'You can see everything, but not scan or edit until you subscribe.', pw_ro_btn:'Subscribe',
+    pw_pay_pending:'Your payment is being confirmed — if you already paid, it unlocks by itself in a moment.',
+    pw_cancelled:'Payment cancelled. You can pick it up whenever you like.',
     srv_internal:'Something failed on the server — try again.',
     shelf_info_badge_aria:'What this scanner does',
     shelf_info_title:'Outflow scanner — deduct only',
@@ -1294,6 +1331,19 @@ function hapticAviso(tipo){
     if(tipo === 'success') H.notification({type:'SUCCESS'}).catch(()=>{});
     else if(tipo === 'error') H.notification({type:'ERROR'}).catch(()=>{});
   }catch(e){}
+}
+/* ===== SUSCRIPCIÓN: el candado del lado del cliente =====
+   accessLocked(): vencido el mes y sin suscripción, según el servidor (ver
+   accessState en app-01). requireWriteAccess() va al principio de cada acción
+   que CREA o EDITA datos (abrir un escáner, la ficha de producto, el gasto a
+   mano, una receta, el presupuesto...): si la cuenta está cerrada, abre la
+   página de suscripción y devuelve false para que la acción no siga. Ver es
+   gratis siempre; lo que se cierra es escanear y editar. */
+function accessLocked(){ return !!(accessState && accessState.locked); }
+function requireWriteAccess(){
+  if(!accessLocked()) return true;
+  openPaywall();
+  return false;
 }
 function showToast(message, type, action){
   hapticAviso(type);

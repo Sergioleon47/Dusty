@@ -356,9 +356,149 @@ async function recordScanUsage(ownerUid, count, period) {
   }
 }
 
+/* ===== SUSCRIPCIÓN: "primer mes por nuestra cuenta" y después se paga (2026-09-11) =====
+   La cuenta tiene TRIAL_DAYS gratis desde que se creó en Firebase Auth — la
+   fecha sale de admin.auth().getUser(uid).metadata.creationTime, que ni el
+   cliente ni una reinstalación pueden tocar (localStorage se borra; esto no).
+   Una cuenta anónima que después se convierte en real (linkWithCredential)
+   conserva el uid y la fecha, así que el mes no se reinicia guardando la
+   cuenta. Vencido el mes, la cuenta queda CERRADA (locked) salvo que tenga una
+   suscripción vigente (users/{uid}/meta/billing.subscription, la escribe el
+   webhook de Stripe) o sea una cuenta con pase (UNLIMITED_EMAILS).
+   INTERRUPTOR: nada de esto muerde hasta que DUSTY_BILLING_ENABLED=1 en Netlify.
+   Sin la variable, getAccessState siempre devuelve locked:false — así el código
+   entero se despliega apagado y se prende el día que haya precios y Stripe; si
+   se prendiera antes, toda cuenta con más de un mes quedaría en solo lectura
+   sin forma de pagar.
+   Lo que se persiste en meta/billing (billingEnabled, unlimited, trialEndsAt,
+   subscriptionUntil) es para firestore.rules: las reglas no ven variables de
+   entorno ni Auth, solo documentos, y con esos cuatro campos deciden si la
+   cuenta puede ESCRIBIR (solo lectura de verdad, no solo en la UI). */
+const BILLING_ENABLED = process.env.DUSTY_BILLING_ENABLED === '1';
+const TRIAL_DAYS = Math.max(1, parseInt(process.env.DUSTY_TRIAL_DAYS || '30', 10) || 30);
+const DIA_MS = 86400000;
+const creadaEn = new Map();
+async function accountCreatedAt(ownerUid) {
+  if (creadaEn.has(ownerUid)) return creadaEn.get(ownerUid);
+  let ms = null;
+  try {
+    const u = await admin.auth().getUser(ownerUid);
+    const t = u && u.metadata && Date.parse(u.metadata.creationTime);
+    if (Number.isFinite(t)) ms = t;
+  } catch (e) { ms = null; }
+  creadaEn.set(ownerUid, ms);
+  return ms;
+}
+// Una suscripción cuenta como vigente mientras Stripe la tenga activa, en
+// prueba, o con un pago atrasado dentro del período ya pagado (past_due: Stripe
+// reintenta el cobro unos días; cortarle el acceso el primer día castiga una
+// tarjeta vencida, no un impago real). Cancelada o impaga de verdad: hasta el
+// fin del período que ya pagó, y ahí se cierra sola por la fecha.
+function subscriptionUntilMs(sub) {
+  if (!sub || !Number.isFinite(sub.currentPeriodEnd)) return 0;
+  const vivos = ['active', 'trialing', 'past_due'];
+  return vivos.includes(sub.status) ? sub.currentPeriodEnd : Math.min(sub.currentPeriodEnd, Date.now() - 1);
+}
+async function getAccessState(ownerUid, caller) {
+  getFirebaseApp();
+  const unlimited = isUnlimitedCaller(caller) || await isUnlimitedAccount(ownerUid);
+  const db = admin.firestore();
+  const ref = db.doc(`users/${ownerUid}/meta/billing`);
+  const snap = await ref.get();
+  const data = snap.exists ? snap.data() : {};
+  const now = Date.now();
+  // Sin fecha de creación (uid raro, Auth caído): no se inventa una — la cuenta
+  // queda abierta. Cerrar por un error nuestro es peor que un mes gratis de más.
+  const createdAt = Number.isFinite(data.accountCreatedAt) ? data.accountCreatedAt : await accountCreatedAt(ownerUid);
+  const trialEndsAt = Number.isFinite(createdAt) ? createdAt + TRIAL_DAYS * DIA_MS : null;
+  const sub = data.subscription && typeof data.subscription === 'object' ? data.subscription : null;
+  const subscriptionUntil = subscriptionUntilMs(sub);
+  const locked = BILLING_ENABLED && !unlimited && trialEndsAt !== null && now > trialEndsAt && !(subscriptionUntil > now);
+  // Se escribe solo si algo cambió: el arranque de cada sesión llama a esto y
+  // no vale una escritura por apertura de app.
+  const persist = { billingEnabled: BILLING_ENABLED, unlimited, trialEndsAt: trialEndsAt || 0, subscriptionUntil };
+  if (Number.isFinite(createdAt)) persist.accountCreatedAt = createdAt;
+  if (Object.keys(persist).some(k => data[k] !== persist[k])) {
+    try { await ref.set(persist, { merge: true }); } catch (e) { console.error('[Dusty] no se pudo guardar el estado de acceso:', e); }
+  }
+  return {
+    billingEnabled: BILLING_ENABLED, unlimited, locked, now, trialEndsAt, subscriptionUntil,
+    subscription: sub ? { status: sub.status || null, plan: sub.plan || null, currentPeriodEnd: sub.currentPeriodEnd || null, cancelAtPeriodEnd: !!sub.cancelAtPeriodEnd } : null
+  };
+}
+// Respuesta única para "vencido y sin suscripción": el cliente (callDustyAI)
+// reconoce subscriptionRequired y abre la página de suscripción.
+function subscriptionRequiredResponse() {
+  return { statusCode: 402, body: JSON.stringify({ error: 'Tu primer mes gratis terminó — suscríbete para seguir escaneando', code: 'subscription_required', subscriptionRequired: true }) };
+}
+
+/* ===== STRIPE por REST, sin SDK =====
+   La API de Stripe es HTTP + form-urlencoded; para crear una sesión de pago y
+   leer una suscripción no hace falta el paquete `stripe` (y sumar una
+   dependencia a netlify/functions/package.json es otra cosa que mantener).
+   Claves: STRIPE_SECRET_KEY (sk_live_/sk_test_), STRIPE_PRICE_MONTH y
+   STRIPE_PRICE_YEAR (ids price_… de los dos planes), STRIPE_WEBHOOK_SECRET
+   (whsec_… del endpoint stripe-webhook). Sin la clave, stripeConfigured() es
+   false y create-checkout contesta billing_not_configured. */
+function stripeConfigured() {
+  return !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_MONTH && process.env.STRIPE_PRICE_YEAR);
+}
+// Codifica objetos anidados como los quiere Stripe: a[b][c]=v.
+function stripeForm(obj, prefix, out) {
+  out = out || [];
+  Object.keys(obj).forEach(k => {
+    const key = prefix ? `${prefix}[${k}]` : k;
+    const v = obj[k];
+    if (v === undefined || v === null) return;
+    if (typeof v === 'object') stripeForm(v, key, out);
+    else out.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(v)));
+  });
+  return out.join('&');
+}
+async function stripeRequest(method, path, params) {
+  const res = await fetch('https://api.stripe.com/v1' + path, {
+    method,
+    headers: {
+      'Authorization': 'Bearer ' + process.env.STRIPE_SECRET_KEY,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: method === 'GET' ? undefined : stripeForm(params || {})
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = json && json.error && json.error.message ? json.error.message : ('Stripe ' + res.status);
+    const err = new Error(msg); err.stripe = json && json.error; throw err;
+  }
+  return json;
+}
+// Traduce el objeto Subscription de Stripe a lo que guarda meta/billing.
+function subscriptionRecord(sub) {
+  const item = sub && sub.items && sub.items.data && sub.items.data[0];
+  const priceId = item && item.price && item.price.id;
+  const plan = priceId === process.env.STRIPE_PRICE_YEAR ? 'year' : (priceId === process.env.STRIPE_PRICE_MONTH ? 'month' : (priceId || null));
+  return {
+    status: sub.status || null,
+    plan,
+    currentPeriodEnd: Number.isFinite(sub.current_period_end) ? sub.current_period_end * 1000 : null,
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    customerId: typeof sub.customer === 'string' ? sub.customer : (sub.customer && sub.customer.id) || null,
+    subscriptionId: sub.id || null,
+    updatedAt: Date.now()
+  };
+}
+// Escribe la suscripción en la cuenta y deja subscriptionUntil listo para las
+// reglas de Firestore (ver getAccessState).
+async function saveSubscription(ownerUid, record) {
+  getFirebaseApp();
+  const ref = admin.firestore().doc(`users/${ownerUid}/meta/billing`);
+  await ref.set({ subscription: record, subscriptionUntil: subscriptionUntilMs(record) }, { merge: true });
+}
+
 module.exports = {
   admin, getFirebaseApp, isAllowedOrigin, corsHeaders, withCors, verifyCaller, verifyCallerInfo, ALLOWED_ORIGIN_PATTERNS,
   isUnlimitedAccount,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
-  checkIpRateLimit
+  checkIpRateLimit,
+  BILLING_ENABLED, TRIAL_DAYS, getAccessState, subscriptionRequiredResponse,
+  stripeConfigured, stripeRequest, subscriptionRecord, saveSubscription
 };

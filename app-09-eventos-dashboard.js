@@ -12,6 +12,9 @@
 
    Llamada desde attachEvents() en cada render. */
 function attachDashboardEvents(){
+  /* ---------- franja de solo lectura (suscripción) ---------- */
+  const btnRoSubscribe=document.getElementById('btn-ro-subscribe');
+  if(btnRoSubscribe) btnRoSubscribe.onclick=openPaywall;
   /* ---------- tarjeta del calendario y hoja de recibos ---------- */
   const calTile=document.getElementById('dash-calendar-tile');
   if(calTile) calTile.onclick=openReceiptsSheet;

@@ -167,6 +167,20 @@ let showItemModal=false, showScanModal=false, showReceiptDetail=null;
    - lastScanQuota: {limit, used} que devuelve el servidor con cada escaneo — para
      decirle al trial cuántos escaneos gratis le quedan, antes de que choque el tope. */
 let showHelpModal=false, showTeamIntroModal=false, teamIntroContinue=null, itemModalExpanded=false, lastScanQuota=null;
+/* SUSCRIPCIÓN (2026-09-11): "primer mes por nuestra cuenta", después se paga.
+   - accessState: lo que contestó el servidor (access-state) — {billingEnabled,
+     locked, trialEndsAt, subscription, unlimited}. null hasta que responde; y
+     si nunca responde (sin red) la app queda ABIERTA: cerrar por un fallo
+     nuestro es peor que un día gratis de más. El candado real vive en el
+     servidor (402 en las funciones de IA) y en firestore.rules (escrituras).
+   - paywallDismissed: tocó "ver mis datos (solo lectura)": la página se esconde,
+     el candado sigue (accessLocked) y el Dashboard muestra la franja.
+   - SUB_PRICES: lo que se MUESTRA en la página de suscripción. Precios de
+     ejemplo hasta que existan los reales en Stripe (pedido del usuario
+     2026-09-11: "esos no son los precios reales pero luego los cambiamos") —
+     el cobro real lo decide el price_ de Stripe, nunca este texto. */
+let accessState = null, paywallDismissed = false;
+const SUB_PRICES = { month: '$4.99', year: '$39.99' };
 /* Auditoría de cámaras 2026-09-07 (ver el informe "Las seis cámaras"):
    - scanPhotoView: página del recibo abierta a pantalla completa durante la revisión.
    - scanTruncated: el modelo avisó que el recibo parece cortado.

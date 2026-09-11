@@ -170,6 +170,7 @@ function suggestedOrderModal(){
 }
 
 function openCycleCountModal(){
+  if(!requireWriteAccess()) return;
   draftCycleCountPct = cycleCountPct;
   draftCycleCountInterval = cycleCountIntervalDays;
   showCycleCountModal = true; render();
@@ -475,6 +476,161 @@ function startOnboarding(){
       root.remove();
     }, 350 + 1400);
   }
+}
+
+/* ================= PÁGINA DE SUSCRIPCIÓN (el primer mes terminó) =================
+   Aprobada sobre prototipo el 2026-09-11 con los colores de la introducción.
+   Aparece cuando el servidor dice locked (ver accessState en app-01 y
+   fetchAccessState en app-02): mismo mecanismo que startOnboarding — un nodo
+   propio fuera de #app (#pw-root), construido una vez, que render() no toca.
+   Dos pasos, en orden:
+     1. GUARDAR LA CUENTA (solo si todavía es anónima): abre el modal de "guardá
+        tu cuenta" de siempre (openUpgradeModal), que enlaza la cuenta anónima
+        con email+PIN conservando el uid — nada se pierde. Por eso el nodo va
+        DEBAJO de los .overlay (z-index 45 < 50): el modal se apila encima.
+     2. ELEGIR PLAN y "Continuar al pago": create-checkout devuelve la URL de
+        Stripe Checkout; en la web se navega ahí y Stripe vuelve con
+        ?billing=ok; en la app instalada se abre en el navegador del sistema y
+        acá queda "Confirmando tu pago…" hasta que el webhook escriba
+        meta/billing y el listener destrabe (paywallUnlocked).
+   "Ver mis datos mientras tanto": la página se va, el candado sigue
+   (paywallDismissed) y el Dashboard muestra la franja de solo lectura.
+   Los precios que se ven son SUB_PRICES (de ejemplo por ahora); el cobro real
+   lo fija el price_ de Stripe. */
+let paywallPlan = null, paywallBusy = false, paywallPollTimer = null;
+function paywallRoot(){ return document.getElementById('pw-root'); }
+function openPaywall(){
+  if(paywallRoot()) return;
+  paywallDismissed = false;
+  const root = document.createElement('div');
+  root.id = 'pw-root';
+  root.className = 'pw';
+  root.setAttribute('role', 'dialog');
+  root.setAttribute('aria-modal', 'true');
+  root.setAttribute('aria-label', t('pw_title'));
+  root.innerHTML = `
+    <div class="pw-page" id="pw-page">
+      <div class="pw-kicker pw-in a1">${t('pw_kicker')}</div>
+      <h1 class="pw-title pw-in a2">${t('pw_title')}</h1>
+      <p class="pw-sub pw-in a3">${t('pw_sub')}</p>
+      <div class="pw-safe pw-in a3"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>${t('pw_safe')}</span></div>
+      <div class="pw-step pw-in a4" id="pw-step1">
+        <div class="pw-step-head"><span class="pw-step-num"><span>1</span></span><b>${t('pw_s1')}</b><small>${t('pw_s1_small')}</small></div>
+        <p class="pw-step-why">${t('pw_s1_why')}</p>
+        <button type="button" class="btn btn-primary pw-s1-btn" id="pw-s1-btn">${t('pw_s1_btn')}</button>
+        <div class="pw-step-done" id="pw-s1-done"></div>
+      </div>
+      <div class="pw-step locked pw-in a5" id="pw-step2">
+        <div class="pw-step-head"><span class="pw-step-num"><span>2</span></span><b>${t('pw_s2')}</b></div>
+        <div class="pw-plans">
+          <button type="button" class="pw-plan" data-pw-plan="month"><b>${SUB_PRICES.month}</b><small>${t('pw_month_sub')}</small></button>
+          <button type="button" class="pw-plan" data-pw-plan="year"><span class="pw-tag">${t('pw_tag')}</span><b>${SUB_PRICES.year}</b><small>${t('pw_year_sub')}</small></button>
+        </div>
+      </div>
+      <button type="button" class="pw-cta pw-in a6" id="pw-cta" disabled>${t('pw_cta')}</button>
+      <p class="pw-note pw-in a6">${t('pw_note')}</p>
+      <div class="pw-spacer"></div>
+      <button type="button" class="pw-link pw-in a7" id="pw-ro-link">${t('pw_ro_link')}</button>
+    </div>
+    <div class="pw-wait" id="pw-wait" hidden>
+      <div class="pw-spin"></div><b>${t('pw_paying')}</b><span>${t('pw_paying_sub')}</span>
+    </div>
+    <div class="pw-wait" id="pw-ok" hidden>
+      <div class="pw-big-ok">✓</div><b>${t('pw_ok_title')}</b><span>${t('pw_ok_sub')}</span>
+    </div>`;
+  document.body.appendChild(root);
+  root.querySelector('#pw-s1-btn').onclick = ()=>{
+    // Sin sesión todavía (nunca escaneó): se crea la anónima adentro de
+    // submitUpgrade — un solo camino de conversión, ver ensureTrialAccount.
+    ensurePatronFirebaseReady().catch(()=>{});
+    openUpgradeModal(t('pw_s1_why'));
+  };
+  root.querySelectorAll('[data-pw-plan]').forEach(b=>{
+    b.onclick = ()=>{ paywallPlan = b.dataset.pwPlan; paywallRefresh(); };
+  });
+  root.querySelector('#pw-cta').onclick = startCheckout;
+  root.querySelector('#pw-ro-link').onclick = ()=> closePaywall(true);
+  paywallRefresh();
+  // Vuelta de Stripe (ver billingReturn en app-07).
+  if(typeof billingReturn!=='undefined' && billingReturn){
+    const br = billingReturn; billingReturn = null;
+    if(br==='ok') paywallAwaitPayment(); else showToast(t('pw_cancelled'), 'info');
+  }
+}
+// Pinta lo que depende del estado: paso 1 hecho si la cuenta ya es real, paso
+// 2 abierto recién entonces, botón habilitado con cuenta + plan. Se llama al
+// construir, al elegir plan, y desde render() (la cuenta se guarda en un modal
+// que termina en render()).
+function paywallRefresh(){
+  const root = paywallRoot(); if(!root) return;
+  const real = !!(currentUser && !currentUser.isAnonymous && currentUser.email);
+  const s1 = root.querySelector('#pw-step1'), s2 = root.querySelector('#pw-step2'), cta = root.querySelector('#pw-cta');
+  s1.classList.toggle('done', real);
+  s2.classList.toggle('locked', !real);
+  root.querySelector('#pw-s1-done').textContent = real ? t('pw_s1_done').replace('{email}', currentUser.email) : '';
+  root.querySelectorAll('[data-pw-plan]').forEach(b=> b.classList.toggle('on', b.dataset.pwPlan===paywallPlan));
+  cta.disabled = !(real && paywallPlan) || paywallBusy;
+  cta.textContent = paywallBusy ? t('pw_opening') : t('pw_cta');
+}
+async function startCheckout(){
+  if(paywallBusy || !paywallPlan) return;
+  paywallBusy = true; paywallRefresh();
+  try{
+    const res = await callDustyAI('/.netlify/functions/create-checkout', { plan: paywallPlan, lang: uiLang }, { notFoundKey:'srv_checkout_failed', genericKey:'srv_checkout_failed' });
+    if(!res || !res.url) throw new Error(t('srv_checkout_failed'));
+    if(API_BASE){
+      // App instalada: Stripe en el navegador del sistema; acá se espera al webhook.
+      window.open(res.url, '_system');
+      paywallAwaitPayment();
+    } else {
+      location.href = res.url;
+    }
+  }catch(err){
+    showToast((err && err.message) || t('srv_checkout_failed'), 'error');
+  }finally{
+    paywallBusy = false; paywallRefresh();
+  }
+}
+/* "Confirmando tu pago…": el webhook de Stripe suele llegar en segundos, y el
+   listener de billing destraba solo (setAccessState → paywallUnlocked). Por si
+   el listener no está (sin sesión reconectada todavía) se re-pregunta al
+   servidor cada 3 s durante un minuto; pasado eso, vuelve al formulario con un
+   aviso — si ya pagó, se destraba igual apenas llegue el evento. */
+function paywallAwaitPayment(){
+  const root = paywallRoot(); if(!root) return;
+  root.querySelector('#pw-page').hidden = true;
+  root.querySelector('#pw-wait').hidden = false;
+  let intentos = 0;
+  clearInterval(paywallPollTimer);
+  paywallPollTimer = setInterval(()=>{
+    if(!paywallRoot() || !accessLocked()){ clearInterval(paywallPollTimer); return; }
+    if(++intentos > 20){
+      clearInterval(paywallPollTimer);
+      root.querySelector('#pw-wait').hidden = true;
+      root.querySelector('#pw-page').hidden = false;
+      showToast(t('pw_pay_pending'), 'info');
+      return;
+    }
+    fetchAccessState(syncUid());
+  }, 3000);
+}
+// Se destrabó (setAccessState vio locked pasar a false): ✓ y la página se va.
+function paywallUnlocked(){
+  clearInterval(paywallPollTimer);
+  const root = paywallRoot();
+  if(!root){ showToast(t('pw_ok_title'), 'success'); return; }
+  root.querySelector('#pw-page').hidden = true;
+  root.querySelector('#pw-wait').hidden = true;
+  root.querySelector('#pw-ok').hidden = false;
+  setTimeout(()=> closePaywall(false), 1800);
+}
+function closePaywall(readOnly){
+  clearInterval(paywallPollTimer);
+  paywallDismissed = !!readOnly;
+  const root = paywallRoot(); if(!root) return;
+  root.classList.add('out');
+  setTimeout(()=>{ root.remove(); }, 700);
+  render();
 }
 
 /* ================= MODAL: "MEJOR EN EQUIPO" (una vez, al primer Compartir) =================
@@ -1422,7 +1578,7 @@ function monthRecapModal(){
    doc como cualquier recibo, y se borra con el flujo de siempre. Editar "el
    número" directo no existe a propósito: el gasto es la suma de sus recibos. */
 let showManualSpendModal=false, manualSpendError=false, manualSpendKind='expense';
-function openManualSpendModal(){ showManualSpendModal=true; manualSpendError=false; manualSpendKind='expense'; render(); }
+function openManualSpendModal(){ if(!requireWriteAccess()) return; showManualSpendModal=true; manualSpendError=false; manualSpendKind='expense'; render(); }
 function closeManualSpendModal(){ showManualSpendModal=false; render(); }
 function saveManualSpend(){
   const amt = parseFloat(document.getElementById('ms-amount').value);
@@ -1563,6 +1719,7 @@ function feedbackModal(){
 
 /* ================= MODAL: INGREDIENTE ================= */
 function openItemModal(item){
+  if(!requireWriteAccess()) return;
   // Límite del trial: sin cuenta real, el inventario llega hasta TRIAL_INVENTORY_LIMIT
   // productos. Se frena ACÁ (antes de abrir el formulario) y no en "Guardar", para no
   // hacerle tipear un producto entero a alguien que no va a poder guardarlo. Editar
@@ -1807,6 +1964,7 @@ function ensureBarcodeLibReady(){
   return barcodeLibLoadPromise;
 }
 function openBarcodeScanModal(){
+  if(!requireWriteAccess()) return;
   if(!currentUser){
     // Igual que en openScanModal: cuenta real desconectada → login; si no, trial.
     if(everHadRealAccount()){
@@ -1955,6 +2113,7 @@ function barcodeScanModal(){
 
 /* ================= MODAL: CATEGORÍAS DE INVENTARIO ================= */
 function openCategoriesModal(){
+  if(!requireWriteAccess()) return;
   draftCategories = categories.map(c=>({...c}));
   showCategoriesModal = true; render();
 }
@@ -2130,6 +2289,7 @@ function photoViewerHtml(src, closeId){
   return `<div class="scan-photo-viewer" id="${closeId}"><img src="${src}" alt=""><button type="button" aria-label="${t('btn_close')}">✕</button></div>`;
 }
 function openScanModal(){
+  if(!requireWriteAccess()) return;
   // El escaneo le pega a la API de Claude y cuesta plata real cada vez que se usa —
   // a diferencia de cargar productos a mano (gratis, no toca ningún servidor), esto
   // necesita quedar atado a una cuenta identificable. Sin este chequeo, cualquiera que
@@ -2583,6 +2743,7 @@ async function identifyProductsFromPhoto(image){
 }
 
 function openProductBatchModal(){
+  if(!requireWriteAccess()) return;
   if(!currentUser){
     // Mismo trato que el escaneo de recibos: cuenta real desconectada → login;
     // si no, trial anónimo en segundo plano y el modal abre al instante.
@@ -3089,6 +3250,13 @@ async function callDustyAI(path, body, opts){
   // Timeout de la función que SÍ vuelve como JSON ({errorMessage:"Task timed out..."}).
   if(!response.ok && parsed && typeof parsed.errorMessage==='string' && /timed out/i.test(parsed.errorMessage)){
     throw new Error(t('err_scan_timeout'));
+  }
+  // Primer mes vencido y sin suscripción (402): se abre la página de suscripción
+  // y se avisa arriba. El servidor ya rechazó antes de gastar cupo.
+  if(response.status===402 && parsed && parsed.subscriptionRequired){
+    if(accessState) accessState.locked = true;
+    openPaywall();
+    throw new Error(t('srv_subscription_required'));
   }
   if(response.status===429 && parsed.quotaExceeded){
     if(currentUser && currentUser.isAnonymous){

@@ -1,6 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // SUSCRIPCIÓN (2026-09-11): una cuenta con el primer mes vencido y sin
+    // suscripción vigente queda en SOLO LECTURA de verdad — no solo en la UI.
+    // Los cuatro campos los escribe el servidor (getAccessState en
+    // netlify/functions/lib/patron-admin.js) en users/{uid}/meta/billing, que el
+    // cliente no puede tocar (ver la regla de meta más abajo): billingEnabled es
+    // el interruptor DUSTY_BILLING_ENABLED (sin él, nada se cierra), unlimited
+    // es el pase del dueño, trialEndsAt y subscriptionUntil son fechas en ms.
+    // Sin doc de billing (cuenta que nunca escaneó ni abrió la app nueva): abierta.
+    function billingLocked(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)/meta/billing)
+        && get(/databases/$(database)/documents/users/$(uid)/meta/billing).data.get('billingEnabled', false) == true
+        && get(/databases/$(database)/documents/users/$(uid)/meta/billing).data.get('unlimited', false) != true
+        && request.time.toMillis() > get(/databases/$(database)/documents/users/$(uid)/meta/billing).data.get('trialEndsAt', 0)
+        && request.time.toMillis() > get(/databases/$(database)/documents/users/$(uid)/meta/billing).data.get('subscriptionUntil', 0);
+    }
     // Cada quien lee/escribe sus propios datos (users/{uid}/...) — y ahora también
     // puede leer/escribir los datos de OTRO uid si está en su lista de miembros
     // (users/{uid}/members/{miUid} existe). Esto es lo que permite compartir un
@@ -14,20 +29,33 @@ service cloud.firestore {
     // la regla de members: antes, CUALQUIER miembro del equipo podía borrar o editar
     // la membresía de OTRO miembro (ej. sacarlo del equipo) aunque la regla de más
     // abajo intentaba impedirlo explícitamente.
+    // Leer siempre; escribir solo si la cuenta no está cerrada (billingLocked).
     match /users/{uid}/inventory/{document=**} {
-      allow read, create, update, delete: if request.auth != null && (
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+      allow create, update, delete: if request.auth != null && !billingLocked(uid) && (
         request.auth.uid == uid ||
         exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
       );
     }
     match /users/{uid}/purchases/{document=**} {
-      allow read, create, update, delete: if request.auth != null && (
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+      allow create, update, delete: if request.auth != null && !billingLocked(uid) && (
         request.auth.uid == uid ||
         exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
       );
     }
     match /users/{uid}/receipts/{document=**} {
-      allow read, create, update, delete: if request.auth != null && (
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+      allow create, update, delete: if request.auth != null && !billingLocked(uid) && (
         request.auth.uid == uid ||
         exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
       );
@@ -51,13 +79,20 @@ service cloud.firestore {
       // meta/team.inviteCode con un código PROPIO — y cada futuro invitado del
       // dueño se unía en silencio al inventario del atacante — o plantarle un
       // meta/joined que le rompía el sync al próximo login.
-      allow create, update, delete: if doc != 'billing' && request.auth != null && (
+      // 'settings' (los datos) se cierra con la cuenta vencida; 'team' y 'joined'
+      // no — unirse o salir de un equipo no es editar el inventario.
+      allow create, update, delete: if doc != 'billing' && request.auth != null
+        && (doc != 'settings' || !billingLocked(uid)) && (
         request.auth.uid == uid ||
         (doc == 'settings' && exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid)))
       );
     }
     match /users/{uid}/activity/{document=**} {
-      allow read, create, update, delete: if request.auth != null && (
+      allow read: if request.auth != null && (
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
+      );
+      allow create, update, delete: if request.auth != null && !billingLocked(uid) && (
         request.auth.uid == uid ||
         exists(/databases/$(database)/documents/users/$(uid)/members/$(request.auth.uid))
       );

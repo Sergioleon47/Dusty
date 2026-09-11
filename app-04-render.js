@@ -45,6 +45,9 @@ function render(){
      temprana de las de abajo) para que el estado de la clase nunca se atrase
      respecto de lo que se está dibujando. */
   document.documentElement.classList.toggle('sin-red', !!isOffline);
+  // La página de suscripción vive fuera de #app; lo único que le cambia entre
+  // renders es si la cuenta ya se guardó (paso 1) — ver paywallRefresh en app-06.
+  paywallRefresh();
   /* CERRAR un modal (o abrir/cerrar el detalle de recibo) se anima con la View
      Transitions API del navegador: startViewTransition() saca una captura del
      estado viejo y funde hacia el nuevo. Solo al cerrar, a propósito: al ABRIR el
@@ -216,7 +219,7 @@ function renderApp(){
            pulso del escáner del Dashboard, etc.) SOLO corren ahí — en la
            vecina quedan pausadas (dusty.css), no gastan compositor mientras
            se scrollea otra pestaña. */''}
-        <div class="view-page${tabIdx===0?' active':''}${Math.abs(0-tabIdx)>1?' far':''}">${topbar()}${dashboardView()}</div>
+        <div class="view-page${tabIdx===0?' active':''}${Math.abs(0-tabIdx)>1?' far':''}">${readOnlyBanner()}${topbar()}${dashboardView()}</div>
         <div class="view-page${tabIdx===1?' active':''}${Math.abs(1-tabIdx)>1?' far':''}">${inventarioView()}</div>
         <div class="view-page${tabIdx===2?' active':''}${Math.abs(2-tabIdx)>1?' far':''}">${TAB_ORDER[2]==='produccion' ? produccionView() : recibosView()}</div>
       </div>
@@ -485,6 +488,17 @@ function renderCrashScreen(err){
   if(btn) btn.onclick = () => location.reload();
 }
 
+/* Franja de SOLO LECTURA (suscripción): arriba del Dashboard cuando la cuenta
+   está cerrada y la persona eligió "ver mis datos mientras tanto". Vuelve a la
+   página de suscripción con un toque (btn-ro-subscribe, app-09). */
+function readOnlyBanner(){
+  if(!accessLocked()) return '';
+  return `
+  <div class="ro-banner" role="status">
+    <div><b>${t('pw_ro_title')}</b><span>${t('pw_ro_sub')}</span></div>
+    <button type="button" id="btn-ro-subscribe">${t('pw_ro_btn')}</button>
+  </div>`;
+}
 function topbar(){
   return `
   <div class="topbar">

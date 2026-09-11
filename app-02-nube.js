@@ -249,6 +249,9 @@ function inventoryRef(uid){ return firebase.firestore().collection('users').doc(
 function purchasesRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('purchases'); }
 function receiptsRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('receipts'); }
 function metaRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('meta').doc('settings'); }
+// Plan, cupo y suscripción de la cuenta: lo escribe SOLO el servidor (Admin SDK
+// desde las Netlify functions y el webhook de Stripe); el cliente lo lee.
+function billingRef(uid){ return firebase.firestore().collection('users').doc(uid).collection('meta').doc('billing'); }
 // Ruta en Storage de una página de recibo — bajo el uid del DUEÑO del inventario
 // (mismo criterio que las referencias de arriba), así que cualquier miembro del
 // equipo puede leerla/escribirla igual que el resto de los datos.
@@ -507,7 +510,7 @@ let applyingRemoteSnapshot = false;
 // (aunque fuera un instante) su inventario real reemplazado por el cartel de "vacío",
 // que da la impresión de que se borró todo cuando en realidad nunca se tocó nada.
 let cloudSyncPending = false;
-let unsubInventory = null, unsubPurchases = null, unsubReceipts = null, unsubMeta = null;
+let unsubInventory = null, unsubPurchases = null, unsubReceipts = null, unsubMeta = null, unsubBilling = null;
 let lastKnownRemoteInventoryIds = null, lastKnownRemotePurchaseIds = null, lastKnownRemoteReceiptIds = null;
 
 /* ===== PLAN-SYNC etapas A/B/C/E: detección de cambios por hash =====
@@ -1163,12 +1166,78 @@ function attachFirestoreListeners(uid){
     activityLog = nextActivityLog;
     scheduleCloudTriggeredRender();
   }, err=>{ console.error('[Dusty] activity listener error:', err); handleSyncPermissionDenied(err); });
+  // Suscripción en vivo: cuando el webhook de Stripe escribe meta/billing (pago
+  // confirmado, renovación, cancelación), el candado se recalcula acá con la
+  // MISMA fórmula que el servidor y la página de suscripción se destraba sola,
+  // sin recargar. Solo lectura; nunca se guarda en localStorage.
+  unsubBilling = billingRef(uid).onSnapshot(snap=>{
+    applyBillingSnapshot(snap.exists ? snap.data() : null);
+  }, err=>{ console.warn('[Dusty] billing listener error:', err && err.code); });
   // Un solo lugar para esto, en vez de repetirlo en cada sitio que llama a
   // attachFirestoreListeners — cubre tanto el primer login como reconectar
   // (refrescar la página, volver a tener red) y unirse/salir de un equipo.
   catchUpReceiptPhotoUploads();
   catchUpRecipePhotoUploads();
   pruneOldActivity(uid);
+  fetchAccessState(uid);
+}
+/* ===== SUSCRIPCIÓN: estado de acceso =====
+   fetchAccessState pregunta al servidor (access-state) si la cuenta puede
+   seguir escribiendo — es la ÚNICA fuente de verdad del candado: el cliente no
+   sabe la fecha de creación de la cuenta ni el interruptor de cobro. Se llama
+   al conectar los listeners (cada arranque con sesión, y al unirse/salir de un
+   equipo) y al volver de pagar. Si falla (sin red), accessState queda como
+   estaba: abierta por defecto — el servidor y las reglas cierran igual lo que
+   haya que cerrar. */
+async function fetchAccessState(uid){
+  if(!currentUser) return null;
+  try{
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(urlFuncion('/.netlify/functions/access-state'), {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken},
+      body: JSON.stringify({ ownerUid: uid || syncUid() })
+    });
+    const parsed = await res.json();
+    if(!res.ok || !parsed || typeof parsed.locked!=='boolean') return null;
+    setAccessState(parsed);
+    return parsed;
+  }catch(e){
+    console.warn('[Dusty] no se pudo consultar el estado de la cuenta:', e && e.message);
+    return null;
+  }
+}
+// Recalcula el candado con lo que escribió el servidor en meta/billing — misma
+// fórmula que getAccessState (patron-admin.js): cerrada si el cobro está
+// prendido, la cuenta no tiene pase, el mes venció y no hay suscripción vigente.
+function applyBillingSnapshot(data){
+  if(!data || !accessState) return;
+  const now = Date.now();
+  const sub = data.subscription && typeof data.subscription==='object' ? data.subscription : null;
+  const next = Object.assign({}, accessState, {
+    billingEnabled: data.billingEnabled === true,
+    unlimited: data.unlimited === true,
+    trialEndsAt: Number.isFinite(data.trialEndsAt) && data.trialEndsAt>0 ? data.trialEndsAt : accessState.trialEndsAt,
+    subscriptionUntil: Number.isFinite(data.subscriptionUntil) ? data.subscriptionUntil : 0,
+    subscription: sub ? { status: sub.status||null, plan: sub.plan||null, currentPeriodEnd: sub.currentPeriodEnd||null, cancelAtPeriodEnd: !!sub.cancelAtPeriodEnd } : null
+  });
+  next.locked = next.billingEnabled && !next.unlimited && Number.isFinite(next.trialEndsAt) && now > next.trialEndsAt && !(next.subscriptionUntil > now);
+  setAccessState(next);
+}
+function setAccessState(next){
+  const antes = accessLocked();
+  accessState = next;
+  const ahora = accessLocked();
+  if(antes && !ahora){
+    // Se destrabó (pago confirmado): la página de suscripción festeja y se va;
+    // si estaba escondida en solo lectura, la franja desaparece con el render.
+    paywallDismissed = false;
+    if(typeof paywallUnlocked==='function') paywallUnlocked();
+  } else if(!antes && ahora && !paywallDismissed){
+    openPaywall();
+  }
+  if(typeof paywallRefresh==='function') paywallRefresh();
+  render();
 }
 /* La colección de actividad ganaba un doc por CADA cambio de inventario y nunca se
    borraba nada — la app solo lee los últimos 100, pero el almacenamiento en
@@ -1195,7 +1264,8 @@ function detachFirestoreListeners(){
   if(unsubReceipts) unsubReceipts();
   if(unsubMeta) unsubMeta();
   if(unsubActivity) unsubActivity();
-  unsubInventory = unsubPurchases = unsubReceipts = unsubMeta = unsubActivity = null;
+  if(unsubBilling) unsubBilling();
+  unsubInventory = unsubPurchases = unsubReceipts = unsubMeta = unsubActivity = unsubBilling = null;
   activityLog = [];
   lastKnownRemoteInventoryIds = lastKnownRemotePurchaseIds = lastKnownRemoteReceiptIds = null;
 }

@@ -2137,7 +2137,7 @@ function accountModal(){
    del usuario 2026-09-04) — un único lugar para editarlo. Sin autofocus
    (regla de la casa: el teclado lo abre el usuario). */
 let showBudgetModal = false;
-function openBudgetModal(){ draftMonthlyBudget = monthlyBudget; showBudgetModal = true; render(); }
+function openBudgetModal(){ if(!requireWriteAccess()) return; draftMonthlyBudget = monthlyBudget; showBudgetModal = true; render(); }
 function closeBudgetModal(){ showBudgetModal = false; render(); }
 function budgetModal(){
   /* Placeholder inteligente: si nunca definió presupuesto pero YA hay gasto

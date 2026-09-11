@@ -576,6 +576,7 @@ let showFinishedItemModal = null; // id de la receta abierta
 let finishedEditMode = false;
 let finishedProduceCount = 1;
 function openFinishedItemModal(recipeId){
+  if(!requireWriteAccess()) return;
   showFinishedItemModal = recipeId; finishedProduceCount = 1; finishedEditMode = false; render();
 }
 function closeFinishedItemModal(){ showFinishedItemModal = null; finishedEditMode = false; render(); }
@@ -680,6 +681,7 @@ function finishedItemModal(){
 
 /* ---------- MODAL: RECETA (crear/editar) ---------- */
 function openRecipeModal(recipe){
+  if(!requireWriteAccess()) return;
   draftRecipe = recipe
     ? {id:recipe.id, name:recipe.name, photo:recipe.photo||null, salePrice:recipe.salePrice||null, components:(recipe.components||[]).map(c=>({...c}))}
     : {id:uid('rc'), name:'', photo:null, salePrice:null, components:[]};
@@ -971,6 +973,7 @@ function dropRecipePhoto(rec){
 
 /* ---------- MODAL: REGISTRAR PRODUCCIÓN ---------- */
 function openProduceModal(recipeId){
+  if(!requireWriteAccess()) return;
   produceRecipeId = recipeId; produceCount = 1;
   const rec = recipeById(recipeId);
   produceSalePrice = (rec && Number(rec.salePrice)>0) ? rec.salePrice : '';
@@ -1143,6 +1146,7 @@ function outflowsModal(){
 
 /* ---------- MODAL: ESCÁNER DE ESTANTE ---------- */
 function openShelfModal(){
+  if(!requireWriteAccess()) return;
   showShelfInfoBubble = null; // abrir el escáner cierra la burbuja de instrucciones
   if(!currentUser){
     // Mismo trato que los otros escáneres: cuenta real desconectada → login;

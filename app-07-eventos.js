@@ -144,6 +144,9 @@ function attachHardwareBackButton(){
       closeOverlayLikeBackBtn(ov);
       return;
     }
+    // 1b. Página de suscripción: "atrás" equivale a "ver mis datos mientras
+    //     tanto" — se esconde y la app queda en solo lectura, sin salir.
+    if(document.getElementById('pw-root')){ closePaywall(true); return; }
     // 2. Hoja a página completa (calculadora de pedido, resumen del mes): no son
     //    .overlay, viven aparte — se cierran con su propia ✕ para que guarden su
     //    estado igual que si la tocaras.
@@ -288,6 +291,7 @@ function closeItemModal(){ showItemModal=false; editingItem=null; draftItem=null
    ("mañana", "el 15 de octubre") o una recurrencia ("cada mes") — el texto del
    usuario se guarda tal cual lo escribió, nunca se reformatea (regla de Nudgy). */
 function addDayNote(){
+  if(!requireWriteAccess()) return;
   const raw = dayNoteDraft.trim();
   if(!raw || !showDayModal) return;
   const built = buildCalNote(raw, showDayModal);
@@ -470,6 +474,18 @@ try{
 // autocompleta para que la otra persona no tenga que transcribirlo a mano. Si este
 // navegador ya tuvo sesión antes, se asume que va a usar el panel de equipo normal
 // (ya logueado) en vez de crear una cuenta nueva con nombre+PIN.
+// Vuelta de Stripe Checkout (create-checkout manda success_url/cancel_url con
+// ?billing=ok|cancel). "ok" no significa "pagado": el pago se confirma cuando el
+// webhook escribe meta/billing y el listener lo ve — mientras tanto la página de
+// suscripción muestra "Confirmando tu pago…" (ver paywallAwaitPayment en app-06).
+let billingReturn = null;
+try{
+  const br = new URLSearchParams(location.search).get('billing');
+  if(br==='ok' || br==='cancel'){
+    billingReturn = br;
+    history.replaceState(null, '', location.pathname);
+  }
+}catch(e){}
 try{
   const joinCodeFromUrl = new URLSearchParams(location.search).get('join');
   if(joinCodeFromUrl){
