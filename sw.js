@@ -512,7 +512,10 @@
 // v147: la ficha del recibo es un COMPROBANTE contable (datos extraidos primero,
 // tabla de lineas con cant. y p. unit., foto plegada debajo), Imprimir = PDF de los
 // datos, y constructor de REPORTES por rango que mezcla dias y meses — app-03/04/05/06/14 + css.
-const CACHE_NAME = 'patron-shell-v148';
+// v149: Valor y Potencial de venta del Inventario son botones que abren su desglose
+// (numero grande en su color, formula, barras por categoria, lista por producto con
+// su cuenta, ganancia potencial y productos sin precio) — app-03/04/05/07/10 + css.
+const CACHE_NAME = 'patron-shell-v149';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

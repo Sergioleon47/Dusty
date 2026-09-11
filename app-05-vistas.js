@@ -543,6 +543,84 @@ try{ const v = JSON.parse(localStorage.getItem('patron_inv_collapsed')||'[]'); i
 let invExpanded = new Set(); // grupos grandes ya desplegados enteros (memoria)
 const INV_GROUP_PREVIEW = 12;
 function invGroupKey(g){ return g.id || '__none'; }
+/* DESGLOSE de Valor / Potencial de venta (pedido del usuario 2026-09-11: que las
+   dos tarjetas sean botones que muestren el detalle y el porqué del número).
+   Cabecera con el número grande en su color (verde = valor invertido, azul =
+   potencial), la fórmula en una línea, barras por categoría y la lista por
+   producto con su cuenta (cantidad × precio = monto); en Potencial, además la
+   ganancia potencial y los productos sin precio que no suman. Tocar un producto
+   abre su ficha (data-open-item, el handler de siempre). */
+let showInvDetail = null; // null | 'value' | 'potential'
+function invDetailModal(){
+  const kind = showInvDetail;
+  const isVal = kind==='value';
+  const items = inventory.filter(i=>i && !isExpenseItem(i) && (i.qtyOnHand||0)>0);
+  const amt = (i)=> isVal ? (i.qtyOnHand||0)*(i.costPerUnit||0) : ((i.salePrice||0)>0 ? (i.qtyOnHand||0)*(i.salePrice||0) : 0);
+  const priced = isVal ? items : items.filter(i=>(i.salePrice||0)>0);
+  const unpriced = isVal ? [] : items.filter(i=>!((i.salePrice||0)>0));
+  const total = priced.reduce((s,i)=>s+amt(i),0);
+  const costOfPriced = priced.reduce((s,i)=>s+(i.qtyOnHand||0)*(i.costPerUnit||0),0);
+  const profit = total - costOfPriced;
+  const fmt = (n)=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const byCat = groupRowsByCategory(priced.map(i=>({ing:i}))).map(g=>({name:g.name, n:g.rows.length, sum:g.rows.reduce((s,r)=>s+amt(r.ing),0)})).sort((a,b)=>b.sum-a.sum);
+  const rows = priced.slice().sort((a,b)=>amt(b)-amt(a));
+  // Mismos colores que las tarjetas de arriba: verde (--tile-ok / --money-pos)
+  // para el valor, azul (--tile-1 / --hue-1) para el potencial.
+  const color = isVal ? 'var(--money-pos)' : 'var(--hue-1, var(--navy))';
+  const soft = isVal ? 'var(--tile-ok)' : 'var(--tile-1)';
+  return `
+  <div class="overlay overlay-fast" id="inv-detail-overlay">
+    <div class="modal ivd ${isVal?'ivd-value':'ivd-potential'}" role="dialog" aria-modal="true" aria-label="${isVal?t('ivd_value_title'):t('ivd_potential_title')}">
+      <button type="button" class="modal-close-btn" id="btn-close-inv-detail" aria-label="${t('btn_close')}">✕</button>
+      <div class="ivd-hero" style="background:${soft};">
+        <div class="ivd-hero-label">${isVal?'':'🏷 '}${isVal?t('ivd_value_title'):t('ivd_potential_title')}</div>
+        <div class="ivd-hero-value">${fmt(total)}</div>
+        <div class="ivd-hero-how">${isVal?t('ivd_value_how'):t('ivd_potential_how')}</div>
+        ${!isVal && priced.length ? `
+        <div class="ivd-hero-kpis">
+          <span><b>${fmt(profit)}</b>${t('ivd_profit')}${costOfPriced>0?` · ${Math.round(profit/costOfPriced*100)}% ${t('ivd_margin')}`:''}</span>
+          <span><b>${fmt(costOfPriced)}</b>${t('ivd_cost_of')}</span>
+        </div>` : ''}
+      </div>
+      ${items.length===0 ? `<div class="helper-note">${t('ivd_empty')}</div>` : `
+      ${byCat.length>1 ? `
+      <div class="ivd-section">${t('ivd_by_category')}</div>
+      <div class="ivd-cats">
+        ${byCat.map(c=>`
+        <div class="ivd-cat">
+          <div class="ivd-cat-top"><span>${escapeHtml(c.name)} <small>${t('ivd_products_n').replace('{n}', c.n)}</small></span><b style="color:${color};">${fmt(c.sum)} <small>· ${total>0?Math.round(c.sum/total*100):0}%</small></b></div>
+          <div class="ivd-bar"><i style="width:${total>0?Math.max(2,Math.round(c.sum/total*100)):0}%;background:${color};"></i></div>
+        </div>`).join('')}
+      </div>` : ''}
+      <div class="ivd-section">${t('ivd_by_product')} <small>${t('ivd_products_n').replace('{n}', rows.length)}</small></div>
+      <div class="ivd-rows">
+        ${rows.map(i=>{
+          const unit = isVal ? (i.costPerUnit||0) : (i.salePrice||0);
+          const m = !isVal ? (i.qtyOnHand||0)*((i.salePrice||0)-(i.costPerUnit||0)) : 0;
+          return `
+        <div class="ivd-row" data-open-item="${i.id}" role="button" tabindex="0">
+          <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;overflow:hidden;">${stockIconSvg(i)}</span>
+          <span class="ivd-row-main"><span class="ivd-row-name">${escapeHtml(i.name)}</span><span class="ivd-row-calc">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} × ${fmt(unit)}${!isVal ? ` · <span style="color:${m>=0?'var(--money-pos)':'var(--money-neg, var(--tomato))'};">${m>=0?'+':''}${fmt(m)}</span>` : ''}</span></span>
+          <b class="ivd-row-amt" style="color:${color};">${fmt(amt(i))}</b>
+        </div>`;}).join('')}
+      </div>
+      ${unpriced.length ? `
+      <div class="ivd-section" style="color:var(--saffron-ink);">${t('ivd_no_price')} <small>${t('ivd_products_n').replace('{n}', unpriced.length)}</small></div>
+      <div class="ivd-rows">
+        ${unpriced.map(i=>`
+        <div class="ivd-row" data-open-item="${i.id}" role="button" tabindex="0">
+          <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;overflow:hidden;">${stockIconSvg(i)}</span>
+          <span class="ivd-row-main"><span class="ivd-row-name">${escapeHtml(i.name)}</span><span class="ivd-row-calc">${escapeHtml(i.qtyOnHand||0)} ${escapeHtml(unitLabel(i.unit))} · ${fmt(i.costPerUnit||0)}/${escapeHtml(unitLabel(i.unit))}</span></span>
+          <span class="ivd-set-price">${t('ivd_set_price')} ›</span>
+        </div>`).join('')}
+      </div>` : ''}
+      <div class="helper-note" style="margin-top:10px;">${t('ivd_tap_hint')}</div>`}
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="btn-close-inv-detail-footer" style="width:100%;">${t('btn_close')}</button>
+      </div>
+    </div>
+  </div>`;
+}
 function invSortRows(rows){
   const arr = rows.slice();
   /* "Menos stock" ordena por PORCENTAJE de llenado (r.pct), no por unidades
@@ -998,9 +1076,11 @@ function inventarioView(){
           </span></div>`);
   return `
   ${inventory.length>0 && canSeeFinancials() ? `
+  ${/* Las dos tarjetas son BOTONES (pedido del usuario 2026-09-11): abren el
+       desglose de cómo se llega a ese número — ver invDetailModal. */''}
   <div class="inv-stats">
-    <div class="inv-stat"><div class="inv-stat-label">${t('inv_value_label')}</div><div class="inv-stat-value">${fmt(invValue)}</div></div>
-    <div class="inv-stat"><div class="inv-stat-label">🏷 ${t('inv_potential_label')}</div><div class="inv-stat-value">${fmt(potential)}</div>${missingSale>0 ? `<div class="inv-stat-note">${t('inv_potential_missing').replace('{n}', missingSale)}</div>` : ''}</div>
+    <button type="button" class="inv-stat" id="btn-inv-value" aria-haspopup="dialog" title="${t('ivd_see_detail')}"><div class="inv-stat-label">${t('inv_value_label')}</div><div class="inv-stat-value">${fmt(invValue)}</div><span class="inv-stat-chev" aria-hidden="true">›</span></button>
+    <button type="button" class="inv-stat" id="btn-inv-potential" aria-haspopup="dialog" title="${t('ivd_see_detail')}"><div class="inv-stat-label">🏷 ${t('inv_potential_label')}</div><div class="inv-stat-value">${fmt(potential)}</div>${missingSale>0 ? `<div class="inv-stat-note">${t('inv_potential_missing').replace('{n}', missingSale)}</div>` : ''}<span class="inv-stat-chev" aria-hidden="true">›</span></button>
   </div>` : ''}
   ${inventory.length>0 ? `
   <div class="inv-tools">

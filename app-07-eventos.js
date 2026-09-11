@@ -329,6 +329,7 @@ document.addEventListener('keydown', (e)=>{
   if(showDeleteAccountModal){ if(!deleteAccountLoading) closeDeleteAccountModal(); return; }
   if(showSuggestedOrderModal){ showSuggestedOrderModal=false; render(); return; }
   if(typeof showReportBuilder!=='undefined' && showReportBuilder){ showReportBuilder=false; render(); return; }
+  if(typeof showInvDetail!=='undefined' && showInvDetail){ showInvDetail=null; render(); return; }
   if(showReceiptDetail){ showReceiptDetail=null; render(); return; }
   if(showDayModal){ showDayModal=null; dayNoteDraft=''; render(); return; }
   // Estos faltaban: sin Escape, el modal de equipo además dejaba vivo su setInterval de

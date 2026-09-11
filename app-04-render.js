@@ -240,6 +240,7 @@ function renderApp(){
     ${showProductBatchModal ? productBatchModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
     ${(typeof showReportBuilder!=='undefined' && showReportBuilder) ? reportBuilderModal() : ''}
+    ${(typeof showInvDetail!=='undefined' && showInvDetail) ? invDetailModal() : ''}
     ${showDayModal ? dayModal() : ''}
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}

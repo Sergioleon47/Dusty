@@ -12,6 +12,19 @@
 
    Llamada desde attachEvents() en cada render. */
 function attachInventoryEvents(){
+  // Desglose de Valor / Potencial de venta (pedido del usuario 2026-09-11):
+  // las dos tarjetas de arriba abren su modal; ✕, Cerrar y el fondo lo cierran.
+  const btnInvValue=document.getElementById('btn-inv-value');
+  if(btnInvValue) btnInvValue.onclick=()=>{ showInvDetail='value'; render(); };
+  const btnInvPotential=document.getElementById('btn-inv-potential');
+  if(btnInvPotential) btnInvPotential.onclick=()=>{ showInvDetail='potential'; render(); };
+  const invDetailOv=document.getElementById('inv-detail-overlay');
+  if(invDetailOv){
+    const closeIvd=()=>{ showInvDetail=null; render(); };
+    invDetailOv.onmousedown=(e)=>{ if(e.target===invDetailOv) closeIvd(); };
+    const x=document.getElementById('btn-close-inv-detail'); if(x) x.onclick=closeIvd;
+    const f=document.getElementById('btn-close-inv-detail-footer'); if(f) f.onclick=closeIvd;
+  }
   /* ---------- inventario vacío ---------- */
   const btnInvEmptyScan=document.getElementById('btn-inv-empty-scan');
   if(btnInvEmptyScan) btnInvEmptyScan.onclick=openScanModal;
