@@ -416,6 +416,18 @@ function startOnboarding(){
       <div class="ob-spacer"></div>
       <button type="button" class="ob-cta ob-in d8" id="ob-cta" data-ob="ob_cta"></button>
     </div>
+    ${/* 2b. ¿QUÉ HACE TU NEGOCIO? (modo Servicios, 2026-09-11): vende / fabrica /
+         presta servicios, combinables. Decide las pestañas y el Dashboard. */''}
+    <div class="ob-intro ob-biz" id="ob-biz" hidden>
+      <div class="ob-biz-mark ob-in b1"><span class="brand-mark">D</span></div>
+      <h1 class="ob-head ob-in b1" data-ob="ob_biz_title"></h1>
+      <div class="ob-hint ob-in b1" style="margin-top:0;text-align:center;" data-ob="ob_biz_sub"></div>
+      <button type="button" class="dash-tile t1 ob-biz-tile ob-in b2 on" data-ob-biz="sells"><span class="ob-biz-emoji" aria-hidden="true">🛒</span><span class="ob-biz-text"><b data-ob="ob_biz_sells"></b><small data-ob="ob_biz_sells_sub"></small></span><span class="ob-biz-chk" aria-hidden="true">✓</span></button>
+      <button type="button" class="dash-tile t2 ob-biz-tile ob-in b3" data-ob-biz="makes"><span class="ob-biz-emoji" aria-hidden="true">🍳</span><span class="ob-biz-text"><b data-ob="ob_biz_makes"></b><small data-ob="ob_biz_makes_sub"></small></span><span class="ob-biz-chk" aria-hidden="true">✓</span></button>
+      <button type="button" class="dash-tile t4 ob-biz-tile ob-in b4" data-ob-biz="services"><span class="ob-biz-emoji" aria-hidden="true">🚚</span><span class="ob-biz-text"><b data-ob="ob_biz_services"></b><small data-ob="ob_biz_services_sub"></small></span><span class="ob-biz-chk" aria-hidden="true">✓</span></button>
+      <div class="ob-spacer"></div>
+      <button type="button" class="ob-cta ob-in b5" id="ob-biz-cta" data-ob="ob_biz_continue"></button>
+    </div>
     <div class="ob-offer" id="ob-offer" hidden>
       <div class="ob-kicker ob-in o1" data-ob="ob_offer_kicker"></div>
       <div class="ob-big ob-in o2" data-ob="ob_offer_big"></div>
@@ -429,7 +441,7 @@ function startOnboarding(){
   const app = document.getElementById('app');
   if(app) app.inert = true;
 
-  const splash = root.querySelector('#ob-splash'), intro = root.querySelector('#ob-intro'), offer = root.querySelector('#ob-offer');
+  const splash = root.querySelector('#ob-splash'), intro = root.querySelector('#ob-intro'), offer = root.querySelector('#ob-offer'), biz = root.querySelector('#ob-biz');
   const head = root.querySelector('#ob-head');
   // Cada palabra del titular entra sola (0,2 s + 120 ms por palabra). El logo y
   // la "usty," que le sigue van como UNA palabra para que nunca se separen.
@@ -482,10 +494,32 @@ function startOnboarding(){
       intro.hidden = false;
     };
   });
-  // 2 → 3: Empezar.
+  // 2 → 2b: Empezar lleva a "¿Qué hace tu negocio?".
   root.querySelector('#ob-cta').onclick = ()=>{
     intro.classList.add('out');
-    setTimeout(()=>{ intro.hidden = true; offer.hidden = false; }, 450);
+    setTimeout(()=>{ intro.hidden = true; biz.hidden = false; }, 450);
+  };
+  // 2b: las tres opciones se combinan; al menos una queda marcada.
+  root.querySelectorAll('[data-ob-biz]').forEach(b=>{
+    b.onclick = ()=>{
+      const on = root.querySelectorAll('[data-ob-biz].on');
+      if(b.classList.contains('on') && on.length===1) return;
+      b.classList.toggle('on');
+    };
+  });
+  // 2b → 3: se guarda el perfil (viaja con la cuenta) y "Fabrica" prende la
+  // pestaña Producción como lo hace el interruptor de Ajustes.
+  root.querySelector('#ob-biz-cta').onclick = ()=>{
+    const pick = (k)=> !!root.querySelector('[data-ob-biz="'+k+'"].on');
+    bizProfile.sells = pick('sells') || !pick('services');
+    bizProfile.services = pick('services');
+    if(bizProfile.services) ensureServiceCategories();
+    if(pick('makes')){ productionTabPref = 'on'; try{ localStorage.setItem('patron_production_tab','on'); }catch(e){} }
+    saveState();
+    refreshTabOrder();
+    render();
+    biz.classList.add('out');
+    setTimeout(()=>{ biz.hidden = true; offer.hidden = false; }, 450);
   };
   // 3 → Dashboard: el tema se aplica en el acto (el tablero de abajo ya cambia
   // de color detrás del velo) y la introducción se funde encima de él.
@@ -1444,13 +1478,16 @@ function monthRecapModal(){
         ${emptyCol ? `<div class="oc-empty" style="margin:14px 0;">${t('recap_empty')}</div>` : `
         <div class="recap-section-title">${t('recap_pl_title')}</div>
         ${fin.hadOutflows ? `
-        ${crow('💵', t('recap_revenue'), money(fin.revenue), 'var(--money-pos-ink)', d(fin.revenue, base&&base.revenue, true))}
+        ${crow('💵', t(servicesOnly() ? 'recap_revenue_jobs' : 'recap_revenue'), money(fin.revenue), 'var(--money-pos-ink)', d(fin.revenue, base&&base.revenue, true))}
+        ${/* Solo servicios y sin costo de mercadería: no hay nada que restar antes de los gastos (app-15). */''}
+        ${(servicesOnly() && !(fin.cogs>0)) ? '' : `
         ${crow('📤', t('recap_cogs'), money(fin.cogs), null, d(fin.cogs, base&&base.cogs, false) + cogsTargetNote(fin), '−')}
-        ${crow('💹', t('recap_gross'), moneyAbs(fin.gross), posNeg(fin.gross), (d(fin.gross, base&&base.gross, true))+pctTxt(fin.grossMarginPct, base&&base.grossMarginPct), '=', 'rsub')}
+        ${crow('💹', t('recap_gross'), moneyAbs(fin.gross), posNeg(fin.gross), (d(fin.gross, base&&base.gross, true))+pctTxt(fin.grossMarginPct, base&&base.grossMarginPct), '=', 'rsub')}`}
         ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false), '−')}
         ${crow('🏁', t('recap_net'), moneyAbs(fin.net), posNeg(fin.net), (d(fin.net, base&&base.net, true))+pctTxt(fin.netMarginPct, base&&base.netMarginPct), '=', 'rtotal')}
         ${isFocus && fin.revenue>0 ? wfSvg(fin) : ''}`
         : `<div class="recap-note" style="padding:6px 2px;">${t('recap_no_outflows')}</div>`}
+        ${svcRecapRows(pickKey, crow)}
         <div class="recap-section-title">${t('recap_cash_title')}</div>
         ${crow('📦', t('recap_cash_purchases'), money(fin.invested), 'var(--money-pos)', d(fin.invested, base&&base.invested, true))}
         ${fin.hadOutflows ? '' : crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false))}
@@ -1588,7 +1625,7 @@ function monthRecapModal(){
     ${recapCompare && !cmp ? `<div class="recap-demo-banner">${t('recap_compare_hint')}</div>` : ''}
     ${cmp || spark}
     <div class="recap-cols" id="recap-cols">${cols}</div>
-    ${demo ? '' : `<div class="recap-note" style="padding:10px 2px 4px;">${t('recap_est_note')}</div>`}`;
+    ${demo ? '' : `<div class="recap-note" style="padding:10px 2px 4px;">${t(servicesOnly() ? 'recap_est_note_svc' : 'recap_est_note')}</div>`}`;
   }
   return `
   <div class="oc-sheet ${showMonthRecap?'open':''}" id="recap-sheet" role="dialog" aria-modal="true" aria-label="${t('recap_title')}"${showMonthRecap?'':' aria-hidden="true"'}>
@@ -1610,7 +1647,7 @@ function monthRecapModal(){
    número" directo no existe a propósito: el gasto es la suma de sus recibos. */
 let showManualSpendModal=false, manualSpendError=false, manualSpendKind='expense';
 function openManualSpendModal(){ if(!requireWriteAccess()) return; showManualSpendModal=true; manualSpendError=false; manualSpendKind='expense'; render(); }
-function closeManualSpendModal(){ showManualSpendModal=false; render(); }
+function closeManualSpendModal(){ showManualSpendModal=false; receiptAttach=null; render(); }
 function saveManualSpend(){
   const amt = parseFloat(document.getElementById('ms-amount').value);
   if(isNaN(amt) || amt<=0){ manualSpendError=true; render(); return; }
@@ -1627,8 +1664,11 @@ function saveManualSpend(){
     // 'expense' (default) va a gastos operativos; 'investment' a inversión —
     // una compra de mercadería en efectivo sin recibo también existe.
     manualKind: manualSpendKind,
-    expenseCategoryId: (manualSpendKind==='expense' && catSel && catSel.value) ? catSel.value : null
+    expenseCategoryId: (manualSpendKind==='expense' && catSel && catSel.value) ? catSel.value : null,
+    jobId: receiptAttach ? (receiptAttach.jobId||null) : null,
+    assetId: receiptAttach ? (receiptAttach.assetId||null) : null
   };
+  receiptAttach = null;
   receipts.push(rec);
   saveState();
   logActivity('receipt_added', rec.supplier);
@@ -2431,7 +2471,7 @@ function resetScanBatchState(){
   scanBatchMode=false; scanQueue=[]; scanQueueTotal=0; scanQueueIndex=0;
   scanQueueSkipped=0; scanQueueSaved=0; scanCurrentImages=null; scanBatchFailedPhotos=0;
 }
-function closeScanModal(){ scanRequestId++; showScanModal=false; render(); }
+function closeScanModal(){ scanRequestId++; showScanModal=false; receiptAttach=null; render(); }
 
 function scanModal(){
   return `
@@ -3934,8 +3974,13 @@ function applyScanResults(){
       supplier:scanSupplier||t('fallback_unspecified'), date:applyDate,
       total: receiptTotal,
       itemCount: appliedItems.length, appliedItems, createdAt: new Date().toISOString(),
-      purchaseIds: createdPurchaseIds
+      purchaseIds: createdPurchaseIds,
+      // Modo Servicios (app-15): si el escaneo se abrió desde un trabajo o un
+      // activo, el recibo queda colgado de él.
+      jobId: receiptAttach ? (receiptAttach.jobId||null) : null,
+      assetId: receiptAttach ? (receiptAttach.assetId||null) : null
     };
+    receiptAttach = null;
     receipts.push(newReceipt);
     // Sin esperar ni bloquear: si hay sesión, sube las fotos a Storage en segundo
     // plano — si falla (sin red, etc.) el recibo ya quedó guardado igual, y la

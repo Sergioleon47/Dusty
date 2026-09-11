@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const {
   money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
   receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
-  profitMarginPct, sameJSON
+  profitMarginPct, sameJSON, normalizeBizProfile, maintStatus
 } = require('./patron-core.js');
 
 test('money formatea números y cae en $0.00 si no es un número', () => {
@@ -471,4 +471,46 @@ test('weightedAvgCost no pisa el costo cuando no entra nada', () => {
 test('weightedAvgCost aguanta stock negativo o basura sin explotar', () => {
   assert.equal(weightedAvgCost(-5, 4, 10, 40), 4);
   assert.equal(weightedAvgCost(null, null, 10, 40), 4);
+});
+
+/* ===== Modo Servicios (2026-09-11) ===== */
+test('normalizeBizProfile: vacío o basura cae a vende productos, sin servicios', () => {
+  const p = normalizeBizProfile(null);
+  assert.equal(p.sells, true); assert.equal(p.services, false);
+  assert.equal(p.remindOverdue, true); assert.equal(p.maintDays, 7);
+  assert.deepEqual(p.assets, []); assert.deepEqual(p.catalog, []);
+  assert.equal(normalizeBizProfile('x').sells, true);
+  assert.equal(normalizeBizProfile({maintDays: 99}).maintDays, 7);
+  assert.equal(normalizeBizProfile({maintDays: 14}).maintDays, 14);
+});
+test('normalizeBizProfile: limpia activos, mantenimientos y servicios', () => {
+  const p = normalizeBizProfile({sells:false, services:true, assets:[
+    {id:'a1', name:'Camión 2', model:'Isuzu', km:'148300', purchasePrice:52000, purchaseDate:'2024-03-01',
+      maint:[{id:'m1', name:'Aceite', everyKm:5000, everyMonths:3, lastDate:'2026-06-01', lastKm:145000}, {name:'sin id'}, null]},
+    {id:'a2'}, null
+  ], catalog:[{id:'s1', name:'Viaje local', price:'1450', unit:'nope'}, {id:'s2', name:'Por km', price:9.8, unit:'km'}]});
+  assert.equal(p.sells, false); assert.equal(p.services, true);
+  assert.equal(p.assets.length, 1);
+  assert.equal(p.assets[0].km, 148300);
+  assert.equal(p.assets[0].emoji, '🚚');
+  assert.equal(p.assets[0].maint.length, 1);
+  assert.equal(p.assets[0].maint[0].everyKm, 5000);
+  assert.equal(p.catalog.length, 2);
+  assert.equal(p.catalog[0].unit, 'fixed'); assert.equal(p.catalog[0].price, 1450);
+  assert.equal(p.catalog[1].unit, 'km');
+});
+test('maintStatus: por km y por meses, gana el más urgente', () => {
+  const asset = {km: 148300};
+  // 5.000 km desde 145.000 → vence a 150.000: quedan 1.700 (ok, el aviso es a 500)
+  assert.equal(maintStatus({everyKm:5000, lastKm:145000}, asset, '2026-09-11', 7).status, 'ok');
+  assert.equal(maintStatus({everyKm:5000, lastKm:145000}, asset, '2026-09-11', 7).kmLeft, 1700);
+  // 3 meses desde el 1 de junio → 1 de septiembre: vencido hace 10 días
+  const m = maintStatus({everyKm:5000, lastKm:145000, everyMonths:3, lastDate:'2026-06-01'}, asset, '2026-09-11', 7);
+  assert.equal(m.status, 'overdue'); assert.equal(m.daysLeft, -10); assert.equal(m.dueDate, '2026-09-01');
+  // 12 meses desde nov 2025 → nov 2026: lejos es ok; a 3 días con aviso de 7 es pronto
+  assert.equal(maintStatus({everyMonths:12, lastDate:'2025-11-15'}, asset, '2026-09-11', 30).status, 'ok');
+  assert.equal(maintStatus({everyMonths:12, lastDate:'2025-11-15'}, asset, '2026-11-12', 7).status, 'soon');
+  // Sin último hecho no hay nada que contar
+  assert.equal(maintStatus({everyKm:5000}, asset, '2026-09-11', 7).status, 'none');
+  assert.equal(maintStatus({everyKm:5000, lastKm:145000}, {}, '2026-09-11', 7).status, 'none');
 });

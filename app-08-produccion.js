@@ -1122,12 +1122,13 @@ function outflowsModal(){
       <h3 class="navy">${t('outflows_title')}</h3>
       <div class="sub">${t('outflows_sub')}</div>
       ${outflows.length===0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('outflows_empty')}</div>` :
-      outflows.map(o=>`
+      outflows.filter(o=>!(o.type==='service' && o.deleted)).map(o=>`
         <div class="matched-item" style="cursor:default;">
           <div class="mi-top">
             <span class="mi-icon" style="background:${o.type==='production'?'var(--basil)':'var(--sky)'};">${lineIcon(o.type==='production'?'tag':'camera',12)}</span>
             <strong style="flex:1;">${o.type==='production'
               ? `${t('outflow_production')} — ${escapeHtml(o.count)} × "${escapeHtml(o.recipeName)}"`
+              : o.type==='service' ? `${t('outflow_service')} — ${escapeHtml(o.client||'')} · ${money(o.price||0)}`
               : t('outflow_adjust')}</strong>
             <span style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);white-space:nowrap;">${timeAgo(o.createdAt)}</span>
           </div>

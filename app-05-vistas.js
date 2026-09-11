@@ -342,8 +342,8 @@ function dashboardView(){
       // todos los temas: --tile-ok sale del color de dinero de cada uno.
       return `
   <div class="stat-card dash-month dash-budget ok nobudget">
-    <div class="dash-budget-head"><span class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</span>${addChip}</div>
-    <div class="stat-value" style="margin-top:4px;">${money(sp.invested)}</div>
+    <div class="dash-budget-head"><span class="stat-label">${servicesOnly() ? t('dash_collected_of') : t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</span>${addChip}</div>
+    <div class="stat-value" style="margin-top:4px;">${money(servicesOnly() ? paidRevenueForMonth(currentMonthKey) : sp.invested)}</div>
     ${canEdit ? `
     <button id="btn-edit-budget" class="budget-set-cta" type="button">
       <span style="font-size:calc(12.5px * var(--fs, 1));font-weight:600;">${t('dash_budget_of')}</span>
@@ -368,7 +368,7 @@ function dashboardView(){
       <div class="dash-kv">
         <div><span>${t('dash_kv_expenses')}</span><b>${money(p.expense)}</b></div>
         <div><span>${t('dash_kv_budget')}</span><b>${money(p.budget)}${pencil}</b></div>
-        <div><span>${t('dash_kv_invest')}</span><b class="pos">${money(sp.invested)}</b></div>
+        ${servicesOnly() ? `<div><span>${t('dash_kv_collected')}</span><b class="pos">${money(paidRevenueForMonth(currentMonthKey))}</b></div>` : `<div><span>${t('dash_kv_invest')}</span><b class="pos">${money(sp.invested)}</b></div>`}
         ${p.left>=0
           ? `<div><span>${t('dash_kv_left')}</span><b class="pos">${money(p.left)}</b></div>`
           : `<div><span>${t('dash_kv_over')}</span><b class="neg">${money(-p.left)}</b></div>`}
@@ -378,11 +378,13 @@ function dashboardView(){
     ${seeAll}
   </div>`;
   })()}
-  ${budgetAlertCard()}
+  ${budgetAlertCard()}${svcOverdueCard()}
 
   ${/* 3. Herramientas con nombre (mismos ids de siempre: btn-scan-products,
        btn-scan-fab, btn-new-item — attachEvents los encuentra igual). Los
        anillos toman su color de --tool-* (degradés en los temas App Store). */''}
+  ${/* Modo Servicios sin productos (app-15): Trabajo · Escanear recibo · Gasto. */''}
+  ${servicesOnly() ? svcToolsHtml(scanSvg) : `
   <div class="inv-tools" style="margin:4px 0 16px;">
     <button type="button" class="inv-tool" id="btn-scan-products" title="${t('pb_open_btn')}">
       <span class="inv-tool-ring tool-products">${lineIcon('box',24)}</span>
@@ -400,9 +402,12 @@ function dashboardView(){
       <span class="inv-tool-ring tool-manual">＋</span>
       <span class="inv-tool-label">${t('dash_tool_manual')}</span>
     </button>
-  </div>
+  </div>`}
 
-  ${inventory.length===0 && cloudSyncPending ? loadingSkeleton('dashboard') : `
+  ${/* Sin productos (modo Servicios) el inventario está vacío SIEMPRE: la espera
+       se juzga por trabajos y activos, si no el esqueleto tapaba el tablero en
+       cada sincronización. */''}
+  ${(servicesOnly() ? (svcJobs().length===0 && !(bizProfile.assets||[]).length) : inventory.length===0) && cloudSyncPending ? loadingSkeleton('dashboard') : `
   ${/* 4. HOY + módulos, en cuadrícula de dos columnas (maqueta 2026-09-08):
        Críticos cambia de color con el estado (pedido del usuario 2026-09-08):
        azul con todo en orden, ROJO (--tile-crit, el mismo del presupuesto
@@ -413,6 +418,9 @@ function dashboardView(){
        tarjetas con ícono. Mismos ids y data-* que siempre. */''}
   <div class="dash-section-label">${t('dash_today')}</div>
   <div class="dash-grid">
+    ${/* Modo Servicios (app-15): Trabajos · Por cobrar · Mantenimiento; las de
+         productos (Críticos, Toca contar, Pedido) solo si vende productos. */''}
+    ${sellsProducts() ? `
     <button type="button" class="dash-tile t1 ${critRows.length>0?'alert':''}" data-dash-stat="crit">
       <span class="dash-tile-badge ${critRows.length>0?'crit':'ok'}">${critRows.length>0 ? t('dash_badge_alert') : t('dash_badge_ok')}</span>
       <span class="dash-tile-icon" aria-hidden="true">${critRows.length>0?'⚠️':'🛡️'}</span>
@@ -438,7 +446,8 @@ function dashboardView(){
       <span class="dash-tile-title">${t('stock_suggested_order').replace(/:$/,'')}</span>
       <span class="dash-tile-sub">${critRows.length>0 ? t('dash_suggested_n').replace('{n}', critRows.length) : t('dash_suggested_none')}</span>
       <span class="dash-tile-chev">›</span>
-    </button>
+    </button>` : ''}
+    ${usesServices() ? svcDashTilesHtml() : ''}
     ${/* 6. EL CALENDARIO — pero SOLO cuando Recibos dejó de ser pestaña
          (observación del usuario 2026-09-10: "el calendario se queda aunque no
          produzca??"). Tenía razón: con la pestaña Recibos abajo, el calendario
@@ -463,12 +472,14 @@ function dashboardView(){
       <span class="dash-tile-sub">${escapeHtml(monthLabel(localMonthStr(), uiLang))}${receipts.length>0 ? ` · ${t('dash_calendar_sub').replace('{n}', String(receipts.length))}` : ''}</span>
       ${miniCalendarWidget()}
     </div>`}
+    ${(!servicesOnly() || usesProduction()) ? `
     <button type="button" class="dash-tile t5" id="btn-production-hub">
       <span class="dash-tile-icon" aria-hidden="true">🍳</span>
       <span class="dash-tile-title">${t('prod_section_title')}</span>
       <span class="dash-tile-sub">${t('dash_production_sub')}</span>
       <span class="dash-tile-chev">›</span>
-    </button>
+    </button>` : ''}
+    ${usesServices() && sellsProducts() ? svcEquipoTileHtml() : ''}
     ${/* EQUIPO: compartir la cuenta para que un empleado escanee y cuente.
          Quedó SOLO en Ajustes › Cuenta —a tres toques, entre la copia de
          seguridad y la política de privacidad— cuando la fila del inventario
@@ -2084,6 +2095,11 @@ function alertSettingsModal(){
       <h3 class="saffron">${t('settings_title')}</h3>
       <div class="sub">${t('settings_sub')}</div>
 
+      ${/* 0. TU NEGOCIO (modo Servicios, app-15): vende / fabrica / presta servicios. */''}
+      ${svcSettingsBizCard()}
+      ${/* Servicios (app-15): cobros vencidos, aviso de mantenimiento, lista de servicios. */''}
+      ${svcSettingsServicesCard()}
+
       ${/* 1. APARIENCIA: tema, latidos, idioma y formato de montos — lo que un
            usuario nuevo busca primero. Todo instantáneo y guardado en el dispositivo. */''}
       <div class="settings-card">
@@ -2121,20 +2137,7 @@ function alertSettingsModal(){
             <button type="button" class="link-btn" id="font-scale-reset" ${dustyFontScale===100?'disabled':''}>${t('font_size_reset')}</button>
           </div>
         </div>
-        ${/* ¿ESTE NEGOCIO FABRICA? (pregunta del usuario 2026-09-10: "¿y si alguien
-             no usa la zona de producción?"). Decide la tercera pestaña. Solo
-             aparece el interruptor: en automático se prende sola con la primera
-             receta, y este switch está para forzarla en cualquier sentido —
-             alguien que fabrica pero prefiere Recibos abajo, o alguien que
-             borró sus recetas y no quiere perder la pestaña. */''}
-        <div class="pulse-row">
-          <div class="pulse-text"><b>${t('prod_tab_label')}</b><small>${t('prod_tab_helper')}</small></div>
-          <span class="pulse-state">${usesProduction() ? t('switch_on') : t('switch_off')}</span>
-          <label class="pulse-switch" aria-label="${t('prod_tab_label')}">
-            <input type="checkbox" id="production-tab-toggle" ${usesProduction()?'checked':''}>
-            <i></i>
-          </label>
-        </div>
+        ${/* (La fila "Fabrico mis productos" se mudó a la tarjeta Tu negocio, arriba.) */''}
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
           ${/* El rótulo del idioma va en el idioma ACTUAL (pedido del usuario 2026-09-07). */''}
           <button class="btn btn-ghost btn-sm" id="btn-lang-toggle" style="width:100%;">${uiLang==='es'?'🌐 Cambiar a inglés':'🌐 Switch to Spanish'}</button>
@@ -2148,6 +2151,7 @@ function alertSettingsModal(){
         </div>
       </div>
 
+      ${sellsProducts() ? `
       ${/* 2. INVENTARIO: categorías y conteo cíclico (configuración, no acciones del día). */''}
       <div class="settings-card">
         ${settingsCardHeader('box','var(--navy-wash)','var(--navy)',t('settings_inventory_title'))}
@@ -2157,7 +2161,7 @@ function alertSettingsModal(){
             ${t('cc_btn')}${isCycleCountDue()?'<span class="cc-due-dot"></span>':''}
           </button>
         </div>
-      </div>
+      </div>` : ''}
 
       ${/* 3. ALERTAS: umbral de precio al escanear + aviso de presupuesto. Se
            guardan al soltar el campo (onchange en app-07). */''}

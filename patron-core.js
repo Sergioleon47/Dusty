@@ -53,6 +53,64 @@ function normalizeBudgetMeta(m){
     cogsTargetPct: (Number.isFinite(ct) && ct>0 && ct<100) ? ct : null
   };
 }
+/* ===== PERFIL DEL NEGOCIO + SERVICIOS (modo Servicios, 2026-09-11) =====
+   ¿Qué hace tu negocio? Vende productos / Presta servicios (Fabrica vive aparte,
+   en productionTabPref). Con "services" el Dashboard suma Trabajos, Por cobrar y
+   Mantenimiento; sin "sells" la pestaña Inventario se vuelve Equipo y activos.
+   Los activos (camiones, cámaras, máquinas) y la lista de servicios con precio
+   viven acá, en meta, como el presupuesto: son pocos y del negocio entero. */
+function normalizeBizProfile(p){
+  const src = (p && typeof p==='object') ? p : {};
+  const num = (v, min)=>{ const n=Number(v); return (v!==null && v!=='' && Number.isFinite(n) && n>=(min||0)) ? n : null; };
+  const str = (v, max)=> (typeof v==='string' ? v.slice(0, max||80) : '');
+  const isDate = (v)=> /^\d{4}-\d{2}-\d{2}$/.test(v||'');
+  const md = Number(src.maintDays);
+  const assets = (Array.isArray(src.assets) ? src.assets : []).filter(a=>a && a.id && typeof a.name==='string').map(a=>({
+    id: String(a.id), name: str(a.name, 60), model: str(a.model, 60), emoji: str(a.emoji, 8) || '🚚',
+    purchaseDate: isDate(a.purchaseDate) ? a.purchaseDate : null,
+    purchasePrice: num(a.purchasePrice, 0), km: num(a.km, 0),
+    maint: (Array.isArray(a.maint) ? a.maint : []).filter(m=>m && m.id && typeof m.name==='string').map(m=>({
+      id: String(m.id), name: str(m.name, 60), emoji: str(m.emoji, 8) || '🔧',
+      everyKm: num(m.everyKm, 1), everyMonths: num(m.everyMonths, 1),
+      lastDate: isDate(m.lastDate) ? m.lastDate : null,
+      lastKm: num(m.lastKm, 0)
+    })),
+    createdAt: str(a.createdAt, 40) || null
+  }));
+  const catalog = (Array.isArray(src.catalog) ? src.catalog : []).filter(c=>c && c.id && typeof c.name==='string').map(c=>({
+    id: String(c.id), name: str(c.name, 60), desc: str(c.desc, 80),
+    price: num(c.price, 0), unit: ['fixed','km','day','hour'].indexOf(c.unit)>=0 ? c.unit : 'fixed'
+  }));
+  return {
+    sells: src.sells!==false,
+    services: src.services===true,
+    remindOverdue: src.remindOverdue!==false,
+    maintDays: (Number.isFinite(md) && [3,7,14,30].indexOf(md)>=0) ? md : 7,
+    assets, catalog
+  };
+}
+/* Estado de UN mantenimiento programado: por km (odómetro del activo) y/o por
+   meses, gana el más urgente. Sin "último hecho" no hay de dónde contar: 'none'.
+   Devuelve {status:'overdue'|'soon'|'ok'|'none', kmLeft, daysLeft, dueDate}. */
+function maintStatus(plan, asset, today, soonDays){
+  if(!plan) return {status:'none', kmLeft:null, daysLeft:null, dueDate:null};
+  let kmLeft = null, daysLeft = null, dueDate = null;
+  if(plan.everyKm>0 && typeof plan.lastKm==='number' && asset && typeof asset.km==='number'){
+    kmLeft = Math.round(plan.lastKm + plan.everyKm - asset.km);
+  }
+  if(plan.everyMonths>0 && plan.lastDate){
+    const d = new Date(plan.lastDate+'T00:00:00');
+    d.setMonth(d.getMonth()+plan.everyMonths);
+    dueDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    daysLeft = daysBetweenStr(today, dueDate);
+  }
+  if(kmLeft===null && daysLeft===null) return {status:'none', kmLeft, daysLeft, dueDate};
+  const soonKm = plan.everyKm>0 ? Math.max(200, Math.round(plan.everyKm*0.1)) : 0;
+  let status = 'ok';
+  if((kmLeft!==null && kmLeft<0) || (daysLeft!==null && daysLeft<0)) status = 'overdue';
+  else if((kmLeft!==null && kmLeft<=soonKm) || (daysLeft!==null && daysLeft<=(soonDays||7))) status = 'soon';
+  return {status, kmLeft, daysLeft, dueDate};
+}
 // Al cambiar el monto general: los meses ANTERIORES con actividad que no tenían un
 // valor propio se quedan con el viejo; el actual toma el nuevo; los futuros se limpian.
 function freezeBudgetHistory(byMonth, monthKeys, oldDefault, newValue, currentKey){
@@ -441,6 +499,7 @@ if(typeof module!=='undefined' && module.exports){
     roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
+    normalizeBizProfile, maintStatus,
     mergeReceiptPages
   };
 }

@@ -136,7 +136,7 @@ try{
      se sabe si la tercera va a ser Recibos o Producción (recipes se carga después),
      y comparar con el arreglo provisional dejaba afuera a quien se había quedado
      en Producción. refreshTabOrder() la corrige en el primer render si no existe. */
-  if(['dashboard','inventario','recibos','produccion'].indexOf(saved) >= 0) activeTab = saved;
+  if(['dashboard','inventario','equipo','recibos','produccion'].indexOf(saved) >= 0) activeTab = saved;
 }catch(e){}
 /* Recibos a pantalla completa, abierto desde la tarjeta del calendario. Se abre
    con una View Transition que agranda el calendario chiquito hasta el grande
@@ -148,9 +148,14 @@ let showReceiptsSheet = false;
    recargar. Si la pestaña en la que estaba parado desaparece, vuelve al Dashboard
    en vez de quedar en un índice -1 con la pantalla en blanco. */
 function refreshTabOrder(){
+  /* Modo Servicios (2026-09-11): un negocio que presta servicios y NO vende
+     productos no tiene inventario que mirar — la segunda pestaña pasa a ser
+     "Equipo" (equipoView, app-15). Con productos y servicios, Inventario se
+     queda y Equipo se abre desde el Dashboard. */
+  const segunda = (typeof sellsProducts==='function' && !sellsProducts()) ? 'equipo' : 'inventario';
   const tercera = usesProduction() ? 'produccion' : 'recibos';
-  if(TAB_ORDER[2] === tercera) return false;
-  TAB_ORDER = ['dashboard','inventario',tercera];
+  if(TAB_ORDER[1] === segunda && TAB_ORDER[2] === tercera) return false;
+  TAB_ORDER = ['dashboard',segunda,tercera];
   if(TAB_ORDER.indexOf(activeTab) < 0) activeTab = 'dashboard';
   return true;
 }

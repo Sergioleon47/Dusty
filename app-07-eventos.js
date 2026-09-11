@@ -284,6 +284,7 @@ function attachEvents(){
   attachSettingsEvents();
   attachAccountEvents();
   attachProductionEvents();
+  attachServicesEvents();
   // Calculadora de pedido (tarjeta + panel en Inventario) — app-05.
   attachOrderCalcEvents();
 }

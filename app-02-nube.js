@@ -101,6 +101,7 @@ function ensurePatronFirebaseReady(){
               aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
               budgetMeta: JSON.parse(JSON.stringify(budgetMeta)),
+              bizProfile: JSON.parse(JSON.stringify(bizProfile)),
               profitsVisibleToMembers,
               categories: categories ? categories.slice() : categories,
               expenseCategories: expenseCategories.slice(),
@@ -333,6 +334,12 @@ function activityVerb(entry){
   if(entry.type==='recipe_created') return `${t('activity_recipe_created')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='recipe_edited') return `${t('activity_recipe_edited')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='recipe_deleted') return `${t('activity_recipe_deleted')} "${escapeHtml(entry.itemName)}"`;
+  // Modo Servicios (app-15) — itemName es el cliente o el activo.
+  if(entry.type==='job_saved') return `${t('activity_job_saved')} "${escapeHtml(entry.itemName)}"`;
+  if(entry.type==='job_paid') return `${t('activity_job_paid')} "${escapeHtml(entry.itemName)}" · ${escapeHtml(entry.detail||'')}`;
+  if(entry.type==='job_deleted') return `${t('activity_job_deleted')} "${escapeHtml(entry.itemName)}"`;
+  if(entry.type==='asset_saved') return `${t('activity_asset_saved')} "${escapeHtml(entry.itemName)}"`;
+  if(entry.type==='maint_logged') return `${t('activity_maint_logged')} "${escapeHtml(entry.itemName)}" · ${escapeHtml(entry.detail||'')}`;
   return escapeHtml(entry.detail||'');
 }
 
@@ -601,6 +608,7 @@ function metaContentShape(m){
     cycleCountIntervalDays: m.cycleCountIntervalDays, cycleCountLastDate: m.cycleCountLastDate,
     cycleCountCursor: m.cycleCountCursor, businessName: m.businessName, monthlyBudget: m.monthlyBudget,
     budgetMeta: normalizeBudgetMeta(m.budgetMeta),
+    bizProfile: normalizeBizProfile(m.bizProfile),
     profitsVisibleToMembers: m.profitsVisibleToMembers === true,
     categories: m.categories,
     expenseCategories: m.expenseCategories || [],
@@ -614,7 +622,7 @@ function metaContentShape(m){
 function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
-    businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes,
+    businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes,
     recipes: recipesForCloud(), outflows, outflowArchive,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
   });
@@ -785,7 +793,7 @@ function syncAllToFirestore(){
     const metaHash = valueHash(metaContent);
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
-        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes,
+        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes,
         recipes: recipesForCloud(), outflows,
         // outflowArchive viaja en el mismo set con {merge:true}: Firestore mergea
         // los mapas por clave, así dos dispositivos archivando meses distintos no
@@ -1083,7 +1091,7 @@ function applyRemoteMetaSnapshot(doc){
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1700,6 +1708,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         budgetMeta: normalizeBudgetMeta(metaSnap.exists ? (remoteMeta.budgetMeta || localSnapshot.budgetMeta) : localSnapshot.budgetMeta),
+        bizProfile: normalizeBizProfile(metaSnap.exists ? (remoteMeta.bizProfile || localSnapshot.bizProfile) : localSnapshot.bizProfile),
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
         expenseCategories: metaSnap.exists ? (remoteMeta.expenseCategories || localSnapshot.expenseCategories || []) : (localSnapshot.expenseCategories || []),
         calNotes: mergedCalNotes,
@@ -1747,6 +1756,8 @@ let draftMonthlyBudget = monthlyBudget;
 // byCategory: {catId: tope} topes opcionales por categoría de gasto.
 // rollover: si sobra plata un mes, se suma al presupuesto del siguiente.
 let budgetMeta = normalizeBudgetMeta(null);
+// Perfil del negocio (modo Servicios, app-15): viaja en meta como budgetMeta.
+let bizProfile = normalizeBizProfile(null);
 // Presupuesto BASE de un mes: el congelado de ese mes si existe, si no el general.
 function budgetForMonth(key){
   const v = budgetMeta.byMonth[key];

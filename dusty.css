@@ -2762,3 +2762,79 @@
     .gb-cta{padding:12px;} .gb-ghost{padding:11px;}
   }
   @media (prefers-reduced-motion: reduce){ .gb-in,.gb-bye .brand-mark,.gb-closed{animation:none;opacity:1;} }
+
+  /* ================= MODO SERVICIOS (app-15, 2026-09-11) =================
+     Solo composición: cada color sale de los tokens que ya existen (baldosas,
+     pastillas de estado, dinero, tinta). Nada nuevo de paleta. */
+  /* --- introducción: ¿Qué hace tu negocio? --- */
+  .ob-biz{justify-content:flex-start;gap:10px;}
+  .ob-biz-mark{display:flex;justify-content:center;margin-top:6px;}
+  .ob-biz-mark .brand-mark{width:52px;height:52px;border-radius:14px;font-size:30px;}
+  .ob-biz .ob-head{font-size:calc(23px * var(--fs, 1));}
+  .ob-biz-tile{flex-direction:row;align-items:center;gap:14px;min-height:0;padding:14px 16px;border-radius:20px;opacity:.55;transition:opacity .2s, transform .12s;}
+  .ob-biz-tile.on{opacity:1;}
+  .ob-biz-emoji{font-size:calc(30px * var(--fs, 1));line-height:1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.22));}
+  .ob-biz-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .ob-biz-text b{font-size:calc(16px * var(--fs, 1));font-weight:800;letter-spacing:-.01em;}
+  .ob-biz-text small{font-size:calc(12px * var(--fs, 1));color:var(--tile-sub);line-height:1.3;}
+  .ob-biz-chk{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.28);color:transparent;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;}
+  .ob-biz-tile.on .ob-biz-chk{background:#fff;color:var(--navy);}
+  html[data-dusty-theme="abeja"] .ob-biz-tile.on .ob-biz-chk{background:rgba(0,0,0,.75);color:#fff;}
+  .ob-biz .ob-in.b1{animation-delay:.1s} .ob-biz .ob-in.b2{animation-delay:.35s} .ob-biz .ob-in.b3{animation-delay:.5s}
+  .ob-biz .ob-in.b4{animation-delay:.65s} .ob-biz .ob-in.b5{animation-delay:.9s}
+  /* --- filas (activos, cobros, trabajos, servicios) sobre .matched-item --- */
+  .svc-page-title{margin:4px 0 12px;font-size:calc(19px * var(--fs, 1));font-weight:800;letter-spacing:-.01em;color:var(--ink);}
+  .svc-sheet-title{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:calc(18px * var(--fs, 1));font-weight:800;color:var(--navy);}
+  .svc-title-edit{margin-left:auto;background:var(--raised);color:var(--ink-mid);}
+  .svc-sub{font-size:calc(12.5px * var(--fs, 1));color:var(--ink-mid);margin-bottom:14px;}
+  .svc-row{display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:14px;}
+  .svc-row.static{cursor:default;}
+  .svc-row:active:not(.static){transform:scale(.985);}
+  .svc-row-crit{border-color:color-mix(in srgb, var(--money-neg) 45%, var(--line));}
+  .svc-row-ic{flex-shrink:0;width:40px;height:40px;border-radius:12px;background:var(--inset);display:flex;align-items:center;justify-content:center;font-size:calc(20px * var(--fs, 1));}
+  .svc-row-crit .svc-row-ic{background:var(--money-neg-soft);}
+  .svc-row-ic-t1{background:var(--tile-1);} .svc-row-ic-t2{background:var(--tile-4);} .svc-row-ic-t3{background:var(--tile-3);} .svc-row-ic-t4{background:var(--tile-5);}
+  .svc-row-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .svc-row-tx b{font-size:calc(13.5px * var(--fs, 1));font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .svc-row-tx small{font-size:calc(11.5px * var(--fs, 1));color:var(--ink-soft);line-height:1.3;}
+  .svc-row-amt{flex-shrink:0;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+  .svc-row-amt b{font-family:'Space Grotesk',sans-serif;font-size:calc(15px * var(--fs, 1));font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .svc-row-amt small{font-size:calc(10.5px * var(--fs, 1));color:var(--ink-soft);}
+  .svc-tag{margin:3px 0 0;align-self:flex-start;font-size:calc(10px * var(--fs, 1));padding:2px 8px;}
+  /* Fuera de una baldosa la pastilla vuelve a sus colores de dinero (dentro de
+     las baldosas es blanca translúcida, regla html .dash-tile-badge). */
+  html .svc-tag.ok{background:var(--money-pos-soft);color:var(--money-pos-ink);}
+  html .svc-tag.warn{background:var(--money-warn-soft);color:var(--money-warn-ink);}
+  html .svc-tag.crit{background:var(--money-neg-soft);color:var(--money-neg-ink);}
+  html[data-dusty-theme="abeja"] .svc-tag.ok, html[data-dusty-theme="abeja"] .svc-tag.warn, html[data-dusty-theme="abeja"] .svc-tag.crit{background:rgba(0,0,0,.10);color:#000;}
+  /* Franja de tres números (Equipo, Por cobrar): el del medio toma el tercer tono. */
+  html .inv-stat.svc-stat-mid{background:var(--tile-3);}
+  .svc-row-actions{display:flex;gap:8px;margin:-4px 0 12px;}
+  .svc-row-actions .btn{flex:1;padding:9px 8px;white-space:nowrap;}
+  /* --- tarjetas dentro de hojas y modales --- */
+  .svc-card{margin-top:12px;padding:12px 14px;}
+  .svc-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:calc(13px * var(--fs, 1));font-weight:800;color:var(--ink);margin-bottom:4px;}
+  .svc-card-head .link-btn{padding:4px 0;font-size:calc(12.5px * var(--fs, 1));}
+  .svc-card .recap-row{padding:8px 0;}
+  .svc-card .recap-row:last-child{border-bottom:0;}
+  .svc-card .recap-col-val{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .svc-line-big .recap-col-val{white-space:nowrap;}
+  .svc-plan{cursor:pointer;}
+  .svc-plan .recap-label{display:flex;flex-direction:column;gap:2px;}
+  .svc-plan-sub{font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);font-weight:500;}
+  .svc-line-big{font-size:calc(14px * var(--fs, 1));font-weight:700;}
+  .svc-line-big .recap-col-val strong{font-size:calc(15px * var(--fs, 1));}
+  .svc-mini-tile{min-height:96px;}
+  .svc-mini-tile .dash-tile-num{font-size:calc(22px * var(--fs, 1));}
+  .svc-mini-tile .dash-tile-title{font-size:calc(13px * var(--fs, 1));padding-right:0;}
+  .dash-tile.twarn{background:var(--tile-warn);}
+  .svc-seg{display:flex;flex-wrap:wrap;gap:6px;}
+  .svc-seg .exit-reason-chip{flex:1 1 auto;text-align:center;padding:8px 10px;font-size:calc(12px * var(--fs, 1));}
+  .svc-seg .exit-reason-chip.svc-emoji{flex:0 0 auto;padding:6px 9px;font-size:calc(18px * var(--fs, 1));}
+  .svc-due-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
+  .svc-due-row label{margin:0;font-size:calc(12.5px * var(--fs, 1));color:var(--ink-mid);}
+  .svc-due-row select{flex:1;}
+  .svc-exp-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .svc-exp-form select, .svc-exp-form .btn{grid-column:span 1;}
+  .svc-x{padding:0 0 0 8px;color:var(--ink-soft);font-size:calc(12px * var(--fs, 1));}
+  .svc-biz-rows .pulse-row:first-child{margin-top:0;padding-top:0;border-top:0;}
