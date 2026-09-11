@@ -502,7 +502,9 @@
 // librerias; se comparte (telefono) o descarga (escritorio). Archivo NUEVO
 // app-14-reportes.js (precache + index + build-www) + botones en el Cierre de
 // mes y en cada tarjeta de mes — app-03/05/06/07 + css.
-const CACHE_NAME = 'patron-shell-v143';
+// v144: la cabecera de las hojas a pantalla completa (Cierre de mes, calculadora
+// de pedido) respeta la barra de estado en la app instalada — dusty.css.
+const CACHE_NAME = 'patron-shell-v144';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

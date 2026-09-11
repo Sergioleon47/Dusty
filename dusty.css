@@ -2022,8 +2022,11 @@
   /* top/left/right/bottom explícitos y no la abreviatura inset: — WebViews viejos
      (Chrome <87, como el del emulador) la ignoran y la hoja queda del alto del
      contenido en vez de cubrir la pantalla. */
+  /* Arriba también el inset del sistema (visto en la captura del emulador
+     2026-09-11: la cabecera del Cierre de mes quedaba DEBAJO de la barra de
+     estado en la app instalada — top:0 + viewport-fit=cover). */
   .oc-sheet{position:fixed;top:0;left:0;right:0;bottom:0;z-index:49;background:var(--bg);display:flex;flex-direction:column;
-    padding:16px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding:calc(16px + env(safe-area-inset-top, 0px)) 14px calc(12px + env(safe-area-inset-bottom, 0px));
     transform:translateY(100%);visibility:hidden;
     transition:transform .45s cubic-bezier(.32,.72,.25,1), visibility 0s linear .45s;}
   .oc-sheet.open{transform:translateY(0);visibility:visible;transition:transform .45s cubic-bezier(.32,.72,.25,1);}
