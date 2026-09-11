@@ -14,10 +14,26 @@
 function attachInventoryEvents(){
   // Desglose de Valor / Potencial de venta (pedido del usuario 2026-09-11):
   // las dos tarjetas de arriba abren su modal; ✕, Cerrar y el fondo lo cierran.
+  // Toque "real" (pedido del usuario 2026-09-11): la tarjeta se hunde (clase
+  // pressed, ver CSS), vibra suave, y recién ~130ms después abre el desglose —
+  // el dedo ve la tarjeta responder ANTES de que aparezca el modal, en vez del
+  // modal saltando encima en el mismo instante del toque.
+  const pressThenOpen=(btn, kind)=>{
+    if(btn.__opening) return;
+    btn.__opening = true;
+    btn.classList.add('pressed');
+    hapticGolpe('LIGHT');
+    setTimeout(()=>{ btn.classList.remove('pressed'); btn.__opening=false; showInvDetail=kind; render(); }, 130);
+  };
   const btnInvValue=document.getElementById('btn-inv-value');
-  if(btnInvValue) btnInvValue.onclick=()=>{ showInvDetail='value'; render(); };
+  if(btnInvValue) btnInvValue.onclick=()=>pressThenOpen(btnInvValue,'value');
   const btnInvPotential=document.getElementById('btn-inv-potential');
-  if(btnInvPotential) btnInvPotential.onclick=()=>{ showInvDetail='potential'; render(); };
+  if(btnInvPotential) btnInvPotential.onclick=()=>pressThenOpen(btnInvPotential,'potential');
+  // Selector lista / 2 / 3 columnas de la lista "Por producto" (en los dos
+  // desgloses; preferencia del dispositivo, ver ivdLayout en app-05).
+  document.querySelectorAll('[data-ivd-layout]').forEach(b=>{
+    b.onclick=()=>{ ivdLayout=b.dataset.ivdLayout; try{ localStorage.setItem('patron_ivd_layout', ivdLayout); }catch(e){} render(); };
+  });
   const invDetailOv=document.getElementById('inv-detail-overlay');
   if(invDetailOv){
     const closeIvd=()=>{ showInvDetail=null; render(); };

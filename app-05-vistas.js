@@ -551,6 +551,20 @@ function invGroupKey(g){ return g.id || '__none'; }
    ganancia potencial y los productos sin precio que no suman. Tocar un producto
    abre su ficha (data-open-item, el handler de siempre). */
 let showInvDetail = null; // null | 'value' | 'potential'
+/* Vista de la lista "Por producto" del desglose (pedido del usuario 2026-09-11:
+   el mismo selector de columnas del Inventario, en los DOS desgloses): lista,
+   2 o 3 columnas. Preferencia del dispositivo; la lee app-10 al tocar. */
+let ivdLayout = 'list';
+try{ const v = localStorage.getItem('patron_ivd_layout'); if(['list','cols2','cols3'].includes(v)) ivdLayout = v; }catch(e){}
+function ivdLayoutToggleHtml(){
+  const ic = {
+    list:'<svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor"><rect x="2" y="3" width="16" height="4" rx="1.2"/><rect x="2" y="9" width="16" height="4" rx="1.2"/><rect x="2" y="15" width="16" height="3" rx="1.2"/></svg>',
+    cols2:'<svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor"><rect x="2" y="3" width="7" height="7" rx="1.5"/><rect x="11" y="3" width="7" height="7" rx="1.5"/><rect x="2" y="12" width="7" height="7" rx="1.5"/><rect x="11" y="12" width="7" height="7" rx="1.5"/></svg>',
+    cols3:'<svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor"><rect x="1" y="3" width="5" height="5" rx="1.2"/><rect x="7.5" y="3" width="5" height="5" rx="1.2"/><rect x="14" y="3" width="5" height="5" rx="1.2"/><rect x="1" y="12" width="5" height="5" rx="1.2"/><rect x="7.5" y="12" width="5" height="5" rx="1.2"/><rect x="14" y="12" width="5" height="5" rx="1.2"/></svg>'
+  };
+  const opt = (val, label)=>`<button type="button" data-ivd-layout="${val}" class="${ivdLayout===val?'on':''}" aria-label="${label}" aria-pressed="${ivdLayout===val}" title="${label}">${ic[val]}</button>`;
+  return `<div class="inv-layout-toggle ivd-layout" role="group" aria-label="${t('inv_layout_label')}">${opt('list', t('ivd_layout_list'))}${opt('cols2', t('inv_layout_cols2'))}${opt('cols3', t('inv_layout_cols3'))}</div>`;
+}
 function invDetailModal(){
   const kind = showInvDetail;
   const isVal = kind==='value';
@@ -569,7 +583,10 @@ function invDetailModal(){
   const color = isVal ? 'var(--money-pos)' : 'var(--hue-1, var(--navy))';
   const soft = isVal ? 'var(--tile-ok)' : 'var(--tile-1)';
   return `
-  <div class="overlay overlay-fast" id="inv-detail-overlay">
+  ${/* Sin overlay-fast (pedido del usuario 2026-09-11: la entrada era demasiado
+       rápida): entra al ritmo normal de los modales de la app (.75s, curva iOS),
+       que es el "más nativo" que pidió el usuario para todos. */''}
+  <div class="overlay" id="inv-detail-overlay">
     <div class="modal ivd ${isVal?'ivd-value':'ivd-potential'}" role="dialog" aria-modal="true" aria-label="${isVal?t('ivd_value_title'):t('ivd_potential_title')}">
       <button type="button" class="modal-close-btn" id="btn-close-inv-detail" aria-label="${t('btn_close')}">✕</button>
       <div class="ivd-hero" style="background:${soft};">
@@ -592,11 +609,18 @@ function invDetailModal(){
           <div class="ivd-bar"><i style="width:${total>0?Math.max(2,Math.round(c.sum/total*100)):0}%;background:${color};"></i></div>
         </div>`).join('')}
       </div>` : ''}
-      <div class="ivd-section">${t('ivd_by_product')} <small>${t('ivd_products_n').replace('{n}', rows.length)}</small></div>
-      <div class="ivd-rows">
+      <div class="ivd-section">${t('ivd_by_product')} <small>${t('ivd_products_n').replace('{n}', rows.length)}</small><span class="ivd-section-tools">${ivdLayoutToggleHtml()}</span></div>
+      <div class="${ivdLayout==='list' ? 'ivd-rows' : 'ivd-grid '+ivdLayout}">
         ${rows.map(i=>{
           const unit = isVal ? (i.costPerUnit||0) : (i.salePrice||0);
           const m = !isVal ? (i.qtyOnHand||0)*((i.salePrice||0)-(i.costPerUnit||0)) : 0;
+          if(ivdLayout!=='list') return `
+        <div class="ivd-tile" data-open-item="${i.id}" role="button" tabindex="0" title="${escapeHtml(i.name)}">
+          <span class="stock-icon-ring" style="width:40px;height:40px;flex-shrink:0;overflow:hidden;">${stockIconSvg(i)}</span>
+          <span class="ivd-tile-name">${escapeHtml(i.name)}</span>
+          <b class="ivd-tile-amt" style="color:${color};">${fmt(amt(i))}</b>
+          <span class="ivd-tile-calc">${escapeHtml(i.qtyOnHand||0)} × ${fmt(unit)}${!isVal ? `<br><span style="color:${m>=0?'var(--money-pos)':'var(--money-neg, var(--tomato))'};">${m>=0?'+':''}${fmt(m)}</span>` : ''}</span>
+        </div>`;
           return `
         <div class="ivd-row" data-open-item="${i.id}" role="button" tabindex="0">
           <span class="stock-icon-ring" style="width:34px;height:34px;flex-shrink:0;overflow:hidden;">${stockIconSvg(i)}</span>
