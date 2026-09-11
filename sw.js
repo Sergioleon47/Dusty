@@ -525,7 +525,7 @@
 // al cambiar de vista, no en redibujados de fondo — app-05 + css.
 // v155: temas CLAROS mas vivos (App Store, Crema, Pastel, Coral, Miel): menos
 // blanco arriba y mas cuerpo abajo en baldosas y botones; los oscuros igual -- css.
-const CACHE_NAME = 'patron-shell-v159';
+const CACHE_NAME = 'patron-shell-v160';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

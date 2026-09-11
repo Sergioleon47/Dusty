@@ -2854,9 +2854,10 @@
   .mc-day.note.svc-job::before{background:var(--money-pos);}
   .mc-day.note.svc-due::before{background:var(--money-warn);}
   .mc-day.note.svc-maint::before{background:var(--money-neg);}
-  .svc-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin:8px 0 2px;font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);}
+  /* Misma tinta que la línea "N recibos" de arriba: la leyenda vive dentro de la tarjeta azul del calendario. */
+  .svc-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin:8px 0 2px;font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--tile-sub);}
   .svc-legend span{display:inline-flex;align-items:center;gap:5px;}
-  .svc-legend i{width:7px;height:7px;border-radius:50%;background:var(--saffron);}
+  .svc-legend i{width:7px;height:7px;border-radius:50%;background:var(--saffron);box-shadow:0 0 0 1.5px rgba(255,255,255,.6);}
   .svc-legend i.svc-job{background:var(--money-pos);} .svc-legend i.svc-due{background:var(--money-warn);} .svc-legend i.svc-maint{background:var(--money-neg);}
   /* 1. Agenda de 7 días en el Dashboard: una fila por nota, tocar abre el día. */
   .svc-agenda{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
