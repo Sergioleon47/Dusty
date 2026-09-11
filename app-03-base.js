@@ -714,7 +714,7 @@ const I18N = {
     agent_err_generic:'El asistente no pudo responder. Probá de nuevo en un momento.', agent_needs_account:'Iniciá sesión para usar el asistente.',
     srv_upstream_error:'El asistente no pudo responder ahora mismo.',
     /* ===== Modo Servicios (2026-09-11, app-15) ===== */
-    svc_tomorrow:'Mañana', svc_agenda_title:'Próximos 7 días', svc_agenda_more:'+{n} más en el calendario',
+    svc_activity_title:'Actividad', svc_tomorrow:'Mañana', svc_agenda_title:'Próximos 7 días', svc_agenda_more:'+{n} más en el calendario',
     svc_rep_label:'Se repite', svc_rep_none:'No', svc_rep_weekly:'Cada semana', svc_rep_biweekly:'Cada 2 semanas', svc_rep_monthly:'Cada mes',
     svc_rep_child:'Parte de un contrato: Dusty lo creó solo. Podés editarlo o borrarlo sin tocar los demás.',
     svc_clash_confirm:'{asset} ya tiene un trabajo ese día ({client}). ¿Guardar igual?',
@@ -1448,7 +1448,7 @@ const I18N = {
     agent_err_generic:'The assistant could not answer. Try again in a moment.', agent_needs_account:'Sign in to use the assistant.',
     srv_upstream_error:'The assistant could not answer right now.',
     /* ===== Services mode (2026-09-11, app-15) ===== */
-    svc_tomorrow:'Tomorrow', svc_agenda_title:'Next 7 days', svc_agenda_more:'+{n} more in the calendar',
+    svc_activity_title:'Activity', svc_tomorrow:'Tomorrow', svc_agenda_title:'Next 7 days', svc_agenda_more:'+{n} more in the calendar',
     svc_rep_label:'Repeats', svc_rep_none:'No', svc_rep_weekly:'Every week', svc_rep_biweekly:'Every 2 weeks', svc_rep_monthly:'Every month',
     svc_rep_child:'Part of a contract: Dusty created it for you. Edit or delete it without touching the others.',
     svc_clash_confirm:'{asset} already has a job that day ({client}). Save anyway?',

@@ -2372,7 +2372,7 @@ function activityModal(){
   return `
   <div class="overlay" id="activity-overlay">
     <div class="modal">
-      <h3 class="navy">${t('activity_modal_title')}</h3>
+      <h3 class="navy">${t(servicesOnly() ? 'svc_activity_title' : 'activity_modal_title')}</h3>
       ${activityLog.length===0 ? `
         <div class="empty-state" style="padding:30px 10px;">
           <div class="em-icon-badge">${lineIcon('clock',28)}</div>

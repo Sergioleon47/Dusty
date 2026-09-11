@@ -503,7 +503,7 @@ function dashboardView(){
     ${(currentUser || hadCloudSessionBefore()) ? `
     <button type="button" class="dash-tile t6" id="btn-inventory-activity">
       <span class="dash-tile-icon" aria-hidden="true">📈</span>
-      <span class="dash-tile-title">${t('activity_modal_title')}</span>
+      <span class="dash-tile-title">${t(servicesOnly() ? 'svc_activity_title' : 'activity_modal_title')}</span>
       <span class="dash-tile-sub">${unread>0 ? t('dash_activity_n').replace('{n}', unread) : t('dash_activity_none')}</span>
       ${unread>0 ? `<span class="dash-tile-count">${unread>99?'99+':unread}</span>` : '<span class="dash-tile-chev">›</span>'}
     </button>` : ''}
