@@ -600,7 +600,7 @@
     background:
       repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px),
       linear-gradient(145deg,var(--brand-soft),var(--brand) 60%,color-mix(in oklch, var(--brand), black 18%));
-    display:flex;align-items:center;justify-content:center;color:var(--brand-ink);font-family:'Space Grotesk';font-weight:700;font-size:25px;box-shadow:var(--shadow);
+    display:flex;align-items:center;justify-content:center;color:var(--brand-ink);font-family:'Space Grotesk','Inter',system-ui,sans-serif;font-weight:700;font-size:25px;box-shadow:var(--shadow);
   }
   .brand-name{font-size:20px;font-weight:700;}
   /* Cuando este dispositivo está viendo el inventario compartido de otra cuenta (no
@@ -1443,58 +1443,28 @@
   .helper-note{font-size:11.5px;color:var(--ink-soft);margin-top:-8px;margin-bottom:14px;}
   .status-pill-success{display:inline-flex;align-items:center;gap:6px;background:var(--basil-soft);color:var(--basil-ink);font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:20px;margin-bottom:18px;}
 
-  /* Tutorial de bienvenida: un paso a la vez, con un color lleno de fondo (no solo
-     el ícono) para que avanzar se sienta como pasar de página. render() reconstruye
-     el modal entero en cada paso, así que la animación de entrada se vuelve a
-     disparar sola cada vez — no hace falta ningún truco de "key" en JS.
-     cursor:grab avisa que también se puede deslizar el dedo (o arrastrar con el
-     mouse) para cambiar de paso, no solo tocar los botones (ver attachEvents). */
-  .welcome-step-card{border-radius:14px;padding:26px 20px;text-align:center;margin:16px 0;animation:welcomeStepInFwd .4s var(--ease-soft);cursor:grab;touch-action:pan-y;}
-  .welcome-step-card:active{cursor:grabbing;}
-  .welcome-step-card.dir-back{animation-name:welcomeStepInBack;}
-  /* Entra deslizando desde el lado del que "viene" (derecha al avanzar, izquierda al
-     retroceder o saltar hacia atrás con los puntitos) en vez de solo aparecer — se
-     siente como pasar páginas de verdad, no como un cambio de contenido genérico. */
+  /* Tarjeta "Mejor en equipo" (teamIntroModal en app-06): la única que queda del
+     tutorial de bienvenida viejo, retirado el 2026-09-11 a favor de la
+     introducción de pantalla completa (startOnboarding / bloque .ob al final de
+     este archivo). Entra deslizando desde la derecha. */
+  .welcome-step-card{border-radius:14px;padding:26px 20px;text-align:center;margin:16px 0;animation:welcomeStepInFwd .4s var(--ease-soft);}
+  /* Entrada "desde el lado del que viene" — la usan la tarjeta de equipo, la
+     encuesta de salida y el cierre de mes. */
   @keyframes welcomeStepInFwd{
     from{opacity:0;transform:translateX(22px) scale(0.98);}
     to{opacity:1;transform:translateX(0) scale(1);}
   }
-  @keyframes welcomeStepInBack{
-    from{opacity:0;transform:translateX(-22px) scale(0.98);}
-    to{opacity:1;transform:translateX(0) scale(1);}
-  }
-  /* Barra que se llena a medida que avanza el tutorial — los puntitos de abajo dicen
-     "en qué paso estoy y puedo saltar a cualquiera", esta dice "cuánto me falta para
-     terminar", que los puntitos solos no comunican bien pasados 3-4 pasos. El ancho
-     se anima con transition (no con la animación de entrada del paso) para que se
-     vea corriendo suave incluso si el usuario salta varios pasos de una. */
-  /* La transición la define la regla de más abajo (junto a la encuesta de
-     salida) — antes estaba duplicada acá y la de abajo la pisaba igual. */
-  /* Link de "Saltar" arriba a la derecha del modal, mismo patrón sticky+float que
-     .modal-close-btn (funciona sin position:relative porque .modal ya scrollea) —
-     visible en todos los pasos salvo el último, que ya tiene su propio botón de salida. */
-  /* Barra de progreso: la usaba el tutorial de bienvenida y la sigue usando el
-     modal de guardado de cuenta (ver welcome-progress-row en app-06). El tutorial
-     paso a las fichas .wt-step el 2026-09-11; estas reglas se quedan por el otro. */
+  /* Barra de progreso: la usa el modal de guardado de cuenta (ver
+     welcome-progress-row en app-06). */
   .welcome-progress-row{display:flex;align-items:center;gap:10px;margin:14px 0 16px;}
   .welcome-progress-track{flex:1;height:4px;border-radius:99px;background:var(--bg);overflow:hidden;}
   .welcome-progress-fill{height:100%;width:100%;border-radius:99px;background:var(--basil);transform-origin:left center;transform:scaleX(var(--fill,0));transition:transform .45s cubic-bezier(.32,.72,.25,1);}
   .welcome-progress-pct{font-family:'IBM Plex Mono';font-size:11.5px;font-weight:700;color:var(--basil-ink);min-width:32px;text-align:right;font-variant-numeric:tabular-nums;}
-  .welcome-skip-btn{position:sticky;top:0;float:right;margin:-6px -6px 0 12px;background:none;border:none;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;padding:5px 8px;border-radius:8px;transition:background .15s ease,transform .1s ease;}
-  .welcome-skip-btn:active{transform:scale(0.94);background:var(--bg);}
   /* Corta cualquier animation: de entrada — se usa en redibujados de fondo que NO
-     son un cambio real de pantalla (ver welcomeStepAnimated), para que no "parpadeen". */
+     son un cambio real de pantalla (ver dashEmptyCardAnimated), para que no "parpadeen". */
   .no-anim{animation:none !important;}
 
   /* ===== AUDITORÍA DE PRIMER MINUTO 2026-09-07 ===== */
-  /* Botón final del tutorial: abre la cámara. El ícono late una vez al aparecer
-     para que se lea como "acción", no como "siguiente". */
-  .welcome-cta-final{display:flex;align-items:center;justify-content:center;gap:8px;}
-  .welcome-cta-final svg{animation:ctaCamPulse 1.6s ease-in-out 2;}
-  @keyframes ctaCamPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
-  .welcome-final-links{display:flex;justify-content:center;gap:6px;margin:8px 0 -4px;}
-  .welcome-dashboard-link{background:none;border:none;color:var(--ink-soft);font-size:12.5px;font-weight:600;cursor:pointer;padding:8px 10px;border-radius:8px;}
-  .welcome-dashboard-link:active{background:var(--bg);}
 
   /* Píldora del encabezado: etiqueta larga en pantallas normales, corta en
      angostas (así el encabezado no se parte en dos filas); rebote al pasar a
@@ -1560,7 +1530,7 @@
     100%{opacity:0;transform:translateY(105vh) rotate(var(--cf-rot,360deg));}
   }
   @media (prefers-reduced-motion: reduce){
-    .welcome-cta-final svg, .cloud-signin-btn.cta-save, .fs-step.done .fs-check, .fs-step.now .fs-check, .help-q, .help-a, .quick-add-card{animation:none;}
+    .cloud-signin-btn.cta-save, .fs-step.done .fs-check, .fs-step.now .fs-check, .help-q, .help-a, .quick-add-card{animation:none;}
   }
   .settings-card{background:var(--inset);border-radius:12px;padding:16px;margin-bottom:14px;}
   .settings-card .helper-note{margin-top:8px;}
@@ -2388,71 +2358,152 @@
     flex:1;text-align:center;font-family:'IBM Plex Mono';font-weight:700;font-size:16px;
   }
 
-  /* ===== INTRODUCCION CON BALDOSAS DEL TABLERO (rediseno UI/UX 2026-09-11) =====
-     Pedido del usuario: "repara la introduccion, usa esos mismos colores,
-     rellenos y formas". La primera pantalla que ve alguien tiene que ensenarle
-     el lenguaje visual que va a usar despues, no otro. Por eso el idioma y cada
-     paso de la bienvenida son BALDOSAS con la anatomia exacta de .dash-tile:
-     degradado --tile-N, radio 18, padding 14, la misma sombra con el filo de luz
-     arriba, tinta blanca, pastilla arriba y emoji en la esquina.
+  /* ===== TARJETA "MEJOR EN EQUIPO" CON LA ANATOMIA DE UNA BALDOSA (2026-09-11) =====
+     Lo unico que queda del tutorial con baldosas: la tarjeta que aparece UNA vez
+     al primer Compartir (teamIntroModal en app-06). Anatomia exacta de
+     .dash-tile — degradado --tile-N, radio 18, padding 14, la misma sombra con
+     el filo de luz arriba, tinta blanca, pastilla arriba y emoji en la esquina.
      .wt-tile copia las METRICAS de .dash-tile en vez de reusar la clase, a
      proposito: .dash-tile arrastra min-height, cursor y los overrides por tema
-     del tablero (html .dash-tile ...), y esto tiene que verse igual pero no
-     depender de ellos. Va al final del archivo para ganarle por orden a
-     .welcome-step-card, que sigue existiendo (el swipe se cuelga de ella). */
-  .wt-eyebrow{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-align:center;letter-spacing:.02em;margin:2px 0 14px;}
-  .wt-lang-grid{display:flex;flex-direction:column;gap:10px;}
+     del tablero, y esto tiene que verse igual sin depender de ellos. */
   .wt-tile{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;min-height:118px;padding:14px;border-radius:18px;border:1px solid var(--tile-border);color:var(--tile-ink);text-align:left;font-family:inherit;box-shadow:0 8px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
   .wt-tile.t1{background:var(--tile-1);} .wt-tile.t2{background:var(--tile-2);} .wt-tile.t3{background:var(--tile-3);}
   .wt-tile.t4{background:var(--tile-4);} .wt-tile.t5{background:var(--tile-5);} .wt-tile.t6{background:var(--tile-6);}
   /* Velo al pie: un degradado a negro al 22% detras del texto, invisible a ojo
      pero suficiente para que el subtitulo pase de 3.9-4.4 a mas de 4.5 (AA texto
-     normal) sin tocar el relleno de la baldosa, que sigue siendo el del tablero.
-     Es la misma tecnica de las tarjetas del App Store. El texto sube de capa. */
+     normal) sin tocar el relleno de la baldosa. El texto sube de capa. */
   .wt-tile::after{content:'';position:absolute;left:0;right:0;bottom:0;height:62%;pointer-events:none;background:linear-gradient(to bottom, transparent, rgba(0,0,0,.22));}
   .wt-tile > *{position:relative;z-index:1;}
   /* El emoji vive ABSOLUTO en la esquina (regla de .dash-tile-icon): la subida
      de capa de arriba no puede volverlo relativo o se cae sobre el titulo. */
   .wt-tile > .dash-tile-icon{position:absolute;z-index:1;}
-  button.wt-tile{cursor:pointer;transition:transform .12s;}
-  button.wt-tile:active{transform:scale(.97);}
-  button.wt-tile:focus-visible{outline:3px solid #fff;outline-offset:2px;}
   .wt-tile .dash-tile-badge{background:rgba(255,255,255,.28);color:#fff;margin-bottom:10px;}
-  /* Blanco PLENO en los subtitulos de la introduccion, no el .85 de las baldosas
-     del tablero: medido en pixel daba 3.9-4.4 contra el 4.5 que pide el texto
-     normal, y en un tutorial el subtitulo es justo lo que la persona lee. Solo
-     aca — el tablero conserva su .85. */
+  /* Blanco PLENO en el subtitulo (no el .85 del tablero): medido daba 3.9-4.4
+     contra el 4.5 que pide el texto normal, y aca el subtitulo es lo que se lee. */
   .wt-tile .dash-tile-sub{padding-right:0;color:#fff;}
-  /* Idioma: el nombre grande, con la letra de las cifras del tablero. */
-  .wt-lang-name{display:block;margin-top:auto;padding-top:12px;font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;line-height:1;letter-spacing:-.01em;}
-  /* El paso: mas alta que una baldosa del tablero porque es la protagonista de la
-     pantalla, y el emoji mas grande por lo mismo. Sigue siendo .welcome-step-card
-     (swipe, animacion de entrada) y estas reglas le ganan por orden y por
-     especificidad a su radio/padding/centrado viejos. */
-  .welcome-step-card.wt-tile{min-height:238px;margin:14px 0 12px;padding:14px 16px 16px;border-radius:18px;text-align:left;cursor:grab;touch-action:pan-y;}
-  .welcome-step-card.wt-tile:active{cursor:grabbing;}
+  .welcome-step-card.wt-tile{min-height:238px;margin:14px 0 12px;padding:14px 16px 16px;border-radius:18px;text-align:left;}
   .welcome-step-card.wt-tile .dash-tile-icon{font-size:54px;top:14px;right:16px;}
   .wt-title{display:block;margin-top:auto;padding-top:10px;font-weight:800;font-size:21px;line-height:1.15;letter-spacing:-.01em;padding-right:8px;}
   .wt-sub{font-size:13.5px;line-height:1.45;margin-top:4px;padding-right:6px;}
-  /* Fichas de paso: MINIATURAS de las baldosas (mismo degradado de su paso) — un
-     solo indicador de progreso, no barra + puntitos como antes. La activa se
-     alarga; las otras quedan atenuadas pero tocables (data-jump-step). */
-  .wt-steps{display:flex;justify-content:center;gap:8px;margin:0 0 6px;}
-  .wt-step{width:26px;height:8px;border-radius:99px;border:none;padding:0;cursor:pointer;opacity:.35;transition:opacity .25s ease, width .25s ease;}
-  .wt-step.active{opacity:1;width:40px;}
-  .wt-step.t1{background:var(--tile-1);} .wt-step.t2{background:var(--tile-2);} .wt-step.t3{background:var(--tile-3);}
-  .wt-step.t4{background:var(--tile-4);} .wt-step.t5{background:var(--tile-5);} .wt-step.t6{background:var(--tile-6);}
-  /* CTA final: la CAMARA ROJA del tablero (--tile-scan). La promesa del tutorial y
-     el boton que la cumple llevan el mismo color; al llegar al tablero, el circulo
-     rojo ya le suena. */
-  .wt-cta-scan{background:var(--tile-scan);color:#fff;flex:1;box-shadow:0 8px 22px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.3);}
-  .wt-cta-scan svg{stroke:#fff;}
-  /* El emoji cae y asienta al entrar el paso: corto, y solo la primera vez que se
-     dibuja ese paso (.no-anim lo salta, igual que la tarjeta). Se apaga con
-     prefers-reduced-motion como todas las entradas de la app. */
-  .welcome-step-card.wt-tile:not(.no-anim) .dash-tile-icon{animation:wtIconIn .5s var(--ease-soft) both;}
+  /* El emoji cae y asienta al entrar la tarjeta. */
+  .welcome-step-card.wt-tile .dash-tile-icon{animation:wtIconIn .5s var(--ease-soft) both;}
   @keyframes wtIconIn{ from{opacity:0;transform:translateY(-8px) scale(.9);} to{opacity:1;transform:none;} }
-  /* Mismo selector que la regla que enciende la animacion (con el :not incluido):
-     con uno mas corto perdia por especificidad y el emoji seguia animando aunque
-     el sistema pidiera movimiento reducido — se vio en la prueba. */
-  @media (prefers-reduced-motion: reduce){ .welcome-step-card.wt-tile:not(.no-anim) .dash-tile-icon{animation:none;} }
+  @media (prefers-reduced-motion: reduce){ .welcome-step-card.wt-tile .dash-tile-icon{animation:none;} }
+
+  /* ===== INTRODUCCION (primera apertura) — startOnboarding en app-06 =====
+     Rediseno 2026-09-11, aprobado sobre prototipo. Tres pantallas a pantalla
+     completa en un nodo FUERA de #app (no es un .overlay: sin velo oscuro, sin
+     X, sin cierre por toque fuera). Todo va en tokens del tema, asi si el
+     dispositivo ya trae un tema guardado la intro sale en el (una instalacion
+     nueva arranca en App Store — ver index.html). La camara es un rojo mas
+     franco que el coral pastel del tema, a pedido del usuario: es el color que
+     despues va a tocar en el tablero, y tiene que verse como un boton.
+     Tiempos (todos pedidos "mas lento" / "mas suave" en la revision):
+       splash: camara en fundido 1,6 s -> late 2,4 s por ciclo -> EN/ES a 2,6 s.
+       intro:  una palabra cada 120 ms; escaner 3,2 s; baldosas 3,9 / 4,4 / 4,9
+               / 5,4 s; Empezar 6 s. Cabe en 375x812 sin scroll.
+       oferta: "Primer mes" 0,3 s; "Va por nuestra cuenta" con pop 1,3 s;
+               tarjetas 2,9 / 3,2 s. Al elegir: 1,4 s de fundido sobre el tablero. */
+  .ob{position:fixed;inset:0;z-index:200;background:var(--bg);color:var(--ink);overflow:hidden;
+    padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;
+    transition:opacity 1.4s var(--ease-soft);}
+  .ob.out{opacity:0;pointer-events:none;}
+  .ob [hidden]{display:none!important;}
+  .ob button:focus-visible{outline:3px solid var(--navy);outline-offset:2px;}
+  /* Camara roja: en el splash (96px) y en la fila del escaner de la intro (72px).
+     Los anillos son los de .scan-fab-ring/fabPulse del tablero. */
+  .ob-cam{cursor:default;background:linear-gradient(170deg,#ff6f5e,#d92f22);}
+  .ob-cam .scan-fab-ring{background:rgba(217,47,34,.26);}
+  /* ---- 1. splash ---- */
+  .ob-splash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;padding:22px;transition:opacity .9s var(--ease-soft);}
+  .ob-splash.out{opacity:0;pointer-events:none;}
+  .ob-splash .ob-cam{width:96px;height:96px;animation:obSplashIn 1.6s var(--ease-soft) both, obBreathe 2.4s ease-in-out 1.6s infinite;}
+  .ob-splash .ob-cam svg{width:40px;height:40px;}
+  .ob-splash .scan-fab-ring{animation-duration:2.4s;animation-delay:1.6s;}
+  .ob-splash .scan-fab-ring.delay{animation-delay:2.8s;}
+  @keyframes obSplashIn{from{opacity:0;transform:scale(.9);} to{opacity:1;transform:scale(1);}}
+  @keyframes obBreathe{0%,100%{transform:scale(1);}50%{transform:scale(1.07);}}
+  .ob-lang{display:flex;gap:8px;animation:obIn 2s var(--ease-soft) 2.6s both;}
+  /* Pastillas: EN blanca con borde, ES azul (--navy). Nombres fijos, sin traducir. */
+  .ob-lang button{border:1px solid var(--line);background:var(--panel);color:var(--ink-mid);font:inherit;font-size:13px;font-weight:700;padding:9px 18px;border-radius:99px;cursor:pointer;transition:transform .12s;}
+  .ob-lang button[data-ob-lang="es"]{background:var(--navy);border-color:var(--navy);color:#fff;}
+  .ob-lang button:active{transform:scale(.96);}
+  .ob-lang button.on{box-shadow:0 0 0 3px var(--bg), 0 0 0 5px var(--navy);}
+  /* ---- 2. intro ---- */
+  .ob-intro{height:100%;display:flex;flex-direction:column;padding:18px 22px;gap:12px;box-sizing:border-box;transition:opacity .45s var(--ease-soft);}
+  .ob-intro.out{opacity:0;pointer-events:none;}
+  .ob-spacer{flex:1;}
+  .ob-head{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:25px;line-height:1.3;letter-spacing:-.012em;margin:0;text-align:center;text-wrap:balance;}
+  .ob-head em{font-style:normal;color:var(--tomato-ink);}
+  /* El logo INLINE, una sola D (la "usty," va pegada como parte de la misma palabra). */
+  .ob-head .brand-mark{display:inline-flex;vertical-align:-9px;width:36px;height:36px;border-radius:9.5px;font-size:21px;line-height:1;margin-right:1px;letter-spacing:0;}
+  .ob-head .w{display:inline-block;animation:obWordIn .9s var(--ease-soft) both;}
+  .ob-scan{display:flex;align-items:center;gap:16px;padding:12px 16px;border-radius:18px;background:var(--inset);margin-top:6px;}
+  .ob-scan .ob-cam{width:72px;height:72px;}
+  .ob-scan .scan-fab-ring{animation-delay:3.9s;} .ob-scan .scan-fab-ring.delay{animation-delay:4.5s;}
+  .ob-scan-text b{display:block;font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.15;}
+  .ob-scan-text span{display:block;font-size:13px;color:var(--ink-mid);margin-top:3px;line-height:1.35;}
+  .ob-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .ob-grid .dash-tile{min-height:112px;padding:12px 14px;cursor:default;}
+  .ob-grid .dash-cal{margin-top:4px;}
+  .ob-grid .dash-tile-icon{font-size:30px;top:6px;}
+  .ob-grid .dash-tile-title{font-size:14.5px;}
+  .ob-cta{width:100%;border:none;border-radius:14px;padding:15px;font:inherit;font-size:16px;font-weight:800;color:#fff;background:var(--navy);cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.16);}
+  .ob-cta:active{transform:scale(.98);}
+  .ob-in{animation:obIn 1s var(--ease-soft) both;}
+  .ob-in.d3{animation-delay:3.2s} .ob-in.d4{animation-delay:3.9s} .ob-in.d5{animation-delay:4.4s}
+  .ob-in.d6{animation-delay:4.9s} .ob-in.d7{animation-delay:5.4s} .ob-in.d8{animation-delay:6s}
+  @keyframes obIn{from{opacity:0;transform:translateY(12px) scale(.985);} to{opacity:1;transform:none;}}
+  @keyframes obWordIn{from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:none;}}
+  /* ---- 3. oferta + tema ---- */
+  .ob-offer{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 22px;gap:10px;box-sizing:border-box;text-align:center;}
+  .ob-kicker{font-size:15px;font-weight:700;color:var(--ink-soft);letter-spacing:.06em;text-transform:uppercase;}
+  /* "Va por nuestra cuenta" en OTRO color (el verde "a favor" de la app), y con
+     un pop leve: crece desde el 86%, pasa apenas del tamano y asienta. En
+     espanol la frase es mas larga: mas chica para que vaya en una linea. */
+  .ob-big{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:41px;line-height:1.05;letter-spacing:-.02em;color:var(--basil);text-wrap:balance;}
+  html[lang="es"] .ob-big{font-size:30px;text-wrap:auto;}
+  .ob-big.ob-in{animation-name:obPopIn;animation-duration:1.1s;}
+  @keyframes obPopIn{0%{opacity:0;transform:translateY(10px) scale(.86);} 60%{opacity:1;transform:translateY(0) scale(1.05);} 100%{opacity:1;transform:none;}}
+  .ob-hint{margin-top:30px;font-size:13.5px;color:var(--ink-mid);}
+  .ob-pick{display:flex;gap:14px;margin-top:6px;}
+  .ob-theme{width:150px;border:none;padding:0;background:none;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:9px;align-items:center;transition:transform .12s;}
+  .ob-theme:active{transform:scale(.97);}
+  .ob-theme-name{font-size:13.5px;font-weight:700;color:var(--ink-mid);}
+  .ob-theme.on .ob-shot{box-shadow:0 0 0 3px var(--bg), 0 0 0 5px var(--navy), 0 10px 26px rgba(0,0,0,.14);}
+  .ob-in.o1{animation-delay:.3s} .ob-in.o2{animation-delay:1.3s} .ob-in.o3{animation-delay:2.4s} .ob-in.o4{animation-delay:2.9s} .ob-in.o5{animation-delay:3.2s}
+  /* Miniatura del tablero: colores FIJOS de cada tema (App Store / Noche), no
+     tokens — cada tarjeta tiene que mostrar su tema, no el que este puesto. */
+  .ob-shot{width:150px;height:200px;border-radius:22px;overflow:hidden;border:1px solid #e5e5ea;box-shadow:0 10px 26px rgba(0,0,0,.14);padding:12px 10px;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;transition:box-shadow .2s;background:#ffffff;}
+  .ob-shot.dark{background:#0f1115;border-color:#262b34;}
+  .ob-shot-top{display:flex;align-items:center;gap:6px;}
+  .ob-shot-mark{width:16px;height:16px;border-radius:4px;flex-shrink:0;background:repeating-linear-gradient(45deg, rgba(255,255,255,.16) 0 2px, transparent 2px 4px), linear-gradient(145deg,#ff8a5c,#ff6b35);}
+  .ob-shot-line{height:6px;border-radius:3px;background:#e5e5ea;width:26px;margin-right:auto;}
+  .ob-shot-pill{width:34px;height:12px;border-radius:6px;background:#3f8fe3;}
+  .ob-shot.dark .ob-shot-line{background:#262b34;} .ob-shot.dark .ob-shot-pill{background:#ff6b35;}
+  .ob-shot-stat{height:36px;border-radius:10px;background:#f2f2f7;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:0 8px;box-sizing:border-box;}
+  .ob-shot-stat i{display:block;height:5px;border-radius:3px;background:#d5d7dc;width:46%;}
+  .ob-shot-stat b{display:block;height:8px;border-radius:4px;background:#0e9f6e;width:34%;}
+  .ob-shot.dark .ob-shot-stat{background:#181b21;} .ob-shot.dark .ob-shot-stat i{background:#2e343f;} .ob-shot.dark .ob-shot-stat b{background:#3ddc97;}
+  .ob-shot-tools{display:flex;justify-content:space-around;padding:2px 6px;}
+  .ob-shot-dot{width:18px;height:18px;border-radius:50%;}
+  .ob-shot-dot.scan{background:linear-gradient(170deg,#ff6f5e,#d92f22);}
+  .ob-shot-dot.d1{background:linear-gradient(170deg,#f3be87,#f0964c);} .ob-shot-dot.d4{background:linear-gradient(170deg,#b7acfe,#826bfe);}
+  .ob-shot.dark .ob-shot-dot.d1{background:linear-gradient(170deg,#e0782f,#b5551a);} .ob-shot.dark .ob-shot-dot.d4{background:linear-gradient(170deg,#7a63e0,#5240b8);}
+  .ob-shot-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1;}
+  .ob-shot-grid span{border-radius:9px;}
+  .ob-shot .g1{background:linear-gradient(170deg,#b3cef2,#71a3e9);} .ob-shot .g2{background:linear-gradient(170deg,#f3be87,#f0964c);}
+  .ob-shot .g3{background:linear-gradient(170deg,#9ade93,#5cc05e);} .ob-shot .g4{background:linear-gradient(170deg,#b7acfe,#826bfe);}
+  .ob-shot.dark .g1{background:linear-gradient(170deg,#4a63c9,#2f43a0);} .ob-shot.dark .g2{background:linear-gradient(170deg,#e0782f,#b5551a);}
+  .ob-shot.dark .g3{background:linear-gradient(170deg,#2fa36b,#1f7a4e);} .ob-shot.dark .g4{background:linear-gradient(170deg,#7a63e0,#5240b8);}
+  /* Pantallas mas bajas que 700px (Android chicos con barra del sistema): se
+     aprieta la intro para que Empezar siga a la vista sin scroll. */
+  @media (max-height:700px){
+    .ob-head{font-size:22px;} .ob-grid .dash-tile{min-height:98px;} .ob-scan .ob-cam{width:60px;height:60px;}
+    .ob-shot{height:170px;} .ob-hint{margin-top:18px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ob-in, .ob-head .w, .ob-lang{animation:none;opacity:1;}
+    .ob-splash .ob-cam{animation:none;}
+    .ob, .ob-splash, .ob-intro{transition:none;}
+  }

@@ -16,8 +16,8 @@ try{
   // Sin preferencia guardada todavía (primera visita): arrancamos con una mejor
   // adivinanza que el navegador/celular del usuario ya sabe (navigator.language),
   // en vez de asumir español siempre — igual se lo confirmamos explícitamente en
-  // el modal de bienvenida (ver welcomeModal()), esto es solo el estado inicial
-  // mientras carga esa pantalla.
+  // la introducción (ver startOnboarding en app-06), esto es solo el estado
+  // inicial mientras carga esa pantalla.
   // Inglés por defecto: solo un navegador/celular configurado en español arranca en
   // español — cualquier otro idioma del mundo cae en inglés (antes era al revés).
   uiLang = savedLang || (navigator.language && navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en');
@@ -215,7 +215,6 @@ const I18N = {
     /* Alta rápida: nombre, costo y cantidad; el resto plegado. */
     item_quick_sub:'Con el nombre y el costo alcanza para empezar.', item_quick_more_btn:'Más detalles', item_quick_more_hint:'foto, categoría, precio de venta, SKU',
     team_intro_btn:'Entendido, compartir',
-    welcome_go_dashboard:'Ver el tablero primero',
     cloud_sync_signed_out:'Iniciar sesión para sincronizar en la nube',
     cloud_sync_signed_in:'✓ Sincronizado como {email}',
     cloud_sync_pending:'Sincronizando cambios con la nube — todavía puede faltar ver lo último de tu equipo',
@@ -347,13 +346,21 @@ const I18N = {
     delete_account_google_reauth_btn:'Confirmar con Google',
     delete_account_success:'Tu cuenta fue eliminada.',
     privacy_policy_link:'Política de privacidad',
-    welcome_title:'Bienvenido a Dusty', welcome_sub:'Así funciona, en 2 pasos:',
-    welcome_step1_title:'Escanea, y listo', welcome_step1_sub:'Sácale una foto a cualquier recibo, factura o boleta — de una compra, un proveedor, o hasta luz, agua o internet — y tu inventario se actualiza solo, al toque.',
-    welcome_step2_title:'Nosotros vigilamos los números', welcome_step2_sub:'Te avisamos si un precio sube raro, si el stock se está por acabar, o si te estás por pasar del presupuesto del mes.',
+    /* Introducción (startOnboarding, app-06). ob_head lleva {logo} (la marca
+       inline, que el JS reemplaza) y <em> (el acento rojo del escáner): es texto
+       propio, no del usuario, por eso va como HTML. */
+    ob_head:'Bienvenido a {logo}, donde tu inventario se lleva solo con tan solo usar <em>el escáner</em>.',
+    ob_scan_title:'Escanea el recibo', ob_scan_sub:'Una foto y el stock se actualiza al toque.',
+    ob_team:'Equipo', ob_team_sub:'Comparte con tu empleado',
+    ob_cal:'Calendario', ob_cal_sub:'Qué compraste y cuándo',
+    ob_order:'Pedido sugerido', ob_order_sub:'Qué reponer esta semana',
+    ob_activity:'Actividad', ob_activity_sub:'Quién cambió qué',
+    ob_cta:'Empezar',
+    ob_offer_kicker:'Primer mes', ob_offer_big:'Va por nuestra cuenta', ob_offer_hint:'Elige cómo se ve Dusty',
+    ob_theme_light:'Claro', ob_theme_dark:'Oscuro',
+    /* Tarjeta "Mejor en equipo" (una vez, al primer Compartir — ver teamIntroModal). */
     welcome_step3_title:'Mejor en equipo', welcome_step3_sub:'Comparte un código y listo: los dos ven y actualizan el mismo inventario, recibos y presupuesto, siempre sincronizado.',
-    welcome_btn:'Escanear mi primer recibo', welcome_next_btn:'Siguiente', welcome_back_btn:'Atrás', welcome_skip_btn:'Saltar',
-    /* Pastilla de la baldosa del tutorial y de la tarjeta de equipo (rediseno 2026-09-11). */
-    welcome_step_of:'Paso {i} de {n}', team_intro_badge:'Equipo',
+    team_intro_badge:'Equipo',
     rd_scanned_on:'escaneado el', rd_applied_label:'Productos aplicados al inventario', rd_applied_to:'aplicado a:',
     rd_photo_alt:'Foto del recibo de',
     item_edit_title:'Editar producto', item_new_title:'Nuevo producto',
@@ -816,7 +823,6 @@ const I18N = {
     trial_save_short:'Save',
     item_quick_sub:'Name and cost are enough to get started.', item_quick_more_btn:'More details', item_quick_more_hint:'photo, category, sale price, SKU',
     team_intro_btn:'Got it, share',
-    welcome_go_dashboard:'See the dashboard first',
     cloud_sync_signed_out:'Sign in to sync to the cloud',
     cloud_sync_signed_in:'✓ Synced as {email}',
     cloud_sync_pending:'Syncing changes with the cloud — you may not be seeing your team\'s latest yet',
@@ -948,12 +954,17 @@ const I18N = {
     delete_account_google_reauth_btn:'Confirm with Google',
     delete_account_success:'Your account has been deleted.',
     privacy_policy_link:'Privacy policy',
-    welcome_title:'Welcome to Dusty', welcome_sub:'Here\'s how it works, in 2 steps:',
-    welcome_step1_title:'Scan it, and you\'re done', welcome_step1_sub:'Snap a photo of any receipt, invoice, or bill — a purchase, a supplier, even electricity, water, or internet — and your inventory updates itself, instantly.',
-    welcome_step2_title:'We keep an eye on the numbers', welcome_step2_sub:'We\'ll flag a price that jumps, stock running low, or your monthly budget getting close to the edge.',
+    ob_head:'Welcome to {logo}, where your inventory keeps itself just by using <em>the scanner</em>.',
+    ob_scan_title:'Scan the receipt', ob_scan_sub:'One photo and your stock updates instantly.',
+    ob_team:'Team', ob_team_sub:'Share with your staff',
+    ob_cal:'Calendar', ob_cal_sub:'What you bought and when',
+    ob_order:'Suggested order', ob_order_sub:'What to restock this week',
+    ob_activity:'Activity', ob_activity_sub:'Who changed what',
+    ob_cta:'Get started',
+    ob_offer_kicker:'First month', ob_offer_big:'It’s on us', ob_offer_hint:'Pick how Dusty looks',
+    ob_theme_light:'Light', ob_theme_dark:'Dark',
     welcome_step3_title:'Better as a team', welcome_step3_sub:'Share a code and you\'re set: you both see and update the same inventory, receipts, and budget, always in sync.',
-    welcome_btn:'Scan my first receipt', welcome_next_btn:'Next', welcome_back_btn:'Back', welcome_skip_btn:'Skip',
-    welcome_step_of:'Step {i} of {n}', team_intro_badge:'Team',
+    team_intro_badge:'Team',
     rd_scanned_on:'scanned on', rd_applied_label:'Products applied to inventory', rd_applied_to:'applied to:',
     rd_photo_alt:'Receipt photo from',
     item_edit_title:'Edit product', item_new_title:'New product',

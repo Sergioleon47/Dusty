@@ -306,87 +306,186 @@ function loadingSkeleton(kind){
   return `<div class="sk-wrap" role="status" aria-busy="true" aria-label="${title}">${head}${row.repeat(6)}</div>`;
 }
 
-/* ================= MODAL: IDIOMA (primera pantalla que ve un usuario nuevo) ================= */
-// Su propia pantalla, separada del tutorial de bienvenida — antes compartían modal, así
-// que alguien que no lee ni español ni inglés se encontraba con un párrafo entero
-// ilegible antes de llegar a los botones que se lo iban a arreglar. Arrancamos con una
-// adivinanza (navigator.language, ver arriba en la carga de uiLang) pero se la
-// confirmamos acá en vez de asumirla calladamente. Los nombres de los idiomas van
-// fijos en su propio idioma (nunca "Inglés"/"Spanish" traducidos) porque alguien que
-// no lee el idioma activo todavía tiene que poder reconocer el suyo igual.
-function chooseLangAndContinue(lang){
-  setLang(lang);
-  showLangChoiceModal = false;
-  showWelcomeModal = true;
-  render();
+/* ================= INTRODUCCIÓN (la primera vez que se abre la app) =================
+   Rediseño completo 2026-09-11, aprobado paso a paso por el usuario sobre un
+   prototipo. Tres pantallas, una sola vez por dispositivo (patron_onboarded):
+     1. SPLASH — página en blanco, la cámara roja del escáner entra en fundido y
+        late como "cargando"; debajo aparecen EN / ES. Elegir idioma es el único
+        toque obligatorio: no hay ✕, ni Escape, ni toque fuera (ver
+        attachHardwareBackButton: "atrás" ahí sale de la app, como en la primera
+        pantalla de cualquier app).
+     2. INTRO — la frase de bienvenida palabra por palabra (el logo va INLINE,
+        una sola D), después el escáner de recibos y cuatro baldosas del tablero
+        (Equipo, Calendario, Pedido sugerido, Actividad), una tras otra. Cabe en
+        una pantalla de 375×812 sin scroll. Botón: Empezar.
+     3. OFERTA + TEMA — "Primer mes" / "Va por nuestra cuenta", y dos miniaturas
+        del tablero para elegir Claro (tema App Store) u Oscuro (tema Noche). Al
+        tocar una, el tema queda guardado (setDustyTheme, lo mismo que Ajustes) y
+        la introducción se funde sobre el Dashboard, que ya está pintado debajo
+        en ese tema — eso es la "entrada suave" a la página principal.
+   POR QUÉ NO ES UN MODAL DE render(): las dos versiones anteriores vivían dentro
+   de #app y morphdom las reconstruía en cada redibujado de fondo (snapshots de
+   Firestore, latidos de presencia), disparando de nuevo las animaciones de
+   entrada — el "parpadeo" que welcomeStepAnimated/.no-anim intentaban tapar.
+   Esta vive en su propio nodo FUERA de #app (como #toast-root), se construye
+   una vez con DOM imperativo y corre su línea de tiempo sola; render() no la
+   toca. Mientras está abierta, #app queda inert (sin foco ni toques por
+   detrás). Los textos salen de I18N (ob_*) y el CSS es el bloque .ob de
+   dusty.css; el escáner, los anillos, las baldosas y el calendario son las
+   MISMAS clases del Dashboard (.shelf-scan-fab, .scan-fab-ring, .dash-tile,
+   .dash-cal), así lo primero que ve la persona es lo mismo que va a usar. */
+const OB_CAMERA_SVG = '<svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+// Miniatura del tablero de la pantalla 3, una por tema. Es solo forma y color
+// (barra con la marca, tarjeta de gasto, tres herramientas, cuatro baldosas):
+// la clase .light/.dark pinta cada pieza con los colores REALES de ese tema.
+function obThemeShot(kind){
+  return `<div class="ob-shot ${kind}">
+      <div class="ob-shot-top"><span class="ob-shot-mark"></span><span class="ob-shot-line"></span><span class="ob-shot-pill"></span></div>
+      <div class="ob-shot-stat"><i></i><b></b></div>
+      <div class="ob-shot-tools"><span class="ob-shot-dot d1"></span><span class="ob-shot-dot scan"></span><span class="ob-shot-dot d4"></span></div>
+      <div class="ob-shot-grid"><span class="g1"></span><span class="g2"></span><span class="g3"></span><span class="g4"></span></div>
+    </div>`;
 }
-/* LA INTRODUCCION SE VE COMO EL TABLERO (rediseno UI/UX 2026-09-11, pedido del
-   usuario: "repara la introduccion, usa esos mismos colores, rellenos y formas").
-   Principio: la primera pantalla que ve alguien tiene que ensenarle el lenguaje
-   visual que va a usar despues, no uno distinto. Antes el idioma eran dos botones
-   ambar planos y la bienvenida una tarjeta lisa con un dibujo — nada de eso
-   vuelve a aparecer en la app. Ahora cada paso ES una baldosa del Dashboard:
-   mismo degradado (--tile-N), mismo radio de 18px, misma sombra, mismo emoji en
-   la esquina, misma pastilla arriba. Cuando llega al tablero ya lo reconoce.
-   Los colores se eligen por SIGNIFICADO, no por gusto: cada paso toma la
-   baldosa del Dashboard que habla de lo mismo (ver WELCOME_STEPS). */
-function langChoiceModal(){
-  return `
-  <div class="overlay" id="lang-choice-overlay">
-    <div class="modal wt-modal">
-      ${/* Una linea bilingue, FIJA (nunca traducida): quien no lee el idioma
-           activo tiene que poder reconocer el suyo igual. */''}
-      <div class="wt-eyebrow">Choose your language · Elige tu idioma</div>
-      <div class="wt-lang-grid">
-        ${/* Ingles primero: es el idioma principal de la app. Sin banderas a
-             proposito: ni el ingles ni el espanol son de un solo pais. Los
-             nombres van en su propio idioma, nunca traducidos. */''}
-        <button type="button" data-choose-lang="en" class="wt-tile t1" lang="en">
-          <span class="dash-tile-badge">EN</span>
-          <span class="wt-lang-name">English</span>
-          <span class="dash-tile-sub">Continue in English</span>
-        </button>
-        <button type="button" data-choose-lang="es" class="wt-tile t2" lang="es">
-          <span class="dash-tile-badge">ES</span>
-          <span class="wt-lang-name">Español</span>
-          <span class="dash-tile-sub">Continuar en español</span>
-        </button>
+function startOnboarding(){
+  if(document.getElementById('ob-root')) return;
+  const root = document.createElement('div');
+  root.id = 'ob-root';
+  root.className = 'ob';
+  root.setAttribute('role', 'dialog');
+  root.setAttribute('aria-modal', 'true');
+  root.setAttribute('aria-label', 'Dusty');
+  root.innerHTML = `
+    <div class="ob-splash" id="ob-splash">
+      <div class="shelf-scan-fab ob-cam" role="img" aria-label="Dusty">
+        <div class="scan-fab-ring"></div><div class="scan-fab-ring delay"></div>
+        ${OB_CAMERA_SVG}
+      </div>
+      ${/* Nombres fijos, NUNCA traducidos: quien no lee el idioma activo tiene
+           que poder reconocer el suyo. Inglés primero (idioma principal). */''}
+      <div class="ob-lang">
+        <button type="button" data-ob-lang="en" lang="en" aria-label="English">EN</button>
+        <button type="button" data-ob-lang="es" lang="es" aria-label="Español">ES</button>
       </div>
     </div>
-  </div>`;
+    <div class="ob-intro" id="ob-intro" hidden>
+      <div class="ob-spacer"></div>
+      <h1 class="ob-head" id="ob-head"></h1>
+      <div class="ob-scan ob-in d3">
+        <div class="shelf-scan-fab ob-cam" role="img" aria-hidden="true">
+          <div class="scan-fab-ring"></div><div class="scan-fab-ring delay"></div>
+          ${OB_CAMERA_SVG}
+        </div>
+        <div class="ob-scan-text"><b data-ob="ob_scan_title"></b><span data-ob="ob_scan_sub"></span></div>
+      </div>
+      <div class="ob-grid">
+        <div class="dash-tile t1 ob-in d4"><span class="dash-tile-icon" aria-hidden="true">👥</span><span class="dash-tile-title" data-ob="ob_team"></span><span class="dash-tile-sub" data-ob="ob_team_sub"></span></div>
+        <div class="dash-tile t4 ob-in d5"><span class="dash-tile-title" data-ob="ob_cal"></span><span class="dash-tile-sub" data-ob="ob_cal_sub"></span><div class="dash-cal" id="ob-cal"></div></div>
+        <div class="dash-tile t3 ob-in d6"><span class="dash-tile-icon" aria-hidden="true">🛒</span><span class="dash-tile-title" data-ob="ob_order"></span><span class="dash-tile-sub" data-ob="ob_order_sub"></span></div>
+        <div class="dash-tile t6 ob-in d7"><span class="dash-tile-icon" aria-hidden="true">📈</span><span class="dash-tile-title" data-ob="ob_activity"></span><span class="dash-tile-sub" data-ob="ob_activity_sub"></span></div>
+      </div>
+      <div class="ob-spacer"></div>
+      <button type="button" class="ob-cta ob-in d8" id="ob-cta" data-ob="ob_cta"></button>
+    </div>
+    <div class="ob-offer" id="ob-offer" hidden>
+      <div class="ob-kicker ob-in o1" data-ob="ob_offer_kicker"></div>
+      <div class="ob-big ob-in o2" data-ob="ob_offer_big"></div>
+      <div class="ob-hint ob-in o3" data-ob="ob_offer_hint"></div>
+      <div class="ob-pick">
+        <button type="button" class="ob-theme ob-in o4" data-ob-theme="appstore">${obThemeShot('light')}<span class="ob-theme-name" data-ob="ob_theme_light"></span></button>
+        <button type="button" class="ob-theme ob-in o5" data-ob-theme="night">${obThemeShot('dark')}<span class="ob-theme-name" data-ob="ob_theme_dark"></span></button>
+      </div>
+    </div>`;
+  document.body.appendChild(root);
+  const app = document.getElementById('app');
+  if(app) app.inert = true;
+
+  const splash = root.querySelector('#ob-splash'), intro = root.querySelector('#ob-intro'), offer = root.querySelector('#ob-offer');
+  const head = root.querySelector('#ob-head');
+  // Cada palabra del titular entra sola (0,2 s + 120 ms por palabra). El logo y
+  // la "usty," que le sigue van como UNA palabra para que nunca se separen.
+  function wrapWords(){
+    const out = []; let i = 0;
+    const wrap = html => `<span class="w" style="animation-delay:${(0.2 + (i++)*0.12).toFixed(2)}s">${html}</span>`;
+    [...head.childNodes].forEach(n=>{
+      if(n.nodeType===3){
+        n.textContent.split(/(\s+)/).forEach(tok=>{ out.push(/^\s+$/.test(tok) ? tok : (tok ? wrap(tok) : '')); });
+      } else if(n.classList && n.classList.contains('brand-mark')){
+        const next = n.nextSibling;
+        const m = next && next.nodeType===3 ? next.textContent.match(/^(\S*)([\s\S]*)$/) : null;
+        out.push(wrap(n.outerHTML + (m ? m[1] : '')));
+        if(m) next.textContent = m[2];
+      } else {
+        out.push(wrap(n.outerHTML));
+      }
+    });
+    head.innerHTML = out.join('');
+  }
+  // Calendario de muestra en la baldosa: el mes actual, con algunos días marcados
+  // como "hubo compra" para que se lea como el de verdad.
+  function buildCal(){
+    const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+    const first = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate();
+    const has = new Set([2, 5, 9, 12, 16, 19, 23, 26]);
+    let cells = '';
+    for(let k=0;k<first;k++) cells += '<i class="mc-day out"></i>';
+    for(let d=1; d<=days; d++){
+      const c = ['mc-day']; if(has.has(d)) c.push('has'); if(d===now.getDate()) c.push('today');
+      cells += '<i class="'+c.join(' ')+'"></i>';
+    }
+    let n = first + days; while(n++ < 42) cells += '<i class="mc-day out"></i>';
+    const week = WEEKDAY_NAMES[uiLang] || WEEKDAY_NAMES.en;
+    root.querySelector('#ob-cal').innerHTML = '<div class="mc-week">'+week.map(d=>'<span>'+d+'</span>').join('')+'</div><div class="mc-grid">'+cells+'</div>';
+  }
+  function fillCopy(){
+    root.querySelectorAll('[data-ob]').forEach(el=>{ el.textContent = t(el.dataset.ob); });
+    head.innerHTML = t('ob_head').replace('{logo}', '<span class="brand-mark">D</span>usty');
+    buildCal();
+    wrapWords();
+  }
+  // 1 → 2: elegir idioma. setLang guarda y redibuja la app de abajo en ese idioma.
+  root.querySelectorAll('[data-ob-lang]').forEach(b=>{
+    b.onclick = ()=>{
+      root.querySelectorAll('[data-ob-lang]').forEach(x=>x.classList.toggle('on', x===b));
+      setLang(b.dataset.obLang);
+      fillCopy();
+      splash.classList.add('out');
+      intro.hidden = false;
+    };
+  });
+  // 2 → 3: Empezar.
+  root.querySelector('#ob-cta').onclick = ()=>{
+    intro.classList.add('out');
+    setTimeout(()=>{ intro.hidden = true; offer.hidden = false; }, 450);
+  };
+  // 3 → Dashboard: el tema se aplica en el acto (el tablero de abajo ya cambia
+  // de color detrás del velo) y la introducción se funde encima de él.
+  root.querySelectorAll('[data-ob-theme]').forEach(card=>{
+    card.onclick = ()=>{
+      if(root.classList.contains('out')) return;
+      root.querySelectorAll('[data-ob-theme]').forEach(x=>x.classList.toggle('on', x===card));
+      setDustyTheme(card.dataset.obTheme);
+      finishOnboarding();
+    };
+  });
+  function finishOnboarding(){
+    try{ localStorage.setItem('patron_onboarded','1'); }catch(e){}
+    setTimeout(()=>{ root.classList.add('out'); }, 350);
+    setTimeout(()=>{
+      if(app) app.inert = false;
+      root.remove();
+    }, 350 + 1400);
+  }
 }
 
-/* ================= MODAL: BIENVENIDA (primera vez que se abre la app) ================= */
-// Un color lleno por paso (no solo el ícono, como antes) para que avanzar se sienta
-// como pasar de página en vez de leer una lista estática — mismos colores que ya
-// usa el resto de la app para agrupar conceptos (ver el comentario de settingsCardHeader
-// más arriba) más "tomato" para el paso de equipo, que en todos lados es el color de
-// "compartir/positivo" en Configuración.
-// Antes eran 5 pasos (uno por feature suelta); un usuario nos dijo que se sentía largo
-// para lo poco que hace falta saber antes de arrancar. Bajado a 3, agrupando por lo que
-// el usuario realmente hace ("escaneo" + "se actualiza solo" son un solo momento, igual
-// que "te avisamos" + "presupuesto" son las dos caras de "controlamos los números").
-// Auditoría de primer minuto 2026-09-07: bajado a 2 pasos. "Mejor en equipo" era
-// promoción de una función que nadie necesita el día uno (NN/g: enseñar en el
-// momento de uso, no antes) — ahora vive en TEAM_INTRO_STEP y se muestra una sola
-// vez, al primer toque de Compartir (ver openTeamIntroOrContinue). Y el botón final
-// ya no manda al tablero: abre la cámara, que es donde está el "aha" de Dusty.
-/* tile = la clase de baldosa del Dashboard (t1..t6) y emoji = el de la esquina,
-   los dos ELEGIDOS POR SIGNIFICADO desde el propio tablero:
-     paso 1 "escanea"       -> t4 violeta + recibo, la baldosa "Ultimo recibo"
-     paso 2 "los numeros"   -> t6 rosa + grafico, la baldosa "Actividad"
-     equipo (mas adelante)  -> t1 azul + gente, la baldosa "Equipo"
-   Asi el color que ve en el tutorial es el mismo que va a tocar despues para
-   hacer esa cosa. bg/fg de antes ya no existen: la baldosa trae su color. */
-const WELCOME_STEPS = [
-  {tile:'t4', emoji:'🧾', titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
-  {tile:'t6', emoji:'📈', titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'}
-];
+/* ================= MODAL: "MEJOR EN EQUIPO" (una vez, al primer Compartir) =================
+   La tarjeta que era el paso 3 del tutorial viejo (retirado el 2026-09-11 —
+   ver startOnboarding), mostrada en el momento en que sirve: el primer toque
+   de "Compartir cuenta". cont es lo que ese toque iba a hacer (abrir el panel
+   de equipo, o pedir guardar la cuenta / login) y corre al cerrar la tarjeta.
+   Una vez por dispositivo (patron_team_intro_seen). */
 const TEAM_INTRO_STEP = {tile:'t1', emoji:'👥', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'};
-/* La tarjeta de un paso, con la anatomia exacta de una baldosa del Dashboard:
-   pastilla arriba (aca dice en que paso vas), emoji en la esquina, titulo y
-   subtitulo abajo. Se comparte con la tarjeta de equipo para que sean la misma
-   pieza y no dos parecidas. extraClass lleva la animacion de entrada. */
+/* La tarjeta con la anatomía exacta de una baldosa del Dashboard: pastilla
+   arriba, emoji en la esquina, título y subtítulo abajo. */
 function welcomeTileCard(step, badgeText, extraClass){
   return `
       <div class="welcome-step-card wt-tile ${step.tile}${extraClass||''}">
@@ -396,82 +495,6 @@ function welcomeTileCard(step, badgeText, extraClass){
         <div class="dash-tile-sub wt-sub">${t(step.subKey)}</div>
       </div>`;
 }
-function closeWelcomeModal(){
-  showWelcomeModal = false;
-  welcomeStep = 0;
-  welcomeStepAnimated = false;
-  try{ localStorage.setItem('patron_onboarded','1'); }catch(e){}
-  render();
-}
-function advanceWelcomeStep(){
-  if(welcomeStep < WELCOME_STEPS.length-1){ welcomeStepDir=1; welcomeStep++; welcomeStepAnimated = false; render(); }
-  else {
-    // Último paso: de la promesa a la prueba en UN toque — se cierra el tutorial y
-    // se abre la cámara (el mismo modal de intro única de siempre). Quien prefiera
-    // mirar primero tiene el link "Ver el tablero primero" o Saltar.
-    closeWelcomeModal();
-    openScanModal();
-  }
-}
-function retreatWelcomeStep(){
-  if(welcomeStep>0){ welcomeStepDir=-1; welcomeStep--; welcomeStepAnimated = false; render(); }
-}
-// Saltar directo a un paso tocando su puntito, en vez de tener que ir de a uno — la
-// dirección del deslizamiento se calcula igual que avanzar/retroceder a mano, así el
-// salto se siente consistente con el resto del tutorial en vez de un corte seco.
-function jumpToWelcomeStep(i){
-  if(i===welcomeStep || i<0 || i>=WELCOME_STEPS.length) return;
-  welcomeStepDir = i>welcomeStep ? 1 : -1;
-  welcomeStep = i;
-  welcomeStepAnimated = false;
-  render();
-}
-function welcomeModal(){
-  const step = WELCOME_STEPS[welcomeStep];
-  const isLast = welcomeStep === WELCOME_STEPS.length-1;
-  // Ver el comentario de welcomeStepAnimated más arriba: la primera vez que se
-  // dibuja este paso se deja animar (animClass vacío); cualquier redibujado
-  // posterior del MISMO paso llega con animClass=' no-anim' y salta la animación.
-  const animClass = welcomeStepAnimated ? ' no-anim' : '';
-  const dirClass = welcomeStepDir<0 ? ' dir-back' : '';
-  welcomeStepAnimated = true;
-  const badge = t('welcome_step_of').replace('{i}', String(welcomeStep+1)).replace('{n}', String(WELCOME_STEPS.length));
-  return `
-  <div class="overlay${animClass}" id="welcome-overlay">
-    <div class="modal wt-modal${animClass}">
-      <button type="button" class="welcome-skip-btn" id="btn-welcome-skip">${t('welcome_skip_btn')}</button>
-      <h3 class="basil">${t('welcome_title')}</h3>
-      <div class="sub">${t('welcome_sub')}</div>
-      ${welcomeTileCard(step, badge, animClass + dirClass)}
-      ${/* UN solo indicador de progreso, no dos (NN/g: la barra con % y los puntitos
-           decian lo mismo). La pastilla de la baldosa ya dice "Paso 1 de 2"; estas
-           fichas dicen en cual estas y dejan saltar, y llevan el color de su paso
-           para que se lean como miniaturas de las baldosas. */''}
-      <div class="wt-steps">
-        ${WELCOME_STEPS.map((s,i)=>`<button type="button" class="wt-step ${s.tile}${i===welcomeStep?' active':''}" data-jump-step="${i}" aria-label="${t('welcome_step_of').replace('{i}', String(i+1)).replace('{n}', String(WELCOME_STEPS.length))}" aria-current="${i===welcomeStep?'step':'false'}"></button>`).join('')}
-      </div>
-      ${/* Ultimo paso: el CTA es la CAMARA ROJA, la misma del tablero (--tile-scan):
-           la promesa del tutorial y el boton que la cumple tienen el mismo color.
-           Ocupa la fila entera; Atras y "Ver el tablero primero" van debajo como
-           links chicos. En los pasos anteriores, Siguiente es el ambar de siempre. */''}
-      <div class="modal-actions">
-        ${welcomeStep>0 && !isLast ? `<button type="button" class="btn btn-ghost" id="btn-welcome-back">${t('welcome_back_btn')}</button>` : ''}
-        <button type="button" class="btn ${isLast ? 'wt-cta-scan welcome-cta-final' : 'btn-primary'}" id="btn-welcome-next">${isLast ? `${lineIcon('camera',18)} ` : ''}${isLast ? t('welcome_btn') : t('welcome_next_btn')}</button>
-      </div>
-      ${isLast ? `
-      <div class="welcome-final-links">
-        <button type="button" class="welcome-dashboard-link" id="btn-welcome-back">${t('welcome_back_btn')}</button>
-        <button type="button" class="welcome-dashboard-link" id="btn-welcome-dashboard">${t('welcome_go_dashboard')}</button>
-      </div>` : ''}
-    </div>
-  </div>`;
-}
-
-/* ================= MODAL: "MEJOR EN EQUIPO" (una vez, al primer Compartir) =================
-   La tarjeta que antes era el paso 3 del tutorial, mostrada en el momento en que
-   sirve: el primer toque de "Compartir cuenta". cont es lo que ese toque iba a
-   hacer (abrir el panel de equipo, o pedir guardar la cuenta / login) y corre al
-   cerrar la tarjeta. Una vez por dispositivo (patron_team_intro_seen). */
 function openTeamIntroOrContinue(cont){
   let seen = false;
   try{ seen = !!localStorage.getItem('patron_team_intro_seen'); }catch(e){}

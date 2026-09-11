@@ -65,7 +65,7 @@ function render(){
      promesa de la librería gane la carrera y arranque la cámara contra un div que
      todavía no existe. */
   const overlayFlags = [showItemModal, showScanModal, !!showReceiptDetail, !!showDayModal,
-    showWelcomeModal, showLangChoiceModal, showAuthModal, showFeedbackModal,
+    showAuthModal, showFeedbackModal,
     showDeleteAccountModal, showPriceHistoryModal, showMonthlySpendModal,
     showActivityModal, showTeamModal, showProductBatchModal,
     showRecipeModal, showProduceModal, showShelfModal, showOutflowsModal, showProductionHub];
@@ -244,8 +244,6 @@ function renderApp(){
     ${showDeleteAccountModal ? deleteAccountModal() : ''}
     ${showSuggestedOrderModal ? suggestedOrderModal() : ''}
     ${showCycleCountModal ? cycleCountModal() : ''}
-    ${showLangChoiceModal ? langChoiceModal() : ''}
-    ${showWelcomeModal ? welcomeModal() : ''}
     ${showAuthModal ? authModal() : ''}
     ${showTeamModal ? teamModal() : ''}
     ${showFeedbackModal ? feedbackModal() : ''}

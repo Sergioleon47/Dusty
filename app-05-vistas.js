@@ -1866,7 +1866,7 @@ function monthlySpendModal(){
 }
 
 // Encabezado chico reusado por cada tarjeta de esta pantalla — mismo círculo de
-// color + ícono que ya usa welcomeModal() para sus 4 pasos, para que "Configuración"
+// color + ícono que usa el resto de la app, para que "Configuración"
 // se sienta parte de la misma familia visual que el resto de la app (categorías con
 // sus burbujas de color, el dashboard con sus íconos por tarjeta) en vez de ser la
 // única pantalla que todavía es puro texto plano apilado.
@@ -1936,6 +1936,24 @@ try{
   // Ajustes mostraría "App Store" resaltado sobre una pantalla oscura).
   else if(v && v!=='night'){ document.documentElement.removeAttribute('data-dusty-theme'); localStorage.removeItem('patron_theme'); dustyTheme = 'night'; }
 }catch(e){}
+/* Cambiar de tema: se aplica AL INSTANTE con el atributo en <html> (el CSS hace
+   el resto) y queda guardado en el dispositivo. Es la única puerta: la usan el
+   selector de Ajustes (app-11) y la elección Claro/Oscuro de la introducción
+   (startOnboarding en app-06), así los dos hacen exactamente lo mismo. Noche es
+   el tema base (:root), por eso va SIN atributo. SIEMPRE guarda, aunque sea el
+   tema que ya estaba puesto: una elección explícita (p. ej. "Claro" en la
+   introducción, cuando App Store ya era el default) tiene que quedar escrita,
+   o se perdería el día que cambie el default. Devuelve true si cambió algo
+   visible (para que Ajustes sepa si vale redibujar). */
+function setDustyTheme(id){
+  if(!DUSTY_THEMES.some(x=>x.id===id)) return false;
+  const cambio = dustyTheme !== id;
+  dustyTheme = id;
+  if(id==='night') document.documentElement.removeAttribute('data-dusty-theme');
+  else document.documentElement.setAttribute('data-dusty-theme', id);
+  try{ localStorage.setItem('patron_theme', id); }catch(e){}
+  return cambio;
+}
 /* LATIDOS de aviso (pedido del usuario 2026-09-07): un interruptor en Ajustes apaga
    o prende las palpitaciones de Inventario (conteo pendiente, stock crítico, días
    del calendario) y de Presupuesto (barra, tarjeta de alerta, punto del Dashboard).

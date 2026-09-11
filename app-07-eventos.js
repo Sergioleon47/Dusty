@@ -82,9 +82,9 @@ function manageModalA11y(){
    tocarla se usa el cierre PROPIO del modal, sin duplicar lógica: primero el
    botón btn-close-* del modal, si no su btn-cancel-*, y si no hay ninguno
    el toque fuera (mousedown sobre el overlay, que cada uno ya escucha).
-   Se salta el de idioma (hay que elegir) y los que ya traen su X propia. */
+   Se saltan los que ya traen su X propia. (La introducción no es un .overlay
+   — vive fuera de #app, ver startOnboarding — así que no pasa por acá.) */
 function ensureModalBackBtn(ov, modal){
-  if(ov.id==='lang-choice-overlay') return;
   if(modal.querySelector('.modal-close-btn')) return;
   if(modal.querySelector('button[id$="-x"]')) return;
   const btn = document.createElement('button');
@@ -134,13 +134,13 @@ function attachHardwareBackButton(){
   if(!App || !App.addListener) return;
   hardwareBackAttached = true;
   App.addListener('backButton', ()=>{
+    // 0. Introducción (primera apertura, ver startOnboarding): no se puede
+    //    descartar — hay que elegir idioma y tema para que la app se entienda —
+    //    así que "atrás" sale, como en la primera pantalla de cualquier app.
+    if(document.getElementById('ob-root')){ if(App.exitApp) App.exitApp(); return; }
     // 1. Modal abierto: se cierra el de más arriba (los modales se apilan).
     const ov = topOverlay();
     if(ov){
-      // El de idioma es el único que no se puede descartar (hay que elegir uno
-      // para que la app se entienda), así que ahí "atrás" sale, como en la
-      // primera pantalla de cualquier app.
-      if(ov.id==='lang-choice-overlay'){ if(App.exitApp) App.exitApp(); return; }
       closeOverlayLikeBackBtn(ov);
       return;
     }
@@ -327,8 +327,8 @@ document.addEventListener('keydown', (e)=>{
   if(showDayModal){ showDayModal=null; dayNoteDraft=''; render(); return; }
   // Estos faltaban: sin Escape, el modal de equipo además dejaba vivo su setInterval de
   // refresco (teamModalRefreshTimer) porque solo closeTeamModal() lo limpia. El de barras
-  // apaga la cámara al cerrarse. El de idioma (langChoice) es la primera elección
-  // obligatoria de un usuario nuevo, así que a propósito NO se cierra con Escape.
+  // apaga la cámara al cerrarse. La introducción (startOnboarding) es la primera
+  // elección obligatoria de un usuario nuevo, así que a propósito NO se cierra con Escape.
   if(showTeamModal){ closeTeamModal(); return; }
   if(showAuthModal){ closeAuthModal(); return; }
   if(showActivityModal){ closeActivityModal(); return; }
@@ -345,7 +345,6 @@ document.addEventListener('keydown', (e)=>{
   if(showRecipeModal){ closeRecipeModal(); return; }
   if(showOutflowsModal){ showOutflowsModal=false; render(); return; }
   if(showProductionHub){ showProductionHub=false; render(); return; }
-  if(showWelcomeModal){ closeWelcomeModal(); return; }
 });
 
 // Si había una subida pendiente por fallo de red, no hace falta esperar a que venza
@@ -463,13 +462,6 @@ inventory.forEach(i=>{ if(!i.stockFullRef && (i.qtyOnHand||0) > 0) i.stockFullRe
 // el primer producto creado/editado de cada sesión quedaba sin updatedAt.
 stampLocalEdits();
 if(categories===null) categories = defaultCategories();
-// Antes el selector de idioma vivía arriba del todo DENTRO del modal de bienvenida,
-// compartiendo pantalla con los 4 pasos del tutorial — alguien que no lee ni español
-// ni inglés se encontraba con un párrafo entero en un idioma que no entiende antes de
-// llegar a los botones que se lo iban a arreglar. Ahora es su propia pantalla, la
-// primera que ve cualquiera que arranca de cero, sin nada más compitiendo por su
-// atención — recién al elegir pasa al tutorial ya en su idioma (ver langChoiceModal()).
-try{ if(!localStorage.getItem('patron_onboarded')) showLangChoiceModal = true; }catch(e){}
 try{
   const savedCalSearch = localStorage.getItem('patron_cal_search');
   if(savedCalSearch) applyCalendarSearch(savedCalSearch);
@@ -491,6 +483,11 @@ try{
   }
 }catch(e){}
 render();
+// Primera apertura en este dispositivo: la introducción (idioma → bienvenida →
+// tema) se monta ENCIMA de la app ya pintada, en su propio nodo fuera de #app
+// (ver startOnboarding en app-06). Va después de render() y antes de apagar el
+// splash nativo, así lo primero que se ve al caer el splash ya es ella.
+try{ if(!localStorage.getItem('patron_onboarded')) startOnboarding(); }catch(e){}
 // Adentro de la app nativa (Capacitor/Android), el splash nativo se queda prendido
 // a propósito (launchAutoHide:false en capacitor.config.json) hasta que se lo pide
 // desde acá — si no, Android lo esconde apenas el WebView "existe", que puede ser

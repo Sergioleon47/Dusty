@@ -153,7 +153,9 @@ function refreshTabOrder(){
   if(TAB_ORDER.indexOf(activeTab) < 0) activeTab = 'dashboard';
   return true;
 }
-let showItemModal=false, showScanModal=false, showReceiptDetail=null, showWelcomeModal=false, showLangChoiceModal=false;
+// La introducción (idioma, bienvenida, tema) ya no es un modal de render(): vive
+// en su propio nodo fuera de #app — ver startOnboarding en app-06.
+let showItemModal=false, showScanModal=false, showReceiptDetail=null;
 /* Auditoría de primer minuto 2026-09-07 (ver helpModal, teamIntroModal, itemModal
    y celebrateFirstScan en app-06):
    - showHelpModal: la hoja de ayuda detrás del "?" del encabezado.
@@ -176,31 +178,13 @@ let showHelpModal=false, showTeamIntroModal=false, teamIntroContinue=null, itemM
    - aiWaitStartedAt/aiWaitTimer: "sigue leyendo…" pasados 8 s en cualquier escáner. */
 let scanPhotoView=null, scanTruncated=false, pbPendingImg=null, shelfPendingImg=null, shelfLastSource=null, shelfPhotoView=null, productScanSuggest=null, barcodeLastCode='', aiWaitStartedAt=0, aiWaitTimer=null;
 let pbQualityWarn=null, shelfQualityWarn=null;
-// Qué paso del tutorial de bienvenida se está mostrando (ver welcomeModal()).
-let welcomeStep = 0;
-// Dirección del último cambio de paso (1 = avanzando, -1 = retrocediendo) — decide si
-// el paso entra deslizando desde la derecha o desde la izquierda (ver welcomeModal()),
-// para que saltar directo a un punto con los puntitos también se sienta direccional
-// y no solo un fade genérico.
-let welcomeStepDir = 1;
-// Punto X donde empezó el toque actual sobre la tarjeta del paso, o null si no hay
-// ningún gesto en curso — permite deslizar el dedo para avanzar/retroceder el
-// tutorial además de los botones (ver attachEvents). Usa pointer events (no touch)
-// para que también funcione arrastrando con el mouse en desktop.
-let welcomeSwipeStartX = null;
-// Si el paso actual ya se terminó de animar una vez. render() reconstruye TODA la
-// pantalla de cero ante cualquier cosa (ej. la reconexión a la nube que arranca sola
-// en segundo plano si ya iniciaste sesión antes) — sin esto, cada uno de esos
-// redibujados de fondo, aunque no cambien nada visible del tutorial, vuelve a
-// disparar sus animaciones de entrada (fade del fondo + pop del modal + del paso),
-// lo que se ve como que la pantalla "parpadea" sola. Se resetea a false solo cuando
-// el paso realmente cambia (avanzar/retroceder), que es cuando sí vale animar de nuevo.
-let welcomeStepAnimated = false;
-// Mismo motivo que welcomeStepAnimated: dashboardEmptyState() (la tarjeta de "vamos a
-// armar tu inventario") tiene una animación de entrada pensada para jugar UNA sola vez
-// (ver el comentario junto a .dash-empty-card en el CSS) — sin esto, cada redibujado de
-// fondo, o cada vez que se vuelve a la pestaña Dashboard por swipe, la hace "aparecer
-// de golpe" de nuevo, que es el parpadeo que se nota al deslizar entre pestañas.
+// dashboardEmptyState() (la tarjeta de "vamos a armar tu inventario") tiene una
+// animación de entrada pensada para jugar UNA sola vez (ver el comentario junto a
+// .dash-empty-card en el CSS). render() reconstruye TODA la pantalla de cero ante
+// cualquier cosa (ej. la reconexión a la nube que arranca sola en segundo plano) —
+// sin esto, cada redibujado de fondo, o cada vez que se vuelve a la pestaña
+// Dashboard por swipe, la hace "aparecer de golpe" de nuevo, que es el parpadeo
+// que se nota al deslizar entre pestañas.
 let dashEmptyCardAnimated = false;
 let showAuthModal=false, authMode='signin', authError='', authContextNote='', authLoading=false, authEmail='', authPassword='';
 // authMode también puede ser 'join' (alguien sin cuenta todavía que recibió un código

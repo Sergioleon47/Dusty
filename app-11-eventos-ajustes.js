@@ -34,17 +34,10 @@ function attachSettingsEvents(){
     try{ localStorage.setItem('patron_pulse', dustyPulse ? 'on' : 'off'); }catch(e){}
     render();
   };
-  // Tema de colores (Ajustes): se aplica AL INSTANTE con el atributo en <html>
-  // — el CSS hace el resto — y queda guardado en el dispositivo. Sin Guardar.
+  // Tema de colores (Ajustes): al instante y sin Guardar — ver setDustyTheme (app-05).
   document.querySelectorAll('[data-set-theme]').forEach(b=>{
     b.onclick=()=>{
-      const id=b.dataset.setTheme;
-      if(dustyTheme===id) return;
-      dustyTheme=id;
-      if(id==='night') document.documentElement.removeAttribute('data-dusty-theme');
-      else document.documentElement.setAttribute('data-dusty-theme', id);
-      try{ localStorage.setItem('patron_theme', id); }catch(e){}
-      render(); // re-pinta el selector con el circulito activo nuevo
+      if(setDustyTheme(b.dataset.setTheme)) render(); // re-pinta el selector con el circulito activo nuevo
     };
   });
   // El "?" abre la hoja de AYUDA; el reporte de problemas está al pie de esa hoja.
@@ -79,47 +72,8 @@ function attachSettingsEvents(){
   const moneyFmtSel=document.getElementById('money-format-select');
   if(moneyFmtSel) moneyFmtSel.onchange=()=>{ setMoneyFormatPref(moneyFmtSel.value); render(); };
 
-  /* ---------- elección de idioma y bienvenida ---------- */
-  const langChoiceOverlay = document.getElementById('lang-choice-overlay');
-  if(langChoiceOverlay){
-    // Cerrar tocando el fondo (sin elegir) sigue de largo con la adivinanza inicial —
-    // igual que cualquier otro overlay de la app, no queda trabado si alguien lo toca
-    // sin querer.
-    langChoiceOverlay.onmousedown=(e)=>{ if(e.target===langChoiceOverlay) chooseLangAndContinue(uiLang); };
-    document.querySelectorAll('[data-choose-lang]').forEach(btn=>{
-      btn.onclick = ()=> chooseLangAndContinue(btn.dataset.chooseLang);
-    });
-  }
-
-  const welcomeOverlay = document.getElementById('welcome-overlay');
-  if(welcomeOverlay){
-    welcomeOverlay.onmousedown=(e)=>{ if(e.target===welcomeOverlay) closeWelcomeModal(); };
-    const welcomeNextBtn = document.getElementById('btn-welcome-next');
-    if(welcomeNextBtn) welcomeNextBtn.onclick = advanceWelcomeStep;
-    const welcomeBackBtn = document.getElementById('btn-welcome-back');
-    if(welcomeBackBtn) welcomeBackBtn.onclick = retreatWelcomeStep;
-    const welcomeSkipBtn = document.getElementById('btn-welcome-skip');
-    if(welcomeSkipBtn) welcomeSkipBtn.onclick = closeWelcomeModal;
-    const welcomeDashBtn = document.getElementById('btn-welcome-dashboard');
-    if(welcomeDashBtn) welcomeDashBtn.onclick = closeWelcomeModal;
-    document.querySelectorAll('[data-jump-step]').forEach(dot=>{
-      dot.onclick = ()=> jumpToWelcomeStep(+dot.dataset.jumpStep);
-    });
-    // Deslizar el dedo (o arrastrar con el mouse) sobre la tarjeta del paso para
-    // avanzar/retroceder, además de los botones — un umbral de 40px evita que un
-    // toque que solo quiso tocar la tarjeta dispare un cambio de paso sin querer.
-    const welcomeStepCard = document.querySelector('.welcome-step-card');
-    if(welcomeStepCard){
-      welcomeStepCard.onpointerdown=(e)=>{ welcomeSwipeStartX = e.clientX; };
-      welcomeStepCard.onpointerup=(e)=>{
-        if(welcomeSwipeStartX===null) return;
-        const dx = e.clientX - welcomeSwipeStartX;
-        welcomeSwipeStartX = null;
-        if(Math.abs(dx) < 40) return;
-        if(dx < 0) advanceWelcomeStep(); else retreatWelcomeStep();
-      };
-    }
-  }
+  /* (La introducción — idioma, bienvenida, tema — cablea sus propios botones al
+     construirse: ver startOnboarding en app-06. No pasa por acá.) */
 
   /* ---------- gestionar categorías ---------- */
   // Gestión de categorías y conteo cíclico viven en Ajustes (2026-09-04) — al
