@@ -231,13 +231,20 @@ function produccionView(){
      la IA las reconoce y las cuenta sin ningún cambio. Lo que faltaba era la
      puerta: para descontar dos tableros vendidos había que irse a Inventario. */
   const herramienta = `<div class="inv-tools">${shelfScanFab('prod')}</div>`;
-  const chips = `
-    <div class="inv-chips">
-      <button type="button" class="category-chip quick ${prodSelectMode?'on':''}" id="btn-prod-select">${prodSelectMode ? '✓ '+t('inv_select_done') : t('inv_select_btn')}</button>
-    </div>`;
+  /* "ELEGIR" VIVE EN LA BARRA, NO EN UNA FILA PROPIA. Es la misma mudanza que
+     ya se hizo en Inventario a pedido del usuario ("select en el medio"): una
+     fila entera para un solo chip se comia 45px de alto para nada, y las dos
+     pantallas hacen lo mismo asi que tienen que verse igual. */
+  const chips = '';
   const barra = prodSelectMode ? `
     <div class="inv-sticky">
       <div class="inv-selbar">
+        ${/* LA SALIDA. Mismo caso que en Inventario: la barra de seleccion
+             REEMPLAZA a la de herramientas, y "Elegir" acaba de mudarse alli,
+             asi que sin este boton el modo seleccion no tendria ninguna forma de
+             cerrarse. Id propio (btn-prod-sel-exit) y no el mismo del otro: dos
+             nodos con el mismo id dejan a uno sin manejador. */''}
+        <button type="button" class="category-chip quick on" id="btn-prod-sel-exit">✓ ${t('inv_select_done')}</button>
         <strong>${t('inv_selected_n').replace('{n}', prodSelected.size)}</strong>
         <button type="button" class="link-btn" id="btn-prod-sel-all">${t('inv_select_all')}</button>
         ${/* Compartir = el catálogo para el cliente: foto, nombre y PRECIO. Nunca
@@ -252,8 +259,12 @@ function produccionView(){
       <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
         <div class="inv-search-wrap">
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${recipes.length ? t('prod_search_ph').replace('{n}', String(recipes.length)) : t('prod_search_ph_empty')}" autocomplete="off">
+          <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${t('prod_search_ph')}" autocomplete="off">
         </div>
+        ${/* En el medio, entre el buscador y vista/orden — igual que Inventario.
+             Con el catalogo vacio no se dibuja: marcar piezas cuando no hay
+             ninguna no hace nada. */''}
+        ${recipes.length ? `<button type="button" class="category-chip quick" id="btn-prod-select" style="flex-shrink:0;">${t('inv_select_btn')}</button>` : ''}
         ${invLayoutToggleHtml().replace('</div>', `
           <span class="inv-sort-wrap ${prodSort!=='name'?'on':''}" title="${t('inv_sort_label')}">${prodSortIcon}
             <select id="prod-sort" aria-label="${t('inv_sort_label')}">
@@ -1531,6 +1542,10 @@ function attachProductionEvents(){
       else promptItemPhotoUpload(r, true);
     };
   });
+  /* La salida de la barra de seleccion (ver btn-prod-sel-exit en la vista): id
+     propio, mismo trabajo que "Elegir" cuando ya estas dentro. */
+  const btnProdSelExit=document.getElementById('btn-prod-sel-exit');
+  if(btnProdSelExit) btnProdSelExit.onclick=()=>{ prodExitSelect(); render(); };
   const btnProdSelect=document.getElementById('btn-prod-select');
   if(btnProdSelect) btnProdSelect.onclick=()=>{
     if(prodSelectMode) prodExitSelect(); else { prodSelectMode = true; prodSelected.clear(); }

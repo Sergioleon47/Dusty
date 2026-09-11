@@ -2282,13 +2282,13 @@ function scanModal(){
               // Cualquier aumento de precio genera alerta — la severidad visual escala con el tamaño del aumento
               const strong = diffPct>=priceAlertThreshold;
               const sentence = uiLang==='en'
-                ? `Supplier price went up ${diffPct.toFixed(0)}% vs. current cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirm the reading is correct':''}`
-                : `Precio de proveedor subió ${diffPct.toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirma que la lectura sea correcta':''}`;
+                ? `Supplier price went up ${diffPct.toFixed(0)}% vs. your average cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirm the reading is correct':''}`
+                : `Precio de proveedor subió ${diffPct.toFixed(0)}% vs. tu costo promedio (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirma que la lectura sea correcta':''}`;
               priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'var(--money-neg-ink)':'var(--money-warn-ink)'};background:${strong?'var(--money-neg-soft)':'var(--money-warn-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">▲ ${sentence}</div>`;
             } else if(diffPct<-0.5){
               const sentence = uiLang==='en'
-                ? `Price went down ${Math.abs(diffPct).toFixed(0)}% vs. current cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`
-                : `Precio bajó ${Math.abs(diffPct).toFixed(0)}% vs. costo actual (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`;
+                ? `Price went down ${Math.abs(diffPct).toFixed(0)}% vs. your average cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`
+                : `Precio bajó ${Math.abs(diffPct).toFixed(0)}% vs. tu costo promedio (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`;
               priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--money-pos);background:var(--money-pos-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">▼ ${sentence}</div>`;
             }
             }
@@ -3555,7 +3555,25 @@ function applyScanResults(){
         // no comparar (ni acá, mezclar) unidades distintas.
         const unitChanged = ing.unit !== item.unit;
         if(unitChanged) ing.unit = item.unit;
-        ing.costPerUnit = item.totalPrice/item.qty;
+        /* COSTO PROMEDIO PONDERADO (2026-09-11). Hasta aca Dusty valuaba la
+           materia prima al ULTIMO PRECIO: la compra que entraba pisaba el costo
+           de TODO el stock que ya habia. Eso no es un metodo de costeo, es un
+           efecto secundario — con 100 unidades a $4 en el estante, comprar 2 a
+           $9 revaluaba las 102 a $9 y el inventario "valia" $918 en vez de $418.
+           Por ahi se va la ganancia en los numeros: el COGS de lo que vendas
+           despues sale de ese costo inflado.
+           weightedAvgCost ya vivia en patron-core con sus pruebas y lo usaba
+           SOLO el producto terminado (ver produceRecipe). Ahora la materia prima
+           usa el mismo criterio, que es como se valua cualquier PYME.
+           EL ORDEN IMPORTA: se calcula ANTES de sumar la compra al stock, porque
+           la formula necesita la cantidad ANTERIOR. Mover esta linea debajo del
+           qtyOnHand de abajo haria contar la mercancia nueva dos veces.
+           CAMBIO DE UNIDAD = ultimo precio, a proposito: promediar $/lb con
+           $/caja no da un numero, da basura. Ahi el conteo arranca de cero (es
+           lo que ya hacia la linea de qtyOnHand de abajo) y el costo tambien. */
+        ing.costPerUnit = unitChanged
+          ? item.totalPrice/item.qty
+          : weightedAvgCost(ing.qtyOnHand, ing.costPerUnit, item.qty, item.totalPrice);
         ing.updated = true;
         ing.qtyOnHand = unitChanged ? item.qty : (ing.qtyOnHand||0) + item.qty;
         // Entrada de stock → este nivel es el nuevo "lleno" de la barra (100%).
@@ -3750,13 +3768,32 @@ function deleteReceipt(receiptId){
        haberlo puesto el usuario a mano) — nunca se pone en cero, que valuaría el
        inventario en $0 sin que nadie lo haya pedido. Esto corre SIEMPRE, se hayan
        revertido las cantidades o no: el historial de compras se borra en los dos casos. */
+    /* Y se reconstruye el PROMEDIO PONDERADO con las compras que quedan, no el
+       ultimo precio (2026-09-11, junto con el cambio de arriba). Si la entrada
+       promedia y el deshacer dejara el ultimo precio, borrar un recibo movia el
+       costo a un numero que nunca fue el de este producto.
+       Se puede reconstruir EXACTO justamente porque es promedio ponderado:
+       consumir stock no cambia el costo unitario promedio, solo comprar lo
+       cambia. Asi que replicar las compras que quedan en orden de fecha,
+       arrancando de cero, da el mismo costo que si el recibo borrado no hubiera
+       existido nunca. Una compra en otra unidad reinicia el acumulado, igual
+       que en la entrada. */
     pricedIngIds.forEach(ingId=>{
       const ing = inventory.find(i=>i.id===ingId);
       if(!ing) return;
-      const prev = latestPurchaseFor(ingId);
-      if(!prev || !(prev.qty>0) || !(prev.totalPrice>0)) return;
-      ing.costPerUnit = prev.totalPrice/prev.qty;
-      if(prev.unit) ing.unit = prev.unit;
+      const quedan = purchases
+        .filter(x=>x && x.ingId===ingId && x.qty>0 && x.totalPrice>0)
+        .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+      if(!quedan.length) return;
+      let qty = 0, costo = 0, unidad = null;
+      quedan.forEach(c=>{
+        if(unidad !== null && c.unit && c.unit !== unidad){ qty = 0; costo = 0; }
+        costo = weightedAvgCost(qty, costo, c.qty, c.totalPrice);
+        qty += c.qty;
+        if(c.unit) unidad = c.unit;
+      });
+      ing.costPerUnit = costo;
+      if(unidad) ing.unit = unidad;
     });
   }
   receipts = receipts.filter(x=>x.id!==receiptId);
@@ -3881,6 +3918,38 @@ async function shareReceipt(r){
    fallar la navegación seguido. Ahora ninguna fila tiene gesto propio — se borra con
    un toque directo en la x, que sí pide confirmar (a diferencia del viejo deslizar,
    que ya era en sí mismo un gesto de dos pasos y no necesitaba otra confirmación). */
+/* QUE SE PIERDE AL BORRAR ESTE PRODUCTO, con nombre y apellido (auditoria
+   2026-09-11). El aviso anterior decia "¿Eliminar X del inventario?" y nada mas.
+   Eso no informa: quien toca Borrar ya sabe que borrar borra. Lo que NO sabe es
+   que ademas se va la foto que le costo sacar, el precio con el que vende, y los
+   nombres que el escaner fue aprendiendo de sus recibos — eso ultimo es lo mas
+   caro de recuperar, porque no se reescribe a mano: hay que volver a escanear y
+   corregir recibo por recibo.
+   Se nombra SOLO lo que este producto tiene de verdad. Una lista fija que diga
+   "se pierde la foto" cuando no hay foto entrena al usuario a no leer el aviso.
+   Si no tiene nada que perder, vuelve el mensaje corto de siempre.
+   Y se dice lo que NO se pierde, que tranquiliza y es cierto: removeInventoryItem
+   no toca compras ni recibos, asi que el gasto ya registrado sigue contando. */
+function textoLoQueSePierde(item){
+  const lineas = [];
+  if(item.photo) lineas.push(t('del_lose_photo'));
+  const pv = parseFloat(item.salePrice);
+  if(pv > 0) lineas.push(t('del_lose_price').replace('{v}', money(pv)));
+  if((item.sku||'').trim()) lineas.push(t('del_lose_sku').replace('{v}', item.sku.trim()));
+  if((item.supplier||'').trim()) lineas.push(t('del_lose_supplier').replace('{v}', item.supplier.trim()));
+  const alias = Object.keys(aliasMap||{}).filter(k=>aliasMap[k]===item.id).length;
+  if(alias > 0) lineas.push(t('del_lose_alias').replace('{n}', String(alias)));
+  const q = parseFloat(item.qtyOnHand)||0;
+  if(q > 0){
+    lineas.push(t('del_lose_stock')
+      .replace('{v}', roundQty(q) + ' ' + unitLabel(item.unit))
+      .replace('{m}', money(q * (parseFloat(item.costPerUnit)||0))));
+  }
+  if(!lineas.length) return t('confirm_delete_item').replace('{name}', item.name);
+  return t('del_lose_title').replace('{name}', item.name) + '\n\n'
+       + t('del_lose_intro') + '\n' + lineas.join('\n') + '\n\n'
+       + t('del_lose_keeps');
+}
 function removeInventoryItem(id){
   const deletedItem = inventory.find(i=>i.id===id);
   inventory = inventory.filter(i=>i.id!==id);
@@ -3963,7 +4032,7 @@ function deleteSelectedInventory(ids){
 function deleteStockItem(id, triggerEl){
   const item = inventory.find(i=>i.id===id);
   if(!item) return;
-  if(!confirm(t('confirm_delete_item').replace('{name}', item.name))) return;
+  if(!confirm(textoLoQueSePierde(item))) return;
   /* PAGOS DE UN BILL (reporte del usuario 2026-09-09: "borré los dos bills para
      que dejara de palpitar la alerta pero la barra del presupuesto no hizo el
      cálculo"). Un bill es la DEFINICIÓN del gasto recurrente ("Luz, $600/mes");

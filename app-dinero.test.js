@@ -136,7 +136,11 @@ test('borrar un recibo devuelve el costo por unidad al de la compra que queda', 
   const { correr } = nuevaApp();
   correr(`escanear('A','2026-09-01',[{rawName:'Tomate',qty:10,unit:'lb',totalPrice:50,matchedIngId:'__new__'}],50)`);
   correr(`escanear('A','2026-09-10',[{rawName:'Tomate',qty:10,unit:'lb',totalPrice:80,matchedIngId:producto('Tomate').id}],80)`);
-  assert.equal(correr(`producto('Tomate').costPerUnit`), 8);
+  // (50 + 80) / 20 lb = $6.50 de promedio ponderado. Antes esta linea esperaba $8,
+  // el ULTIMO precio, porque asi valuaba Dusty la materia prima hasta el
+  // 2026-09-11; el resto de la prueba no cambio, que es lo que de verdad vigila:
+  // borrar el recibo no puede dejar un costo que ya no corresponde a nada.
+  assert.equal(correr(`producto('Tomate').costPerUnit`), 6.5);
 
   correr(`borrar(receipts[1].id, true)`);
   assert.equal(correr(`producto('Tomate').costPerUnit`), 5, 'vuelve al precio de la compra de $50/10lb');
@@ -500,4 +504,76 @@ test('una produccion VIEJA sigue contando como antes: los meses cerrados no se m
   `);
   assert.equal(correr(`periodFinancials('2026-08').revenue`), 500, 'agosto queda como estaba');
   assert.equal(correr(`periodFinancials('2026-08').cogs`), 200);
+});
+
+/* ===== COSTO PROMEDIO PONDERADO DE LA MATERIA PRIMA (2026-09-11) =====
+   Hasta este cambio, la compra que entraba pisaba el costo de TODO el stock que
+   ya estaba en el estante (último precio). Estas pruebas fijan el criterio nuevo
+   y, sobre todo, el caso que lo motivó: una compra chica y cara no puede
+   revaluar un estante lleno de mercancía barata. */
+
+test('una compra chica y cara NO revalua todo el stock que ya estaba', () => {
+  const { correr } = nuevaApp();
+  // 100 unidades a $4 = $400 en el estante
+  correr(`escanear('Prov','2026-09-01',[{rawName:'Tornillo',qty:100,unit:'unidad',totalPrice:400,matchedIngId:'__new__'}],400)`);
+  assert.equal(correr(`producto('Tornillo').costPerUnit`), 4);
+  assert.equal(correr(`valorInventario()`), 400);
+
+  // entran 2 más, carísimas, a $9 cada una
+  const ing = correr(`producto('Tornillo').id`);
+  correr(`escanear('Prov','2026-09-10',[{rawName:'Tornillo',qty:2,unit:'unidad',totalPrice:18,matchedIngId:'${ing}'}],18)`);
+  correr(`resetFinancialCache()`);
+
+  // Con último precio: 102 × $9 = $918 de "mercadería" salidos de la nada.
+  // Con promedio ponderado: (400 + 18) / 102 = $4.098
+  assert.equal(correr(`producto('Tornillo').qtyOnHand`), 102);
+  assert.equal(correr(`producto('Tornillo').costPerUnit`), 4.098);
+  assert.equal(redondo(correr(`valorInventario()`)), 418);   // lo que de verdad se pagó
+});
+
+test('el promedio ponderado sube de verdad cuando la compra es grande', () => {
+  const { correr } = nuevaApp();
+  correr(`escanear('Prov','2026-09-01',[{rawName:'Cable',qty:10,unit:'unidad',totalPrice:100,matchedIngId:'__new__'}],100)`);
+  const ing = correr(`producto('Cable').id`);
+  // 10 a $10 + 10 a $20 -> promedio $15, no $20
+  correr(`escanear('Prov','2026-09-09',[{rawName:'Cable',qty:10,unit:'unidad',totalPrice:200,matchedIngId:'${ing}'}],200)`);
+  assert.equal(correr(`producto('Cable').costPerUnit`), 15);
+  assert.equal(redondo(correr(`valorInventario()`)), 300);
+});
+
+test('un cambio de unidad NO promedia: arranca el costo de cero', () => {
+  const { correr } = nuevaApp();
+  correr(`escanear('Prov','2026-09-01',[{rawName:'Cebolla',qty:20,unit:'lb',totalPrice:40,matchedIngId:'__new__'}],40)`);
+  const ing = correr(`producto('Cebolla').id`);
+  // el mismo producto, ahora por caja: promediar $/lb con $/caja seria basura
+  correr(`escanear('Prov','2026-09-09',[{rawName:'Cebolla',qty:2,unit:'caja',totalPrice:90,matchedIngId:'${ing}'}],90)`);
+  assert.equal(correr(`producto('Cebolla').unit`), 'caja');
+  assert.equal(correr(`producto('Cebolla').qtyOnHand`), 2);
+  assert.equal(correr(`producto('Cebolla').costPerUnit`), 45);
+});
+
+test('borrar un recibo devuelve el promedio exacto de las compras que quedan', () => {
+  const { correr } = nuevaApp();
+  correr(`escanear('Prov','2026-09-01',[{rawName:'Tubo',qty:10,unit:'unidad',totalPrice:100,matchedIngId:'__new__'}],100)`);
+  const ing = correr(`producto('Tubo').id`);
+  correr(`escanear('Prov','2026-09-05',[{rawName:'Tubo',qty:10,unit:'unidad',totalPrice:300,matchedIngId:'${ing}'}],300)`);
+  assert.equal(correr(`producto('Tubo').costPerUnit`), 20);   // (100+300)/20
+
+  // se borra el segundo recibo (el caro): tiene que volver a $10, el promedio real
+  // de lo que queda — no al "ultimo precio", que daria lo mismo por casualidad aca
+  correr(`borrar(receipts[1].id, true)`);
+  assert.equal(correr(`producto('Tubo').costPerUnit`), 10);
+  assert.equal(correr(`producto('Tubo').qtyOnHand`), 10);
+});
+
+test('borrar un recibo del medio deja el promedio de los otros dos, no el ultimo precio', () => {
+  const { correr } = nuevaApp();
+  correr(`escanear('Prov','2026-09-01',[{rawName:'Clavo',qty:10,unit:'unidad',totalPrice:100,matchedIngId:'__new__'}],100)`);
+  const ing = correr(`producto('Clavo').id`);
+  correr(`escanear('Prov','2026-09-05',[{rawName:'Clavo',qty:10,unit:'unidad',totalPrice:900,matchedIngId:'${ing}'}],900)`);
+  correr(`escanear('Prov','2026-09-09',[{rawName:'Clavo',qty:10,unit:'unidad',totalPrice:200,matchedIngId:'${ing}'}],200)`);
+  // se va el carisimo del medio: quedan 10 a $10 y 10 a $20 -> promedio $15.
+  // El ultimo precio habria dicho $20.
+  correr(`borrar(receipts[1].id, true)`);
+  assert.equal(correr(`producto('Clavo').costPerUnit`), 15);
 });
