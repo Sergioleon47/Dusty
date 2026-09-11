@@ -1823,6 +1823,12 @@
   .dash-kv b.neg{color:var(--money-neg-ink);}
   .dash-budget .budget-pace{color:var(--bs);margin-top:8px;}
   .dash-budget.ok .link-btn, .dash-budget.warn .link-btn, .dash-budget.crit .link-btn{color:var(--tile-ink);opacity:.85;}
+  /* SIN presupuesto (pedido del usuario 2026-09-11): la tarjeta nunca es blanca —
+     lleva la clase ok (fondo --tile-ok, tinta de tarjeta) y solo ajusta lo que
+     en ese estado no tenía regla: la cifra grande y el "Fijalo →". */
+  .dash-budget.nobudget .stat-value{color:var(--bi);}
+  .dash-budget.nobudget .budget-set-cta span{color:var(--bs);}
+  .dash-budget.nobudget .budget-set-link{color:var(--bi);text-decoration:underline;text-underline-offset:3px;}
   .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
   .dash-tile{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:122px;padding:14px;border-radius:18px;border:1px solid var(--tile-border);background:var(--panel);color:var(--tile-ink);text-align:left;font-family:inherit;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s;}
   .dash-tile:active{transform:scale(.97);}

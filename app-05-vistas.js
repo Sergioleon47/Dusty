@@ -336,13 +336,17 @@ function dashboardView(){
     const seeAll = `<button class="link-btn" id="btn-open-monthly-spend" style="padding:10px 10px 10px 0;margin-top:2px;margin-bottom:-10px;">${t('dash_see_all_months')} ›</button>`;
     if(!p){
       // Sin presupuesto fijado: la inversión del mes grande y el "Fijalo →".
+      // Pedido del usuario 2026-09-11: la tarjeta NUNCA es blanca — sin
+      // presupuesto arranca del verde (clase ok, el mismo --tile-ok del estado
+      // "bien") y recién cambia a ámbar/rojo según el presupuesto. Vale para
+      // todos los temas: --tile-ok sale del color de dinero de cada uno.
       return `
-  <div class="stat-card dash-month dash-budget">
+  <div class="stat-card dash-month dash-budget ok nobudget">
     <div class="dash-budget-head"><span class="stat-label">${t('dash_investment_of')} ${monthLabel(currentMonthKey, uiLang)}</span>${addChip}</div>
-    <div class="stat-value" style="color:var(--money-pos);margin-top:4px;">${money(sp.invested)}</div>
+    <div class="stat-value" style="margin-top:4px;">${money(sp.invested)}</div>
     ${canEdit ? `
     <button id="btn-edit-budget" class="budget-set-cta" type="button">
-      <span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">${t('dash_budget_of')}</span>
+      <span style="font-size:12.5px;font-weight:600;">${t('dash_budget_of')}</span>
       <span class="budget-set-link">${t('budget_set_cta')}</span>
     </button>` : ''}
     ${seeAll}
