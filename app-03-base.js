@@ -101,7 +101,7 @@ const I18N = {
     import_blocked_team:'Estás usando el inventario compartido de un equipo. Sal del equipo antes de importar un respaldo, para no sobrescribir los datos del equipo.',
     empty_inventory_title:'Inventario vacío', empty_inventory_sub:'Agrega tu primer producto para empezar a llevar tu inventario.',
     sync_loading_title:'Cargando tu inventario…', sync_loading_sub:'Estamos trayendo tus datos desde la nube — no debería tardar mucho.',
-    dash_empty_title:'Vamos a armar tu inventario', dash_empty_sub:'Escanea tu primer recibo y Dusty carga los productos y precios solo, o agrega uno a mano si prefieres empezar simple.',
+    /* Botones de los estados vacíos de Inventario y Recibos. */
     dash_empty_scan_btn:'Escanear recibo', dash_empty_manual_btn:'+ Agregar producto a mano',
     empty_receipts_title:'Aún no hay recibos guardados',
     inv_in_stock_suffix:'en stock',
@@ -205,9 +205,7 @@ const I18N = {
     help_q3:'¿Cómo comparto con mi socio?', help_a3:'Desde Compartir cuenta en el tablero: le mandas un link y los dos ven y actualizan el mismo inventario, recibos y presupuesto.',
     help_q4:'¿Y si me equivoco?', help_a4:'Antes de guardar un recibo revisas y corriges cada línea. Y cualquier producto o recibo se edita o se borra tocándolo.',
     help_report_btn:'Reportar un problema',
-    /* Primeros pasos en el tablero vacío (efecto de progreso dotado: el primero ya
-       viene tildado) y festejo del primer escaneo. */
-    first_steps_title:'Primeros pasos', first_step_lang:'Elegiste tu idioma', first_step_scan:'Escanea tu primer recibo', first_step_budget:'Fija un presupuesto mensual',
+    /* Festejo del primer escaneo. */
     first_scan_toast_one:'¡Listo! 1 producto cargado desde tu primer recibo.', first_scan_toast_many:'¡Listo! {n} productos cargados desde tu primer recibo.',
     trial_scans_left:'Te quedan {n} escaneos gratis.', trial_scans_last:'Te queda 1 escaneo gratis.',
     save_account_hint_toast:'Tus datos ya viven en este teléfono. Para verlos en otro, toca ☁ Guardar arriba.',
@@ -746,7 +744,6 @@ const I18N = {
     import_blocked_team:'You are using a team\'s shared inventory. Leave the team before importing a backup, so you don\'t overwrite the team\'s data.',
     empty_inventory_title:'Empty inventory', empty_inventory_sub:'Add your first product to start tracking your inventory.',
     sync_loading_title:'Loading your inventory…', sync_loading_sub:"We're pulling your data from the cloud — this shouldn't take long.",
-    dash_empty_title:'Let\'s build your inventory', dash_empty_sub:'Scan your first receipt and Dusty loads the products and prices on its own, or add one by hand if you\'d rather keep it simple.',
     dash_empty_scan_btn:'Scan receipt', dash_empty_manual_btn:'+ Add product by hand',
     empty_receipts_title:'No receipts saved yet',
     inv_in_stock_suffix:'in stock',
@@ -835,7 +832,6 @@ const I18N = {
     help_q3:'How do I share with my partner?', help_a3:'From Share account on the dashboard: send them a link and you both see and update the same inventory, receipts and budget.',
     help_q4:'What if I make a mistake?', help_a4:'Before saving a receipt you review and fix every line. And any product or receipt can be edited or deleted by tapping it.',
     help_report_btn:'Report an issue',
-    first_steps_title:'First steps', first_step_lang:'You picked your language', first_step_scan:'Scan your first receipt', first_step_budget:'Set a monthly budget',
     first_scan_toast_one:'Done! 1 product loaded from your first receipt.', first_scan_toast_many:'Done! {n} products loaded from your first receipt.',
     trial_scans_left:'You have {n} free scans left.', trial_scans_last:'You have 1 free scan left.',
     save_account_hint_toast:'Your data already lives on this phone. To see it on another one, tap ☁ Save up top.',

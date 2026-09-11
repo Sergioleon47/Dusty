@@ -300,7 +300,6 @@ function dashboardView(){
   // SIEMPRE el mes calendario (auditoría de presupuesto 2026-09-07).
   const currentMonthKey = localMonthStr();
   const currentSpend = spendForMonth(currentMonthKey);
-  const empty = inventory.length===0 && receipts.length===0 && !cloudSyncPending;
   const allRows = inventory.length>0 ? stockRowsData() : [];
   const critRows = allRows.filter(r=>r.status==='crit');
   const ccDueIds = inventory.length>0 ? cycleCountDueIds() : new Set();
@@ -310,11 +309,18 @@ function dashboardView(){
   const unread = (currentUser || hadCloudSessionBefore()) ? unreadActivityCount() : 0;
   const scanSvg = '<svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
   return `
-  ${/* 2. Bloque único de presupuesto (o Primeros pasos el primer día).
+  ${/* 2. Bloque único de presupuesto — TAMBIÉN el primer día. Hasta el
+       2026-09-11 el tablero vacío se reemplazaba por "Primeros pasos" arriba y
+       "Vamos a armar tu inventario" abajo (escondiendo las baldosas): el usuario
+       lo vio y lo rechazó — "es casi obligatorio escanear una vez la app avanza
+       hasta ahí; quiero que entre al dashboard completo y que el usuario haga lo
+       que quiera desde ahí". Ahora el Dashboard se ve IGUAL con o sin datos:
+       presupuesto, herramientas y todas las baldosas (en cero). No volver a
+       poner una pantalla de "primero escanea".
        Maqueta "anillo + cuadrícula" (aprobada 2026-09-08): anillo con el %
        gastado + cuatro cifras; la tarjeta toma el color del estado del
        presupuesto en los temas App Store (--tile-ok/warn/crit). */''}
-  ${empty ? firstStepsCard() : (()=>{
+  ${(()=>{
     const sp = spendSplitForMonth(currentMonthKey);
     const p = budgetPace(currentMonthKey);
     const canEdit = canSeeFinancials();
@@ -392,7 +398,7 @@ function dashboardView(){
     </button>
   </div>
 
-  ${inventory.length===0 ? (cloudSyncPending ? loadingSkeleton('dashboard') : dashboardEmptyState()) : `
+  ${inventory.length===0 && cloudSyncPending ? loadingSkeleton('dashboard') : `
   ${/* 4. HOY + módulos, en cuadrícula de dos columnas (maqueta 2026-09-08):
        Críticos cambia de color con el estado (pedido del usuario 2026-09-08):
        azul con todo en orden, ROJO (--tile-crit, el mismo del presupuesto
@@ -499,60 +505,9 @@ function dashboardView(){
    Alta manual en .inv-tools, Actividad y Producción como tarjetas, y Compartir
    cuenta en la tarjeta de Equipo que reemplaza a este bloque—, así que no se
    perdió ningún acceso: se sacó código que confundía al leer el archivo. */
-/* PRIMEROS PASOS (auditoría de primer minuto 2026-09-07): reemplaza la tarjeta de
-   Inversión mientras no hay nada cargado. Tres pasos con el primero YA tildado
-   (elegir idioma) — el "efecto de progreso dotado": empezar con ventaja motiva a
-   terminar. El paso actual late; el de presupuesto se puede tildar desde acá. */
-function firstStepsCard(){
-  const budgetDone = !!monthlyBudget;
-  const done = 1 + (budgetDone ? 1 : 0);
-  const total = 3;
-  const step = (cls, id, label, checked)=>`
-      <li class="fs-step ${cls}" ${id?`id="${id}" role="button" tabindex="0"`:''}>
-        <span class="fs-check" aria-hidden="true">${checked ? '✓' : ''}</span>
-        <span class="fs-label">${label}</span>
-      </li>`;
-  return `
-    <div class="stat-card first-steps-card">
-      <div class="stat-label">${t('first_steps_title')}</div>
-      <div class="fs-progress">
-        <div class="fs-track"><div class="fs-fill" style="--fill:${(done/total).toFixed(3)};"></div></div>
-        <span class="fs-count">${done}/${total}</span>
-      </div>
-      <ol class="first-steps">
-        ${step('done', null, t('first_step_lang'), true)}
-        ${step('now', 'fs-scan', t('first_step_scan'), false)}
-        ${step(budgetDone ? 'done' : '', 'fs-budget', t('first_step_budget'), budgetDone)}
-      </ol>
-    </div>`;
-}
-// Primer día: nada escaneado, nada cargado a mano. Sin esto, el Dashboard quedaba
-// con solo la tarjeta de gasto ($0.00) y el botón de escanear — funcional, pero sin
-// nada que le explique al usuario qué hacer primero ni por qué está tan vacío.
-// Un solo botón a propósito (auditoría de UX 2026-09-10): esta tarjeta vivía justo
-// debajo de la fila de herramientas (Productos/Escanear recibo/A mano) repitiendo
-// las 3 mismas acciones con otro estilo — 6 botones para 3 caminos antes de cargar
-// un solo producto. La fila de arriba es el patrón permanente de la app (se repite
-// igual en Inventario y Producción, no se toca acá); esta tarjeta se queda solo con
-// el primer paso más natural — escanear un recibo — y confía en que la fila de
-// arriba, un dedo más arriba, cubre "Productos" y "A mano" con el mismo nombre.
-function dashboardEmptyState(){
-  // Ver dashEmptyCardAnimated más arriba: solo anima la primera vez que se dibuja en
-  // esta sesión de la app — no en cada redibujado ni cada vez que se vuelve a esta
-  // pestaña. El "breathe" del ícono (dash-empty-breathe) SÍ sigue en loop siempre,
-  // ese no se toca — es continuo a propósito, no una entrada.
-  const animClass = dashEmptyCardAnimated ? ' no-anim' : '';
-  dashEmptyCardAnimated = true;
-  return `
-  <div class="dash-empty-card${animClass}">
-    <div class="dash-empty-badge">${lineIcon('box',30)}</div>
-    <h3>${t('dash_empty_title')}</h3>
-    <p>${t('dash_empty_sub')}</p>
-    <div class="dash-empty-actions">
-      <button class="btn btn-primary" id="btn-dash-empty-scan">${t('dash_empty_scan_btn')}</button>
-    </div>
-  </div>`;
-}
+/* "Primeros pasos" y "Vamos a armar tu inventario" (las dos tarjetas del tablero
+   vacío, 2026-09-07 → 2026-09-10) se borraron el 2026-09-11: el Dashboard se ve
+   igual con o sin datos — ver el comentario del bloque de presupuesto arriba. */
 
 /* ---------- INVENTARIO ---------- */
 /* Vista del inventario elegida por el usuario: 'cols2', 'cols3' o 'cols4' (la más

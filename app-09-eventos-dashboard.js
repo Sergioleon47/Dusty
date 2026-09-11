@@ -43,13 +43,9 @@ function attachDashboardEvents(){
       if(activeTab!=='inventario') switchToTab('inventario');
     };
   });
-  /* ---------- escanear, aviso de presupuesto ---------- */
-  const fsScan=document.getElementById('fs-scan');
-  if(fsScan){ fsScan.onclick=openScanModal; fsScan.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openScanModal(); } }; }
+  /* ---------- aviso de presupuesto ---------- */
   const btnBudgetAlert=document.getElementById('btn-budget-alert');
   if(btnBudgetAlert){ btnBudgetAlert.onclick=openBudgetModal; btnBudgetAlert.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openBudgetModal(); } }; }
-  const fsBudget=document.getElementById('fs-budget');
-  if(fsBudget){ fsBudget.onclick=openBudgetModal; fsBudget.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openBudgetModal(); } }; }
   // Botones de los estados vacíos de Inventario y Recibos.
   /* ---------- recibos vacío ---------- */
   const btnRecEmptyScan=document.getElementById('btn-rec-empty-scan');
@@ -219,11 +215,9 @@ function attachDashboardEvents(){
     });
   }
   // Encuesta de salida: navegación de pasos, oferta y traspaso al delete real.
-  /* ---------- escanear y dashboard vacío ---------- */
+  /* ---------- escanear ---------- */
   const btnScanFab=document.getElementById('btn-scan-fab');
   if(btnScanFab) btnScanFab.onclick=openScanModal;
-  const btnDashEmptyScan=document.getElementById('btn-dash-empty-scan');
-  if(btnDashEmptyScan) btnDashEmptyScan.onclick=openScanModal;
   const btnScanProducts=document.getElementById('btn-scan-products');
   if(btnScanProducts) btnScanProducts.onclick=openProductBatchModal;
 

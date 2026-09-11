@@ -493,7 +493,11 @@
 // de IA. TODO APAGADO hasta DUSTY_BILLING_ENABLED=1 en Netlify. Cambios cruzados
 // en app-01..09 + dusty.css: sin el bump, un app-06 viejo no tendria openPaywall
 // y el 402 del servidor reventaria en callDustyAI.
-const CACHE_NAME = 'patron-shell-v141';
+// v142: el Dashboard se ve igual con o sin datos. Fuera "Primeros pasos" y
+// "Vamos a armar tu inventario" (escondian las baldosas y empujaban a escanear;
+// pedido del usuario 2026-09-11: "que entre al dashboard completo y que el
+// usuario haga lo que quiera desde ahi") — app-01/03/05/09 + dusty.css.
+const CACHE_NAME = 'patron-shell-v142';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

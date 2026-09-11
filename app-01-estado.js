@@ -5,8 +5,9 @@
 // cualquier cliente nuevo de verdad los veía como si fueran su propio inventario, sin
 // ninguna marca de "esto es un ejemplo". Un dueño de restaurante que abre la app por
 // primera vez y ya tiene "5 alertas críticas" y productos que nunca cargó pierde la
-// confianza en la app antes de usarla. Ahora arranca vacío de verdad — ver
-// dashboardEmptyState() para la pantalla de "primeros pasos" que lo reemplaza.
+// confianza en la app antes de usarla. Ahora arranca vacío de verdad — y el
+// Dashboard se ve igual con o sin datos (todas las baldosas en cero, ver
+// dashboardView en app-05).
 /* DÓNDE VIVEN LAS FUNCIONES DE LA NUBE (escanear recibo, identificar producto,
    borrar la cuenta). En la web la app y las funciones comparten origen, así que
    una ruta relativa alcanza. Dentro de la app de Play Store NO: Capacitor sirve
@@ -192,14 +193,6 @@ const SUB_PRICES = { month: '$4.99', year: '$39.99' };
    - aiWaitStartedAt/aiWaitTimer: "sigue leyendo…" pasados 8 s en cualquier escáner. */
 let scanPhotoView=null, scanTruncated=false, pbPendingImg=null, shelfPendingImg=null, shelfLastSource=null, shelfPhotoView=null, productScanSuggest=null, barcodeLastCode='', aiWaitStartedAt=0, aiWaitTimer=null;
 let pbQualityWarn=null, shelfQualityWarn=null;
-// dashboardEmptyState() (la tarjeta de "vamos a armar tu inventario") tiene una
-// animación de entrada pensada para jugar UNA sola vez (ver el comentario junto a
-// .dash-empty-card en el CSS). render() reconstruye TODA la pantalla de cero ante
-// cualquier cosa (ej. la reconexión a la nube que arranca sola en segundo plano) —
-// sin esto, cada redibujado de fondo, o cada vez que se vuelve a la pestaña
-// Dashboard por swipe, la hace "aparecer de golpe" de nuevo, que es el parpadeo
-// que se nota al deslizar entre pestañas.
-let dashEmptyCardAnimated = false;
 let showAuthModal=false, authMode='signin', authError='', authContextNote='', authLoading=false, authEmail='', authPassword='';
 // authMode también puede ser 'join' (alguien sin cuenta todavía que recibió un código
 // de invitación — crea una cuenta liviana con nombre+PIN, sin email) o 'pinlogin'

@@ -580,7 +580,7 @@
   /* SOLO las infinitas (auditoría de parpadeo de pestañas 2026-09-08). Antes
      la regla era `.view-page:not(.active) *` y pausaba TAMBIÉN las animaciones
      de ENTRADA (budgetAlertIn, helpQIn/bycatGrow/msCardIn con fill "both",
-     dash-empty-in, ctaPop…): una animación pausada en su tiempo 0 aplica su
+     ctaPop…): una animación pausada en su tiempo 0 aplica su
      primer keyframe — opacity:0, scaleX(0) — así que esas tarjetas quedaban
      INVISIBLES en la página vecina mientras el dedo la traía, y recién al
      asentarse (cuando .active las destrababa) arrancaban su entrada desde
@@ -588,7 +588,7 @@
      pestaña. Ahora las de entrada corren una sola vez, al crearse el nodo
      (morphdom lo conserva entre renders), y lo único que se pausa fuera de
      vista es lo que gira/late sin fin. */
-  .view-page:not(.active) :is(.scan-fab-ring, .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card .ba-icon, .dash-empty-badge, .spinner, #btn-cloud-sync svg, .cloud-signin-btn.loading svg, .fs-step.now .fs-check, .sk-wrap){animation-play-state:paused;}
+  .view-page:not(.active) :is(.scan-fab-ring, .budget-bar-fill.warn, .budget-bar-fill.crit, .budget-alert-card .ba-icon, .spinner, #btn-cloud-sync svg, .cloud-signin-btn.loading svg, .sk-wrap){animation-play-state:paused;}
   .view-page:not(.active) :is(.cal-day.blink, .inv-tile.cc-due-blink, .budget-alert-card.warn, .budget-alert-card.crit)::after{animation-play-state:paused;}
 
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
@@ -910,7 +910,6 @@
   html[data-dusty-pulse="off"] .nav-alert-dot,
   html[data-dusty-pulse="off"] .nav-alert-dot::after,
   html[data-dusty-pulse="off"] .budget-alert-card.warn::after, html[data-dusty-pulse="off"] .budget-alert-card.crit::after,
-  html[data-dusty-pulse="off"] .fs-step.now .fs-check,
   html[data-dusty-pulse="off"] .stock-row-static.cc-due-blink .stock-row::after,
   html[data-dusty-pulse="off"] .stock-row-static.crit-flash .stock-row::after,
   html[data-dusty-pulse="off"] .inv-tile.cc-due-blink::after,
@@ -1460,10 +1459,6 @@
   .welcome-progress-track{flex:1;height:4px;border-radius:99px;background:var(--bg);overflow:hidden;}
   .welcome-progress-fill{height:100%;width:100%;border-radius:99px;background:var(--basil);transform-origin:left center;transform:scaleX(var(--fill,0));transition:transform .45s cubic-bezier(.32,.72,.25,1);}
   .welcome-progress-pct{font-family:'IBM Plex Mono';font-size:11.5px;font-weight:700;color:var(--basil-ink);min-width:32px;text-align:right;font-variant-numeric:tabular-nums;}
-  /* Corta cualquier animation: de entrada — se usa en redibujados de fondo que NO
-     son un cambio real de pantalla (ver dashEmptyCardAnimated), para que no "parpadeen". */
-  .no-anim{animation:none !important;}
-
   /* ===== AUDITORÍA DE PRIMER MINUTO 2026-09-07 ===== */
 
   /* Píldora del encabezado: etiqueta larga en pantallas normales, corta en
@@ -1476,24 +1471,6 @@
   }
   .cloud-signin-btn.cta-save{animation:ctaPop .55s var(--ease-spring);}
   @keyframes ctaPop{0%{transform:scale(0.8);}60%{transform:scale(1.08);}100%{transform:scale(1);}}
-
-  /* Primeros pasos (tablero vacío): lista de 3 con el primero ya tildado. */
-  .first-steps-card{display:flex;flex-direction:column;}
-  .fs-progress{display:flex;align-items:center;gap:8px;margin:8px 0 12px;}
-  .fs-count{font-family:'IBM Plex Mono';font-size:11px;font-weight:700;color:var(--basil-ink);font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .fs-track{flex:1;height:4px;border-radius:99px;background:var(--bg);overflow:hidden;}
-  .fs-fill{height:100%;width:100%;border-radius:99px;background:var(--basil);transform-origin:left center;transform:scaleX(var(--fill,0));transition:transform .6s var(--ease-soft);}
-  .first-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
-  .fs-step{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--ink);line-height:1.3;}
-  .fs-step[role="button"]{cursor:pointer;border-radius:8px;margin:0 -6px;padding:3px 6px;transition:background .15s ease;}
-  .fs-step[role="button"]:active{background:var(--bg);}
-  .fs-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;color:var(--on-accent);}
-  .fs-step.done .fs-check{background:var(--basil);border-color:var(--basil);animation:fsCheckPop .45s var(--ease-spring);}
-  .fs-step.done .fs-label{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:color-mix(in srgb, var(--ink-soft) 50%, transparent);}
-  .fs-step.now .fs-check{border-color:var(--saffron);box-shadow:0 0 0 0 color-mix(in srgb, var(--saffron) 55%, transparent);animation:fsNowPulse 1.8s ease-out infinite;}
-  .fs-step.now .fs-label{color:var(--ink);}
-  @keyframes fsCheckPop{0%{transform:scale(0.4);}70%{transform:scale(1.2);}100%{transform:scale(1);}}
-  @keyframes fsNowPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--saffron) 55%, transparent);}100%{box-shadow:0 0 0 9px transparent;}}
 
   /* Botones de los estados vacíos (Inventario, Recibos). */
   .empty-state-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px;}
@@ -1530,7 +1507,7 @@
     100%{opacity:0;transform:translateY(105vh) rotate(var(--cf-rot,360deg));}
   }
   @media (prefers-reduced-motion: reduce){
-    .cloud-signin-btn.cta-save, .fs-step.done .fs-check, .fs-step.now .fs-check, .help-q, .help-a, .quick-add-card{animation:none;}
+    .cloud-signin-btn.cta-save, .help-q, .help-a, .quick-add-card{animation:none;}
   }
   .settings-card{background:var(--inset);border-radius:12px;padding:16px;margin-bottom:14px;}
   .settings-card .helper-note{margin-top:8px;}
@@ -1567,38 +1544,6 @@
   @keyframes skPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
   @media (prefers-reduced-motion: reduce){ .sk-wrap{animation:none;} }
   .empty-state .em-icon-badge{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
-
-  /* DASHBOARD — primeros pasos (inventario todavía vacío). Mismo degradé navy→basil
-     que .brand-mark (para que se sienta parte de la misma marca, no un
-     componente aparte) con una respiración suave (dash-empty-breathe) para que la
-     pantalla de "no tenés nada todavía" se sienta viva en vez de un cartel estático.
-     La tarjeta entera entra con dash-empty-in — sutil, una sola vez, no se repite. */
-  .dash-empty-card{background:var(--panel);border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow);padding:36px 24px;margin-bottom:24px;text-align:center;animation:dash-empty-in .55s cubic-bezier(0.16,1,0.3,1);}
-  .dash-empty-badge{
-    width:64px;height:64px;margin:0 auto 16px;border-radius:18px;
-    background:
-      repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px),
-      linear-gradient(145deg,var(--navy-soft),var(--navy) 60%,color-mix(in oklch, var(--navy), black 18%));
-    display:flex;align-items:center;justify-content:center;color:var(--on-accent);
-    box-shadow:0 6px 18px rgba(255,107,53,0.3);
-    animation:dash-empty-breathe 2.6s ease-in-out infinite;
-  }
-  .dash-empty-badge svg{stroke-width:1.6;}
-  .dash-empty-card h3{margin:0 0 6px;font-size:17px;}
-  .dash-empty-card p{margin:0 auto 20px;font-size:13.5px;color:var(--ink-mid);max-width:320px;line-height:1.5;}
-  .dash-empty-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
-  @keyframes dash-empty-breathe{
-    0%,100%{transform:scale(1);}
-    50%{transform:scale(1.08);}
-  }
-  @keyframes dash-empty-in{
-    from{opacity:0;transform:translateY(10px);}
-    to{opacity:1;transform:translateY(0);}
-  }
-  @media (prefers-reduced-motion: reduce){
-    .dash-empty-badge{animation:none;}
-    .dash-empty-card{animation:none;}
-  }
 
   /* RECEIPT SCAN */
   .drop-zone{border:2px dashed color-mix(in srgb, var(--basil) 40%, var(--panel));border-radius:12px;padding:24px;text-align:center;cursor:pointer;background:var(--sky-soft);margin-bottom:16px;transition:transform .12s ease,border-color .15s ease;}
