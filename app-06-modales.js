@@ -141,7 +141,7 @@ function suggestedOrderModal(){
                 <strong>${escapeHtml(g.name)}</strong>
                 <span>${g.target-g.have} ${escapeHtml(unitLabel('unidad'))}</span>
               </div>
-              <div style="font-size:12px;color:var(--ink-soft);">${t('suggested_order_row_note')} ${g.have} ${escapeHtml(unitLabel('unidad'))} ${t('stock_of')} ${g.target} ${escapeHtml(unitLabel('unidad'))}</div>
+              <div style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);">${t('suggested_order_row_note')} ${g.have} ${escapeHtml(unitLabel('unidad'))} ${t('stock_of')} ${g.target} ${escapeHtml(unitLabel('unidad'))}</div>
             </div>`).join('')}
         </div>
       ` : `
@@ -154,7 +154,7 @@ function suggestedOrderModal(){
               <strong>${escapeHtml(r.ing.name)}</strong>
               <span>${need} ${escapeHtml(unitLabel(r.ing.unit))}</span>
             </div>
-            <div style="font-size:12px;color:var(--ink-soft);">${t('suggested_order_row_note')} ${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
+            <div style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);">${t('suggested_order_row_note')} ${escapeHtml(r.ing.qtyOnHand||0)} ${escapeHtml(unitLabel(r.ing.unit))} ${t('stock_of')} ${escapeHtml(r.target)} ${escapeHtml(unitLabel(r.ing.unit))}</div>
           </div>`;
         }).join('')}
       </div>`}
@@ -306,7 +306,7 @@ function receiptDetailModal(){
    un estado vacío sin acción es un callejón sin salida (Inventario decía "agregá
    tu primer producto" y el botón vivía en otra pestaña). */
 function emptyState(iconName,title,sub,compact,actionsHtml){
-  return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:13px;">${sub}</p>`:''}${actionsHtml?`<div class="empty-state-actions">${actionsHtml}</div>`:''}</div>`;
+  return `<div class="empty-state" ${compact?'style="padding:16px 20px 40px;"':''}><div class="em-icon-badge">${lineIcon(iconName,28)}</div><h3 style="margin:0 0 6px;">${title}</h3>${sub?`<p style="margin:0;font-size:calc(13px * var(--fs, 1));">${sub}</p>`:''}${actionsHtml?`<div class="empty-state-actions">${actionsHtml}</div>`:''}</div>`;
 }
 /* Esqueleto de carga por pestaña mientras cloudSyncPending (primer snapshot de
    la nube en camino). Reserva la MISMA forma que el contenido real de cada
@@ -1030,7 +1030,7 @@ function authModal(){
       <div class="modal">
         <h3 class="navy">${t('trial_upgrade_title')}</h3>
         ${authContextNote ? `<div class="helper-note" style="background:var(--navy-wash);color:var(--navy-ink);border-radius:8px;padding:10px 12px;margin-bottom:12px;">${escapeHtml(authContextNote)}</div>` : ''}
-        <p style="font-size:13px;color:var(--ink-soft);">${t('trial_upgrade_sub')}</p>
+        <p style="font-size:calc(13px * var(--fs, 1));color:var(--ink-soft);">${t('trial_upgrade_sub')}</p>
         ${authError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(authError)}</div>` : ''}
         <div class="field"><label>${t('team_pin_name_label')}</label><input id="auth-name" type="text" value="${escapeHtml(authName)}" placeholder="${t('team_pin_name_placeholder')}" autocomplete="name"></div>
         <div class="field"><label>Email</label><input id="auth-email" type="email" value="${escapeHtml(authEmail)}" placeholder="tu@email.com" autocomplete="email"></div>
@@ -1040,7 +1040,7 @@ function authModal(){
           <button class="btn btn-ghost" id="btn-cancel-auth">${t('btn_cancel')}</button>
           <button class="btn btn-primary" id="btn-submit-auth" ${authLoading?'disabled':''}>${authLoading ? t('auth_loading') : t('trial_upgrade_btn')}</button>
         </div>
-        <div style="text-align:center;margin-top:12px;font-size:12.5px;color:var(--ink-soft);">
+        <div style="text-align:center;margin-top:12px;font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);">
           ${t('auth_have_account')} <a href="#" id="btn-switch-signin" style="color:var(--navy-ink);font-weight:600;">${t('btn_login')}</a>
         </div>
       </div>
@@ -1051,7 +1051,7 @@ function authModal(){
     <div class="overlay" id="auth-overlay">
       <div class="modal">
         <h3 class="basil">${authMode==='join' ? t('team_join_title') : t('team_pinlogin_title')}</h3>
-        <p style="font-size:13px;color:var(--ink-soft);">${authMode==='join' ? t('team_join_hint') : t('team_pinlogin_hint')}</p>
+        <p style="font-size:calc(13px * var(--fs, 1));color:var(--ink-soft);">${authMode==='join' ? t('team_join_hint') : t('team_pinlogin_hint')}</p>
         ${authError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(authError)}</div>` : ''}
         <div class="field"><label>${t('team_join_placeholder')}</label><input id="auth-join-code" type="text" value="${escapeHtml(authJoinCode)}" placeholder="${t('team_join_placeholder')}" style="text-transform:uppercase;"></div>
         <div class="field"><label>${t('team_pin_name_label')}</label><input id="auth-name" type="text" value="${escapeHtml(authName)}" placeholder="${t('team_pin_name_placeholder')}" autocomplete="name"></div>
@@ -1061,7 +1061,7 @@ function authModal(){
           <button class="btn btn-ghost" id="btn-cancel-auth">${t('btn_cancel')}</button>
           <button class="btn btn-primary" id="btn-submit-auth" ${authLoading?'disabled':''}>${authLoading ? t('auth_loading') : (authMode==='join' ? t('team_join_btn') : t('btn_login'))}</button>
         </div>
-        <div style="text-align:center;margin-top:12px;font-size:12.5px;color:var(--ink-soft);">
+        <div style="text-align:center;margin-top:12px;font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);">
           <a href="#" id="btn-switch-signin" style="color:var(--navy);font-weight:600;">${t('team_back_to_normal_login')}</a>
         </div>
       </div>
@@ -1076,7 +1076,7 @@ function authModal(){
         <svg viewBox="0 0 48 48" width="18" height="18"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h11.8c-.5 2.7-2.1 5-4.4 6.6v5.4h7.1c4.2-3.9 6.6-9.6 6.6-16.5z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.4c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.6C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.2c-.4-1.3-.7-2.7-.7-4.2s.2-2.9.7-4.2v-5.6H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8z"/><path fill="#EA4335" d="M24 10.7c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C34.9 4.2 30 2 24 2 15.4 2 7.9 6.9 4.3 14.2l7.3 5.6c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>
         ${t('auth_continue_google')}
       </button>
-      <div style="text-align:center;color:var(--ink-soft);font-size:11.5px;margin:12px 0;">${t('auth_or')}</div>
+      <div style="text-align:center;color:var(--ink-soft);font-size:calc(11.5px * var(--fs, 1));margin:12px 0;">${t('auth_or')}</div>
       ${authError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(authError)}</div>` : ''}
       <div class="field"><label>Email</label><input id="auth-email" type="email" value="${escapeHtml(authEmail)}" placeholder="tu@email.com" autocomplete="email"></div>
       <div class="field"><label>${t('auth_password')}</label><input id="auth-password" type="password" value="${escapeHtml(authPassword)}" placeholder="••••••••" autocomplete="${authMode==='signup'?'new-password':'current-password'}"></div>
@@ -1085,12 +1085,12 @@ function authModal(){
         <button class="btn btn-ghost" id="btn-cancel-auth">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-submit-auth" ${authLoading?'disabled':''}>${authLoading ? t('auth_loading') : (authMode==='signup'?t('auth_create_account'):t('btn_login'))}</button>
       </div>
-      <div style="text-align:center;margin-top:12px;font-size:12.5px;color:var(--ink-soft);">
+      <div style="text-align:center;margin-top:12px;font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);">
         ${authMode==='signin'
           ? `${t('auth_no_account')} <a href="#" id="btn-switch-signup" style="color:var(--navy);font-weight:600;">${t('auth_create_account')}</a>`
           : `${t('auth_have_account')} <a href="#" id="btn-switch-signin" style="color:var(--navy);font-weight:600;">${t('btn_login')}</a>`}
       </div>
-      <div style="text-align:center;margin-top:10px;font-size:12.5px;">
+      <div style="text-align:center;margin-top:10px;font-size:calc(12.5px * var(--fs, 1));">
         <a href="#" id="btn-switch-join" style="color:var(--ink-soft);">${t('team_have_code_link')}</a>
         &nbsp;·&nbsp;
         <a href="#" id="btn-switch-pinlogin" style="color:var(--ink-soft);">${t('team_have_pin_link')}</a>
@@ -1127,7 +1127,7 @@ function teamModal(){
       ${joinedOwnerUid ? `
         <div class="settings-card" style="background:var(--basil-soft);">
           ${settingsCardHeader('cloud','var(--basil-soft)','var(--basil-ink)',t('team_title'))}
-          <p style="font-size:13px;color:var(--basil-ink);margin:0;">${t('team_viewing_shared').replace('{email}', escapeHtml(joinedOwnerEmail))}</p>
+          <p style="font-size:calc(13px * var(--fs, 1));color:var(--basil-ink);margin:0;">${t('team_viewing_shared').replace('{email}', escapeHtml(joinedOwnerEmail))}</p>
         </div>
         <button type="button" class="btn btn-ghost" id="btn-leave-team" style="width:100%;" ${teamLoading?'disabled':''}>${t('team_leave_btn')}</button>
       ` : `
@@ -1150,7 +1150,7 @@ function teamModal(){
         <div class="settings-card">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
             <input type="checkbox" id="team-profits-visible" ${profitsVisibleToMembers?'checked':''} style="width:18px;height:18px;accent-color:var(--basil);flex-shrink:0;">
-            <span style="font-size:13.5px;font-weight:600;color:var(--ink);">${t('team_profits_toggle')}</span>
+            <span style="font-size:calc(13.5px * var(--fs, 1));font-weight:600;color:var(--ink);">${t('team_profits_toggle')}</span>
           </label>
           <div class="helper-note" style="margin:8px 0 0;">${t('team_profits_helper')}</div>
         </div>
@@ -1158,19 +1158,19 @@ function teamModal(){
         <div class="settings-card">
           ${settingsCardHeader('clock','var(--navy-wash)','var(--navy)',t('team_members_label'))}
           <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-            <span style="font-size:13px;display:flex;align-items:center;gap:8px;">${teamAvatarBubble(currentUserLabel()||t('team_you_owner_label'),0)}${t('team_you_owner_label')}</span>
-            <span style="font-size:10px;font-weight:700;color:var(--basil-ink);background:var(--basil-soft);padding:2px 8px;border-radius:20px;">${t('presence_active_now')}</span>
+            <span style="font-size:calc(13px * var(--fs, 1));display:flex;align-items:center;gap:8px;">${teamAvatarBubble(currentUserLabel()||t('team_you_owner_label'),0)}${t('team_you_owner_label')}</span>
+            <span style="font-size:calc(10px * var(--fs, 1));font-weight:700;color:var(--basil-ink);background:var(--basil-soft);padding:2px 8px;border-radius:20px;">${t('presence_active_now')}</span>
           </div>
           ${teamMembers.map((m,idx)=>`
             <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);gap:8px;">
-              <span style="font-size:13px;display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
+              <span style="font-size:calc(13px * var(--fs, 1));display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
                 ${teamAvatarBubble(m.email||m.id, idx+1)}
                 <span style="overflow-wrap:anywhere;">${escapeHtml(m.email||m.id)}</span>
               </span>
               <span style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                 ${isRecentlyActive(m.lastActive)
-                  ? `<span style="font-size:10px;font-weight:700;color:var(--basil-ink);background:var(--basil-soft);padding:2px 8px;border-radius:20px;">${t('presence_active_now')}</span>`
-                  : `<span style="font-size:11px;color:var(--ink-soft);">${m.lastActive ? t('presence_last_seen').replace('{when}', timeAgo(m.lastActive)) : t('presence_never')}</span>`}
+                  ? `<span style="font-size:calc(10px * var(--fs, 1));font-weight:700;color:var(--basil-ink);background:var(--basil-soft);padding:2px 8px;border-radius:20px;">${t('presence_active_now')}</span>`
+                  : `<span style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);">${m.lastActive ? t('presence_last_seen').replace('{when}', timeAgo(m.lastActive)) : t('presence_never')}</span>`}
                 <button type="button" class="link-btn" data-remove-member="${escapeHtml(m.id)}" style="padding:0;color:var(--tomato);">${t('team_remove_btn')}</button>
               </span>
             </div>
@@ -1644,7 +1644,7 @@ function manualSpendModal(){
       </div>
       <div class="field"><label for="ms-amount">${t('manual_spend_amount')}</label>
         <input id="ms-amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
-        ${manualSpendError ? `<div style="font-size:12px;color:var(--tomato);margin-top:4px;">${t('manual_spend_err')}</div>` : ''}
+        ${manualSpendError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${t('manual_spend_err')}</div>` : ''}
       </div>
       <div class="field"><label for="ms-desc">${t('manual_spend_desc')}</label>
         <input id="ms-desc" type="text" maxlength="60" placeholder="${t('manual_spend_ph')}"></div>
@@ -1847,7 +1847,7 @@ function itemModal(){
           <div>
             <button type="button" class="btn btn-ghost btn-sm" id="btn-upload-item-photo">${t('btn_upload_photo')}</button>
             ${itemPhotoSrc(draftItem) ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-remove-item-photo" style="margin-left:6px;">${t('btn_remove_photo')}</button>` : ''}
-            <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">${t('item_photo_helper')}</div>
+            <div style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);margin-top:4px;">${t('item_photo_helper')}</div>
           </div>
           <input type="file" id="item-photo-file" accept="image/*" style="display:none;">
         </div>
@@ -1886,7 +1886,7 @@ function itemModal(){
         ${!editingItem ? `
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:4px;">
           <input type="checkbox" id="fi-register-payment" checked style="width:18px;height:18px;accent-color:var(--basil);flex-shrink:0;">
-          <span style="font-size:13px;font-weight:600;color:var(--ink);">${t('expense_register_payment')}</span>
+          <span style="font-size:calc(13px * var(--fs, 1));font-weight:600;color:var(--ink);">${t('expense_register_payment')}</span>
         </label>
         <div class="helper-note" style="margin:0 0 8px;">${t('expense_register_payment_hint')}</div>
         ` : ''}
@@ -1943,7 +1943,7 @@ function itemModal(){
               const margin = profitMarginPct(draftItem.costPerUnit, draftItem.salePrice);
               const display = margin===null ? '—' : `${margin.toFixed(0)}%`;
               const color = margin===null ? 'var(--ink-soft)' : margin<0 ? 'var(--money-neg)' : margin<15 ? 'var(--money-warn)' : 'var(--money-pos)';
-              return `<div id="fi-profit-display" role="status" aria-labelledby="fi-profit-label" style="padding:9px 11px;font-size:14px;font-weight:700;color:${color};">${display}</div>`;
+              return `<div id="fi-profit-display" role="status" aria-labelledby="fi-profit-label" style="padding:9px 11px;font-size:calc(14px * var(--fs, 1));font-weight:700;color:${color};">${display}</div>`;
             })()}
           </div>
         </div>` : ''}
@@ -2219,7 +2219,7 @@ function categoriesModal(){
   return `
   <div class="overlay" id="categories-overlay">
     <div class="modal wide">
-      <h3 class="navy" style="font-size:21px;">${t('categories_title')}</h3>
+      <h3 class="navy" style="font-size:calc(21px * var(--fs, 1));">${t('categories_title')}</h3>
       <div class="sub">${t('categories_sub')}</div>
       <div class="category-edit-list" style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
         ${draftCategories.map((c,idx)=>{
@@ -2234,7 +2234,7 @@ function categoriesModal(){
         }).join('')}
         ${draftCategories.length===0 ? `<div class="helper-note" style="margin:0;">${t('categories_empty')}</div>` : ''}
         <div class="category-edit-row add-row">
-          <div class="cat-bubble" style="background:var(--navy-wash);color:var(--navy);font-size:22px;">+</div>
+          <div class="cat-bubble" style="background:var(--navy-wash);color:var(--navy);font-size:calc(22px * var(--fs, 1));">+</div>
           <input type="text" id="new-category-name" placeholder="${t('categories_new_placeholder')}">
           <button type="button" class="btn btn-primary btn-sm" id="btn-add-category">${t('categories_add_btn')}</button>
         </div>
@@ -2365,7 +2365,7 @@ function scanModal(){
         ${/* Intro única: la caja abre la cámara directo; la galería, por el link. */''}
         <div class="drop-zone" id="drop-zone">
           <div class="dz-icon">${lineIcon('camera',26)}</div>
-          <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
+          <div style="font-weight:600;font-size:calc(13.5px * var(--fs, 1));">${t('scan_tap_photo')}</div>
         </div>
         <button type="button" id="btn-scan-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
         <div class="scan-tip">📷 ${t('scan_tip_frame')}</div>
@@ -2383,8 +2383,8 @@ function scanModal(){
               <img src="data:${img.mediaType};base64,${img.base64}" alt="" style="width:92px;height:92px;object-fit:cover;border-radius:8px;border:1px solid ${warning?'var(--saffron)':'var(--line)'};display:block;">
               <button data-remove-scan-page="${idx}" title="${t('btn_remove_photo')}" style="position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--tomato);color:var(--on-accent);border:none;font-size:12px;line-height:1;cursor:pointer;">✕</button>
               ${warning ? `<div style="position:absolute;bottom:3px;left:3px;background:var(--saffron);color:var(--on-accent);font-size:12px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;" title="${t('scan_quality_'+warning)}">!</div>` : ''}
-              <div style="text-align:center;font-size:10.5px;color:var(--ink-soft);margin-top:3px;">${t('scan_page')} ${idx+1}</div>
-              ${warning ? `<div style="text-align:center;font-size:9.5px;color:var(--saffron-ink);max-width:92px;">${t('scan_quality_'+warning)}</div>` : ''}
+              <div style="text-align:center;font-size:calc(10.5px * var(--fs, 1));color:var(--ink-soft);margin-top:3px;">${t('scan_page')} ${idx+1}</div>
+              ${warning ? `<div style="text-align:center;font-size:calc(9.5px * var(--fs, 1));color:var(--saffron-ink);max-width:92px;">${t('scan_quality_'+warning)}</div>` : ''}
             </div>
           `;
           }).join('')}
@@ -2399,7 +2399,7 @@ function scanModal(){
           <button class="btn btn-ghost btn-sm" id="btn-add-scan-page">+ ${t(scanBatchMode?'scan_add_receipt':'scan_add_page')}</button>
           <button class="btn btn-primary btn-sm" id="btn-process-scan">${t('scan_read_btn')}</button>
         </div>
-        <button type="button" id="btn-add-scan-gallery" class="dz-gallery-link" style="margin:0 0 14px;font-size:11.5px;">${t('scan_add_gallery_btn')}</button>
+        <button type="button" id="btn-add-scan-gallery" class="dz-gallery-link" style="margin:0 0 14px;font-size:calc(11.5px * var(--fs, 1));">${t('scan_add_gallery_btn')}</button>
       ` : ''}
 
       ${scanState==='loading' ? (()=>{
@@ -2449,7 +2449,7 @@ function scanModal(){
           ⚠ ${uiLang==='en'
             ? `A receipt from <strong>${escapeHtml(scanDuplicateOf.supplier)||'this supplier'}</strong> already exists on ${escapeHtml(scanDuplicateOf.date)} for a similar total (${money(scanDuplicateOf.total)}). This could be the same receipt scanned twice.`
             : `Ya existe un recibo de <strong>${escapeHtml(scanDuplicateOf.supplier)||'este proveedor'}</strong> el ${escapeHtml(scanDuplicateOf.date)} por un total similar (${money(scanDuplicateOf.total)}). Podría ser el mismo recibo escaneado dos veces.`}
-          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:600;font-size:12.5px;cursor:pointer;">
+          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:600;font-size:calc(12.5px * var(--fs, 1));cursor:pointer;">
             <input type="checkbox" id="scan-dup-confirm" ${scanDuplicateConfirmed?'checked':''}> ${t('scan_dup_confirm_label')}
           </label>
         </div>` : ''}
@@ -2490,7 +2490,7 @@ function scanModal(){
           return `<div class="scan-error" style="background:var(--tomato-soft);color:var(--tomato-ink);">▲ ${sentence}</div>`;
         })()}
 
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:6px 0 8px;">${t('lbl_detected_products')}</label>
+        <label style="display:block;font-size:calc(12px * var(--fs, 1));font-weight:600;color:var(--ink-soft);margin:6px 0 8px;">${t('lbl_detected_products')}</label>
         ${scanExtracted.map((item,idx)=>{
           const matchedIng = inventory.find(i=>i.id===item.matchedIngId);
           const isUnrecognized = item.matchedIngId==='__new__';
@@ -2508,7 +2508,7 @@ function scanModal(){
               const sentence = uiLang==='en'
                 ? `Unit changed vs. your inventory (was ${escapeHtml(unitLabel(matchedIng.unit))}, this receipt says ${escapeHtml(unitLabel(item.unit))}) — price can't be compared directly. Cost per unit and quantity on hand will reset to the new unit when you confirm.`
                 : `Cambió de unidad vs. tu inventario (antes ${escapeHtml(unitLabel(matchedIng.unit))}, este recibo dice ${escapeHtml(unitLabel(item.unit))}) — el precio no se puede comparar directamente. El costo por unidad y la cantidad en stock se reinician a la unidad nueva al confirmar.`;
-              priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--ink-soft);background:var(--bg);padding:6px 8px;border-radius:6px;margin-top:8px;">⚠ ${sentence}</div>`;
+              priceAlert = `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--ink-soft);background:var(--bg);padding:6px 8px;border-radius:6px;margin-top:8px;">⚠ ${sentence}</div>`;
             } else {
             const newUnitCost = item.totalPrice/item.qty;
             const diffPct = matchedIng.costPerUnit>0 ? ((newUnitCost-matchedIng.costPerUnit)/matchedIng.costPerUnit)*100 : 0;
@@ -2518,12 +2518,12 @@ function scanModal(){
               const sentence = uiLang==='en'
                 ? `Supplier price went up ${diffPct.toFixed(0)}% vs. your average cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirm the reading is correct':''}`
                 : `Precio de proveedor subió ${diffPct.toFixed(0)}% vs. tu costo promedio (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})${strong?' — confirma que la lectura sea correcta':''}`;
-              priceAlert = `<div style="font-size:11px;font-weight:700;color:${strong?'var(--money-neg-ink)':'var(--money-warn-ink)'};background:${strong?'var(--money-neg-soft)':'var(--money-warn-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">▲ ${sentence}</div>`;
+              priceAlert = `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:${strong?'var(--money-neg-ink)':'var(--money-warn-ink)'};background:${strong?'var(--money-neg-soft)':'var(--money-warn-soft)'};padding:6px 8px;border-radius:6px;margin-top:8px;">▲ ${sentence}</div>`;
             } else if(diffPct<-0.5){
               const sentence = uiLang==='en'
                 ? `Price went down ${Math.abs(diffPct).toFixed(0)}% vs. your average cost (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`
                 : `Precio bajó ${Math.abs(diffPct).toFixed(0)}% vs. tu costo promedio (${money(matchedIng.costPerUnit)}/${escapeHtml(unitLabel(matchedIng.unit))} → ${money(newUnitCost)}/${escapeHtml(unitLabel(matchedIng.unit))})`;
-              priceAlert = `<div style="font-size:11px;font-weight:700;color:var(--money-pos);background:var(--money-pos-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">▼ ${sentence}</div>`;
+              priceAlert = `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--money-pos);background:var(--money-pos-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">▼ ${sentence}</div>`;
             }
             }
           }
@@ -2540,11 +2540,11 @@ function scanModal(){
                 const sentence = uiLang==='en'
                   ? `Unusual quantity: ${item.qty} ${escapeHtml(unitLabel(item.unit))} vs. your usual ~${avgQty.toFixed(1)} ${escapeHtml(unitLabel(item.unit))} — double check the reading`
                   : `Cantidad fuera de lo común: ${item.qty} ${escapeHtml(unitLabel(item.unit))} vs. tu promedio habitual de ~${avgQty.toFixed(1)} ${escapeHtml(unitLabel(item.unit))} — revisá que la lectura sea correcta`;
-                qtyAlert = `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">⚠ ${sentence}</div>`;
+                qtyAlert = `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:6px 8px;border-radius:6px;margin-top:8px;">⚠ ${sentence}</div>`;
               }
             }
           }
-          const mergedNote = item.mergedCount>1 ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:6px;">ℹ ${uiLang==='en' ? `Combined with ${item.mergedCount-1} similar line(s) from this same receipt` : `Combinado con ${item.mergedCount-1} línea(s) similares del mismo recibo`}</div>` : '';
+          const mergedNote = item.mergedCount>1 ? `<div style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);margin-top:6px;">ℹ ${uiLang==='en' ? `Combined with ${item.mergedCount-1} similar line(s) from this same receipt` : `Combinado con ${item.mergedCount-1} línea(s) similares del mismo recibo`}</div>` : '';
           const confBorder = item.confidence==='baja' ? '1.5px solid var(--saffron)' : item.confidence==='media' ? '1.5px solid var(--sky)' : '1px solid var(--line)';
           // Bolita de color junto al nombre — mismo lenguaje visual que el resto de la
           // app (ícono en círculo de color): ámbar = todavía no existe en tu inventario,
@@ -2575,13 +2575,13 @@ function scanModal(){
           <div class="matched-item" style="${isUnrecognized?'border-color:color-mix(in srgb, var(--saffron) 40%, var(--panel));background:var(--saffron-soft);':''}">
             <div class="mi-top">
               ${miIcon}
-              <input data-scan-name="${idx}" type="text" value="${escapeHtml(item.rawName)}" placeholder="${t('ph_product_name')}" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:13px;padding:2px 0;">
+              <input data-scan-name="${idx}" type="text" value="${escapeHtml(item.rawName)}" placeholder="${t('ph_product_name')}" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:calc(13px * var(--fs, 1));padding:2px 0;">
               <span style="display:flex;align-items:center;gap:8px;">
                 ${money(item.totalPrice)}
                 <button class="remove-x" data-remove-scan-item="${idx}" title="${t('title_remove_product')}">✕</button>
               </span>
             </div>
-            ${isUnrecognized ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('scan_unrecognized')}</div>` : ''}
+            ${isUnrecognized ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('scan_unrecognized')}</div>` : ''}
             ${(()=>{
               // Dos decisiones explícitas (pedido del usuario): "ya está en mi
               // inventario" confirma el match y calla la alerta; "producto nuevo"
@@ -2590,14 +2590,14 @@ function scanModal(){
               if(!item.fuzzySuggestedId || item.matchedIngId!==item.fuzzySuggestedId || item.fuzzyConfirmed) return '';
               const m = inventory.find(ing=>ing.id===item.fuzzySuggestedId);
               if(!m) return '';
-              return `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:7px 8px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_similar_note').replace('{name}', escapeHtml(m.name))}
+              return `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:7px 8px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_similar_note').replace('{name}', escapeHtml(m.name))}
                 <div style="display:flex;gap:6px;margin-top:6px;">
-                  <button type="button" class="btn btn-ghost btn-sm" data-scan-confirm-match="${idx}" style="flex:1;font-size:11px;padding:6px 4px;">${t('scan_opt_existing')}</button>
-                  <button type="button" class="btn btn-ghost btn-sm" data-scan-make-new="${idx}" style="flex:1;font-size:11px;padding:6px 4px;">${t('scan_opt_new')}</button>
+                  <button type="button" class="btn btn-ghost btn-sm" data-scan-confirm-match="${idx}" style="flex:1;font-size:calc(11px * var(--fs, 1));padding:6px 4px;">${t('scan_opt_existing')}</button>
+                  <button type="button" class="btn btn-ghost btn-sm" data-scan-make-new="${idx}" style="flex:1;font-size:calc(11px * var(--fs, 1));padding:6px 4px;">${t('scan_opt_new')}</button>
                 </div></div>`;
             })()}
-            ${item.confidence==='baja' ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
-            ${item.confidence==='media' ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${t('scan_qty_review')}</div>` : ''}
+            ${item.confidence==='baja' ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('scan_qty_unverified')}</div>` : ''}
+            ${item.confidence==='media' ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${t('scan_qty_review')}</div>` : ''}
             ${/* Etiquetas cortas encima de cada campo: en el teléfono se apilaban como "5 / lb / 12.5" sin decir qué eran. */''}
             <div class="mi-fields mi-fields-labeled">
               <div class="mi-f mi-f-wide"><span class="mi-lbl">${t('scan_lbl_match')}</span>
@@ -2624,13 +2624,13 @@ function scanModal(){
               if(catList.length===0 && !pendingNew) return '';
               return `
             <div class="field" style="margin-top:8px;">
-              <label style="font-size:10.5px;">${t('lbl_category')}</label>
+              <label style="font-size:calc(10.5px * var(--fs, 1));">${t('lbl_category')}</label>
               <select data-scan-category="${idx}">
                 <option value="">${t('category_none_option')}</option>
                 ${pendingNew ? `<option value="${escapeHtml(pendingNew)}" selected>＋ ${escapeHtml(pendingNew.slice('__newcat__:'.length))} (${t('category_new_tag')})</option>` : ''}
                 ${catList.map(c=>`<option value="${c.id}" ${item.suggestedCategoryId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
               </select>
-              ${!item.suggestedCategoryId && !item.categoryTouched ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
+              ${!item.suggestedCategoryId && !item.categoryTouched ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
             </div>`;
             })()}
             ${priceAlert}
@@ -2639,7 +2639,7 @@ function scanModal(){
             ${!attention ? `<button type="button" class="mi-collapse-btn" data-scan-collapse="${idx}">${t('scan_row_collapse')}</button>` : ''}
           </div>`;
         }).join('')}
-        ${scanExtracted.length===0 ? `<div style="font-size:12.5px;color:var(--ink-soft);padding:10px 2px;">${t('scan_no_products_left')}</div>` : ''}
+        ${scanExtracted.length===0 ? `<div style="font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);padding:10px 2px;">${t('scan_no_products_left')}</div>` : ''}
         <button class="btn btn-ghost btn-sm" id="btn-add-scan-item" style="margin-top:4px;">${t('btn_add_product_manually')}</button>
         ${scanPayReminderHtml()}
       ` : ''}
@@ -3006,7 +3006,7 @@ function productBatchModal(){
         ${/* Misma caja que Recibos (intro única): la cámara directo; galería por el link. */''}
         <div class="drop-zone" id="pb-drop-zone">
           <div class="dz-icon">${lineIcon('camera',26)}</div>
-          <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
+          <div style="font-weight:600;font-size:calc(13.5px * var(--fs, 1));">${t('scan_tap_photo')}</div>
         </div>
         <button type="button" id="btn-pb-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
         <div class="scan-tip">📷 ${t('pb_tip')}</div>
@@ -3027,7 +3027,7 @@ function productBatchModal(){
             ${matchedItem.photo ? `<img src="${escapeHtml(itemPhotoSrc(matchedItem))}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : `<span class="mi-icon" style="background:var(--basil);">${lineIcon('box',12)}</span>`}
             <strong style="flex:1;">${escapeHtml(matchedItem.name)}</strong>
           </div>
-          <div style="font-size:12.5px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;">
+          <div style="font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;">
             <span>${t('ids_stock')}: <strong style="color:var(--ink);">${matchedItem.qtyOnHand||0} ${escapeHtml(unitLabel(matchedItem.unit))}</strong></span>
             <span>${t('ids_cost')}: <strong style="color:var(--ink);">${money(matchedItem.costPerUnit)}</strong></span>
           </div>
@@ -3035,7 +3035,7 @@ function productBatchModal(){
       ` : ''}
 
       ${pbState==='review' ? `
-        <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('pb_review_hint').replace('{n}', pbItems.length)}</div>
+        <div style="font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);margin-bottom:10px;">${t('pb_review_hint').replace('{n}', pbItems.length)}</div>
         ${pbItems.map((it,idx)=>{
           const thumb = it.photo ? `<img src="data:${it.photo.mediaType};base64,${it.photo.base64}" alt="" style="width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
                                  : `<span class="mi-icon" style="background:var(--sky);">${lineIcon('box',12)}</span>`;
@@ -3044,10 +3044,10 @@ function productBatchModal(){
             <div class="mi-top">
               <input data-pb-selected="${idx}" type="checkbox" ${it.selected?'checked':''} style="width:18px;height:18px;flex-shrink:0;accent-color:var(--navy);">
               ${thumb}
-              <input data-pb-name="${idx}" type="text" value="${escapeHtml(it.name)}" placeholder="${t('ph_product_name')}" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:13px;padding:2px 0;min-width:0;">
+              <input data-pb-name="${idx}" type="text" value="${escapeHtml(it.name)}" placeholder="${t('ph_product_name')}" style="flex:1;border:none;background:transparent;font-weight:700;color:var(--ink);font-size:calc(13px * var(--fs, 1));padding:2px 0;min-width:0;">
             </div>
-            ${it.dupOfId ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('pb_already_in_inventory')}</div>` : ''}
-            ${it.confidence==='baja' && !it.dupOfId ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('pb_low_confidence')}</div>` : ''}
+            ${it.dupOfId ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);margin-bottom:8px;">⚠ ${t('pb_already_in_inventory')}</div>` : ''}
+            ${it.confidence==='baja' && !it.dupOfId ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ ${t('pb_low_confidence')}</div>` : ''}
             <div class="mi-fields">
               <select data-pb-unit="${idx}" style="flex:1;" title="${t('lbl_unit')}">${['lb','kg','oz','g','ml','l','unidad','caja','servicio'].map(u=>`<option value="${u}" ${it.unit===u?'selected':''}>${unitLabel(u)}</option>`).join('')}</select>
               <input data-pb-qty="${idx}" type="number" min="0" step="any" inputmode="decimal" value="${escapeHtml(it.qty)}" style="flex:1;" placeholder="${t('ph_qty_short')}" title="${t('lbl_stock')}">
@@ -3062,8 +3062,8 @@ function productBatchModal(){
             ${/* Crear la categoría acá mismo (pedido del usuario: "no me permite
                  añadir una categoría" en esta pantalla) — mismo patrón que la
                  ficha: elegir "crear" muestra este campo; Enter/blur la aplica. */''}
-            <input data-pb-newcat="${idx}" type="text" maxlength="30" placeholder="${t('category_create_ph')}" style="display:none;margin-top:8px;width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;background:var(--inset);color:var(--ink);">
-            ${categories.length>0 && !it.categoryId && !it.categoryTouched && !it.dupOfId && it.selected ? `<div style="font-size:11px;font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:8px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
+            <input data-pb-newcat="${idx}" type="text" maxlength="30" placeholder="${t('category_create_ph')}" style="display:none;margin-top:8px;width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:7px;font-size:calc(12.5px * var(--fs, 1));background:var(--inset);color:var(--ink);">
+            ${categories.length>0 && !it.categoryId && !it.categoryTouched && !it.dupOfId && it.selected ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--sky-ink);background:var(--sky-soft);padding:5px 8px;border-radius:6px;margin-top:8px;">ℹ ${t('scan_category_unsure')}</div>` : ''}
           </div>`;
         }).join('')}
         <button type="button" class="btn btn-ghost btn-sm" id="btn-pb-add-row" style="margin-top:4px;">${t('pb_add_row')}</button>
@@ -4089,9 +4089,9 @@ function printReceiptHtml(r){
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(r.supplier)||t('no_supplier_name')}</title>
     <style>
       body{font-family:-apple-system,sans-serif;padding:24px;color:#1C1C1E;max-width:480px;margin:0 auto;}
-      h2{margin:0 0 4px;} .meta{color:#5F6368;font-size:13px;margin-bottom:16px;}
+      h2{margin:0 0 4px;} .meta{color:#5F6368;font-size:calc(13px * var(--fs, 1));margin-bottom:16px;}
       img{max-width:100%;border-radius:8px;margin-bottom:16px;display:block;}
-      table{width:100%;border-collapse:collapse;} th,td{text-align:left;padding:6px 4px;border-bottom:1px solid #ddd;font-size:13px;}
+      table{width:100%;border-collapse:collapse;} th,td{text-align:left;padding:6px 4px;border-bottom:1px solid #ddd;font-size:calc(13px * var(--fs, 1));}
       tfoot td{font-weight:700;border-bottom:none;padding-top:10px;}
     </style></head><body>
     <h2>${escapeHtml(r.supplier)||t('no_supplier_name')}</h2>

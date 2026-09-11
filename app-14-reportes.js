@@ -397,7 +397,7 @@ function reportBuilderModal(){
   const list = rbReceipts();
   const total = list.reduce((s, r)=> s + (r.total || 0), 0);
   const suppliers = [...new Set(receipts.map(r=> (r.supplier || '').trim()).filter(Boolean))].sort((a, b)=> a.localeCompare(b));
-  const chip = (k, label)=>`<button type="button" class="exit-reason-chip ${rbQuick === k ? 'on' : ''}" data-rb-quick="${k}" style="font-size:13px;padding:8px 13px;">${label}</button>`;
+  const chip = (k, label)=>`<button type="button" class="exit-reason-chip ${rbQuick === k ? 'on' : ''}" data-rb-quick="${k}" style="font-size:calc(13px * var(--fs, 1));padding:8px 13px;">${label}</button>`;
   return `
   <div class="overlay overlay-fast" id="report-builder-overlay">
     <div class="modal">
@@ -414,7 +414,7 @@ function reportBuilderModal(){
       <div class="field" style="margin-top:12px;"><label>${t('rb_supplier')}</label>
         <select id="rb-supplier"><option value="">${t('rb_supplier_all')}</option>${suppliers.map(s=>`<option value="${escapeHtml(s)}" ${rbSupplier === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}</select>
       </div>` : ''}
-      <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13.5px;font-weight:600;cursor:pointer;">
+      <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:calc(13.5px * var(--fs, 1));font-weight:600;cursor:pointer;">
         <input type="checkbox" id="rb-detail" ${rbDetail ? 'checked' : ''} style="width:18px;height:18px;"> ${t('rb_detail')}
       </label>
       <div class="helper-note" style="margin:14px 0 0;font-weight:700;color:${list.length ? 'var(--ink)' : 'var(--ink-soft)'};">${list.length ? t('rb_count').replace('{n}', list.length).replace('{total}', money(total)) : t('rb_empty')}</div>

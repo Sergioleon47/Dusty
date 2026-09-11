@@ -344,7 +344,7 @@ function produccionView(){
     return `<div class="empty-state" style="padding:16px 20px 0;">
       <div class="inv-tools" style="margin:0 0 14px;">${shelfScanFab('prod', true)}</div>
       <h3 style="margin:0 0 6px;">${t('prod_empty_title')}</h3>
-      <p style="margin:0;font-size:13px;">${t('prod_empty_sub')}</p>
+      <p style="margin:0;font-size:calc(13px * var(--fs, 1));">${t('prod_empty_sub')}</p>
     </div>
     <div class="prod-empty-bar">${barra}</div>
     <div class="empty-state" style="padding:0 20px 40px;">
@@ -634,7 +634,7 @@ function finishedItemModal(){
       </div>`}
 
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px;">
-        <label style="font-size:12px;font-weight:600;color:var(--ink-soft);">${finishedEditMode ? t('bom_edit_title') : t('bom_title')}</label>
+        <label style="font-size:calc(12px * var(--fs, 1));font-weight:600;color:var(--ink-soft);">${finishedEditMode ? t('bom_edit_title') : t('bom_title')}</label>
         <button type="button" class="link-btn" id="btn-fi-edit-bom" style="padding:4px 2px;">${finishedEditMode ? '✓ '+t('inv_select_done') : t('bom_edit_btn')}</button>
       </div>
       ${/* EN MODO EDICIÓN el multiplicador se esconde y las cantidades vuelven a
@@ -669,7 +669,7 @@ function finishedItemModal(){
       ${ver && venta>0 ? `<div class="helper-note" style="margin:10px 0 0;">${t('bom_sale_line')
           .replace('{sale}', money(roundQty(venta*n)))
           .replace('{profit}', money(roundQty(venta*n - total)))}</div>` : ''}
-      ${falta ? `<div style="font-size:11.5px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:7px 10px;border-radius:8px;margin-top:10px;">⚠ ${t('bom_short_note')}</div>` : ''}
+      ${falta ? `<div style="font-size:calc(11.5px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:7px 10px;border-radius:8px;margin-top:10px;">⚠ ${t('bom_short_note')}</div>` : ''}
 
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-close-finished-item">${t('btn_close')}</button>
@@ -826,8 +826,8 @@ function recipeModal(){
         ${draftRecipe.components.filter(c=>c.ingId).length>0
           ? `<div class="helper-note" style="margin:8px 0 0;">${t('move_prod_kept')}</div>` : ''}
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
-          <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('recipe_cost_line')}</span>
-          <span id="recipe-cost-display" style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--money-pos);">${money(cost.total)}</span>
+          <span style="font-size:calc(13px * var(--fs, 1));font-weight:700;color:var(--ink);">${t('recipe_cost_line')}</span>
+          <span id="recipe-cost-display" style="font-family:'IBM Plex Mono';font-weight:700;font-size:calc(16px * var(--fs, 1));color:var(--money-pos);">${money(cost.total)}</span>
         </div>
         ${cost.missing>0 ? `<div class="helper-note" style="margin:8px 0 0;color:var(--saffron-ink);">⚠ ${t('recipe_cost_missing').replace('{n}', cost.missing)}</div>` : ''}
         ${/* Precio de venta por pieza (opcional): la ÚNICA forma honesta de que el
@@ -998,7 +998,7 @@ function produceModal(){
         <div class="stock-icon-ring" style="width:44px;height:44px;flex-shrink:0;">
           ${photo ? `<img src="${escapeHtml(photo)}" alt="">` : lineIcon('tag',18)}
         </div>
-        <strong style="flex:1;font-size:15px;">${escapeHtml(rec.name)}</strong>
+        <strong style="flex:1;font-size:calc(15px * var(--fs, 1));">${escapeHtml(rec.name)}</strong>
       </div>
 
       <div class="field" style="margin-bottom:16px;">
@@ -1010,23 +1010,23 @@ function produceModal(){
         </div>
       </div>
 
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 0 8px;">${t('produce_deduct_header')}</label>
+      <label style="display:block;font-size:calc(12px * var(--fs, 1));font-weight:600;color:var(--ink-soft);margin:0 0 8px;">${t('produce_deduct_header')}</label>
       ${plan.map(p=>{
-        if(p.missing) return `<div class="matched-item" style="cursor:default;opacity:.7;"><div class="mi-top"><strong style="flex:1;">?</strong></div><div style="font-size:11px;font-weight:700;color:var(--tomato-ink);">⚠ ${t('produce_missing_note')}</div></div>`;
+        if(p.missing) return `<div class="matched-item" style="cursor:default;opacity:.7;"><div class="mi-top"><strong style="flex:1;">?</strong></div><div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--tomato-ink);">⚠ ${t('produce_missing_note')}</div></div>`;
         return `
         <div class="matched-item" style="cursor:default;">
           <div class="mi-top">
             <strong style="flex:1;">${escapeHtml(p.name)}</strong>
-            <span style="font-family:'IBM Plex Mono';font-size:12.5px;color:var(--ink-soft);white-space:nowrap;">${escapeHtml(p.current)} → <strong style="color:var(--ink);">${escapeHtml(p.after)}</strong> ${escapeHtml(unitLabel(p.unit))}</span>
+            <span style="font-family:'IBM Plex Mono';font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);white-space:nowrap;">${escapeHtml(p.current)} → <strong style="color:var(--ink);">${escapeHtml(p.after)}</strong> ${escapeHtml(unitLabel(p.unit))}</span>
           </div>
-          <div style="font-size:12px;color:var(--ink-soft);">−${escapeHtml(p.deduct)} ${escapeHtml(unitLabel(p.unit))}</div>
-          ${p.short>0 ? `<div style="font-size:11px;font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">⚠ ${t('produce_short_note').replace('{n}', p.short).replace('{u}', escapeHtml(unitLabel(p.unit)))}</div>` : ''}
+          <div style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);">−${escapeHtml(p.deduct)} ${escapeHtml(unitLabel(p.unit))}</div>
+          ${p.short>0 ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">⚠ ${t('produce_short_note').replace('{n}', p.short).replace('{u}', escapeHtml(unitLabel(p.unit)))}</div>` : ''}
         </div>`;
       }).join('')}
 
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;">
-        <span style="font-size:13px;font-weight:700;color:var(--ink);">${t('produce_batch_cost')}</span>
-        <span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--money-pos);">${money(batchCost)}</span>
+        <span style="font-size:calc(13px * var(--fs, 1));font-weight:700;color:var(--ink);">${t('produce_batch_cost')}</span>
+        <span style="font-family:'IBM Plex Mono';font-weight:700;font-size:calc(16px * var(--fs, 1));color:var(--money-pos);">${money(batchCost)}</span>
       </div>
 
       ${(()=>{
@@ -1042,7 +1042,7 @@ function produceModal(){
         <input id="produce-price-input" type="number" inputmode="decimal" min="0" step="0.01" value="${escapeHtml(produceSalePrice)}" placeholder="0.00">
         ${unitSale>0
           ? `<div class="helper-note" style="margin:6px 0 0;">${t('produce_income_line').replace('{amount}', money(roundQty(count*unitSale)))}</div>`
-          : `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('produce_no_price_note')}</div>`}
+          : `<div style="font-size:calc(11px * var(--fs, 1));font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('produce_no_price_note')}</div>`}
       </div>`;
       })()}
 
@@ -1129,12 +1129,12 @@ function outflowsModal(){
             <strong style="flex:1;">${o.type==='production'
               ? `${t('outflow_production')} — ${escapeHtml(o.count)} × "${escapeHtml(o.recipeName)}"`
               : t('outflow_adjust')}</strong>
-            <span style="font-size:11px;color:var(--ink-soft);white-space:nowrap;">${timeAgo(o.createdAt)}</span>
+            <span style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);white-space:nowrap;">${timeAgo(o.createdAt)}</span>
           </div>
-          <div style="font-size:12px;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 12px;">
+          <div style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 12px;">
             ${(o.items||[]).map(it=>`<span style="white-space:nowrap;">${it.qty>=0?'−':'+'}${escapeHtml(Math.abs(it.qty))} ${escapeHtml(unitLabel(it.unit))} ${escapeHtml(it.ingName)}</span>`).join('')}
           </div>
-          ${o.byLabel ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">${escapeHtml(o.byLabel)}</div>` : ''}
+          ${o.byLabel ? `<div style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);margin-top:4px;">${escapeHtml(o.byLabel)}</div>` : ''}
         </div>
       `).join('')}
       <div class="modal-actions">
@@ -1300,14 +1300,14 @@ function shelfConfidencePill(conf){
     baja:  {bg:'var(--saffron-soft)', fg:'var(--saffron-ink)'}
   };
   const c = map[conf] || map.baja;
-  return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${c.bg};color:${c.fg};white-space:nowrap;">${t('shelf_conf_'+(map[conf]?conf:'baja'))}</span>`;
+  return `<span style="font-size:calc(10px * var(--fs, 1));font-weight:700;padding:2px 8px;border-radius:20px;background:${c.bg};color:${c.fg};white-space:nowrap;">${t('shelf_conf_'+(map[conf]?conf:'baja'))}</span>`;
 }
 
 function shelfDeltaPill(current, finalQty, unit){
   const delta = roundQty((Number(finalQty)||0) - (Number(current)||0));
-  if(delta===0) return `<span style="font-size:11px;color:var(--ink-soft);">=</span>`;
+  if(delta===0) return `<span style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);">=</span>`;
   const up = delta>0;
-  return `<span style="font-size:11px;font-weight:700;color:${up?'var(--basil-ink)':'var(--ink-soft)'};white-space:nowrap;">${up?'+':'−'}${Math.abs(delta)} ${escapeHtml(unitLabel(unit))}</span>`;
+  return `<span style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:${up?'var(--basil-ink)':'var(--ink-soft)'};white-space:nowrap;">${up?'+':'−'}${Math.abs(delta)} ${escapeHtml(unitLabel(unit))}</span>`;
 }
 
 function shelfScanModal(){
@@ -1326,7 +1326,7 @@ function shelfScanModal(){
         ${/* Misma caja que Recibos y Productos (intro única): la cámara directo; galería por el link. */''}
         <div class="drop-zone" id="shelf-drop-zone">
           <div class="dz-icon">${lineIcon('camera',26)}</div>
-          <div style="font-weight:600;font-size:13.5px;">${t('scan_tap_photo')}</div>
+          <div style="font-weight:600;font-size:calc(13.5px * var(--fs, 1));">${t('scan_tap_photo')}</div>
         </div>
         <button type="button" id="btn-shelf-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
         <div class="helper-note" style="margin:0;">💡 ${t('shelf_tip')}</div>
@@ -1342,7 +1342,7 @@ function shelfScanModal(){
       ${shelfState==='empty' ? `<div class="scan-error">⚠ ${t('shelf_none')}</div>` : ''}
 
       ${shelfState==='review' ? `
-        ${shelfItems.length>0 ? `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;">${t('shelf_review_hint')}</div>` : ''}
+        ${shelfItems.length>0 ? `<div style="font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);margin-bottom:10px;">${t('shelf_review_hint')}</div>` : ''}
         ${/* LA PREGUNTA. Va acá, después de leer la foto y antes de aplicar nada:
              es el paso intermedio que convierte "restar inventario" en un
              movimiento con significado contable. Tres opciones, ninguna marcada
@@ -1377,23 +1377,23 @@ function shelfScanModal(){
               <strong style="flex:1;min-width:0;overflow-wrap:anywhere;">${escapeHtml(ing.name)}</strong>
               ${shelfConfidencePill(it.confidence)}
             </div>
-            <div style="font-size:12px;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;">
+            <div style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;">
               ${metaBits.map(b=>`<span>${b}</span>`).join('')}
             </div>
-            ${it.visible_note ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${escapeHtml(it.visible_note)}</div>` : ''}
+            ${it.visible_note ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-bottom:8px;">ℹ ${escapeHtml(it.visible_note)}</div>` : ''}
             ${it.needsCapacity ? `
             <div style="background:var(--sky-soft);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
-              <div style="font-size:11.5px;font-weight:700;color:var(--sky-ink);margin-bottom:6px;">${t('shelf_capacity_ask')}</div>
+              <div style="font-size:calc(11.5px * var(--fs, 1));font-weight:700;color:var(--sky-ink);margin-bottom:6px;">${t('shelf_capacity_ask')}</div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <input data-shelf-capacity="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.capacityDraft)}" placeholder="${t('ph_capacity_example')}" style="flex:1;">
-                <span style="font-size:12px;color:var(--sky-ink);font-weight:700;">${escapeHtml(unitLabel(ing.unit))}</span>
+                <span style="font-size:calc(12px * var(--fs, 1));color:var(--sky-ink);font-weight:700;">${escapeHtml(unitLabel(ing.unit))}</span>
               </div>
-              <div style="font-size:10.5px;color:var(--sky-ink);margin-top:5px;">${t('shelf_capacity_helper').replace('{u}', escapeHtml(unitLabel(ing.unit)))}</div>
+              <div style="font-size:calc(10.5px * var(--fs, 1));color:var(--sky-ink);margin-top:5px;">${t('shelf_capacity_helper').replace('{u}', escapeHtml(unitLabel(ing.unit)))}</div>
             </div>` : ''}
             <div class="mi-fields" style="align-items:center;">
-              <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_final_label')}</label>
+              <label style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_final_label')}</label>
               <input data-shelf-final="${idx}" type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.finalQty)}" style="flex:1;min-width:70px;">
-              <span style="font-size:12px;color:var(--ink-soft);">${escapeHtml(unitLabel(ing.unit))}</span>
+              <span style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);">${escapeHtml(unitLabel(ing.unit))}</span>
               <span data-shelf-delta="${idx}">${shelfDeltaPill(ing.qtyOnHand||0, it.finalQty, ing.unit)}</span>
             </div>
             ${/* El motivo DE ESTE RENGLÓN. La cabecera pone el de todos de un
@@ -1410,23 +1410,23 @@ function shelfScanModal(){
                  pedirles un precio sería invitar a inventarlo. */''}
             ${it.include && it.reason==='sale' ? `
             <div class="mi-fields" style="align-items:center;margin-top:6px;">
-              <label style="font-size:11px;font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>
+              <label style="font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--ink-soft);white-space:nowrap;">${t('shelf_price_label')}</label>
               ${/* Late cuando está vacío, como cualquier casilla que la contabilidad
                    necesita. Es el último punto donde se puede evitar registrar una
                    venta con $0 de ingreso y el costo completo. */''}
               <input data-shelf-price="${idx}"${it.salePriceDraft==='' ? ' class="field-needs-value"' : ''} type="number" inputmode="decimal" step="0.01" min="0" value="${escapeHtml(it.salePriceDraft)}" placeholder="0.00" style="flex:1;min-width:70px;">
-              <span style="font-size:12px;color:var(--ink-soft);">$/${escapeHtml(unitLabel(ing.unit))}</span>
+              <span style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);">$/${escapeHtml(unitLabel(ing.unit))}</span>
             </div>
-            ${it.salePriceDraft==='' ? `<div style="font-size:11px;font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}
+            ${it.salePriceDraft==='' ? `<div style="font-size:calc(11px * var(--fs, 1));font-weight:600;color:var(--saffron-ink);background:var(--saffron-soft);padding:5px 8px;border-radius:6px;margin-top:6px;">ℹ ${t('shelf_price_empty_note')}</div>` : ''}` : ''}
             ${it.include && it.reason==='internal' ? `<div class="row-reason-note internal">🍕 ${t('shelf_internal_note')}</div>` : ''}
             ${it.include && it.reason==='loss' ? `<div class="row-reason-note loss">🗑️ ${t('shelf_loss_note')}</div>` : ''}
           </div>`;
         }).join('')}
         ${shelfUnmatched.length>0 ? `
         <div class="helper-note" style="margin-top:12px;background:var(--inset);border-radius:8px;padding:10px 12px;">
-          <strong style="display:block;font-size:12px;color:var(--ink);margin-bottom:4px;">${t('shelf_unmatched_title')}</strong>
+          <strong style="display:block;font-size:calc(12px * var(--fs, 1));color:var(--ink);margin-bottom:4px;">${t('shelf_unmatched_title')}</strong>
           ${shelfUnmatched.map(p=>escapeHtml(p.name)).join(' · ')}
-          <div style="margin-top:5px;font-size:11px;">${t('shelf_unmatched_hint')}</div>
+          <div style="margin-top:5px;font-size:calc(11px * var(--fs, 1));">${t('shelf_unmatched_hint')}</div>
           ${/* Salida real (antes era un callejón: cerrar, abrir Productos y sacar la misma foto). */''}
           <button type="button" class="btn btn-primary btn-sm" id="btn-shelf-unmatched-to-pb" style="margin-top:8px;">${t('shelf_unmatched_to_pb')}</button>
         </div>` : ''}

@@ -1789,18 +1789,18 @@ function importData(file){
 // ahora viven en patron-core.js.
 function priceChangeBadge(pct){
   if(pct===null) return '';
-  if(pct==='unit-mismatch') return `<span style="color:var(--ink-soft);font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_unit_mismatch_hint')}">⚠ ${t('price_unit_mismatch')}</span>`;
+  if(pct==='unit-mismatch') return `<span style="color:var(--ink-soft);font-size:calc(11px * var(--fs, 1));font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_unit_mismatch_hint')}">⚠ ${t('price_unit_mismatch')}</span>`;
   // Un precio de proveedor real casi nunca salta más de ~300% de una compra a la
   // siguiente — cuando lastPriceChangePct() da eso, es mucho más probable que sea
   // una cantidad o un precio mal leído en algún recibo viejo (una coma decimal
   // corrida, un "1" leído donde decía "100") que un cambio de precio de verdad.
   // Mostrar "14141%" como si fuera un hecho es peor que no mostrar nada: se marca
   // como algo para revisar a mano en vez de repetir un número que casi seguro está mal.
-  if(Math.abs(pct)>300) return `<span style="color:var(--money-warn-ink);font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_implausible_hint')}">⚠ ${t('price_implausible')}</span>`;
+  if(Math.abs(pct)>300) return `<span style="color:var(--money-warn-ink);font-size:calc(11px * var(--fs, 1));font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_implausible_hint')}">⚠ ${t('price_implausible')}</span>`;
   const up = pct>0.5, down = pct<-0.5;
   const color = up?'var(--money-neg)':down?'var(--money-pos)':'var(--ink-soft)';
   const arrow = up?'▲':down?'▼':'→';
-  return `<span style="color:${color};font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap;">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
+  return `<span style="color:${color};font-size:calc(11px * var(--fs, 1));font-weight:700;margin-left:6px;white-space:nowrap;">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
 }
 /* Cambios de precio notables, para mostrar en el dashboard sin que el usuario tenga
    que estar escaneando un recibo en ese momento — un umbral más chico que
@@ -1837,8 +1837,8 @@ function priceAlertsCard(){
     <h3 class="stock-card-title">${t('price_alerts_title')}</h3>
     ${alerts.map(a=>`
       <div data-history-item="${a.ing.id}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer;">
-        <span style="font-size:13px;color:var(--ink);">${escapeHtml(a.ing.name)}</span>
-        <span style="display:flex;align-items:center;gap:4px;">${priceChangeBadge(a.pct)}<span style="color:var(--ink-soft);font-size:12px;">›</span></span>
+        <span style="font-size:calc(13px * var(--fs, 1));color:var(--ink);">${escapeHtml(a.ing.name)}</span>
+        <span style="display:flex;align-items:center;gap:4px;">${priceChangeBadge(a.pct)}<span style="color:var(--ink-soft);font-size:calc(12px * var(--fs, 1));">›</span></span>
       </div>
     `).join('')}
   </div>`;

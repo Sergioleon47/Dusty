@@ -346,7 +346,7 @@ function dashboardView(){
     <div class="stat-value" style="margin-top:4px;">${money(sp.invested)}</div>
     ${canEdit ? `
     <button id="btn-edit-budget" class="budget-set-cta" type="button">
-      <span style="font-size:12.5px;font-weight:600;">${t('dash_budget_of')}</span>
+      <span style="font-size:calc(12.5px * var(--fs, 1));font-weight:600;">${t('dash_budget_of')}</span>
       <span class="budget-set-link">${t('budget_set_cta')}</span>
     </button>` : ''}
     ${seeAll}
@@ -1368,10 +1368,10 @@ function dayModal(){
               ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" onerror="this.style.display='none'">` : `<span style="display:flex;color:var(--ink-soft);">${lineIcon('receipt',18)}</span>`}
             </div>
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;font-size:13.5px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
-              <div style="font-size:11.5px;color:var(--ink-soft);">${escapeHtml(r.itemCount)} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
+              <div style="font-weight:700;font-size:calc(13.5px * var(--fs, 1));">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
+              <div style="font-size:calc(11.5px * var(--fs, 1));color:var(--ink-soft);">${escapeHtml(r.itemCount)} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
             </div>
-            <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:14px;flex-shrink:0;">${money(r.total)}</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--navy);font-size:calc(14px * var(--fs, 1));flex-shrink:0;">${money(r.total)}</div>
           </div>`;
         }).join('')}
       </div>` : ''}
@@ -1528,8 +1528,8 @@ function recibosView(){
     (sorted.length===0 ? `<div class="helper-note" style="margin:4px 0 0;">${t('rec_no_matches')}</div>` :
     groups.map(g=>`
       <div class="section-head" style="margin-top:22px;margin-bottom:10px;">
-        <h3 style="margin:0;font-size:14px;text-transform:capitalize;">${g.label}</h3>
-        <div style="font-size:12px;color:var(--ink-soft);">${t('rec_month_total')}: <strong style="color:var(--ink);">${money(g.total)}</strong></div>
+        <h3 style="margin:0;font-size:calc(14px * var(--fs, 1));text-transform:capitalize;">${g.label}</h3>
+        <div style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);">${t('rec_month_total')}: <strong style="color:var(--ink);">${money(g.total)}</strong></div>
       </div>
       <div class="dish-grid">
         ${g.receipts.map(r=>{
@@ -1541,12 +1541,12 @@ function recibosView(){
                llevaban TODAS y cada transición de la app capturaba 120 capas. */''}
           <div class="dish-card" style="cursor:pointer;position:relative;${(receiptVtTargetId===r.id && showReceiptDetail!==r.id)?`view-transition-name:${receiptVtName(r.id)};`:''}" data-view-receipt="${r.id}" data-key="rc:${r.id}">
             ${cover ? `<img src="${escapeHtml(receiptImgSrc(cover))}" alt="" ${imgLoadAttr(receiptImgSrc(cover))} decoding="async" style="width:100%;height:140px;object-fit:cover;" onerror="this.outerHTML='<div style=&quot;width:100%;height:140px;background:var(--inset);&quot;></div>'">` : `<div style="width:100%;height:140px;background:var(--inset);"></div>`}
-            ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
+            ${imgs.length>1 ? `<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:calc(11px * var(--fs, 1));font-weight:700;padding:2px 8px;border-radius:20px;">${imgs.length}p</span>` : ''}
             <div style="padding:14px 16px;">
-              <div style="font-weight:700;font-size:14px;">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
-              <div style="font-size:11.5px;color:var(--ink-soft);margin:3px 0 8px;">${escapeHtml(r.date)} &middot; ${escapeHtml(r.itemCount)} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
+              <div style="font-weight:700;font-size:calc(14px * var(--fs, 1));">${escapeHtml(r.supplier)||t('no_supplier_name')}</div>
+              <div style="font-size:calc(11.5px * var(--fs, 1));color:var(--ink-soft);margin:3px 0 8px;">${escapeHtml(r.date)} &middot; ${escapeHtml(r.itemCount)} ${r.itemCount!==1?t('products_plural'):t('product_singular')}</div>
               ${/* Monto = color de dinero fijo (regla 2026-09-06), no el acento del tema. */''}
-              <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--money-pos);font-size:15px;">${money(r.total)}</div>
+              <div style="font-family:'IBM Plex Mono';font-weight:700;color:var(--money-pos);font-size:calc(15px * var(--fs, 1));">${money(r.total)}</div>
             </div>
           </div>
         `;
@@ -1680,12 +1680,12 @@ function priceHistoryModal(){
         ${summary}
         <div style="margin:14px 0;">${priceHistoryChart(points)}</div>
         ${supplierRows.length>=2 ? `
-          <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;">${t('supplier_compare_title')}</label>
+          <label style="display:block;font-size:calc(12px * var(--fs, 1));font-weight:700;color:var(--ink);margin-bottom:8px;">${t('supplier_compare_title')}</label>
           <div class="ing-list-mini" style="max-height:150px;">
             ${supplierRows.map((s,idx)=>`
               <div class="ing-list-mini-item">
                 <span>${escapeHtml(s.supplier)} ${idx===0?`<span class="price-updated">${t('cheapest_label')}</span>`:''}
-                  ${s.count>1?`<div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">${t('avg_price_label')} ${money(s.avgPrice)}/${escapeHtml(unitLabel(ing.unit))}</div>`:''}
+                  ${s.count>1?`<div style="font-size:calc(10.5px * var(--fs, 1));color:var(--ink-soft);margin-top:2px;">${t('avg_price_label')} ${money(s.avgPrice)}/${escapeHtml(unitLabel(ing.unit))}</div>`:''}
                 </span>
                 <span class="mono-cell">${money(s.lastPrice)}/${escapeHtml(unitLabel(ing.unit))}</span>
               </div>
@@ -1693,7 +1693,7 @@ function priceHistoryModal(){
           </div>
           <div class="helper-note" style="margin-top:6px;">${t('supplier_compare_helper')}</div>
         ` : ''}
-        <label style="display:block;font-size:12px;font-weight:700;color:var(--ink);margin:14px 0 8px;">${t('ph_full_history_label')}</label>
+        <label style="display:block;font-size:calc(12px * var(--fs, 1));font-weight:700;color:var(--ink);margin:14px 0 8px;">${t('ph_full_history_label')}</label>
         <div class="ing-list-mini" style="max-height:160px;">
           ${points.slice().reverse().map(p=>`
             <div class="ing-list-mini-item">
@@ -1930,7 +1930,15 @@ function setDustyTheme(id){
 let dustyFontScale = 100;
 try{ const v = parseInt(localStorage.getItem('patron_font_scale')||'100', 10); if(v>=90 && v<=140) dustyFontScale = v; }catch(e){}
 function applyFontScale(){
-  document.documentElement.style.zoom = dustyFontScale===100 ? '' : String(dustyFontScale/100);
+  // SOLO las letras (pedido del usuario 2026-09-11): antes era zoom en <html>,
+  // que agrandaba todo — íconos, márgenes, tarjetas — y además desfasaba las
+  // medidas en px del carrusel. Ahora es el factor --fs: TODOS los font-size de
+  // la app son calc(Npx * var(--fs)) (dusty.css y los templates), así crece el
+  // texto y nada más. Al 100% se quita la variable y calc() cae en 1.
+  const root = document.documentElement;
+  root.style.zoom = '';
+  if(dustyFontScale===100) root.style.removeProperty('--fs');
+  else root.style.setProperty('--fs', String(dustyFontScale/100));
 }
 applyFontScale();
 let dustyPulse = true;
@@ -1946,7 +1954,7 @@ function settingsCardHeader(icon, bg, fg, title){
   return `
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
     <span style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;">${lineIcon(icon,16)}</span>
-    <label style="font-size:13px;font-weight:700;color:var(--ink);">${title}</label>
+    <label style="font-size:calc(13px * var(--fs, 1));font-weight:700;color:var(--ink);">${title}</label>
   </div>`;
 }
 function alertSettingsModal(){
@@ -1967,14 +1975,14 @@ function alertSettingsModal(){
            usuario nuevo busca primero. Todo instantáneo y guardado en el dispositivo. */''}
       <div class="settings-card">
         ${settingsCardHeader('tag','var(--navy-wash)','var(--navy)',t('settings_appearance_title'))}
-        <div style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;">${t('theme_title')}</div>
+        <div style="font-size:calc(12.5px * var(--fs, 1));font-weight:700;color:var(--ink-soft);margin-bottom:8px;">${t('theme_title')}</div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;">
           ${DUSTY_THEMES.map(th=>`
           <button type="button" data-set-theme="${th.id}" aria-pressed="${dustyTheme===th.id}" title="${uiLang==='en'?th.en:th.es}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;">
             <span style="width:38px;height:38px;border-radius:50%;background:${th.bg};border:2.5px solid ${dustyTheme===th.id?'var(--navy)':'var(--line)'};display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);">
               <span style="width:16px;height:16px;border-radius:50%;background:${th.accent};"></span>
             </span>
-            <span style="font-size:10px;font-weight:700;color:${dustyTheme===th.id?'var(--navy)':'var(--ink-soft)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${uiLang==='en'?th.en:th.es}</span>
+            <span style="font-size:calc(10px * var(--fs, 1));font-weight:700;color:${dustyTheme===th.id?'var(--navy)':'var(--ink-soft)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${uiLang==='en'?th.en:th.es}</span>
           </button>`).join('')}
         </div>
         ${/* Interruptor de LATIDOS (pedido del usuario 2026-09-07). */''}
@@ -2110,7 +2118,7 @@ function accountModal(){
       ` : ''}
 
       <div style="text-align:center;margin-top:6px;">
-        <a href="privacy.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--ink-soft);">${t('privacy_policy_link')}</a>
+        <a href="privacy.html" target="_blank" rel="noopener" style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);">${t('privacy_policy_link')}</a>
       </div>
 
       <div class="modal-actions">
@@ -2213,9 +2221,9 @@ function budgetModal(){
         const paidThisMonth = (id,name)=>{ const it = inventory.find(i=>i.id===id); return it ? billPaidInMonth(it, localMonthStr()) : false; };
         const row = (id,name,amount,muted)=>`
           <div ${id?`data-open-item="${id}" role="button" tabindex="0"`:''} style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);${id?'cursor:pointer;':'opacity:.55;'}">
-            <span style="font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;">${escapeHtml(name)}${muted?` <span style="font-size:10px;font-weight:700;color:var(--ink-soft);background:var(--inset);border-radius:6px;padding:1px 6px;">${t('budget_exp_example_tag')}</span>`:''}</span>
+            <span style="font-size:calc(13px * var(--fs, 1));color:var(--ink);min-width:0;overflow-wrap:anywhere;">${escapeHtml(name)}${muted?` <span style="font-size:calc(10px * var(--fs, 1));font-weight:700;color:var(--ink-soft);background:var(--inset);border-radius:6px;padding:1px 6px;">${t('budget_exp_example_tag')}</span>`:''}</span>
             <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-              <strong style="font-size:13px;font-variant-numeric:tabular-nums;">${amount}</strong>
+              <strong style="font-size:calc(13px * var(--fs, 1));font-variant-numeric:tabular-nums;">${amount}</strong>
               ${/* Botón de PAGO por fila (reporte del usuario 2026-09-05: "la
                    barra no se mueve"): los bills creados como puro catálogo no
                    tenían cómo registrar el pago del mes — este ＋ lo crea al
@@ -2224,7 +2232,7 @@ function budgetModal(){
               ${id?(paidThisMonth(id,name)
                 ? `<span title="${t('expense_paid_tag')}" style="width:26px;height:26px;border-radius:50%;background:var(--basil-soft);color:var(--basil-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;">✓</span>`
                 : `<button type="button" class="dash-pencil-btn" data-pay-bill="${id}" title="${t('expense_pay_btn')}" aria-label="${t('expense_pay_btn')}" style="color:var(--basil);border-color:color-mix(in srgb, var(--basil) 35%, var(--panel));font-weight:800;">＋</button>`):''}
-              ${id?`<span style="color:var(--ink-soft);font-size:12px;">›</span>`:''}
+              ${id?`<span style="color:var(--ink-soft);font-size:calc(12px * var(--fs, 1));">›</span>`:''}
             </span>
           </div>`;
         let body='';
