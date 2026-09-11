@@ -178,6 +178,155 @@
     --bg:color-mix(in srgb, #2B385A 82%, black); --panel:#2B385A; --inset:color-mix(in srgb, #2B385A 68%, black);
     --raised:color-mix(in srgb, #2B385A 55%, #3D4B78); --raised-2:#3D4B78; --line:color-mix(in srgb, #2B385A 40%, #3D4B78);
   }
+  /* ABEJA: NEGRO Y AMARILLO, Y NADA MAS (pedido del usuario 2026-09-11: "que
+     solo sea amarillo y negro solo esos 2 colores. Donde es negro que lleve
+     letras amarillas y que lleve sombras amarillas").
+     Es el unico tema de la app que no tiene matices: todo lo que no es negro es
+     el mismo #FFD400 mas claro o mas oscuro. Eso obliga a tres cosas que en los
+     demas temas no hacen falta:
+
+     1) LAS SEIS BALDOSAS SE SEPARAN POR BRILLO, NO POR COLOR. hue-1..6 son el
+        mismo amarillo bajando de luz. Con seis tonos identicos las tarjetas del
+        Dashboard serian un bloque plano y no se sabria donde termina una y
+        empieza la otra.
+     2) LA TINTA DE LA BALDOSA SE DA VUELTA. En los demas oscuros es blanca;
+        sobre amarillo el blanco no se lee (1.3:1). Aca es NEGRA, que sobre el
+        amarillo mas claro da mas de 13:1.
+     3) EL DINERO PIERDE SU VERDE Y SU ROJO. --money-* esta marcado arriba como
+        intocable justamente para que ningun tema se coma el significado de
+        ganancia y perdida. Aca se toca A PROPOSITO porque el pedido fue "solo
+        esos 2 colores", y la diferencia pasa a ser de BRILLO: lo que suma va en
+        el amarillo encendido, lo que resta en un amarillo quemado y oscuro.
+        Es menos evidente que verde contra rojo — queda dicho.
+
+     Lo mismo con el stock: critico es el amarillo mas encendido (lo que mas
+     grita en pantalla) y lo que esta bien, el mas apagado.
+     La "D" de Dusty NO se toca: es la marca, no un color de tema.
+     Las sombras son amarillas, como se pidio — glow en vez de sombra negra,
+     que sobre negro no se veria de todos modos. */
+  html[data-dusty-theme="abeja"]{
+    color-scheme:dark;
+    --navy:#FFD400; --navy-soft:#FFE666; --on-accent:#000000;
+    --bg:#000000; --panel:#0a0a06; --inset:#050503;
+    --raised:#171205; --raised-2:#221b07; --line:#4a3d09;
+    --ink:#FFD400; --ink-soft:#9a8210; --ink-mid:#d4b415;
+    --tomato:#FFD400; --basil:#9a8210; --saffron:#FFD400;
+    --sky-bright:#FFE666;
+    --money-pos:#FFD400; --money-neg:#8a6e05; --money-warn:#d4a80c;
+    --tile-ink:#000000; --tile-sub:rgba(0,0,0,.70); --tile-border:transparent;
+    --hue-1:#FFD400; --hue-2:#E0B800; --hue-3:#C29E00; --hue-4:#A38500; --hue-5:#856B00; --hue-6:#66520B;
+    --tile-ok:linear-gradient(170deg, #8a7410, #5c4d08);
+    --tile-warn:linear-gradient(170deg, #FFE666, #E0B800);
+    --tile-crit:linear-gradient(170deg, #FFE066, #FFD400);
+    --shadow-sm:0 1px 2px rgba(255,212,0,.22);
+    --shadow:0 1px 2px rgba(255,212,0,.20), 0 8px 24px rgba(255,212,0,.16);
+    --shadow-lg:0 12px 20px rgba(255,212,0,.26), 0 24px 64px rgba(255,212,0,.20);
+  }
+  /* ABEJA, SEGUNDA PARTE: los colores que NO salen de un token.
+     Poner los tokens en amarillo y negro deja fuera todo lo que la hoja escribe
+     a mano — un #fff aca, un rgba rojo alla — y esos sobrevivian a todo color.
+     Se cazaron uno por uno con un censo de matices sobre el pixel real de la
+     pantalla (quedaba un 2% que no era ni amarillo ni negro).
+     TODO va dentro de html[data-dusty-theme="abeja"] a proposito: son reglas con
+     "html" delante para ganar especificidad, asi que tocarlas en su sitio habria
+     cambiado los OTROS 13 temas. */
+  /* 1. El parpadeo de "toca contar" y de critico tenia el rojo escrito a mano. */
+  html[data-dusty-theme="abeja"] .stock-row-static.cc-due-blink .stock-row::after,
+  html[data-dusty-theme="abeja"] .stock-row-static.crit-flash .stock-row::after,
+  html[data-dusty-theme="abeja"] .inv-tile.cc-due-blink::after,
+  html[data-dusty-theme="abeja"] .inv-tile.crit-flash::after{
+    box-shadow:inset 0 0 0 2px rgba(255,212,0,.85); background:rgba(255,212,0,.14);
+  }
+  /* 2. La tarjeta de presupuesto: su chip, sus cifras, su anillo y su lapiz eran
+        blancos. Sobre el amarillo del fondo, negro. */
+  html[data-dusty-theme="abeja"] .dash-budget.ok .dash-chip.primary,
+  html[data-dusty-theme="abeja"] .dash-budget.warn .dash-chip.primary,
+  html[data-dusty-theme="abeja"] .dash-budget.crit .dash-chip.primary{
+    background:#000000; color:#FFD400; box-shadow:0 4px 12px rgba(0,0,0,.35);
+  }
+  html[data-dusty-theme="abeja"] .dash-budget.ok .dash-kv b,
+  html[data-dusty-theme="abeja"] .dash-budget.warn .dash-kv b,
+  html[data-dusty-theme="abeja"] .dash-budget.crit .dash-kv b{color:#000000;}
+  html[data-dusty-theme="abeja"] .dash-budget.ok .dash-ring-fill,
+  html[data-dusty-theme="abeja"] .dash-budget.warn .dash-ring-fill,
+  html[data-dusty-theme="abeja"] .dash-budget.crit .dash-ring-fill{stroke:#000000;}
+  html[data-dusty-theme="abeja"] .dash-budget.ok .dash-pencil-btn,
+  html[data-dusty-theme="abeja"] .dash-budget.warn .dash-pencil-btn,
+  html[data-dusty-theme="abeja"] .dash-budget.crit .dash-pencil-btn{
+    background:rgba(0,0,0,.28); color:#000000;
+  }
+  /* 3. Los iconos de los circulos de herramientas y las dos cifras de arriba del
+        inventario: iban en blanco sobre su color. Sobre amarillo, negro. */
+  html[data-dusty-theme="abeja"] .shelf-scan-fab,
+  html[data-dusty-theme="abeja"] .inv-tool-ring.tool-products,
+  html[data-dusty-theme="abeja"] .inv-tool-ring.tool-manual{
+    color:#000000; box-shadow:0 8px 20px rgba(255,212,0,.22), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  html[data-dusty-theme="abeja"] .shelf-scan-fab svg{stroke:#000000;}
+  html[data-dusty-theme="abeja"] .inv-stat{color:#000000; box-shadow:0 8px 22px rgba(255,212,0,.18), inset 0 1px 0 rgba(255,255,255,.25);}
+  /* 4. El badge "-" del escaner de reduccion. Su rojo es fijo en los 20 temas a
+        proposito (ver --minus-red), pero aca ese rojo seria el unico punto de
+        color de toda la app. Se vuelve negro sobre el amarillo del escaner, que
+        es igual de distinguible y no rompe el pedido. */
+  html[data-dusty-theme="abeja"] .shelf-minus-badge{background:#000000; color:#FFD400; border-color:#FFD400;}
+  /* 6. Dentro de las baldosas quedaban tres blancos mas, tambien escritos a mano:
+        el numero grande, la pastilla de arriba ("Alerta", "Toca") y el contador.
+        Blanco sobre el amarillo de la baldosa da 1.3:1 — no es que desentone, es
+        que NO SE LEE. Van en negro, que sobre ese amarillo pasa de 13:1. */
+  html[data-dusty-theme="abeja"] .dash-tile-num,
+  html[data-dusty-theme="abeja"] .dash-tile-count{color:#000000;}
+  html[data-dusty-theme="abeja"] .dash-tile-count{background:rgba(0,0,0,.20);}
+  html[data-dusty-theme="abeja"] .dash-tile-badge,
+  html[data-dusty-theme="abeja"] .dash-tile-badge.ok,
+  html[data-dusty-theme="abeja"] .dash-tile-badge.warn,
+  html[data-dusty-theme="abeja"] .dash-tile-badge.crit{background:rgba(0,0,0,.22); color:#000000;}
+  html[data-dusty-theme="abeja"] .dash-budget.ok .dash-ring-track,
+  html[data-dusty-theme="abeja"] .dash-budget.warn .dash-ring-track,
+  html[data-dusty-theme="abeja"] .dash-budget.crit .dash-ring-track{stroke:rgba(0,0,0,.22);}
+  html[data-dusty-theme="abeja"] .dash-budget.ok .dash-chip:not(.primary),
+  html[data-dusty-theme="abeja"] .dash-budget.warn .dash-chip:not(.primary),
+  html[data-dusty-theme="abeja"] .dash-budget.crit .dash-chip:not(.primary){background:rgba(0,0,0,.22); color:#000000;}
+  html[data-dusty-theme="abeja"] .dash-tile{box-shadow:0 8px 22px rgba(255,212,0,.18), inset 0 1px 0 rgba(255,255,255,.25);}
+  html[data-dusty-theme="abeja"] .dash-budget.ok,
+  html[data-dusty-theme="abeja"] .dash-budget.warn,
+  html[data-dusty-theme="abeja"] .dash-budget.crit{box-shadow:0 10px 30px rgba(255,212,0,.20), inset 0 1px 0 rgba(255,255,255,.25);}
+  /* 5. Los emojis (el carrito, el triangulo de alerta, la gente) traen su propio
+        color metido en la fuente y ningun token los alcanza. Un filtro los pasa a
+        un solo tono amarillo: pierden el dibujo a color pero conservan la forma,
+        que es lo que los hace reconocibles de un vistazo. */
+  /* brightness(0) los deja en SILUETA NEGRA conservando la transparencia. Se
+     probo antes tenirlos de amarillo con sepia+hue-rotate y no sirve: hue-rotate
+     no es un giro de tono de verdad, y los pixeles claros del emoji se escapaban
+     a VERDE LIMA (se vio en el censo: 0.6% de la pantalla en verde, y a ojo el
+     triangulo de alerta y el 1234 salian limon). En negro no hay nada que se
+     pueda desviar, y encima es el mismo negro de la letra de la baldosa. */
+  html[data-dusty-theme="abeja"] .dash-tile-icon{filter:brightness(0);}
+  /* "Pedido" NO puede llevar filtro: su fondo es un DEGRADADO, y filtrar el
+     elemento ennegrece tambien el fondo — el circulo quedaba como un disco negro
+     (se vio en la captura). El truco de la tinta transparente con una sombra a
+     distancia cero pinta SOLO el glifo y deja el fondo intacto. */
+  html[data-dusty-theme="abeja"] .inv-tool-ring.tool-order{
+    color:transparent; text-shadow:0 0 0 #000000;
+  }
+  /* Las dos cifras de arriba del inventario (Valor / Potencial) iban en blanco
+     sobre su tarjeta amarilla: 1.3:1. En negro. */
+  html[data-dusty-theme="abeja"] .inv-stat-label{color:rgba(0,0,0,.78);}
+  html[data-dusty-theme="abeja"] .inv-stat-label{color:transparent; text-shadow:0 0 0 rgba(0,0,0,.78);}
+  html[data-dusty-theme="abeja"] .inv-stat-value{color:#000000;}
+  /* El dibujo del producto sin foto es un SVG con grises escritos dentro
+     (fill="#B9BEC4"), que ningun token alcanza. El filtro lo pasa a amarillo
+     sobre el negro de la ficha. */
+  html[data-dusty-theme="abeja"] .stock-icon-ring svg path,
+  html[data-dusty-theme="abeja"] .stock-icon-ring svg circle,
+  html[data-dusty-theme="abeja"] .stock-icon-ring svg rect{
+    filter:grayscale(1) sepia(1) saturate(9) hue-rotate(4deg);
+  }
+  /* Sobre fondo oscuro la silueta negra desapareceria, asi que estos van al reves:
+     a blanco y de ahi tenidos de amarillo. */
+  html[data-dusty-theme="abeja"] .cal-note-emoji,
+  html[data-dusty-theme="abeja"] .exit-emoji{
+    filter:brightness(0) invert(1) sepia(1) saturate(14) hue-rotate(2deg);
+  }
   /* Base compartida de los temas CLAROS. */
   html[data-dusty-theme="crema"], html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"],
   html[data-dusty-theme="coral"], html[data-dusty-theme="miel"], html[data-dusty-theme="appstore"]{

@@ -1885,6 +1885,8 @@ const DUSTY_THEMES = [
   {id:'indigo',         es:'Índigo',      en:'Indigo',    bg:'#2a2645', accent:'#F0C38E'},
   {id:'rubi',           es:'Rubí',        en:'Ruby',      bg:'#181B24', accent:'#CC324C'},
   {id:'zafiro',         es:'Zafiro',      en:'Sapphire',  bg:'#232e4a', accent:'#73B7F1'},
+  // Dos colores y nada mas (pedido del usuario 2026-09-11).
+  {id:'abeja',          es:'Abeja',       en:'Bee',       bg:'#000000', accent:'#FFD400'},
   // — y claros:
   {id:'crema',          es:'Crema',       en:'Cream',     bg:'#f6f1e7', accent:'#c65b2e'},
   {id:'pastel',         es:'Pastel',      en:'Pastel',    bg:'#e7f8ff', accent:'#87AEEE'},
