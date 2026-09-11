@@ -320,18 +320,37 @@ function chooseLangAndContinue(lang){
   showWelcomeModal = true;
   render();
 }
+/* LA INTRODUCCION SE VE COMO EL TABLERO (rediseno UI/UX 2026-09-11, pedido del
+   usuario: "repara la introduccion, usa esos mismos colores, rellenos y formas").
+   Principio: la primera pantalla que ve alguien tiene que ensenarle el lenguaje
+   visual que va a usar despues, no uno distinto. Antes el idioma eran dos botones
+   ambar planos y la bienvenida una tarjeta lisa con un dibujo — nada de eso
+   vuelve a aparecer en la app. Ahora cada paso ES una baldosa del Dashboard:
+   mismo degradado (--tile-N), mismo radio de 18px, misma sombra, mismo emoji en
+   la esquina, misma pastilla arriba. Cuando llega al tablero ya lo reconoce.
+   Los colores se eligen por SIGNIFICADO, no por gusto: cada paso toma la
+   baldosa del Dashboard que habla de lo mismo (ver WELCOME_STEPS). */
 function langChoiceModal(){
   return `
   <div class="overlay" id="lang-choice-overlay">
-    <div class="modal" style="text-align:center;">
-      <div style="font-size:34px;margin-bottom:8px;">🌐</div>
-      ${/* Una línea bilingüe, FIJA (nunca traducida): sin ella el globo solo se
-           sentía frío (auditoría de primer minuto 2026-09-07). */''}
-      <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;">Choose your language · Elegí tu idioma</div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        ${/* Inglés primero: es el idioma principal de la app. */''}
-        <button type="button" data-choose-lang="en" class="btn btn-primary" style="padding:14px;font-size:15px;">English</button>
-        <button type="button" data-choose-lang="es" class="btn btn-primary" style="padding:14px;font-size:15px;">Español</button>
+    <div class="modal wt-modal">
+      ${/* Una linea bilingue, FIJA (nunca traducida): quien no lee el idioma
+           activo tiene que poder reconocer el suyo igual. */''}
+      <div class="wt-eyebrow">Choose your language · Elige tu idioma</div>
+      <div class="wt-lang-grid">
+        ${/* Ingles primero: es el idioma principal de la app. Sin banderas a
+             proposito: ni el ingles ni el espanol son de un solo pais. Los
+             nombres van en su propio idioma, nunca traducidos. */''}
+        <button type="button" data-choose-lang="en" class="wt-tile t1" lang="en">
+          <span class="dash-tile-badge">EN</span>
+          <span class="wt-lang-name">English</span>
+          <span class="dash-tile-sub">Continue in English</span>
+        </button>
+        <button type="button" data-choose-lang="es" class="wt-tile t2" lang="es">
+          <span class="dash-tile-badge">ES</span>
+          <span class="wt-lang-name">Español</span>
+          <span class="dash-tile-sub">Continuar en español</span>
+        </button>
       </div>
     </div>
   </div>`;
@@ -352,18 +371,30 @@ function langChoiceModal(){
 // momento de uso, no antes) — ahora vive en TEAM_INTRO_STEP y se muestra una sola
 // vez, al primer toque de Compartir (ver openTeamIntroOrContinue). Y el botón final
 // ya no manda al tablero: abre la cámara, que es donde está el "aha" de Dusty.
+/* tile = la clase de baldosa del Dashboard (t1..t6) y emoji = el de la esquina,
+   los dos ELEGIDOS POR SIGNIFICADO desde el propio tablero:
+     paso 1 "escanea"       -> t4 violeta + recibo, la baldosa "Ultimo recibo"
+     paso 2 "los numeros"   -> t6 rosa + grafico, la baldosa "Actividad"
+     equipo (mas adelante)  -> t1 azul + gente, la baldosa "Equipo"
+   Asi el color que ve en el tutorial es el mismo que va a tocar despues para
+   hacer esa cosa. bg/fg de antes ya no existen: la baldosa trae su color. */
 const WELCOME_STEPS = [
-  {scene:'scan', icon:'camera', bg:'var(--sky-soft)',     fg:'var(--sky)',        titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
-  {scene:'bell', icon:'bell',   bg:'var(--saffron-soft)', fg:'var(--saffron-ink)',titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'}
+  {tile:'t4', emoji:'🧾', titleKey:'welcome_step1_title', subKey:'welcome_step1_sub'},
+  {tile:'t6', emoji:'📈', titleKey:'welcome_step2_title', subKey:'welcome_step2_sub'}
 ];
-const TEAM_INTRO_STEP = {scene:'team', icon:'share', bg:'var(--tomato-soft)', fg:'var(--tomato-ink)', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'};
-/* Mini-ilustración animada de cada paso del tutorial (estilos .ws-* en el CSS) —
-   reemplaza al icono estático de antes por una escena en movimiento de lo que el
-   paso promete: el recibo escaneándose, la campana sonando, el equipo presente. */
-function welcomeScene(scene){
-  if(scene==='scan') return `<div class="ws-scene"><div class="ws-receipt"><i></i><i></i><i></i><i></i><div class="ws-beam"></div></div></div>`;
-  if(scene==='bell') return `<div class="ws-scene"><span class="ws-bell-wrap">${lineIcon('bell',26)}<span class="ws-badge"></span></span></div>`;
-  return `<div class="ws-scene"><span class="ws-avatar a1"></span><span class="ws-avatar a2"></span><span class="ws-avatar a3"></span></div>`;
+const TEAM_INTRO_STEP = {tile:'t1', emoji:'👥', titleKey:'welcome_step3_title', subKey:'welcome_step3_sub'};
+/* La tarjeta de un paso, con la anatomia exacta de una baldosa del Dashboard:
+   pastilla arriba (aca dice en que paso vas), emoji en la esquina, titulo y
+   subtitulo abajo. Se comparte con la tarjeta de equipo para que sean la misma
+   pieza y no dos parecidas. extraClass lleva la animacion de entrada. */
+function welcomeTileCard(step, badgeText, extraClass){
+  return `
+      <div class="welcome-step-card wt-tile ${step.tile}${extraClass||''}">
+        <span class="dash-tile-badge">${badgeText}</span>
+        <span class="dash-tile-icon" aria-hidden="true">${step.emoji}</span>
+        <strong class="wt-title">${t(step.titleKey)}</strong>
+        <div class="dash-tile-sub wt-sub">${t(step.subKey)}</div>
+      </div>`;
 }
 function closeWelcomeModal(){
   showWelcomeModal = false;
@@ -404,30 +435,28 @@ function welcomeModal(){
   const animClass = welcomeStepAnimated ? ' no-anim' : '';
   const dirClass = welcomeStepDir<0 ? ' dir-back' : '';
   welcomeStepAnimated = true;
+  const badge = t('welcome_step_of').replace('{i}', String(welcomeStep+1)).replace('{n}', String(WELCOME_STEPS.length));
   return `
   <div class="overlay${animClass}" id="welcome-overlay">
-    <div class="modal${animClass}">
+    <div class="modal wt-modal${animClass}">
       <button type="button" class="welcome-skip-btn" id="btn-welcome-skip">${t('welcome_skip_btn')}</button>
       <h3 class="basil">${t('welcome_title')}</h3>
       <div class="sub">${t('welcome_sub')}</div>
-      <div class="welcome-step-card${animClass}${dirClass}" style="background:${step.bg};">
-        ${welcomeScene(step.scene)}
-        <strong class="welcome-step-title">${t(step.titleKey)}</strong>
-        <div class="welcome-step-sub">${t(step.subKey)}</div>
+      ${welcomeTileCard(step, badge, animClass + dirClass)}
+      ${/* UN solo indicador de progreso, no dos (NN/g: la barra con % y los puntitos
+           decian lo mismo). La pastilla de la baldosa ya dice "Paso 1 de 2"; estas
+           fichas dicen en cual estas y dejan saltar, y llevan el color de su paso
+           para que se lean como miniaturas de las baldosas. */''}
+      <div class="wt-steps">
+        ${WELCOME_STEPS.map((s,i)=>`<button type="button" class="wt-step ${s.tile}${i===welcomeStep?' active':''}" data-jump-step="${i}" aria-label="${t('welcome_step_of').replace('{i}', String(i+1)).replace('{n}', String(WELCOME_STEPS.length))}" aria-current="${i===welcomeStep?'step':'false'}"></button>`).join('')}
       </div>
-      <div class="welcome-progress-row">
-        <div class="welcome-progress-track"><div class="welcome-progress-fill" style="--fill:${((welcomeStep+1)/WELCOME_STEPS.length).toFixed(3)};"></div></div>
-        <span class="welcome-progress-pct">${Math.round((welcomeStep+1)/WELCOME_STEPS.length*100)}%</span>
-      </div>
-      <div class="welcome-dots">
-        ${WELCOME_STEPS.map((s,i)=>`<span class="welcome-dot${i===welcomeStep?' active':''}" data-jump-step="${i}" style="background:${i===welcomeStep?s.fg:'var(--line)'};"></span>`).join('')}
-      </div>
-      ${/* Último paso: el CTA de la cámara ocupa la fila entera (con "Atrás" al
-           lado se partía en dos líneas); Atrás y "Ver el tablero primero" van
-           debajo, como links chicos. */''}
+      ${/* Ultimo paso: el CTA es la CAMARA ROJA, la misma del tablero (--tile-scan):
+           la promesa del tutorial y el boton que la cumple tienen el mismo color.
+           Ocupa la fila entera; Atras y "Ver el tablero primero" van debajo como
+           links chicos. En los pasos anteriores, Siguiente es el ambar de siempre. */''}
       <div class="modal-actions">
         ${welcomeStep>0 && !isLast ? `<button type="button" class="btn btn-ghost" id="btn-welcome-back">${t('welcome_back_btn')}</button>` : ''}
-        <button type="button" class="btn btn-primary${isLast ? ' welcome-cta-final' : ''}" id="btn-welcome-next">${isLast ? `${lineIcon('camera',18)} ` : ''}${isLast ? t('welcome_btn') : t('welcome_next_btn')}</button>
+        <button type="button" class="btn ${isLast ? 'wt-cta-scan welcome-cta-final' : 'btn-primary'}" id="btn-welcome-next">${isLast ? `${lineIcon('camera',18)} ` : ''}${isLast ? t('welcome_btn') : t('welcome_next_btn')}</button>
       </div>
       ${isLast ? `
       <div class="welcome-final-links">
@@ -462,12 +491,8 @@ function teamIntroModal(){
   const step = TEAM_INTRO_STEP;
   return `
   <div class="overlay overlay-fast" id="team-intro-overlay">
-    <div class="modal">
-      <div class="welcome-step-card" style="background:${step.bg};margin-top:4px;">
-        ${welcomeScene(step.scene)}
-        <strong class="welcome-step-title">${t(step.titleKey)}</strong>
-        <div class="welcome-step-sub">${t(step.subKey)}</div>
-      </div>
+    <div class="modal wt-modal">
+      ${welcomeTileCard(step, t('team_intro_badge'), '')}
       <div class="modal-actions" style="margin-top:6px;">
         <button type="button" class="btn btn-primary" id="btn-team-intro-go">${t('team_intro_btn')}</button>
       </div>

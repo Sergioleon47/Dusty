@@ -352,6 +352,8 @@ const I18N = {
     welcome_step2_title:'Nosotros vigilamos los números', welcome_step2_sub:'Te avisamos si un precio sube raro, si el stock se está por acabar, o si te estás por pasar del presupuesto del mes.',
     welcome_step3_title:'Mejor en equipo', welcome_step3_sub:'Comparte un código y listo: los dos ven y actualizan el mismo inventario, recibos y presupuesto, siempre sincronizado.',
     welcome_btn:'Escanear mi primer recibo', welcome_next_btn:'Siguiente', welcome_back_btn:'Atrás', welcome_skip_btn:'Saltar',
+    /* Pastilla de la baldosa del tutorial y de la tarjeta de equipo (rediseno 2026-09-11). */
+    welcome_step_of:'Paso {i} de {n}', team_intro_badge:'Equipo',
     rd_scanned_on:'escaneado el', rd_applied_label:'Productos aplicados al inventario', rd_applied_to:'aplicado a:',
     rd_photo_alt:'Foto del recibo de',
     item_edit_title:'Editar producto', item_new_title:'Nuevo producto',
@@ -951,6 +953,7 @@ const I18N = {
     welcome_step2_title:'We keep an eye on the numbers', welcome_step2_sub:'We\'ll flag a price that jumps, stock running low, or your monthly budget getting close to the edge.',
     welcome_step3_title:'Better as a team', welcome_step3_sub:'Share a code and you\'re set: you both see and update the same inventory, receipts, and budget, always in sync.',
     welcome_btn:'Scan my first receipt', welcome_next_btn:'Next', welcome_back_btn:'Back', welcome_skip_btn:'Skip',
+    welcome_step_of:'Step {i} of {n}', team_intro_badge:'Team',
     rd_scanned_on:'scanned on', rd_applied_label:'Products applied to inventory', rd_applied_to:'applied to:',
     rd_photo_alt:'Receipt photo from',
     item_edit_title:'Edit product', item_new_title:'New product',
