@@ -232,6 +232,11 @@ function renderApp(){
     ${showReceiptsSheet && TAB_ORDER[2]!=='recibos' ? receiptsSheet() : ''}
     ${showBudgetModal ? budgetModal() : ''}
     ${showFinishedItemModal ? finishedItemModal() : ''}
+    ${/* Desglose de Valor/Potencial ANTES de itemModal a propósito (verificación
+         2026-09-11): sus filas abren la ficha del producto, que debe apilarse
+         ENCIMA — el orden del DOM manda entre overlays del mismo z-index. Antes
+         iba después y "Editar producto" quedaba escondido detrás del desglose. */''}
+    ${(typeof showInvDetail!=='undefined' && showInvDetail) ? invDetailModal() : ''}
     ${showItemModal ? itemModal() : ''}
     ${showBarcodeScanModal ? barcodeScanModal() : ''}
     ${showCategoriesModal ? categoriesModal() : ''}
@@ -240,7 +245,6 @@ function renderApp(){
     ${showProductBatchModal ? productBatchModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
     ${(typeof showReportBuilder!=='undefined' && showReportBuilder) ? reportBuilderModal() : ''}
-    ${(typeof showInvDetail!=='undefined' && showInvDetail) ? invDetailModal() : ''}
     ${showDayModal ? dayModal() : ''}
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}
