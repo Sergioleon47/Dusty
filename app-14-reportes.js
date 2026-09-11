@@ -314,8 +314,215 @@ function downloadBlob(blob, fileName){
 function reportButtonHtml(key, extraClass){
   return `<button type="button" class="btn btn-ghost btn-sm rp-btn ${extraClass || ''}" data-report-key="${escapeHtml(key)}" title="${t('rp_btn_hint')}">${t('rp_btn')}</button>`;
 }
+/* ---------- COMPROBANTE en PDF (un recibo, sin foto) ----------
+   Pedido del usuario 2026-09-11: "que se imprima la información extraída, no
+   la foto". Cabecera con negocio, proveedor, fecha y tipo; tabla de líneas con
+   cantidad, precio unitario y total; total pagado. Mismo escritor que el
+   informe mensual, así se imprime o comparte desde la hoja nativa. */
+function receiptKindLabel(r, cache){
+  const s = receiptSplit(r, cache || finCache());
+  return s.expense > 0 && s.invested > 0 ? t('rp_kind_mixed') : (s.invested > 0 ? t('rp_kind_goods') : t('rp_kind_expense'));
+}
+function receiptLineRows(r){
+  return (r.appliedItems || []).map(it=>{
+    const qty = Number(it.qty) || 0, tot = Number(it.totalPrice) || 0;
+    return { desc: (it.rawName || '').trim() || '—', applied: it.ingName ? (t('rd_applied_to') + ' ' + it.ingName) : '', qty: qty ? (Math.round(qty * 100) / 100) + ' ' + unitLabel(it.unit) : '', unit: qty > 0 ? money(tot / qty) : '—', total: money(tot) };
+  });
+}
+function pdfReceiptBlock(pdf, r, cache){
+  const rows = receiptLineRows(r);
+  if(rows.length === 0){ pdf.line(t('rb_no_lines'), {size: 9, color: [0.5, 0.5, 0.55], lh: 14}); return; }
+  const tr = rows.map(x=>({desc: x.desc + (x.applied ? '  ·  ' + x.applied : ''), qty: x.qty, unit: x.unit, total: x.total}));
+  tr.push({desc: t('lbl_total_paid'), qty: '', unit: '', total: money(r.total || 0), _bold: true});
+  pdf.table([{key: 'desc', label: t('rd_col_desc')}, {key: 'qty', label: t('rd_col_qty'), w: 90, align: 'right'}, {key: 'unit', label: t('rd_col_unit'), w: 80, align: 'right'}, {key: 'total', label: t('rd_col_total'), w: 90, align: 'right'}], tr, {size: 9});
+}
+function buildReceiptPdf(r){
+  resetFinancialCache();
+  const pdf = DustyPdf(); const M = pdf.M, W = pdf.W; const cache = finCache();
+  const name = (businessName || '').trim() || 'Dusty';
+  pdf.rect(M, pdf.H - M + 10, W - 2 * M, 3, [0.25, 0.56, 0.89]);
+  pdf.line(name, {size: 18, bold: true, lh: 28});
+  pdf.line(t('rd_pdf_title') + ' · ' + ((r.supplier || '').trim() || t('no_supplier_name')), {size: 12, color: [0.35, 0.35, 0.4], lh: 18});
+  pdf.line(`${t('rp_col_date')}: ${r.date || ''}   ·   ${t('rd_kind_label')}: ${receiptKindLabel(r, cache)}   ·   ${t('rd_id_label')} ${String(r.id || '').slice(-6).toUpperCase()}`, {size: 9, color: [0.45, 0.45, 0.5], lh: 15});
+  pdf.line(t('rp_generated').replace('{d}', localDateStr(new Date())), {size: 8.5, color: [0.55, 0.55, 0.6], lh: 14});
+  pdf.gap(8);
+  pdf.line(t('rd_ledger_title'), {size: 12.5, bold: true, lh: 24});
+  pdfReceiptBlock(pdf, r, cache);
+  pdf.gap(10);
+  pdf.line(t('recap_est_note'), {size: 8, color: [0.55, 0.55, 0.6], lh: 12});
+  return pdf.build((n, total)=>({left: name + ' · ' + t('rd_pdf_title') + ' · ' + (r.date || ''), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
+}
+function downloadReceiptPdf(r){
+  const bytes = buildReceiptPdf(r);
+  const safeName = ((businessName || 'dusty').trim() || 'dusty').replace(/[^\w\- ]+/g, '').trim().slice(0, 30).replace(/\s+/g, '-') || 'dusty';
+  const who = ((r.supplier || '').trim() || 'recibo').replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'recibo';
+  const fileName = `${safeName}-${r.date || 'sin-fecha'}-${who}.pdf`;
+  const file = new File([bytes], fileName, {type: 'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files: [file]})){
+    navigator.share({files: [file], title: t('rd_pdf_title') + ' · ' + (r.date || '')}).catch(e=>{ if(!e || e.name !== 'AbortError') downloadBlob(file, fileName); });
+    return;
+  }
+  downloadBlob(file, fileName);
+}
+
+/* ---------- CONSTRUCTOR DE REPORTES por rango (mezclar días y meses) ----------
+   Pedido del usuario 2026-09-11: "permitir mezclar y hacer reportes de diferentes
+   días y meses, organizado como un profesional contable". Rango Desde/Hasta con
+   atajos (hoy, semana, mes, mes pasado, año), filtro por proveedor y la opción
+   de incluir el detalle línea por línea. El PDF: resumen del período, gastos por
+   categoría, y el detalle POR DÍA con subtotal de día, subtotal de mes cuando
+   cambia el mes, total del período y compras por producto. */
+let showReportBuilder = false;
+let rbFrom = localDateStr(new Date()).slice(0, 8) + '01', rbTo = localDateStr(new Date()), rbQuick = 'month', rbSupplier = '', rbDetail = true;
+function rbQuickRange(kind){
+  const now = new Date(); const today = localDateStr(now);
+  if(kind === 'today') return [today, today];
+  if(kind === 'week'){ const d = new Date(now); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); return [localDateStr(d), today]; }
+  if(kind === 'month') return [today.slice(0, 8) + '01', today];
+  if(kind === 'last'){ const k = shiftMonthStr(today.slice(0, 7), -1); const [y, m] = k.split('-').map(Number); const last = new Date(y, m, 0).getDate(); return [k + '-01', k + '-' + String(last).padStart(2, '0')]; }
+  if(kind === 'year') return [today.slice(0, 4) + '-01-01', today];
+  return [rbFrom, rbTo];
+}
+function rbReceipts(){
+  const a = rbFrom <= rbTo ? rbFrom : rbTo, b = rbFrom <= rbTo ? rbTo : rbFrom;
+  return receipts.filter(r=> r && r.date && r.date >= a && r.date <= b && (!rbSupplier || (r.supplier || '').trim() === rbSupplier))
+    .sort((x, y)=> String(x.date).localeCompare(String(y.date)) || String(x.createdAt || '').localeCompare(String(y.createdAt || '')));
+}
+function rbDayLabel(dateStr){
+  const d = calDateFromStr(dateStr);
+  const wd = CAL_NOTE_WEEKDAYS[uiLang][d.getDay()];
+  return wd.charAt(0).toUpperCase() + wd.slice(1) + ' ' + d.getDate() + ' ' + MONTH_NAMES[uiLang][d.getMonth()] + ' ' + d.getFullYear();
+}
+function reportBuilderModal(){
+  const list = rbReceipts();
+  const total = list.reduce((s, r)=> s + (r.total || 0), 0);
+  const suppliers = [...new Set(receipts.map(r=> (r.supplier || '').trim()).filter(Boolean))].sort((a, b)=> a.localeCompare(b));
+  const chip = (k, label)=>`<button type="button" class="exit-reason-chip ${rbQuick === k ? 'on' : ''}" data-rb-quick="${k}" style="font-size:13px;padding:8px 13px;">${label}</button>`;
+  return `
+  <div class="overlay overlay-fast" id="report-builder-overlay">
+    <div class="modal">
+      <h3 class="navy">${t('rb_title')}</h3>
+      <div class="sub">${t('rb_sub')}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${chip('today', t('rb_quick_today'))}${chip('week', t('rb_quick_week'))}${chip('month', t('rb_quick_month'))}${chip('last', t('rb_quick_last'))}${chip('year', t('rb_quick_year'))}${chip('custom', t('rb_quick_custom'))}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <div class="field" style="flex:1;margin:0;"><label>${t('rb_from')}</label><input id="rb-from" type="date" value="${escapeHtml(rbFrom)}"></div>
+        <div class="field" style="flex:1;margin:0;"><label>${t('rb_to')}</label><input id="rb-to" type="date" value="${escapeHtml(rbTo)}"></div>
+      </div>
+      ${suppliers.length > 1 ? `
+      <div class="field" style="margin-top:12px;"><label>${t('rb_supplier')}</label>
+        <select id="rb-supplier"><option value="">${t('rb_supplier_all')}</option>${suppliers.map(s=>`<option value="${escapeHtml(s)}" ${rbSupplier === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}</select>
+      </div>` : ''}
+      <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13.5px;font-weight:600;cursor:pointer;">
+        <input type="checkbox" id="rb-detail" ${rbDetail ? 'checked' : ''} style="width:18px;height:18px;"> ${t('rb_detail')}
+      </label>
+      <div class="helper-note" style="margin:14px 0 0;font-weight:700;color:${list.length ? 'var(--ink)' : 'var(--ink-soft)'};">${list.length ? t('rb_count').replace('{n}', list.length).replace('{total}', money(total)) : t('rb_empty')}</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-close-report-builder">${t('btn_close')}</button>
+        <button class="btn btn-primary" id="btn-generate-report" ${list.length ? '' : 'disabled'}>${t('rb_generate')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function buildRangeReport(){
+  resetFinancialCache();
+  const list = rbReceipts();
+  const a = rbFrom <= rbTo ? rbFrom : rbTo, b = rbFrom <= rbTo ? rbTo : rbFrom;
+  const pdf = DustyPdf(); const M = pdf.M, W = pdf.W; const cache = finCache();
+  const name = (businessName || '').trim() || 'Dusty';
+  pdf.rect(M, pdf.H - M + 10, W - 2 * M, 3, [0.25, 0.56, 0.89]);
+  pdf.line(name, {size: 18, bold: true, lh: 28});
+  pdf.line(t('rb_pdf_title') + ' · ' + t('rb_period').replace('{a}', a).replace('{b}', b) + (rbSupplier ? '  ·  ' + t('rb_filter_supplier').replace('{s}', rbSupplier) : ''), {size: 12, color: [0.35, 0.35, 0.4], lh: 18});
+  pdf.line(t('rp_generated').replace('{d}', localDateStr(new Date())), {size: 8.5, color: [0.55, 0.55, 0.6], lh: 14});
+  pdf.gap(6);
+  // 1. Resumen del período
+  let expense = 0, invested = 0, total = 0; const byCat = new Map(); const byIng = new Map();
+  list.forEach(r=>{
+    const s = receiptSplit(r, cache); expense += s.expense; invested += s.invested; total += r.total || 0;
+    (r.appliedItems || []).forEach(it=>{
+      const ing = it.ingId ? cache.byId.get(it.ingId) : null;
+      const isExp = it.unit === 'servicio' || it.expenseOnly === true || (ing && isExpenseItem(ing));
+      if(isExp){ const c = ing && ing.expenseCategoryId ? expenseCategories.find(x=> x.id === ing.expenseCategoryId) : null; const k = c ? c.name : t('categories_uncategorized'); byCat.set(k, (byCat.get(k) || 0) + (Number(it.totalPrice) || 0)); }
+      const key = it.ingId || ('raw:' + (it.rawName || '')); const prev = byIng.get(key) || {name: (ing && ing.name) || it.rawName || '—', qty: 0, unit: it.unit || '', total: 0};
+      prev.qty += Number(it.qty) || 0; prev.total += Number(it.totalPrice) || 0; byIng.set(key, prev);
+    });
+    if(r.manual && r.manualKind !== 'investment'){ const c = r.expenseCategoryId ? expenseCategories.find(x=> x.id === r.expenseCategoryId) : null; const k = c ? c.name : t('categories_uncategorized'); byCat.set(k, (byCat.get(k) || 0) + (r.total || 0)); }
+  });
+  pdf.line(t('rb_summary'), {size: 12.5, bold: true, lh: 24});
+  const days = new Set(list.map(r=> r.date)).size;
+  pdf.table([{key: 'label', label: t('rp_col_concept')}, {key: 'value', label: t('rp_col_amount'), w: 130, align: 'right'}], [
+    {label: t('rb_grand_total'), value: money(total), _bold: true},
+    {label: t('rp_expenses'), value: money(expense)},
+    {label: t('rp_invested'), value: money(invested)},
+    {label: t('rp_receipts'), value: String(list.length) + '  ·  ' + days + ' ' + (uiLang === 'en' ? 'days' : 'días')}
+  ]);
+  pdf.gap(12);
+  if(byCat.size){
+    pdf.line(t('rp_by_category'), {size: 12.5, bold: true, lh: 24});
+    const cats = [...byCat.entries()].sort((x, y)=> y[1] - x[1]); const te = cats.reduce((s, c)=> s + c[1], 0);
+    pdf.table([{key: 'name', label: t('rp_col_category')}, {key: 'amount', label: t('rp_col_amount'), w: 110, align: 'right'}, {key: 'pct', label: '%', w: 60, align: 'right'}], cats.map(([n, v])=>({name: n, amount: money(v), pct: te > 0 ? Math.round(v / te * 100) + '%' : ''})));
+    pdf.gap(12);
+  }
+  // 2. Detalle por día (con subtotal de día y de mes)
+  pdf.line(t('rb_by_day'), {size: 12.5, bold: true, lh: 24});
+  let curDay = null, curMonth = null, daySum = 0, monthSum = 0;
+  const flushDay = ()=>{ if(curDay === null) return; pdf.line(t('rb_day_subtotal') + '   ' + money(daySum), {size: 9.5, bold: true, lh: 16, color: [0.2, 0.2, 0.25], x: M + 8}); daySum = 0; };
+  const flushMonth = ()=>{ if(curMonth === null) return; pdf.rule(0.7); pdf.line(t('rb_month_subtotal').replace('{m}', monthLabel(curMonth, uiLang)) + '   ' + money(monthSum), {size: 10.5, bold: true, lh: 20}); pdf.gap(4); monthSum = 0; };
+  list.forEach(r=>{
+    const mk = monthKey(r.date);
+    if(r.date !== curDay){ flushDay(); if(mk !== curMonth){ flushMonth(); curMonth = mk; } curDay = r.date; pdf.gap(4); pdf.line(rbDayLabel(r.date), {size: 10.5, bold: true, lh: 20, color: [0.25, 0.56, 0.89]}); }
+    daySum += r.total || 0; monthSum += r.total || 0;
+    pdf.line(((r.supplier || '').trim() || t('no_supplier_name')) + '   ·   ' + receiptKindLabel(r, cache) + '   ·   ' + money(r.total || 0), {size: 10, bold: true, lh: 17, x: M + 8});
+    if(rbDetail){ if((r.appliedItems || []).length){ pdfReceiptBlock(pdf, r, cache); pdf.gap(4); } }
+  });
+  flushDay(); flushMonth();
+  pdf.gap(6);
+  pdf.rect(M, pdf.y() - 22, W - 2 * M, 22, [0.93, 0.95, 0.99]); pdf.text(M + 8, pdf.y() - 15, t('rb_grand_total'), {size: 11, bold: true}); pdf.text(W - M - 8, pdf.y() - 15, money(total), {size: 11, bold: true, align: 'right'}); pdf.gap(30);
+  // 3. Compras por producto
+  const top = [...byIng.values()].sort((x, y)=> y.total - x.total).slice(0, 25);
+  if(top.length){
+    pdf.line(t('rp_by_product'), {size: 12.5, bold: true, lh: 24});
+    pdf.table([{key: 'name', label: t('rp_col_product')}, {key: 'qty', label: t('rp_col_qty'), w: 120, align: 'right'}, {key: 'total', label: t('rp_col_total'), w: 100, align: 'right'}], top.map(p=>({name: p.name, qty: (Math.round(p.qty * 100) / 100) + ' ' + unitLabel(p.unit), total: money(p.total)})));
+  }
+  pdf.gap(10);
+  pdf.line(t('recap_est_note'), {size: 8, color: [0.55, 0.55, 0.6], lh: 12});
+  return pdf.build((n, tot)=>({left: name + ' · ' + t('rb_pdf_title') + ' · ' + a + ' → ' + b, right: t('rp_page').replace('{n}', n).replace('{t}', tot)}));
+}
+function downloadRangeReport(){
+  let bytes;
+  try{ bytes = buildRangeReport(); }
+  catch(e){ console.error('[Dusty] no se pudo armar el reporte:', e); showToast(t('rp_failed'), 'error'); return; }
+  const safeName = ((businessName || 'dusty').trim() || 'dusty').replace(/[^\w\- ]+/g, '').trim().slice(0, 30).replace(/\s+/g, '-') || 'dusty';
+  const fileName = `${safeName}-reporte-${rbFrom}-${rbTo}.pdf`;
+  const file = new File([bytes], fileName, {type: 'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files: [file]})){
+    navigator.share({files: [file], title: t('rb_pdf_title')}).catch(e=>{ if(!e || e.name !== 'AbortError') downloadBlob(file, fileName); });
+    return;
+  }
+  downloadBlob(file, fileName);
+}
 function attachReportEvents(){
   document.querySelectorAll('[data-report-key]').forEach(b=>{
     b.onclick = (ev)=>{ ev.stopPropagation(); downloadMonthReport(b.dataset.reportKey); };
   });
+  const btnRb = document.getElementById('btn-report-builder');
+  if(btnRb) btnRb.onclick = ()=>{ showReportBuilder = true; render(); };
+  const rbOv = document.getElementById('report-builder-overlay');
+  if(rbOv){
+    const close = ()=>{ showReportBuilder = false; render(); };
+    rbOv.onmousedown = (e)=>{ if(e.target === rbOv) close(); };
+    document.getElementById('btn-close-report-builder').onclick = close;
+    document.querySelectorAll('[data-rb-quick]').forEach(b=>{ b.onclick = ()=>{ rbQuick = b.dataset.rbQuick; if(rbQuick !== 'custom'){ const [a, z] = rbQuickRange(rbQuick); rbFrom = a; rbTo = z; } render(); }; });
+    const fromInp = document.getElementById('rb-from'), toInp = document.getElementById('rb-to');
+    if(fromInp) fromInp.onchange = ()=>{ if(fromInp.value){ rbFrom = fromInp.value; rbQuick = 'custom'; render(); } };
+    if(toInp) toInp.onchange = ()=>{ if(toInp.value){ rbTo = toInp.value; rbQuick = 'custom'; render(); } };
+    const sup = document.getElementById('rb-supplier');
+    if(sup) sup.onchange = ()=>{ rbSupplier = sup.value; render(); };
+    const det = document.getElementById('rb-detail');
+    if(det) det.onchange = ()=>{ rbDetail = !!det.checked; };
+    // SIN await antes de navigator.share (iOS exige el gesto).
+    const gen = document.getElementById('btn-generate-report');
+    if(gen) gen.onclick = ()=> downloadRangeReport();
+  }
 }

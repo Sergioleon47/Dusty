@@ -1031,6 +1031,30 @@
      texto no ayudaba a leer de un vistazo cuál era cuál. */
   .pulse-state{font-family:'IBM Plex Mono';font-size:11px;font-weight:700;color:var(--ink-soft);min-width:64px;text-align:right;transition:color .22s;}
   .pulse-row:has(input:checked) .pulse-state{color:var(--basil-ink);}
+  /* Deslizador de tamaño de letra (Ajustes, 2026-09-11): pista gruesa y pulgar
+     grande para el dedo, suave de arrastrar; la parte recorrida se pinta verde. */
+  .font-row{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+  .font-ctrl{display:flex;align-items:center;gap:12px;margin-top:10px;}
+  .font-a{font-weight:800;color:var(--ink-soft);line-height:1;}
+  .font-a.small{font-size:13px;} .font-a.big{font-size:24px;}
+  .font-slider{flex:1;-webkit-appearance:none;appearance:none;height:32px;background:transparent;margin:0;cursor:pointer;touch-action:pan-y;--pct:20%;}
+  .font-slider::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:linear-gradient(90deg, var(--basil) 0 var(--pct), var(--line) var(--pct) 100%);}
+  .font-slider::-moz-range-track{height:8px;border-radius:99px;background:var(--line);}
+  .font-slider::-moz-range-progress{height:8px;border-radius:99px;background:var(--basil);}
+  .font-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;margin-top:-10px;border-radius:50%;background:var(--panel);border:3px solid var(--basil);box-shadow:0 2px 8px rgba(0,0,0,.25);transition:transform .12s ease;}
+  .font-slider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--panel);border:3px solid var(--basil);box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  .font-slider:active::-webkit-slider-thumb{transform:scale(1.12);}
+  .font-slider:focus-visible{outline:2px solid var(--focus-ring);outline-offset:4px;border-radius:99px;}
+  .font-foot{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+  .font-val{font-family:'IBM Plex Mono';font-size:12px;font-weight:700;color:var(--basil-ink);font-variant-numeric:tabular-nums;}
+  .font-foot .link-btn{padding:6px 0;font-size:12.5px;}
+  .font-foot .link-btn:disabled{opacity:.4;cursor:default;}
+  /* Legibilidad del texto blanco sobre las tarjetas de color (Dashboard y modal
+     de Presupuesto): una sombra leve sube el contraste sin cambiar el color, y
+     el subtítulo va casi blanco pleno. */
+  .dash-budget.ok, .dash-budget.warn, .dash-budget.crit{text-shadow:0 1px 2px rgba(0,0,0,.22);}
+  .dash-budget.ok, .dash-budget.warn, .dash-budget.crit{--bs:rgba(255,255,255,.95);}
+  html[data-dusty-theme="abeja"] .dash-budget.ok, html[data-dusty-theme="abeja"] .dash-budget.warn, html[data-dusty-theme="abeja"] .dash-budget.crit{--bs:rgba(0,0,0,.78);text-shadow:none;}
   @keyframes navDotRing{0%{opacity:.7;}60%,100%{opacity:0;}}
   .budget-alert-card .ba-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
   .budget-alert-card .ba-text b{font-size:13.5px;color:var(--ink);}
@@ -1060,6 +1084,32 @@
   .bycat-bar.ok i{background:var(--money-pos);}
   /* Resumen dentro del modal de presupuesto y gastado por categoría. */
   .budget-modal-summary{margin:0 0 12px;}
+  /* Modal de Presupuesto (pedido del usuario 2026-09-11): la tarjeta del
+     Dashboard arriba, en vivo mientras se escribe, y textos más oscuros. */
+  .budget-modal-hero{margin:12px 0 14px;}
+  .budget-modal-hero .stat-value{color:var(--bi);}
+  .budget-modal-hero .budget-pace{color:var(--bs);margin-top:8px;}
+  .budget-live-tag{font-family:'IBM Plex Mono';font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;background:rgba(255,255,255,.25);color:var(--bi);flex-shrink:0;animation:budgetLivePulse 1.6s ease-in-out infinite;}
+  @keyframes budgetLivePulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+  .budget-modal .helper-note{color:var(--ink-mid);}
+  .budget-modal .field label{color:var(--ink);font-weight:700;}
+  .budget-modal .bycat-title, .budget-modal .category-group-header, .budget-modal .budget-rollover small, .budget-modal .bycat-amt small{color:var(--ink-mid);}
+  .budget-modal .budget-caps summary::after{color:var(--ink-mid);}
+  .budget-quick{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px;}
+  .budget-quick button{border:1px solid var(--line);background:var(--raised);color:var(--ink);font-family:inherit;font-size:12px;font-weight:700;border-radius:99px;padding:6px 11px;cursor:pointer;white-space:nowrap;transition:transform .12s ease, background .15s ease;}
+  .budget-quick button:active{transform:scale(.94);background:var(--bg);}
+  .budget-quick button.suggest{border-color:color-mix(in srgb, var(--basil) 45%, var(--line));color:var(--basil-ink);background:var(--basil-soft);}
+  .budget-switch-row{display:flex;align-items:center;gap:12px;margin:12px 0 4px;cursor:pointer;}
+  .budget-switch-row .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .budget-switch-row b{font-size:13px;color:var(--ink);}
+  .budget-switch-row small{font-size:11.5px;color:var(--ink-mid);line-height:1.4;}
+  .budget-more{margin:10px 0 0;border:1px solid var(--line);border-radius:12px;padding:0 12px;}
+  .budget-more summary{list-style:none;cursor:pointer;padding:10px 0;font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;}
+  .budget-more summary::-webkit-details-marker{display:none;}
+  .budget-more summary::after{content:'▾';margin-left:auto;color:var(--ink-mid);transition:transform .2s;}
+  .budget-more[open] summary::after{transform:rotate(180deg);}
+  .budget-more .field{margin-top:4px;}
+  @media (prefers-reduced-motion: reduce){ .budget-live-tag{animation:none;} }
   .bycat{margin:4px 0 12px;}
   .bycat-title{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;}
   .bycat-row{display:grid;grid-template-columns:minmax(0,1fr) 42% auto;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;animation:helpQIn .35s var(--ease-soft) both;}
@@ -2532,3 +2582,25 @@
      al lado de la ✕, en cada tarjeta de mes va en su propia fila a la derecha. */
   .rp-btn{white-space:nowrap;font-weight:700;}
   .ms-card-tools{display:flex;justify-content:flex-end;margin:-4px 0 6px;}
+
+  /* ===== COMPROBANTE contable en la ficha del recibo (2026-09-11) =====
+     La información extraída primero, como un libro: metadatos en una fila,
+     tabla de líneas (descripción · cant. · p. unit. · total) y la foto plegada
+     debajo. Imprimir genera el PDF de los datos, no de la foto. */
+  .rd-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--ink-soft);margin-bottom:10px;}
+  .rd-meta b{display:block;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);}
+  .rd-meta span{color:var(--ink);font-weight:600;}
+  .rd-ledger{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);}
+  .rd-row{display:grid;grid-template-columns:minmax(0,1fr) 68px 72px 78px;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;}
+  .rd-row > span:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .rd-row.rd-head{background:var(--inset);font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);}
+  .rd-row.rd-total{border-bottom:none;background:var(--inset);font-weight:800;}
+  .rd-row .rd-desc{display:block;font-weight:700;color:var(--ink);overflow-wrap:anywhere;}
+  .rd-row .rd-sub{display:block;font-size:11px;color:var(--ink-soft);}
+  .rd-row .rd-amt{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--money-pos);}
+  .rd-photo{margin-top:12px;}
+  .rd-photo summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--sky-ink);display:flex;align-items:center;gap:6px;padding:6px 0;list-style:none;}
+  .rd-photo summary::-webkit-details-marker{display:none;}
+  .rd-photo summary::after{content:'▾';margin-left:auto;color:var(--ink-soft);}
+  .rd-photo[open] summary::after{content:'▴';}
+  @media (max-width:420px){ .rd-row{grid-template-columns:minmax(0,1fr) 56px 64px 70px;font-size:12px;padding:8px 8px;} }

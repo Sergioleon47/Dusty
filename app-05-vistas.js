@@ -1520,7 +1520,9 @@ function recibosView(){
        dejaba a un usuario nuevo sin poder anotar un recordatorio tocando un día.
        Solo el buscador por monto (arriba) espera al primer recibo. */''}
   ${receiptCalendarWidget()}
-  ${receipts.length>0 ? `<div class="field" style="max-width:340px;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div>` : ''}
+  ${/* Buscador + REPORTES (pedido del usuario 2026-09-11): el constructor por
+       rango mezcla días y meses en un PDF con la información extraída. */''}
+  ${receipts.length>0 ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="field" style="flex:1;min-width:180px;max-width:340px;margin:0;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div><button type="button" class="btn btn-ghost btn-sm" id="btn-report-builder" title="${t('rb_sub')}">${t('rb_btn')}</button></div>` : ''}
   ${receipts.length===0 ? (cloudSyncPending ? loadingSkeleton('recibos') : emptyState('receipt',t('empty_receipts_title'),'',true,
       `<button type="button" class="btn btn-primary" id="btn-rec-empty-scan">${t('dash_empty_scan_btn')}</button>`)) :
     (sorted.length===0 ? `<div class="helper-note" style="margin:4px 0 0;">${t('rec_no_matches')}</div>` :
@@ -1919,6 +1921,18 @@ function setDustyTheme(id){
    o prende las palpitaciones de Inventario (conteo pendiente, stock crítico, días
    del calendario) y de Presupuesto (barra, tarjeta de alerta, punto del Dashboard).
    Preferencia del dispositivo; el CSS lee html[data-dusty-pulse="off"]. */
+/* TAMAÑO DE LETRA (pedido del usuario 2026-09-11: "personas con visión no tan
+   sana"): un deslizador en Ajustes, de 90% a 140%, que escala TODA la app con
+   zoom en <html> — como el "tamaño de pantalla" del teléfono: letras, botones y
+   espacios crecen juntos y el diseño se acomoda solo como en un teléfono más
+   angosto. Preferencia del dispositivo (index.html la aplica antes del primer
+   pintado para que no salte). */
+let dustyFontScale = 100;
+try{ const v = parseInt(localStorage.getItem('patron_font_scale')||'100', 10); if(v>=90 && v<=140) dustyFontScale = v; }catch(e){}
+function applyFontScale(){
+  document.documentElement.style.zoom = dustyFontScale===100 ? '' : String(dustyFontScale/100);
+}
+applyFontScale();
 let dustyPulse = true;
 try{ if(localStorage.getItem('patron_pulse')==='off') dustyPulse = false; }catch(e){}
 function applyPulsePref(){
@@ -1971,6 +1985,20 @@ function alertSettingsModal(){
             <input type="checkbox" id="pulse-toggle" ${dustyPulse?'checked':''}>
             <i></i>
           </label>
+        </div>
+        ${/* Deslizador de TAMAÑO DE LETRA (pedido del usuario 2026-09-11). Se ve
+             en vivo mientras se arrastra; el % y el "Aa" acompañan. */''}
+        <div class="font-row">
+          <div class="pulse-text"><b>${t('font_size_label')}</b><small>${t('font_size_helper')}</small></div>
+          <div class="font-ctrl">
+            <span class="font-a small" aria-hidden="true">A</span>
+            <input type="range" id="font-scale" class="font-slider" min="90" max="140" step="1" value="${dustyFontScale}" aria-label="${t('font_size_label')}">
+            <span class="font-a big" aria-hidden="true">A</span>
+          </div>
+          <div class="font-foot">
+            <span class="font-val" id="font-scale-val">${dustyFontScale}%</span>
+            <button type="button" class="link-btn" id="font-scale-reset" ${dustyFontScale===100?'disabled':''}>${t('font_size_reset')}</button>
+          </div>
         </div>
         ${/* ¿ESTE NEGOCIO FABRICA? (pregunta del usuario 2026-09-10: "¿y si alguien
              no usa la zona de producción?"). Decide la tercera pestaña. Solo
@@ -2119,27 +2147,52 @@ function budgetModal(){
       ph = t('budget_placeholder_suggested').replace('{n}', sugerido).replace('{s}', money(base));
     }
   }
+  /* Interactivo (pedido del usuario 2026-09-11): arriba la MISMA tarjeta del
+     Dashboard (verde/ámbar/rojo) que cambia en vivo mientras se escribe el
+     monto (ver el oninput en app-09), atajos con los números del propio
+     negocio, el arrastre como interruptor, y lo raro (objetivo costo/ventas)
+     plegado en "Más opciones". */
+  const canEdit = canSeeFinancials();
+  const prevExp = spendSplitForMonth(shiftMonthStr(localMonthStr(), -1)).expense;
+  const avg3 = (()=>{ let s=0, n=0; for(let i=1;i<=3;i++){ const e=spendSplitForMonth(shiftMonthStr(localMonthStr(), -i)).expense; if(e>0){ s+=e; n++; } } return n ? s/n : 0; })();
+  const draftNum = parseFloat(draftMonthlyBudget);
+  const p0 = budgetPacePreview(Number.isFinite(draftNum) ? draftNum : NaN, !!budgetMeta.rollover);
   return `
   <div class="overlay" id="budget-overlay">
-    <div class="modal">
+    <div class="modal budget-modal">
+      <button type="button" class="modal-close-btn" id="btn-close-budget" aria-label="${t('btn_cancel')}">✕</button>
       <h3 class="basil">${t('budget_title')}</h3>
-      <div class="field" style="margin-top:10px;">
+      ${budgetTileHtml(p0)}
+      <div class="settings-card">
+      <div class="field" style="margin-top:0;">
         <label>${t('budget_label')}</label>
-        <input id="budget-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}" ${canSeeFinancials()?'':'disabled'}>
+        <input id="budget-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="${escapeHtml(ph)}" value="${draftMonthlyBudget!==null && draftMonthlyBudget!==undefined ? draftMonthlyBudget : ''}" ${canEdit?'':'disabled'}>
       </div>
-      ${canSeeFinancials()
+      ${canEdit ? `
+      <div class="budget-quick">
+        <button type="button" data-budget-delta="-100">−100</button>
+        <button type="button" data-budget-delta="100">+100</button>
+        ${prevExp>0 ? `<button type="button" class="suggest" data-budget-set="${Math.ceil(prevExp/50)*50}">${t('budget_quick_prev').replace('{amount}', money(prevExp))}</button>` : ''}
+        ${avg3>0 && Math.abs(avg3-prevExp)>1 ? `<button type="button" class="suggest" data-budget-set="${Math.ceil(avg3/50)*50}">${t('budget_quick_avg').replace('{amount}', money(avg3))}</button>` : ''}
+      </div>
+      <div class="helper-note">${t('budget_amount_hint')}</div>` : ''}
+      ${canEdit
         ? `<div class="helper-note">${t('budget_helper')}${Object.keys(budgetMeta.byMonth).some(k=>k<localMonthStr() && budgetMeta.byMonth[k]!==monthlyBudget) ? ' '+t('budget_history_note') : ''}</div>`
         : `<div class="helper-note" style="color:var(--saffron-ink);">${t('budget_locked_note')}</div>`}
-      ${canSeeFinancials() ? `
-      <div class="field" style="margin-top:4px;">
-        <label for="cogs-target-input">${t('budget_cogs_label')}</label>
-        <input id="cogs-target-input" type="number" min="1" max="99" step="1" inputmode="numeric" placeholder="30" value="${budgetMeta.cogsTargetPct!==null ? escapeHtml(budgetMeta.cogsTargetPct) : ''}">
+      ${canEdit ? `
+      <label class="budget-switch-row">
+        <span class="txt"><b>${t('budget_rollover_label')}</b><small>${t('budget_rollover_helper')}</small></span>
+        <span class="pulse-switch"><input type="checkbox" id="budget-rollover-input" ${budgetMeta.rollover?'checked':''}><i></i></span>
+      </label>
+      <details class="budget-more">
+        <summary>${t('budget_more_options')}</summary>
+        <div class="field">
+          <label for="cogs-target-input">${t('budget_cogs_label')}</label>
+          <input id="cogs-target-input" type="number" min="1" max="99" step="1" inputmode="numeric" placeholder="30" value="${budgetMeta.cogsTargetPct!==null ? escapeHtml(budgetMeta.cogsTargetPct) : ''}">
+        </div>
+        <div class="helper-note">${t('budget_cogs_helper')}</div>
+      </details>` : ''}
       </div>
-      <div class="helper-note">${t('budget_cogs_helper')}</div>
-      <label class="budget-rollover">
-        <input type="checkbox" id="budget-rollover-input" ${budgetMeta.rollover?'checked':''}>
-        <span><b>${t('budget_rollover_label')}</b><small>${t('budget_rollover_helper')}</small></span>
-      </label>` : ''}
       ${(()=>{
         /* LA CASA de los ítems de gasto (pedido del usuario 2026-09-05): agua,
            luz, Eat out y demás salieron del inventario (no son mercadería) y

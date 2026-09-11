@@ -239,6 +239,7 @@ function renderApp(){
     ${showScanModal ? scanModal() : ''}
     ${showProductBatchModal ? productBatchModal() : ''}
     ${showReceiptDetail ? receiptDetailModal() : ''}
+    ${(typeof showReportBuilder!=='undefined' && showReportBuilder) ? reportBuilderModal() : ''}
     ${showDayModal ? dayModal() : ''}
     ${showPriceHistoryModal ? priceHistoryModal() : ''}
     ${showMonthlySpendModal ? monthlySpendModal() : ''}

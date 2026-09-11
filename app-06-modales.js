@@ -255,19 +255,43 @@ function receiptVtName(id){ return 'receipt-'+String(id).replace(/[^a-zA-Z0-9_-]
 function receiptDetailModal(){
   const r = receipts.find(x=>x.id===showReceiptDetail);
   if(!r) return '';
+  /* COMPROBANTE contable (pedido del usuario 2026-09-11): primero la información
+     EXTRAÍDA como un libro — fecha, proveedor, tipo, y la tabla de líneas con
+     cantidad, precio unitario y total — y la foto DEBAJO, plegada. Imprimir
+     genera el PDF del comprobante (los datos, no la foto); Enviar manda la foto. */
+  const lines = (r.appliedItems||[]);
+  const cache = (typeof finCache==='function') ? finCache() : null;
+  const split = (typeof receiptSplit==='function' && cache) ? receiptSplit(r, cache) : null;
+  const kind = split ? (split.expense>0 && split.invested>0 ? t('rp_kind_mixed') : (split.invested>0 ? t('rp_kind_goods') : t('rp_kind_expense'))) : '';
+  const imgs = receiptImages(r);
+  const unitPrice = (it)=> (Number(it.qty)>0 && Number(it.totalPrice)>=0) ? money(Number(it.totalPrice)/Number(it.qty)) : '—';
   return `
   <div class="overlay" id="receipt-detail-overlay">
     <div class="modal wide" style="view-transition-name:${receiptVtName(r.id)};">
       <h3 class="navy">${escapeHtml(r.supplier)||t('no_supplier_name')}</h3>
-      <div class="sub">${escapeHtml(r.date)} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
-      ${receiptImages(r).map((img,idx)=>`<img class="receipt-preview" src="${escapeHtml(receiptImgSrc(img))}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${receiptImages(r).length})" style="margin-bottom:6px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;">${t('rd_applied_label')}</label>
-      ${(r.appliedItems||[]).map(it=>`
-        <div class="matched-item" style="cursor:default;">
-          <div class="mi-top"><strong>${escapeHtml(it.rawName)}</strong><span>${money(it.totalPrice)}</span></div>
-          <div style="font-size:12px;color:var(--ink-soft);">${escapeHtml(it.qty)} ${escapeHtml(unitLabel(it.unit))} &middot; ${t('rd_applied_to')} ${escapeHtml(it.ingName)}</div>
-        </div>
-      `).join('')}
+      <div class="sub" style="margin-bottom:10px;">${escapeHtml(r.date)} &middot; ${t('rd_scanned_on')} ${new Date(r.createdAt).toLocaleDateString()}</div>
+      <div class="rd-meta">
+        <span><b>${t('rp_col_date')}</b>${escapeHtml(r.date)}</span>
+        ${kind ? `<span><b>${t('rd_kind_label')}</b>${kind}</span>` : ''}
+        <span><b>${t('rd_id_label')}</b>${escapeHtml(String(r.id||'').slice(-6).toUpperCase())}</span>
+        <span><b>${t('rd_ledger_title')}</b>${t('rd_lines_n').replace('{n}', lines.length)}</span>
+      </div>
+      <div class="rd-ledger">
+        <div class="rd-row rd-head"><span>${t('rd_col_desc')}</span><span>${t('rd_col_qty')}</span><span>${t('rd_col_unit')}</span><span>${t('rd_col_total')}</span></div>
+        ${lines.length===0 ? `<div class="helper-note" style="margin:8px 0;">${t('rb_no_lines')}</div>` : lines.map(it=>`
+        <div class="rd-row">
+          <span><span class="rd-desc">${escapeHtml(it.rawName)}</span>${it.ingName ? `<span class="rd-sub">${t('rd_applied_to')} ${escapeHtml(it.ingName)}</span>` : ''}</span>
+          <span>${escapeHtml(it.qty)} ${escapeHtml(unitLabel(it.unit))}</span>
+          <span>${unitPrice(it)}</span>
+          <span class="rd-amt">${money(it.totalPrice)}</span>
+        </div>`).join('')}
+        <div class="rd-row rd-total"><span>${t('lbl_total_paid')}</span><span></span><span></span><span class="rd-amt">${money(r.total)}</span></div>
+      </div>
+      ${imgs.length ? `
+      <details class="rd-photo">
+        <summary>${lineIcon('camera',14)} ${t('rd_photo_toggle')}${imgs.length>1?` (${imgs.length})`:''}</summary>
+        ${imgs.map((img,idx)=>`<img class="receipt-preview" src="${escapeHtml(receiptImgSrc(img))}" alt="${t('rd_photo_alt')} ${escapeHtml(r.supplier)||t('no_supplier_name')} (${idx+1}/${imgs.length})" loading="lazy" decoding="async" style="margin-top:8px;" onerror="this.outerHTML='<div class=&quot;receipt-preview&quot;></div>'">`).join('')}
+      </details>` : ''}
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-delete-receipt" style="color:var(--tomato);border-color:color-mix(in srgb, var(--tomato) 35%, var(--panel));">${t('btn_delete')}</button>
         <button class="btn btn-ghost btn-icon" id="btn-print-receipt">${lineIcon('printer',15)} ${t('btn_print')}</button>
@@ -4045,7 +4069,17 @@ function deleteReceipt(receiptId){
   showToast(partes.join(' · '), 'info');
 }
 
+/* Imprimir = el PDF del COMPROBANTE con la información extraída, sin la foto
+   (pedido del usuario 2026-09-11; ver downloadReceiptPdf en app-14). Se comparte
+   por la hoja nativa (desde ahí se imprime) o se descarga. La versión HTML de
+   ventana emergente queda como respaldo si el PDF fallara. */
 function printReceipt(r){
+  if(typeof downloadReceiptPdf==='function'){
+    try{ downloadReceiptPdf(r); return; }catch(e){ console.error('[Dusty] comprobante PDF:', e); }
+  }
+  printReceiptHtml(r);
+}
+function printReceiptHtml(r){
   const w = window.open('', '_blank');
   if(!w) return; // ventana emergente bloqueada por el navegador
   const rows = (r.appliedItems||[]).map(it=>`

@@ -506,7 +506,13 @@
 // de pedido) respeta la barra de estado en la app instalada — dusty.css.
 // v145: la tarjeta de presupuesto del Dashboard nunca es blanca — sin
 // presupuesto arranca del verde (--tile-ok) en todos los temas — app-05 + css.
-const CACHE_NAME = 'patron-shell-v145';
+// v146: modal de Presupuesto interactivo — la tarjeta del Dashboard arriba (verde/
+// ámbar/rojo) que cambia EN VIVO mientras se escribe el monto, atajos (mes pasado,
+// promedio, ±100), arrastre como interruptor, y textos más oscuros — app-03/05/09 + css.
+// v147: la ficha del recibo es un COMPROBANTE contable (datos extraidos primero,
+// tabla de lineas con cant. y p. unit., foto plegada debajo), Imprimir = PDF de los
+// datos, y constructor de REPORTES por rango que mezcla dias y meses — app-03/04/05/06/14 + css.
+const CACHE_NAME = 'patron-shell-v147';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

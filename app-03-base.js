@@ -166,6 +166,9 @@ const I18N = {
     budget_caps_title:'Topes por categoría', budget_caps_helper:'Opcional: un máximo por rubro. La barra de cada categoría se pinta contra su tope.',
     budget_cap_of:'de {cap}',
     budget_open_recap:'💲 Ver cierre de mes',
+    budget_preview_tag:'en vivo', budget_preview_empty:'Escribí un monto abajo y mirá cómo queda el mes.',
+    budget_quick_prev:'Mes pasado · {amount}', budget_quick_avg:'Promedio 3 meses · {amount}',
+    budget_more_options:'Más opciones', budget_amount_hint:'La tarjeta de arriba cambia mientras escribís.',
     budget_cogs_line:'Costo de mercadería: {p}% de las ventas · objetivo {t}%',
     money_format_label:'Formato de montos',
     budget_alert_fast_sub:'A este ritmo cierras en {proj}. Toca para ver los gastos.',
@@ -548,6 +551,15 @@ const I18N = {
        en los dos idiomas (pedido del usuario 2026-09-11). */
     rp_btn:'Reports', rp_btn_hint:'Descargar o compartir el informe del período en PDF',
     rp_title:'Informe del mes', rp_generated:'Generado el {d} con Dusty',
+    rd_ledger_title:'Comprobante', rd_col_desc:'Descripción', rd_col_qty:'Cant.', rd_col_unit:'P. unit.', rd_col_total:'Total',
+    rd_photo_toggle:'Foto del recibo', rd_kind_label:'Tipo', rd_id_label:'N.º', rd_lines_n:'{n} líneas', rd_pdf_title:'Comprobante',
+    rb_btn:'📄 Reportes', rb_title:'Reportes', rb_sub:'Elegí días o meses, mezclalos como quieras, y armá un PDF con la información extraída de cada recibo (sin fotos).',
+    rb_quick_today:'Hoy', rb_quick_week:'Esta semana', rb_quick_month:'Este mes', rb_quick_last:'Mes pasado', rb_quick_year:'Este año', rb_quick_custom:'Personalizado',
+    rb_from:'Desde', rb_to:'Hasta', rb_supplier:'Proveedor', rb_supplier_all:'Todos los proveedores',
+    rb_detail:'Detalle línea por línea de cada recibo', rb_count:'{n} comprobantes · {total}', rb_empty:'No hay recibos en ese rango.',
+    rb_generate:'Generar PDF', rb_pdf_title:'Reporte de gastos', rb_period:'Del {a} al {b}', rb_filter_supplier:'Proveedor: {s}',
+    rb_summary:'Resumen del período', rb_by_day:'Detalle por día', rb_day_subtotal:'Subtotal del día', rb_month_subtotal:'Subtotal de {m}', rb_grand_total:'Total del período',
+    rb_lines_hdr:'Líneas del comprobante', rb_no_lines:'Sin líneas extraídas',
     rp_summary:'Resumen', rp_expenses:'Gastos', rp_invested:'Mercadería comprada', rp_budget:'Presupuesto',
     rp_left:'Restante del presupuesto', rp_over:'Excedido del presupuesto', rp_used:'usado', rp_receipts:'Recibos y gastos registrados',
     rp_vs_prev:'{d} vs. período anterior', rp_new:'nuevo',
@@ -679,6 +691,7 @@ const I18N = {
     theme_title:'Tema de colores',
     pulse_label:'Latidos de aviso', pulse_helper:'Las palpitaciones de Inventario (conteo pendiente, stock crítico) y de Presupuesto (barra, alerta, punto del Dashboard). Apágalas si te distraen o para ahorrar batería.',
     pulse_on:'Prendidos', pulse_off:'Apagados',
+    font_size_label:'Tamaño de letra', font_size_helper:'Para leer más cómodo. Se aplica a toda la app: deslizá y mirá.', font_size_reset:'Normal',
     switch_on:'Prendido', switch_off:'Apagado',
     scan_similar_note:'Se parece a «{name}» — ¿es el mismo producto?',
     scan_opt_existing:'Ya está en mi inventario', scan_opt_new:'Producto nuevo',
@@ -812,6 +825,9 @@ const I18N = {
     budget_caps_title:'Caps by category', budget_caps_helper:'Optional: a maximum per category. Each category bar is painted against its cap.',
     budget_cap_of:'of {cap}',
     budget_open_recap:'💲 See month recap',
+    budget_preview_tag:'live', budget_preview_empty:'Type an amount below and watch how the month looks.',
+    budget_quick_prev:'Last month · {amount}', budget_quick_avg:'3-month average · {amount}',
+    budget_more_options:'More options', budget_amount_hint:'The card above updates as you type.',
     budget_cogs_line:'Cost of goods: {p}% of sales · target {t}%',
     money_format_label:'Amount format',
     budget_alert_fast_sub:'At this pace you close at {proj}. Tap to see expenses.',
@@ -1173,6 +1189,15 @@ const I18N = {
     pw_cancelled:'Payment cancelled. You can pick it up whenever you like.',
     rp_btn:'Reports', rp_btn_hint:'Download or share this period’s report as a PDF',
     rp_title:'Monthly report', rp_generated:'Generated on {d} with Dusty',
+    rd_ledger_title:'Receipt record', rd_col_desc:'Description', rd_col_qty:'Qty', rd_col_unit:'Unit price', rd_col_total:'Total',
+    rd_photo_toggle:'Receipt photo', rd_kind_label:'Type', rd_id_label:'No.', rd_lines_n:'{n} lines', rd_pdf_title:'Receipt record',
+    rb_btn:'📄 Reports', rb_title:'Reports', rb_sub:'Pick days or months, mix them as you like, and build a PDF with the data extracted from each receipt (no photos).',
+    rb_quick_today:'Today', rb_quick_week:'This week', rb_quick_month:'This month', rb_quick_last:'Last month', rb_quick_year:'This year', rb_quick_custom:'Custom',
+    rb_from:'From', rb_to:'To', rb_supplier:'Supplier', rb_supplier_all:'All suppliers',
+    rb_detail:'Line-by-line detail of each receipt', rb_count:'{n} receipts · {total}', rb_empty:'No receipts in that range.',
+    rb_generate:'Generate PDF', rb_pdf_title:'Expense report', rb_period:'From {a} to {b}', rb_filter_supplier:'Supplier: {s}',
+    rb_summary:'Period summary', rb_by_day:'Detail by day', rb_day_subtotal:'Day subtotal', rb_month_subtotal:'{m} subtotal', rb_grand_total:'Period total',
+    rb_lines_hdr:'Receipt lines', rb_no_lines:'No extracted lines',
     rp_summary:'Summary', rp_expenses:'Expenses', rp_invested:'Goods purchased', rp_budget:'Budget',
     rp_left:'Budget left', rp_over:'Over budget', rp_used:'used', rp_receipts:'Receipts and expenses recorded',
     rp_vs_prev:'{d} vs. previous period', rp_new:'new',
@@ -1296,6 +1321,7 @@ const I18N = {
     theme_title:'Color theme',
     pulse_label:'Alert pulses', pulse_helper:'The pulsing in Inventory (count due, critical stock) and Budget (bar, alert card, Dashboard dot). Turn them off if they distract you or to save battery.',
     pulse_on:'On', pulse_off:'Off',
+    font_size_label:'Text size', font_size_helper:'For easier reading. Applies to the whole app: slide and see.', font_size_reset:'Normal',
     switch_on:'On', switch_off:'Off',
     scan_similar_note:'Looks like “{name}” — is it the same product?',
     scan_opt_existing:'Already in my inventory', scan_opt_new:'New item',
@@ -1867,6 +1893,63 @@ function budgetSummaryHtml(p){
 // Solo las notas (ritmo, comprometido, arrastre) sin la línea de "Gastos $X de
 // $Y": la tarjeta del Dashboard con anillo (2026-09-08) ya muestra esas cifras
 // grandes a la derecha del anillo y no las repite.
+/* Vista previa del presupuesto mientras se escribe (modal de Presupuesto, pedido
+   del usuario 2026-09-11: "más interactiva"): mismo cálculo que budgetPace pero
+   con el monto que hay en el campo, no el guardado. */
+function budgetPacePreview(budgetValue, rollover){
+  const key = localMonthStr();
+  const base = (Number.isFinite(budgetValue) && budgetValue>0) ? budgetValue : null;
+  if(!base) return null;
+  let carry = 0;
+  if(rollover){ const prev = shiftMonthStr(key, -1); carry = carryFromPrevious(budgetForMonth(prev), spendSplitForMonth(prev).expense, base); }
+  const [y,m] = key.split('-').map(Number);
+  let committed=0; const committedNames=[];
+  inventory.forEach(i=>{ if(isExpenseItem(i) && i.costPerUnit>0 && !billPaidInMonth(i, key)){ committed+=i.costPerUnit; committedNames.push(i.name); } });
+  const p = computeBudgetPace({ budget: base+carry, expense: spendSplitForMonth(key).expense,
+    daysInMonth: new Date(y, m, 0).getDate(), dayOfMonth: new Date().getDate(), isCurrent: true,
+    threshold: budgetMeta.alertPct, committed, carry });
+  if(p){ p.key = key; p.base = base; p.committedNames = committedNames; }
+  return p;
+}
+/* La tarjeta de presupuesto del modal: MISMOS colores y anatomía que la del
+   Dashboard (anillo, cuatro cifras, notas de ritmo), verde sin presupuesto y
+   ámbar/rojo según el estado. opts.preview marca "en vivo" mientras se edita. */
+function budgetTileHtml(p, opts){
+  opts = opts || {};
+  const key = p ? p.key : localMonthStr();
+  const sp = spendSplitForMonth(key);
+  const tag = opts.preview ? `<span class="budget-live-tag">${t('budget_preview_tag')}</span>` : '';
+  if(!p){
+    return `
+  <div class="stat-card dash-month dash-budget ok nobudget budget-modal-hero" id="budget-hero">
+    <div class="dash-budget-head"><span class="stat-label">${t('dash_investment_of')} ${monthLabel(key, uiLang)}</span>${tag}</div>
+    <div class="stat-value" style="margin-top:4px;">${money(sp.invested)}</div>
+    <div class="budget-pace">${t('budget_preview_empty')}</div>
+  </div>`;
+  }
+  const CIRC = 251.3;
+  const pctShown = Math.min(Math.max(p.pct, 0), 100);
+  const dash = (CIRC * (1 - pctShown/100)).toFixed(1);
+  return `
+  <div class="stat-card dash-month dash-budget ${p.status} budget-modal-hero" id="budget-hero">
+    <div class="dash-budget-head"><span class="stat-label">${monthLabel(key, uiLang)}</span>${tag}</div>
+    <div class="dash-budget-body">
+      <div class="dash-ring" role="img" aria-label="${Math.round(p.pct)}% ${t('dash_ring_spent')}">
+        <svg viewBox="0 0 96 96"><circle class="dash-ring-track" cx="48" cy="48" r="40" stroke-width="10" fill="none"/><circle class="dash-ring-fill ${p.status}" cx="48" cy="48" r="40" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="${CIRC}" stroke-dashoffset="${dash}"/></svg>
+        <div class="dash-ring-center"><b>${Math.round(p.pct)}%</b><small>${t('dash_ring_spent')}</small></div>
+      </div>
+      <div class="dash-kv">
+        <div><span>${t('dash_kv_expenses')}</span><b>${money(p.expense)}</b></div>
+        <div><span>${t('dash_kv_budget')}</span><b>${money(p.budget)}</b></div>
+        <div><span>${t('dash_kv_invest')}</span><b class="pos">${money(sp.invested)}</b></div>
+        ${p.left>=0
+          ? `<div><span>${t('dash_kv_left')}</span><b class="pos">${money(p.left)}</b></div>`
+          : `<div><span>${t('dash_kv_over')}</span><b class="neg">${money(-p.left)}</b></div>`}
+      </div>
+    </div>
+    ${budgetNotesHtml(p)}
+  </div>`;
+}
 function budgetNotesHtml(p){
   let pace='';
   if(p.pct>=100) pace = t('budget_pace_over');
