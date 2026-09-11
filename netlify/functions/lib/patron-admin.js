@@ -376,7 +376,13 @@ async function recordScanUsage(ownerUid, count, period) {
    cuenta puede ESCRIBIR (solo lectura de verdad, no solo en la UI). */
 const BILLING_ENABLED = process.env.DUSTY_BILLING_ENABLED === '1';
 const TRIAL_DAYS = Math.max(1, parseInt(process.env.DUSTY_TRIAL_DAYS || '30', 10) || 30);
+// Días de regalo por contar por qué se va (encuesta de salida / despedida).
+const RETENTION_DAYS = Math.max(1, parseInt(process.env.DUSTY_RETENTION_DAYS || '30', 10) || 30);
 const DIA_MS = 86400000;
+// Clave de una oferta de retención: hash del email, nunca el email en la ruta.
+function retentionKey(email) {
+  return require('crypto').createHash('sha256').update(String(email || '').trim().toLowerCase()).digest('hex').slice(0, 40);
+}
 const creadaEn = new Map();
 async function accountCreatedAt(ownerUid) {
   if (creadaEn.has(ownerUid)) return creadaEn.get(ownerUid);
@@ -410,14 +416,39 @@ async function getAccessState(ownerUid, caller) {
   // Sin fecha de creación (uid raro, Auth caído): no se inventa una — la cuenta
   // queda abierta. Cerrar por un error nuestro es peor que un mes gratis de más.
   const createdAt = Number.isFinite(data.accountCreatedAt) ? data.accountCreatedAt : await accountCreatedAt(ownerUid);
-  const trialEndsAt = Number.isFinite(createdAt) ? createdAt + TRIAL_DAYS * DIA_MS : null;
+  // Se escribe solo si algo cambió: el arranque de cada sesión llama a esto y
+  // no vale una escritura por apertura de app.
+  const persist = { billingEnabled: BILLING_ENABLED, unlimited };
+  if (Number.isFinite(createdAt)) persist.accountCreatedAt = createdAt;
+  /* MES DE REGALO (retención, 2026-09-11). bonusMs se suma al mes gratis y sale
+     de dos caminos: (a) aceptó "quédate un mes gratis" antes de borrar
+     (claim-retention.js), (b) borró la cuenta, en la despedida contó por qué se
+     iba (exit-feedback.js deja retentionOffers/{sha256(email)}) y VOLVIÓ con el
+     mismo email: la primera vez que esta cuenta nueva pregunta por su acceso,
+     canjea la oferta — una sola vez por oferta y por cuenta (retentionChecked). */
+  let bonusMs = Number.isFinite(data.bonusMs) ? data.bonusMs : 0;
+  if (!data.retentionChecked) {
+    persist.retentionChecked = true;
+    try {
+      const u = await admin.auth().getUser(ownerUid);
+      const email = u && u.email ? u.email.toLowerCase() : null;
+      if (email) {
+        const offRef = db.doc(`retentionOffers/${retentionKey(email)}`);
+        const off = await offRef.get();
+        if (off.exists && !off.data().claimedBy) {
+          bonusMs += RETENTION_DAYS * DIA_MS;
+          persist.bonusMs = bonusMs;
+          await offRef.set({ claimedBy: ownerUid, claimedAt: now }, { merge: true });
+        }
+      }
+    } catch (e) { console.error('[Dusty] no se pudo revisar la oferta de retención:', e); }
+  }
+  const trialEndsAt = Number.isFinite(createdAt) ? createdAt + TRIAL_DAYS * DIA_MS + bonusMs : null;
   const sub = data.subscription && typeof data.subscription === 'object' ? data.subscription : null;
   const subscriptionUntil = subscriptionUntilMs(sub);
   const locked = BILLING_ENABLED && !unlimited && trialEndsAt !== null && now > trialEndsAt && !(subscriptionUntil > now);
-  // Se escribe solo si algo cambió: el arranque de cada sesión llama a esto y
-  // no vale una escritura por apertura de app.
-  const persist = { billingEnabled: BILLING_ENABLED, unlimited, trialEndsAt: trialEndsAt || 0, subscriptionUntil };
-  if (Number.isFinite(createdAt)) persist.accountCreatedAt = createdAt;
+  persist.trialEndsAt = trialEndsAt || 0;
+  persist.subscriptionUntil = subscriptionUntil;
   if (Object.keys(persist).some(k => data[k] !== persist[k])) {
     try { await ref.set(persist, { merge: true }); } catch (e) { console.error('[Dusty] no se pudo guardar el estado de acceso:', e); }
   }
@@ -499,6 +530,6 @@ module.exports = {
   isUnlimitedAccount,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
   checkIpRateLimit,
-  BILLING_ENABLED, TRIAL_DAYS, getAccessState, subscriptionRequiredResponse,
+  BILLING_ENABLED, TRIAL_DAYS, RETENTION_DAYS, DIA_MS, retentionKey, getAccessState, subscriptionRequiredResponse,
   stripeConfigured, stripeRequest, subscriptionRecord, saveSubscription
 };

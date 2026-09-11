@@ -138,6 +138,9 @@ function attachHardwareBackButton(){
     //    descartar — hay que elegir idioma y tema para que la app se entienda —
     //    así que "atrás" sale, como en la primera pantalla de cualquier app.
     if(document.getElementById('ob-root')){ if(App.exitApp) App.exitApp(); return; }
+    // 0b. Despedida (la cuenta ya se borró, ver openGoodbye): no hay a dónde
+    //     volver — "atrás" cierra la app.
+    if(document.getElementById('gb-root')){ if(App.exitApp) App.exitApp(); return; }
     // 1. Modal abierto: se cierra el de más arriba (los modales se apilan).
     const ov = topOverlay();
     if(ov){

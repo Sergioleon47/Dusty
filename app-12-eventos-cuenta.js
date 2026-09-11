@@ -258,22 +258,21 @@ function attachAccountEvents(){
     const closeBtn=document.getElementById('btn-close-exit-survey');
     if(closeBtn) closeBtn.onclick=closeExitSurvey;
     const acceptBtn=document.getElementById('btn-exit-accept');
-    if(acceptBtn) acceptBtn.onclick=()=>{
+    if(acceptBtn) acceptBtn.onclick=async ()=>{
       sendExitFeedback('retention_offer_accepted', null, '');
       closeExitSurvey();
+      // El mes gratis se aplica DE VERDAD (claim-retention: +30 días al mes
+      // gratis de esta cuenta, una sola vez) y se refresca el estado de acceso.
+      try{
+        const idToken = await currentUser.getIdToken();
+        const res = await fetch(urlFuncion('/.netlify/functions/claim-retention'), { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+idToken}, body:'{}' });
+        const parsed = await res.json().catch(()=>({}));
+        if(res.ok && parsed && parsed.state) setAccessState(parsed.state);
+      }catch(e){ console.warn('[Dusty] claim-retention:', e && e.message); }
       showToast(t('exit_thanks_offer'));
     };
-    document.querySelectorAll('[data-exit-reason]').forEach(b=>{
-      b.onclick=()=>{ exitReason=b.dataset.exitReason; render(); };
-    });
     const nextBtn=document.getElementById('btn-exit-next');
-    if(nextBtn) nextBtn.onclick=()=>{
-      if(exitStep===1){
-        const txt=(document.getElementById('exit-reason-text')?.value||'').trim().slice(0,500);
-        sendExitFeedback('exit_survey', exitReason, txt);
-      }
-      exitStep++; render();
-    };
+    if(nextBtn) nextBtn.onclick=()=>{ exitStep++; render(); };
     const delBtn=document.getElementById('btn-exit-delete');
     // Sin closeExitSurvey(): eso consumiría el flag de "volver a Ajustes" a
     // mitad de la cadena — el flag debe sobrevivir hasta el cierre del modal

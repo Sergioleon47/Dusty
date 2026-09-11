@@ -13,6 +13,9 @@ function closeDeleteAccountModal(){ showDeleteAccountModal=false; reopenSettings
 // popup-con-fallback-a-redirect que ya usa signInWithGoogle().
 async function performAccountDeletion(){
   if(!currentUser) return;
+  // El email se guarda ANTES de borrar: la despedida lo necesita para dejar la
+  // oferta del mes de regalo a nombre de esa persona (ver openGoodbye).
+  const emailDespedida = (currentUser.email || '').trim();
   deleteAccountLoading = true; deleteAccountError=''; render();
   try{
     const provider = (currentUser.providerData[0] && currentUser.providerData[0].providerId) || 'password';
@@ -71,8 +74,10 @@ async function performAccountDeletion(){
     showDeleteAccountModal=false; deleteAccountLoading=false;
     // La cuenta ya no existe: no hay Ajustes al que "volver" — el flag muere acá.
     settingsReturnPending=false;
-    showToast(t('delete_account_success'), 'success');
     render();
+    // La DESPEDIDA (2026-09-11) reemplaza al toast de "Tu cuenta fue eliminada":
+    // pantalla completa, con el motivo a cambio del mes de regalo.
+    openGoodbye(emailDespedida);
   }catch(err){
     deleteAccountLoading=false;
     if(err && err.code==='auth/popup-closed-by-user'){ render(); return; } // cerró el popup, no es un error real
@@ -1664,15 +1669,16 @@ function manualSpendModal(){
 }
 
 /* ================= ENCUESTA DE SALIDA (retención) =================
-   Se interpone ANTES del modal real de eliminar cuenta. Tres pasos con la misma
-   barra de progreso y porcentaje del tutorial de bienvenida (pedido del usuario:
-   "que no aburra, bien dinámico") — cada paso entra con la animación del tutorial
-   porque su contenedor cambia de id y morphdom lo recrea. Lo PRIMERO es la oferta
-   del mes gratis (regla del usuario); las respuestas van a la colección feedback
-   con kind propio, y aceptar la oferta cierra todo sin tocar la cuenta. */
-let showExitSurvey=false, exitStep=0, exitReason=null;
-const EXIT_REASONS=['use','scan','missing','price','other'];
-function openExitSurvey(){ showExitSurvey=true; exitStep=0; exitReason=null; render(); }
+   Se interpone ANTES del modal real de eliminar cuenta. Dos pasos con la misma
+   barra de progreso del tutorial viejo: 1) la oferta "quédate un mes — gratis"
+   (lo PRIMERO, regla del usuario) — aceptarla cierra todo sin tocar la cuenta y
+   desde el 2026-09-11 SUMA los 30 días de verdad (claim-retention.js, ver el
+   handler en app-12); 2) la confirmación final que abre el borrado.
+   El "¿por qué te vas?" ya NO se pregunta acá (2026-09-11, unificado): se
+   pregunta UNA sola vez, en la despedida de después del borrado, a cambio del
+   mes de regalo para cuando vuelva (openGoodbye). */
+let showExitSurvey=false, exitStep=0;
+function openExitSurvey(){ showExitSurvey=true; exitStep=0; render(); }
 function closeExitSurvey(){ showExitSurvey=false; reopenSettingsIfPending(); render(); }
 function sendExitFeedback(kind, reason, text){
   try{
@@ -1685,7 +1691,7 @@ function sendExitFeedback(kind, reason, text){
   }catch(e){}
 }
 function exitSurveyModal(){
-  const pct = Math.round((exitStep+1)/3*100);
+  const pct = Math.round((exitStep+1)/2*100);
   const steps = [`
       <div class="exit-step" id="exit-step-0">
         <div class="exit-emoji">🎁</div>
@@ -1695,15 +1701,6 @@ function exitSurveyModal(){
         <button type="button" class="btn btn-ghost" id="btn-exit-next" style="width:100%;margin-top:8px;">${t('exit_continue_delete')}</button>
       </div>`,`
       <div class="exit-step" id="exit-step-1">
-        <h3 class="saffron" style="text-align:center;">${t('exit_reason_title')}</h3>
-        <div class="sub" style="text-align:center;">${t('exit_reason_sub')}</div>
-        <div class="exit-reasons">
-          ${EXIT_REASONS.map(r=>`<button type="button" class="exit-reason-chip ${exitReason===r?'on':''}" data-exit-reason="${r}">${t('exit_r_'+r)}</button>`).join('')}
-        </div>
-        <textarea id="exit-reason-text" rows="2" placeholder="${t('exit_reason_ph')}" style="width:100%;margin-top:10px;"></textarea>
-        <button type="button" class="btn btn-primary" id="btn-exit-next" style="width:100%;margin-top:12px;" ${exitReason?'':'disabled'}>${t('exit_next')}</button>
-      </div>`,`
-      <div class="exit-step" id="exit-step-2">
         <div class="exit-emoji">👋</div>
         <h3 class="tomato" style="text-align:center;">${t('exit_final_title')}</h3>
         <div class="sub" style="text-align:center;">${t('exit_final_sub')}</div>
@@ -1721,6 +1718,88 @@ function exitSurveyModal(){
       ${steps[exitStep]}
     </div>
   </div>`;
+}
+
+/* ================= DESPEDIDA (la cuenta ya se eliminó) =================
+   Aprobada sobre prototipo el 2026-09-11 ("listo merge"). Mismo mecanismo que
+   la introducción: un nodo propio fuera de #app (#gb-root, bloque .gb en
+   dusty.css), construido una vez, con #app inert. Reemplaza al toast de "Tu
+   cuenta fue eliminada". Secuencia: el logo hace una reverencia, HASTA PRONTO /
+   Gracias por usar Dusty, la línea honesta de que TODO se borró (ni en el
+   teléfono ni en la nube), y al centro la oferta: "¿Por qué te vas? Cuéntanos y
+   tu próximo mes va por nuestra cuenta hasta que lo reparemos" — seis motivos,
+   texto opcional y Enviar. El envío va a exit-feedback (sin sesión: la cuenta
+   ya no existe) que guarda el motivo y deja la oferta a nombre del email; si
+   vuelve con ese email, getAccessState le suma los 30 días solo.
+   Botones: "Empezar de nuevo" limpia el dispositivo y recarga (arranca la
+   introducción); "Cerrar Dusty" cierra la app instalada, y en la web muestra
+   "Ya puedes cerrar esta pestaña". El botón "atrás" de Android cierra la app. */
+const GOODBYE_REASONS = ['use','scan','missing','hard','price','other'];
+function openGoodbye(email){
+  if(document.getElementById('gb-root')) return;
+  const root = document.createElement('div');
+  root.id = 'gb-root';
+  root.className = 'gb';
+  root.setAttribute('role', 'dialog');
+  root.setAttribute('aria-modal', 'true');
+  root.setAttribute('aria-label', t('gb_title'));
+  const canOffer = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email||'');
+  root.innerHTML = `
+    <div class="gb-bye">
+      <div class="brand-mark">D</div>
+      <div class="gb-kicker gb-in a1">${t('gb_kicker')}</div>
+      <h1 class="gb-title gb-in a2">${t('gb_title')}</h1>
+      <p class="gb-sub gb-in a3">${t('gb_sub')}</p>
+      <div class="gb-done gb-in a4"><i>✓</i><span>${t('gb_done')}</span></div>
+      ${canOffer ? `
+      <div class="gb-offer gb-in a5" id="gb-offer">
+        <div class="gb-offer-head">${t('gb_offer_head')}</div>
+        <div class="gb-offer-sub">${t('gb_offer_sub')}</div>
+        <div class="gb-chips">${GOODBYE_REASONS.map(r=>`<button type="button" class="gb-chip" data-gb-reason="${r}">${t('gb_r_'+r)}</button>`).join('')}</div>
+        <textarea id="gb-why" rows="2" maxlength="600" placeholder="${t('gb_ph')}"></textarea>
+        <button type="button" class="gb-send" id="gb-send" disabled>${t('gb_send')}</button>
+        <div class="gb-thanks"><i>✓</i><span>${t('gb_thanks').replace('{email}', '<b>'+escapeHtml(email)+'</b>')}</span></div>
+      </div>` : ''}
+      <div class="gb-actions gb-in a6">
+        <button type="button" class="gb-cta" id="gb-again">${t('gb_again')}</button>
+        <button type="button" class="gb-ghost" id="gb-close">${t('gb_close')}</button>
+      </div>
+    </div>
+    <div class="gb-closed" id="gb-closed" hidden><b>${t('gb_closed_title')}</b><span>${t('gb_closed_sub')}</span></div>`;
+  document.body.appendChild(root);
+  const app = document.getElementById('app');
+  if(app) app.inert = true;
+  let reason = null, sending = false;
+  root.querySelectorAll('[data-gb-reason]').forEach(b=>{
+    b.onclick = ()=>{ reason = b.dataset.gbReason; root.querySelectorAll('[data-gb-reason]').forEach(x=>x.classList.toggle('on', x===b)); root.querySelector('#gb-send').disabled = false; };
+  });
+  const send = root.querySelector('#gb-send');
+  if(send) send.onclick = async ()=>{
+    if(!reason || sending) return;
+    sending = true; send.disabled = true; send.textContent = t('gb_sending');
+    try{
+      const res = await fetch(urlFuncion('/.netlify/functions/exit-feedback'), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email, reason, text: (root.querySelector('#gb-why').value||'').trim().slice(0,600), lang: uiLang })
+      });
+      if(!res.ok) throw new Error('http '+res.status);
+      root.querySelector('#gb-offer').classList.add('sent');
+    }catch(e){
+      sending = false; send.disabled = false; send.textContent = t('gb_send');
+      showToast(t('gb_send_failed'), 'error');
+    }
+  };
+  root.querySelector('#gb-again').onclick = ()=>{
+    // Todo limpio, como un teléfono nuevo: al recargar arranca la introducción.
+    try{ Object.keys(localStorage).filter(k=>/^patron_|^platocost_/.test(k)).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    location.reload();
+  };
+  root.querySelector('#gb-close').onclick = ()=>{
+    const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if(App && App.exitApp){ App.exitApp(); return; }
+    root.querySelector('.gb-bye').hidden = true;
+    root.querySelector('#gb-closed').hidden = false;
+  };
 }
 
 function feedbackModal(){
