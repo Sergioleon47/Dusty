@@ -71,6 +71,34 @@ function attachDashboardEvents(){
     budgetOverlay.onmousedown=(e)=>{ if(e.target===budgetOverlay) closeBudgetModal(); };
     const btnCancelBudget=document.getElementById('btn-cancel-budget');
     if(btnCancelBudget) btnCancelBudget.onclick=closeBudgetModal;
+    const btnCloseBudget=document.getElementById('btn-close-budget');
+    if(btnCloseBudget) btnCloseBudget.onclick=closeBudgetModal;
+    // VISTA PREVIA EN VIVO (pedido del usuario 2026-09-11): la tarjeta de arriba
+    // se redibuja sola con el monto del campo — sin render(), para no perder el
+    // foco ni lo tipeado. Los atajos escriben el campo y disparan lo mismo.
+    const budgetInp=document.getElementById('budget-input');
+    const rollInp=document.getElementById('budget-rollover-input');
+    const previewBudget=()=>{
+      const hero=document.getElementById('budget-hero');
+      if(!hero || !budgetInp) return;
+      const v=parseFloat(budgetInp.value);
+      const p=budgetPacePreview(Number.isFinite(v) ? v : NaN, !!(rollInp && rollInp.checked));
+      hero.outerHTML = budgetTileHtml(p, {preview:true});
+    };
+    if(budgetInp) budgetInp.oninput=previewBudget;
+    if(rollInp) rollInp.onchange=previewBudget;
+    document.querySelectorAll('[data-budget-set]').forEach(b=>{
+      b.onclick=()=>{ if(!budgetInp) return; budgetInp.value=b.dataset.budgetSet; previewBudget(); };
+    });
+    document.querySelectorAll('[data-budget-delta]').forEach(b=>{
+      b.onclick=()=>{
+        if(!budgetInp) return;
+        const cur=parseFloat(budgetInp.value)||0;
+        const next=Math.max(0, Math.round((cur + Number(b.dataset.budgetDelta))*100)/100);
+        budgetInp.value = next>0 ? String(next) : '';
+        previewBudget();
+      };
+    });
     const btnSaveBudget=document.getElementById('btn-save-budget');
     if(btnSaveBudget) btnSaveBudget.onclick=()=>{
       // Solo quien ve finanzas cambia el monto (auditoría 2026-09-07); cero o

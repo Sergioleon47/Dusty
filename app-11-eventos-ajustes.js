@@ -27,6 +27,28 @@ function attachSettingsEvents(){
     try{ localStorage.setItem('patron_production_tab', productionTabPref); }catch(e){}
     render();
   };
+  // Tamaño de letra (Ajustes, 2026-09-11): en vivo mientras se arrastra (sin
+  // render, para que el deslizador no se reconstruya bajo el dedo); se guarda
+  // al soltar. "Normal" vuelve al 100%.
+  const fontSlider=document.getElementById('font-scale');
+  if(fontSlider){
+    const fontVal=document.getElementById('font-scale-val');
+    const fontReset=document.getElementById('font-scale-reset');
+    const paint=()=>{ fontSlider.style.setProperty('--pct', ((dustyFontScale-90)/50*100)+'%'); };
+    paint();
+    fontSlider.oninput=()=>{
+      dustyFontScale = Math.min(140, Math.max(90, parseInt(fontSlider.value,10)||100));
+      applyFontScale(); paint();
+      if(fontVal) fontVal.textContent = dustyFontScale+'%';
+      if(fontReset) fontReset.disabled = dustyFontScale===100;
+    };
+    fontSlider.onchange=()=>{ try{ localStorage.setItem('patron_font_scale', String(dustyFontScale)); }catch(e){} };
+    if(fontReset) fontReset.onclick=()=>{
+      dustyFontScale = 100; applyFontScale();
+      try{ localStorage.setItem('patron_font_scale','100'); }catch(e){}
+      fontSlider.value = '100'; paint(); if(fontVal) fontVal.textContent='100%'; fontReset.disabled = true;
+    };
+  }
   const pulseToggle=document.getElementById('pulse-toggle');
   if(pulseToggle) pulseToggle.onchange=()=>{
     dustyPulse = !!pulseToggle.checked;
