@@ -606,4 +606,4 @@ try{
 // Avisos de presupuesto (auditoría 2026-09-07): se arman recién después del
 // arranque (y de la posible bajada de la nube) para no gritar con datos a medio
 // cargar; el primer chequeo cubre el caso de abrir la app ya pasado el umbral.
-setTimeout(()=>{ budgetAlertsArmed = true; checkBudgetAlerts(); }, 2500);
+setTimeout(()=>{ budgetAlertsArmed = true; checkBudgetAlerts(); if(typeof checkServiceAlerts==='function') checkServiceAlerts(); }, 2500);

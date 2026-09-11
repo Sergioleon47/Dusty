@@ -86,6 +86,7 @@ function normalizeBizProfile(p){
     services: src.services===true,
     remindOverdue: src.remindOverdue!==false,
     maintDays: (Number.isFinite(md) && [3,7,14,30].indexOf(md)>=0) ? md : 7,
+    distUnit: src.distUnit==='mi' ? 'mi' : 'km',
     assets, catalog
   };
 }

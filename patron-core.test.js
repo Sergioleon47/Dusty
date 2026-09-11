@@ -482,6 +482,9 @@ test('normalizeBizProfile: vacío o basura cae a vende productos, sin servicios'
   assert.equal(normalizeBizProfile('x').sells, true);
   assert.equal(normalizeBizProfile({maintDays: 99}).maintDays, 7);
   assert.equal(normalizeBizProfile({maintDays: 14}).maintDays, 14);
+  assert.equal(p.distUnit, 'km');
+  assert.equal(normalizeBizProfile({distUnit: 'mi'}).distUnit, 'mi');
+  assert.equal(normalizeBizProfile({distUnit: 'leguas'}).distUnit, 'km');
 });
 test('normalizeBizProfile: limpia activos, mantenimientos y servicios', () => {
   const p = normalizeBizProfile({sells:false, services:true, assets:[

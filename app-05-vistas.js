@@ -378,7 +378,7 @@ function dashboardView(){
     ${seeAll}
   </div>`;
   })()}
-  ${budgetAlertCard()}${svcOverdueCard()}
+  ${budgetAlertCard()}${svcOverdueCard()}${svcMaintCard()}
 
   ${/* 3. Herramientas con nombre (mismos ids de siempre: btn-scan-products,
        btn-scan-fab, btn-new-item — attachEvents los encuentra igual). Los

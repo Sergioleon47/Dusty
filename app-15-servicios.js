@@ -138,10 +138,10 @@ function svcMaintWhen(st){
   if(st.status==='none') return t('svc_maint_no_date');
   if(st.status==='overdue'){
     if(st.daysLeft!==null && st.daysLeft<0) return t('svc_overdue_days').replace('{n}', String(-st.daysLeft));
-    return t('svc_overdue_km').replace('{n}', svcFmtNum(st.kmLeft));
+    return tu('svc_overdue_km').replace('{n}', svcFmtNum(st.kmLeft));
   }
   const useKm = st.kmLeft!==null && (st.daysLeft===null || st.kmLeft/30 < st.daysLeft);
-  if(useKm) return t('svc_in_km').replace('{n}', svcFmtNum(st.kmLeft));
+  if(useKm) return tu('svc_in_km').replace('{n}', svcFmtNum(st.kmLeft));
   if(st.daysLeft<=45) return t('svc_in_days').replace('{n}', String(st.daysLeft));
   return svcMonthYear(st.dueDate);
 }
@@ -388,11 +388,11 @@ function assetSheet(){
   const key = localMonthStr();
   const st = assetMonthStats(a, key);
   const today = localDateStr();
-  const bought = [a.purchaseDate ? t('svc_bought').replace('{when}', svcMonthYear(a.purchaseDate)) : '', a.purchasePrice>0 ? money(a.purchasePrice) : '', a.km!==null && a.km!==undefined ? `${svcFmtNum(a.km)} km` : ''].filter(Boolean).join(' · ');
+  const bought = [a.purchaseDate ? t('svc_bought').replace('{when}', svcMonthYear(a.purchaseDate)) : '', a.purchasePrice>0 ? money(a.purchasePrice) : '', a.km!==null && a.km!==undefined ? `${svcFmtNum(a.km)} ${distU()}` : ''].filter(Boolean).join(' · ');
   const recs = assetReceipts(a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0,6);
   const plans = (a.maint||[]).map(m=>({m, st: maintStatus(m, a, today, bizProfile.maintDays)}))
     .sort((x,y)=> SVC_MAINT_RANK[y.st.status]-SVC_MAINT_RANK[x.st.status] || svcMaintUrgency(x.st)-svcMaintUrgency(y.st));
-  const every = (m)=>[m.everyKm>0 ? t('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(uiLang==='en' ? ' or ' : ' o ');
+  const every = (m)=>[m.everyKm>0 ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(uiLang==='en' ? ' or ' : ' o ');
   const body = `
     <h3 class="navy svc-sheet-title">${escapeHtml(a.emoji||'🚚')} ${escapeHtml(a.name)}${a.model ? ` · ${escapeHtml(a.model)}` : ''}
       <button type="button" class="stock-icon-btn edit svc-title-edit" id="btn-edit-asset" title="${t('svc_edit_asset')}" aria-label="${t('svc_edit_asset')}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
@@ -433,7 +433,8 @@ function assetSheet(){
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btn-asset-log-maint">${t('svc_log_maint')}</button>
       <button class="btn btn-primary" id="btn-asset-new-job">${t('svc_job_new')}</button>
-    </div>`;
+    </div>
+    <button type="button" class="link-btn" id="btn-print-asset" style="width:100%;margin-top:6px;">🖨 ${t('svc_print_asset')}</button>`;
   return svcSheet('asset-sheet-overlay', t('svc_tool_asset'), body, 'btn-close-asset-sheet');
 }
 
@@ -453,7 +454,7 @@ function collectSheet(){
     return p===today ? t('svc_paid_today') : p===addDaysStr(today,-1) ? t('svc_paid_yesterday') : t('svc_paid_on').replace('{when}', svcShortDate(p));
   };
   const body = `
-    <div class="sub svc-sub">${t('svc_collect_sub2')}</div>
+    <div class="sub svc-sub" style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span>${t('svc_collect_sub2')}</span>${reportButtonHtml(localMonthStr())}</div>
     <div class="inv-stats">
       <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_pending')}</div><div class="inv-stat-value">${svcMoneyShort(cs.pending)}</div></div>
       <div class="inv-stat static svc-stat-mid"><div class="inv-stat-label">${t('svc_stat_overdue')}</div><div class="inv-stat-value">${svcMoneyShort(cs.overdue)}</div></div>
@@ -494,7 +495,7 @@ function jobsSheet(){
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)) || String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, 120);
   let lastKey = '';
   const body = `
-    <div class="sub svc-sub">${t('svc_jobs_sub')}</div>
+    <div class="sub svc-sub" style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span>${t('svc_jobs_sub')}</span>${reportButtonHtml(localMonthStr())}</div>
     <button class="btn btn-primary" id="btn-jobs-new" style="width:100%;margin-bottom:12px;">${t('svc_new_job_btn')}</button>
     ${svcJobs().length>5 ? `
     <div class="inv-search-wrap" style="width:100%;margin-bottom:10px;">
@@ -622,7 +623,7 @@ function jobModal(){
         <button class="btn btn-ghost" id="btn-cancel-job">${t('btn_cancel')}</button>
         <button class="btn btn-primary" id="btn-save-job">${t('svc_save_job')}</button>
       </div>
-      ${d.id ? `<button type="button" class="link-btn" id="btn-delete-job" style="width:100%;margin-top:6px;color:var(--tomato);">${t('svc_delete_job')}</button>` : ''}
+      ${d.id ? `<div class="svc-row-actions" style="margin:6px 0 0;"><button type="button" class="btn btn-ghost btn-sm" id="btn-print-job">🖨 ${t('svc_print_invoice')}</button><button type="button" class="btn btn-ghost btn-sm" id="btn-delete-job" style="color:var(--tomato);">${t('svc_delete_job')}</button></div>` : ''}
     </div>
   </div>`;
 }
@@ -695,7 +696,7 @@ function assetModal(){
         <div class="field"><label for="asset-date">${t('svc_purchase_date')}</label><input id="asset-date" type="date" value="${escapeHtml(d.purchaseDate)}"></div>
         <div class="field"><label for="asset-price">${t('svc_purchase_price')}</label><input id="asset-price" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(d.purchasePrice)}" placeholder="0.00"></div>
       </div>
-      <div class="field"><label for="asset-km">${t('svc_km')}</label><input id="asset-km" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.km)}" placeholder="—"></div>
+      <div class="field"><label for="asset-km">${tu('svc_km')}</label><input id="asset-km" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.km)}" placeholder="—"></div>
       <div class="helper-note">${t('svc_km_helper')}</div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-asset">${t('btn_cancel')}</button>
@@ -750,12 +751,12 @@ function maintModal(){
         ${maintModalError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${maintModalError}</div>` : ''}
       </div>
       <div class="field-row">
-        <div class="field"><label for="maint-km">${t('svc_every_km_label')}</label><input id="maint-km" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyKm)}" placeholder="5000"></div>
+        <div class="field"><label for="maint-km">${tu('svc_every_km_label')}</label><input id="maint-km" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyKm)}" placeholder="5000"></div>
         <div class="field"><label for="maint-months">${t('svc_every_months_label')}</label><input id="maint-months" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyMonths)}" placeholder="3"></div>
       </div>
       <div class="field-row">
         <div class="field"><label for="maint-last">${t('svc_last_done')}</label><input id="maint-last" type="date" value="${escapeHtml(d.lastDate)}"></div>
-        <div class="field"><label for="maint-lastkm">${t('svc_last_km')}</label><input id="maint-lastkm" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.lastKm)}" placeholder="—"></div>
+        <div class="field"><label for="maint-lastkm">${tu('svc_last_km')}</label><input id="maint-lastkm" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.lastKm)}" placeholder="—"></div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-maint">${t('btn_cancel')}</button>
@@ -811,7 +812,7 @@ function maintLogModal(){
       <div class="field" id="mlog-desc-wrap" ${maintLogPlanId?'hidden':''}><label for="mlog-desc">${t('svc_maint_name')}</label><input id="mlog-desc" type="text" maxlength="60" placeholder="${t('svc_log_desc_ph')}"></div>
       <div class="field-row">
         <div class="field"><label for="mlog-date">${t('lbl_date')}</label><input id="mlog-date" type="date" value="${localDateStr()}"></div>
-        <div class="field"><label for="mlog-km">${t('svc_log_km')}</label><input id="mlog-km" type="number" min="0" step="1" inputmode="numeric" value="${(a.km===null||a.km===undefined)?'':escapeHtml(a.km)}" placeholder="—"></div>
+        <div class="field"><label for="mlog-km">${tu('svc_log_km')}</label><input id="mlog-km" type="number" min="0" step="1" inputmode="numeric" value="${(a.km===null||a.km===undefined)?'':escapeHtml(a.km)}" placeholder="—"></div>
       </div>
       <div class="field"><label for="mlog-cost">${t('svc_log_cost')}</label><input id="mlog-cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
         ${maintLogError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${maintLogError}</div>` : ''}
@@ -966,6 +967,10 @@ function svcSettingsServicesCard(){
           <label for="svc-maint-days">${t('svc_set_maint_days')}</label>
           <select id="svc-maint-days">${[3,7,14,30].map(n=>`<option value="${n}" ${bizProfile.maintDays===n?'selected':''}>${t('svc_days_before').replace('{n}', String(n))}</option>`).join('')}</select>
         </div>
+        <div class="field" style="margin:12px 0 0;">
+          <label for="svc-dist-unit">${t('svc_set_dist')}</label>
+          <select id="svc-dist-unit"><option value="km" ${distU()==='km'?'selected':''}>${t('svc_unit_km_long')}</option><option value="mi" ${distU()==='mi'?'selected':''}>${t('svc_unit_mi_long')}</option></select>
+        </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
           <button class="btn btn-ghost btn-sm" id="btn-svc-catalog">${t('svc_set_catalog')}</button>
           <button class="btn btn-ghost btn-sm" id="btn-svc-categories">${t('svc_set_categories')}</button>
@@ -1010,6 +1015,7 @@ function attachServicesEvents(){
   on('btn-svc-jobs', ()=>svcShow(()=>{ showJobsSheet = true; }));
   on('btn-svc-collect', ()=>svcShow(()=>{ showCollectSheet = true; }));
   on('btn-collect-alert', ()=>svcShow(()=>{ showCollectSheet = true; }));
+  on('btn-maint-alert', ()=>{ if(TAB_ORDER[1]==='equipo'){ switchToTab('equipo'); return; } svcShow(()=>{ showEquipoSheet = true; }); });
   on('btn-svc-maint', ()=>{
     // Abre Equipo (pestaña u hoja): ahí está cada activo con su estado.
     if(TAB_ORDER[1]==='equipo'){ switchToTab('equipo'); return; }
@@ -1039,6 +1045,7 @@ function attachServicesEvents(){
   on('btn-add-maint', ()=>openMaintModal(showAssetSheet, null));
   on('btn-asset-log-maint', ()=>openMaintLogModal(showAssetSheet));
   on('btn-asset-new-job', ()=>openJobModal(null, showAssetSheet));
+  on('btn-print-asset', ()=>{ const a = assetById(showAssetSheet); if(a) downloadAssetPdf(a); });
   on('btn-asset-all-receipts', ()=>{ showAssetSheet = null; openReceiptsSheet(); });
   document.querySelectorAll('[data-edit-maint]').forEach(el=>{ el.onclick = ()=>openMaintModal(showAssetSheet, el.dataset.editMaint); });
 
@@ -1083,6 +1090,7 @@ function attachServicesEvents(){
   overlayClose('job-overlay', closeJobModal);
   on('btn-cancel-job', closeJobModal);
   on('btn-save-job', ()=>{ if(saveJobFromDraft()){ showToast(t('svc_job_saved')); closeJobModal(); } });
+  on('btn-print-job', ()=>{ const j = jobById(draftJob.id); if(j) downloadJobPdf(j); });
   on('btn-delete-job', ()=>{
     if(!confirm(t('svc_job_delete_confirm'))) return;
     const j = jobById(draftJob.id);
@@ -1164,6 +1172,206 @@ function attachServicesEvents(){
   if(remT) remT.onchange = ()=>{ bizProfile.remindOverdue = !!remT.checked; saveState(); render(); };
   const md = g('svc-maint-days');
   if(md) md.onchange = ()=>{ bizProfile.maintDays = parseInt(md.value,10)||7; saveState(); render(); };
+  const du = g('svc-dist-unit');
+  if(du) du.onchange = ()=>{ bizProfile.distUnit = du.value==='mi' ? 'mi' : 'km'; saveState(); render(); };
   on('btn-svc-catalog', ()=>svcShow(()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showServicesSheet = true; }));
   on('btn-svc-categories', ()=>{ settingsReturnPending = true; showAlertSettingsModal = false; openCategoriesModal(); });
+}
+
+/* ================= CALENDARIO, AVISOS, MILLAS E IMPRESIÓN (2026-09-11, 2.ª tanda) =================
+   Pedido del usuario: "cada nuevo servicio debe ir al calendario y el calendario
+   debe mandar una alerta de cuándo esa factura se tiene que pagar; los
+   mantenimientos deben incluir millas y avisar; todo lo de facturación y
+   reportes tiene que poder imprimirse". */
+
+/* ---------- unidad de distancia ---------- */
+// km o millas: solo cambia la etiqueta; los números se guardan como se escriben.
+function distU(){ return (bizProfile && bizProfile.distUnit==='mi') ? 'mi' : 'km'; }
+function tu(key){ return t(key).replace('{u}', distU()); }
+
+/* ---------- calendario: trabajos, cobros y mantenimientos como notas ----------
+   Cada trabajo aparece el día que se hace (🚚), cada cobro pendiente el día que
+   vence (💵) y cada mantenimiento por meses el día que toca (🔧). Son notas del
+   calendario de siempre (calNotes: se ven en los puntitos, en el modal del día y
+   viajan al equipo), con id fijo por origen para actualizarlas en vez de
+   duplicarlas. Si el usuario borra una a mano queda su lápida y no se vuelve a
+   crear. Corre al principio de cada saveState (idempotente y barato). */
+function svcNoteId(kind, a, b){ return 'svc-'+kind+'-'+a+(b ? '-'+b : ''); }
+function svcSyncCalendar(){
+  if(!usesServices()) return false;
+  const want = new Map();
+  const today = localDateStr();
+  svcJobs().forEach(j=>{
+    if(j.date) want.set(svcNoteId('job', j.id), {text: `${j.client||''}${j.serviceName ? ' · '+j.serviceName : ''}`, date: j.date, icon: '🚚', jobId: j.id, svcKind: 'job'});
+    if(!j.paid && j.dueDate) want.set(svcNoteId('due', j.id), {text: t('svc_note_due').replace('{client}', j.client||'').replace('{amount}', money(j.price||0)), date: j.dueDate, icon: '💵', jobId: j.id, svcKind: 'due'});
+  });
+  (bizProfile.assets||[]).forEach(a=>(a.maint||[]).forEach(m=>{
+    const st = maintStatus(m, a, today, bizProfile.maintDays);
+    if(st.dueDate) want.set(svcNoteId('mt', a.id, m.id), {text: `${m.name} · ${a.name}`, date: st.dueDate, icon: m.emoji||'🔧', assetId: a.id, planId: m.id, svcKind: 'maint'});
+  }));
+  let changed = false;
+  calNotes = calNotes.filter(n=>{
+    if(!n.svcKind || want.has(n.id)) return true;
+    if(!deletedCalNoteIds.includes(n.id)) deletedCalNoteIds.push(n.id);
+    changed = true;
+    return false;
+  });
+  want.forEach((w, id)=>{
+    if(deletedCalNoteIds.includes(id)) return;
+    const ex = calNotes.find(n=>n.id===id);
+    if(ex){
+      if(ex.text!==w.text || ex.date!==w.date || ex.icon!==w.icon){ Object.assign(ex, w); changed = true; }
+      return;
+    }
+    calNotes.push(Object.assign({id, hour: null, minute: null, recurring: null, anchorDate: null, createdAt: new Date().toISOString()}, w));
+    changed = true;
+  });
+  return changed;
+}
+
+/* ---------- avisos: toast una vez por día, tarjeta en el Dashboard ---------- */
+function checkServiceAlerts(){
+  if(typeof budgetAlertsArmed==='undefined' || !budgetAlertsArmed || !usesServices()) return;
+  try{
+    const today = localDateStr();
+    let map = {}; try{ map = JSON.parse(localStorage.getItem('patron_svc_alerted')||'{}'); }catch(e){}
+    const msgs = [];
+    const cs = collectStats();
+    const dueToday = cs.list.filter(j=>j.dueDate===today);
+    if(cs.overdueCount && map.due!==today){ msgs.push([t('svc_toast_overdue').replace('{n}', String(cs.overdueCount)).replace('{amount}', money(cs.overdue)), 'error']); map.due = today; }
+    else if(dueToday.length && map.dueToday!==today){ msgs.push([t('svc_toast_due_today').replace('{n}', String(dueToday.length)).replace('{amount}', money(dueToday.reduce((s,j)=>s+(Number(j.price)||0),0))), 'info']); map.dueToday = today; }
+    const mo = svcMaintOverview();
+    if(mo.overdue.length && map.maint!==today){ const f = mo.overdue[0]; msgs.push([t('svc_toast_maint_overdue').replace('{what}', `${f.plan.name} · ${f.asset.name}`).replace('{n}', String(mo.overdue.length)), 'error']); map.maint = today; }
+    else if(mo.soon.length && map.maintSoon!==today){ const f = mo.soon[0]; msgs.push([t('svc_toast_maint_soon').replace('{what}', `${f.plan.name} · ${f.asset.name}`).replace('{when}', svcMaintWhen(f.st)), 'info']); map.maintSoon = today; }
+    if(msgs.length) try{ localStorage.setItem('patron_svc_alerted', JSON.stringify(map)); }catch(e){}
+    msgs.forEach((m, i)=>setTimeout(()=>showToast(m[0], m[1]), i*2400));
+  }catch(e){}
+}
+// Tarjeta de mantenimiento (misma que la del presupuesto): vencido en rojo,
+// pronto en amarillo. Abre Equipo, donde está cada activo con su estado.
+function svcMaintCard(){
+  if(!usesServices()) return '';
+  const mo = svcMaintOverview();
+  const f = mo.overdue[0] || mo.soon[0];
+  if(!f) return '';
+  const over = mo.overdue.length>0;
+  const title = over ? t('svc_maint_card_over').replace('{n}', String(mo.overdue.length)) : t('svc_maint_card_soon').replace('{n}', String(mo.soon.length));
+  return `
+  <div class="budget-alert-card ${over?'crit':'warn'}" id="btn-maint-alert" role="button" tabindex="0">
+    <span class="ba-icon">🔧</span>
+    <span class="ba-text"><b>${title}</b><span>${escapeHtml(f.asset.name)} · ${escapeHtml(f.plan.name)} · ${escapeHtml(svcMaintWhen(f.st))}</span></span>
+    <span class="ba-chev">›</span>
+  </div>`;
+}
+
+/* ---------- IMPRESIÓN: cuenta de cobro, ficha de activo, sección del informe ----------
+   Mismo escritor de PDF que el informe mensual (DustyPdf, app-14): se comparte
+   por la hoja nativa en el teléfono o se descarga en escritorio. */
+function svcPdfHeader(pdf, subtitle){
+  const name = (businessName || '').trim() || 'Dusty';
+  pdf.rect(pdf.M, pdf.H - pdf.M + 10, pdf.W - 2*pdf.M, 3, [0.25, 0.56, 0.89]);
+  pdf.line(name, {size: 18, bold: true, lh: 28});
+  pdf.line(subtitle, {size: 12, color: [0.35, 0.35, 0.4], lh: 18});
+  pdf.line(t('rp_generated').replace('{d}', localDateStr(new Date())), {size: 8.5, color: [0.55, 0.55, 0.6], lh: 14});
+  pdf.gap(6);
+  return name;
+}
+function svcSharePdf(bytes, fileName, title){
+  const safe = ((businessName || 'dusty').trim() || 'dusty').replace(/[^\w\- ]+/g, '').trim().slice(0, 30).replace(/\s+/g, '-') || 'dusty';
+  const fn = `${safe}-${fileName}.pdf`;
+  const file = new File([bytes], fn, {type: 'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files: [file]})){
+    navigator.share({files: [file], title}).catch(e=>{ if(!e || e.name !== 'AbortError') downloadBlob(file, fn); });
+    return;
+  }
+  downloadBlob(file, fn);
+}
+function jobStatusLabel(j){ return j.paid ? t('svc_tag_paid') : (jobIsOverdue(j) ? t('svc_tag_overdue') : t('svc_tag_pending')); }
+// Cuenta de cobro de UN trabajo, para el cliente: sin los gastos internos.
+function buildJobPdf(j){
+  const pdf = DustyPdf();
+  const name = svcPdfHeader(pdf, t('svc_invoice_title') + ' · ' + t('rd_id_label') + ' ' + String(j.id||'').slice(-6).toUpperCase());
+  const asset = j.assetId ? assetById(j.assetId) : null;
+  pdf.line(`${t('svc_client')}: ${j.client||''}`, {size: 11, bold: true, lh: 18});
+  pdf.line(`${t('lbl_date')}: ${j.date||''}${asset ? '   ·   '+t('svc_asset_used')+': '+asset.name : ''}`, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
+  pdf.gap(10);
+  pdf.table([{key:'desc', label: t('rd_col_desc')}, {key:'qty', label: t('rd_col_qty'), w: 70, align:'right'}, {key:'total', label: t('rp_col_total'), w: 110, align:'right'}],
+    [{desc: j.serviceName || t('svc_job_edit'), qty: '1', total: money(j.price||0)}, {desc: t('rp_total'), qty: '', total: money(j.price||0), _bold: true}]);
+  pdf.gap(12);
+  pdf.line(`${t('svc_collect_label')}: ${jobStatusLabel(j)}${!j.paid && j.dueDate ? '   ·   '+t('svc_invoice_due')+' '+j.dueDate : ''}${j.paid && j.paidDate ? '   ·   '+t('svc_paid_on').replace('{when}', j.paidDate) : ''}`, {size: 10, bold: true, lh: 16});
+  pdf.gap(6);
+  pdf.line(t('svc_invoice_thanks'), {size: 9, color: [0.45, 0.45, 0.5], lh: 14});
+  return pdf.build((n, total)=>({left: name + ' · ' + t('svc_invoice_title') + ' · ' + (j.date||''), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
+}
+function downloadJobPdf(j){
+  let bytes; try{ bytes = buildJobPdf(j); }catch(e){ console.error('[Dusty] cuenta de cobro:', e); showToast(t('rp_failed'), 'error'); return; }
+  const who = (j.client||'cliente').replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'cliente';
+  svcSharePdf(bytes, `${j.date||'sin-fecha'}-${who}`, t('svc_invoice_title') + ' · ' + (j.client||''));
+}
+// Ficha de un activo: resultado del mes, mantenimientos con estado, gastos.
+function buildAssetPdf(a){
+  resetFinancialCache();
+  const pdf = DustyPdf();
+  const key = localMonthStr(), today = localDateStr();
+  const name = svcPdfHeader(pdf, `${t('svc_tool_asset')} · ${a.name}${a.model ? ' · '+a.model : ''}`);
+  const st = assetMonthStats(a, key);
+  const rows = [];
+  if(a.purchaseDate || a.purchasePrice>0) rows.push({label: t('svc_purchase_date'), value: a.purchaseDate||'—', note: a.purchasePrice>0 ? money(a.purchasePrice) : ''});
+  if(a.km!==null && a.km!==undefined) rows.push({label: tu('svc_km'), value: svcFmtNum(a.km)+' '+distU(), note: ''});
+  rows.push({label: t('svc_collected_with'), value: money(st.revenue), note: t('svc_jobs_month_n').replace('{n}', String(st.jobs))});
+  rows.push({label: t('svc_expenses_month'), value: money(st.expense), note: monthLabel(key, uiLang)});
+  rows.push({label: t('svc_leaves_month'), value: (st.net<0?'-':'')+money(Math.abs(st.net)), note: '', _bold: true});
+  pdf.line(monthLabel(key, uiLang), {size: 12.5, bold: true, lh: 24});
+  pdf.table([{key:'label', label: t('rp_col_concept')}, {key:'value', label: t('rp_col_amount'), w: 120, align:'right'}, {key:'note', label:'', w: 150, align:'right'}], rows);
+  pdf.gap(14);
+  pdf.line(t('svc_maints'), {size: 12.5, bold: true, lh: 24});
+  const plans = (a.maint||[]);
+  if(!plans.length) pdf.line(t('svc_maint_no_plan'), {size: 9.5, color: [0.5, 0.5, 0.55]});
+  else pdf.table([{key:'name', label: t('svc_maint_name')}, {key:'every', label: t('svc_pdf_every'), w: 150}, {key:'last', label: t('svc_last_done'), w: 90}, {key:'status', label: t('svc_pdf_status'), w: 110, align:'right'}],
+    plans.map(m=>{ const s = maintStatus(m, a, today, bizProfile.maintDays); return {name: m.name, every: [m.everyKm>0 ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(' / '), last: m.lastDate || '—', status: s.status==='none' ? t('svc_maint_no_date') : (s.status==='overdue' ? t('svc_tag_overdue')+' · ' : '') + svcMaintWhen(s)}; }));
+  pdf.gap(14);
+  pdf.line(t('svc_last_expenses'), {size: 12.5, bold: true, lh: 24});
+  const recs = assetReceipts(a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0, 60);
+  if(!recs.length) pdf.line(t('rp_none'), {size: 9.5, color: [0.5, 0.5, 0.55]});
+  else {
+    let sum = 0;
+    const rr = recs.map(r=>{ sum += Number(r.total)||0; return {date: r.date||'', who: (r.supplier||'').trim() || t('no_supplier_name'), cat: receiptCatName(r), total: money(r.total||0)}; });
+    rr.push({date:'', who: t('rp_total'), cat:'', total: money(sum), _bold: true});
+    pdf.table([{key:'date', label: t('rp_col_date'), w: 80}, {key:'who', label: t('rp_col_who')}, {key:'cat', label: t('rp_col_category'), w: 110}, {key:'total', label: t('rp_col_total'), w: 100, align:'right'}], rr);
+  }
+  return pdf.build((n, total)=>({left: name + ' · ' + a.name, right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
+}
+function downloadAssetPdf(a){
+  let bytes; try{ bytes = buildAssetPdf(a); }catch(e){ console.error('[Dusty] ficha de activo:', e); showToast(t('rp_failed'), 'error'); return; }
+  const who = a.name.replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'activo';
+  svcSharePdf(bytes, `${localMonthStr()}-${who}`, a.name);
+}
+// Sección de Servicios dentro del informe del mes/año (buildMonthReport, app-14):
+// trabajos con estado, totales facturado/cobrado/pendiente, resultado por activo.
+function svcReportSection(pdf, key){
+  if(!usesServices()) return;
+  const inPeriod = d => key.length===4 ? String(d||'').slice(0,4)===key : monthKey(d)===key;
+  const jobs = svcJobs().filter(j=>inPeriod(j.date)).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  pdf.line(t('svc_jobs_title'), {size: 12.5, bold: true, lh: 24});
+  if(!jobs.length){ pdf.line(t('rp_none'), {size: 9.5, color: [0.5, 0.5, 0.55]}); pdf.gap(14); }
+  else {
+    let billed = 0, paid = 0;
+    const rows = jobs.map(j=>{ billed += Number(j.price)||0; if(j.paid) paid += Number(j.price)||0; const a = j.assetId ? assetById(j.assetId) : null; return {date: j.date||'', client: j.client||'', svc: (j.serviceName||'') + (a ? ' · '+a.name : ''), status: jobStatusLabel(j), total: money(j.price||0)}; });
+    rows.push({date:'', client: t('svc_pdf_billed'), svc:'', status:'', total: money(billed), _bold: true});
+    rows.push({date:'', client: t('svc_stat_paid_month'), svc:'', status:'', total: money(paid), _bold: true});
+    rows.push({date:'', client: t('svc_stat_pending'), svc:'', status:'', total: money(billed-paid), _bold: true});
+    pdf.table([{key:'date', label: t('rp_col_date'), w: 70}, {key:'client', label: t('svc_client'), w: 130}, {key:'svc', label: t('svc_service')}, {key:'status', label: t('svc_pdf_status'), w: 75}, {key:'total', label: t('rp_col_total'), w: 85, align:'right'}], rows);
+    pdf.gap(14);
+  }
+  const per = (bizProfile.assets||[]).map(a=>{
+    const rev = jobs.filter(j=>j.assetId===a.id).reduce((s,j)=>s+(Number(j.price)||0),0);
+    const exp = assetReceipts(a.id).filter(r=>inPeriod(r.date)).reduce((s,r)=>s+(Number(r.total)||0),0);
+    return {a, rev, exp};
+  }).filter(x=>x.rev>0 || x.exp>0);
+  if(per.length){
+    pdf.line(t('recap_by_asset'), {size: 12.5, bold: true, lh: 24});
+    pdf.table([{key:'name', label: t('svc_tool_asset')}, {key:'rev', label: t('recap_revenue_jobs'), w: 110, align:'right'}, {key:'exp', label: t('spend_expenses'), w: 110, align:'right'}, {key:'net', label: t('recap_net'), w: 110, align:'right'}],
+      per.map(x=>({name: x.a.name, rev: money(x.rev), exp: money(x.exp), net: (x.rev-x.exp<0?'-':'')+money(Math.abs(x.rev-x.exp))})));
+    pdf.gap(14);
+  }
 }

@@ -274,8 +274,10 @@ function buildMonthReport(key){
     });
     pdf.table([{key: 'name', label: t('rp_col_product')}, {key: 'qty', label: t('rp_col_qty'), w: 120, align: 'right'}, {key: 'total', label: t('rp_col_total'), w: 100, align: 'right'}], prow);
   }
+  // Modo Servicios (app-15): trabajos, totales y resultado por activo.
+  if(typeof svcReportSection === 'function') svcReportSection(pdf, key);
   pdf.gap(10);
-  pdf.line(t('recap_est_note'), {size: 8, color: [0.55, 0.55, 0.6], lh: 12});
+  pdf.line(t(typeof servicesOnly === 'function' && servicesOnly() ? 'recap_est_note_svc' : 'recap_est_note'), {size: 8, color: [0.55, 0.55, 0.6], lh: 12});
 
   return pdf.build((n, total)=>({left: name + ' · ' + t('rp_title') + ' · ' + reportPeriodLabel(key), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
 }

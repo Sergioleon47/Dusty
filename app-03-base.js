@@ -706,6 +706,13 @@ const I18N = {
     font_size_label:'Tamaño de letra', font_size_helper:'Para leer más cómodo. Se aplica a toda la app: deslizá y mirá.', font_size_reset:'Normal',
     switch_on:'Prendido', switch_off:'Apagado',
     /* ===== Modo Servicios (2026-09-11, app-15) ===== */
+    svc_note_due:'Cobrar {client} · {amount}',
+    svc_toast_overdue:'💵 {n} cobro(s) vencido(s): {amount}. Tocá Por cobrar para recordar.', svc_toast_due_today:'💵 Hoy vence(n) {n} cobro(s): {amount}.',
+    svc_toast_maint_overdue:'🔧 Mantenimiento vencido: {what} (y {n} en total).', svc_toast_maint_soon:'🔧 Se acerca un mantenimiento: {what}, {when}.',
+    svc_maint_card_over:'Mantenimiento vencido: {n}', svc_maint_card_soon:'Mantenimiento pronto: {n}',
+    svc_set_dist:'Distancia', svc_unit_km_long:'Kilómetros (km)', svc_unit_mi_long:'Millas (mi)',
+    svc_print_invoice:'Cuenta de cobro', svc_print_asset:'Imprimir ficha', svc_invoice_title:'Cuenta de cobro', svc_invoice_due:'Vence el', svc_invoice_thanks:'Gracias por confiar en nosotros.',
+    svc_pdf_every:'Cada', svc_pdf_status:'Estado', svc_pdf_billed:'Facturado',
     tab_equipo:'Equipo', inv_no_results:'Nada coincide con lo que buscás.',
     dash_kv_collected:'Cobrado', dash_collected_of:'Cobrado en',
     ob_biz_title:'¿Qué hace tu negocio?', ob_biz_sub:'Podés marcar más de uno. Se cambia después en Ajustes.',
@@ -731,21 +738,21 @@ const I18N = {
     svc_search_asset:'Buscar activo', svc_no_assets:'Todavía no cargaste ningún activo. Un camión, una cámara, una máquina: lo que usás para trabajar.',
     svc_consumables:'Consumibles del mes', svc_n_receipts:'{n} recibos',
     svc_maint_next_label:'Próximo', svc_maint_no_plan:'Sin mantenimientos programados', svc_maint_no_date:'sin fecha',
-    svc_overdue_days:'vencido hace {n} días', svc_overdue_km:'vencido hace {n} km', svc_in_km:'en {n} km', svc_in_days:'en {n} días',
+    svc_overdue_days:'vencido hace {n} días', svc_overdue_km:'vencido hace {n} {u}', svc_in_km:'en {n} {u}', svc_in_days:'en {n} días',
     svc_today:'hoy', svc_yesterday:'ayer',
     svc_bought:'Comprado {when}', svc_no_purchase_data:'Sin datos de compra', svc_edit_asset:'Editar activo',
     svc_collected_with:'Cobrado con este activo', svc_jobs_month_n:'{n} trabajos este mes', svc_expenses_month:'Gastos del mes', svc_leaves_month:'Deja este mes',
-    svc_maints:'Mantenimientos', svc_add:'+ Agregar', svc_every_km:'cada {n} km', svc_every_months:'cada {n} meses',
+    svc_maints:'Mantenimientos', svc_add:'+ Agregar', svc_every_km:'cada {n} {u}', svc_every_months:'cada {n} meses',
     svc_last_expenses:'Últimos gastos', svc_see_all:'Ver todos ›', svc_no_expenses:'Sin gastos todavía', svc_log_maint:'Registrar mantenimiento',
     svc_asset_new:'Nuevo activo', svc_asset_sub:'Lo que usás para trabajar y hay que mantener.', svc_asset_icon:'Ícono', svc_asset_name:'Nombre', svc_asset_name_ph:'Camión 2',
     svc_asset_model:'Marca / modelo', svc_purchase_date:'Fecha de compra', svc_purchase_price:'Precio de compra',
-    svc_km:'Kilómetros (odómetro)', svc_km_helper:'Si tiene odómetro. Se actualiza solo cuando registrás un mantenimiento con los km del día.',
+    svc_km:'Odómetro ({u})', svc_km_helper:'Si tiene odómetro. Se actualiza solo cuando registrás un mantenimiento con los km del día.',
     svc_delete_asset:'Eliminar activo', svc_asset_delete_confirm:'¿Eliminar {name}? Los trabajos y recibos quedan.', svc_asset_err:'Ponele un nombre.', svc_asset_saved:'Activo guardado',
     svc_maint_new:'Mantenimiento programado', svc_maint_sub:'Cada cuánto toca y cuándo se hizo por última vez.', svc_maint_name:'Qué', svc_maint_name_ph:'Cambio de aceite',
-    svc_every_km_label:'Cada cuántos km', svc_every_months_label:'Cada cuántos meses', svc_last_done:'Último hecho', svc_last_km:'Km en ese momento',
+    svc_every_km_label:'Cada cuántos {u}', svc_every_months_label:'Cada cuántos meses', svc_last_done:'Último hecho', svc_last_km:'{u} en ese momento',
     svc_maint_err:'Ponele nombre y al menos km o meses.', svc_maint_err_name:'Decí qué se hizo.', svc_delete_maint:'Quitar de la lista',
     svc_log_title:'Registrar mantenimiento', svc_log_sub:'Se hizo: queda al día y, si tuvo costo, como gasto del activo.',
-    svc_log_which:'Cuál', svc_log_other:'Otro (sin programar)', svc_log_desc_ph:'Qué se hizo', svc_log_km:'Km actuales',
+    svc_log_which:'Cuál', svc_log_other:'Otro (sin programar)', svc_log_desc_ph:'Qué se hizo', svc_log_km:'{u} actuales',
     svc_log_cost:'Costo (opcional)', svc_log_cost_helper:'Con costo se guarda como gasto de Mantenimiento de este activo.', svc_log_save:'Registrar', svc_logged:'Mantenimiento registrado',
     svc_job_new:'Nuevo trabajo', svc_job_edit:'Trabajo', svc_job_sub:'Lo que cobrás y lo que te costó, en un solo lugar.',
     svc_client:'Cliente', svc_client_ph:'Nombre del cliente', svc_service:'Servicio', svc_service_ph:'Qué hiciste',
@@ -1416,6 +1423,13 @@ const I18N = {
     font_size_label:'Text size', font_size_helper:'For easier reading. Applies to the whole app: slide and see.', font_size_reset:'Normal',
     switch_on:'On', switch_off:'Off',
     /* ===== Services mode (2026-09-11, app-15) ===== */
+    svc_note_due:'Collect from {client} · {amount}',
+    svc_toast_overdue:'💵 {n} overdue payment(s): {amount}. Open To collect to remind.', svc_toast_due_today:'💵 {n} payment(s) due today: {amount}.',
+    svc_toast_maint_overdue:'🔧 Maintenance overdue: {what} ({n} in total).', svc_toast_maint_soon:'🔧 Maintenance coming up: {what}, {when}.',
+    svc_maint_card_over:'Maintenance overdue: {n}', svc_maint_card_soon:'Maintenance soon: {n}',
+    svc_set_dist:'Distance', svc_unit_km_long:'Kilometers (km)', svc_unit_mi_long:'Miles (mi)',
+    svc_print_invoice:'Invoice', svc_print_asset:'Print sheet', svc_invoice_title:'Invoice', svc_invoice_due:'Due on', svc_invoice_thanks:'Thank you for your business.',
+    svc_pdf_every:'Every', svc_pdf_status:'Status', svc_pdf_billed:'Billed',
     tab_equipo:'Equipment', inv_no_results:'Nothing matches your search.',
     dash_kv_collected:'Collected', dash_collected_of:'Collected in',
     ob_biz_title:'What does your business do?', ob_biz_sub:'Pick more than one if you like. You can change it later in Settings.',
@@ -1441,21 +1455,21 @@ const I18N = {
     svc_search_asset:'Search asset', svc_no_assets:'No assets yet. A truck, a cold room, a machine: whatever you work with.',
     svc_consumables:'This month\'s consumables', svc_n_receipts:'{n} receipts',
     svc_maint_next_label:'Next', svc_maint_no_plan:'No scheduled maintenance', svc_maint_no_date:'no date',
-    svc_overdue_days:'overdue by {n} days', svc_overdue_km:'overdue by {n} km', svc_in_km:'in {n} km', svc_in_days:'in {n} days',
+    svc_overdue_days:'overdue by {n} days', svc_overdue_km:'overdue by {n} {u}', svc_in_km:'in {n} {u}', svc_in_days:'in {n} days',
     svc_today:'today', svc_yesterday:'yesterday',
     svc_bought:'Bought {when}', svc_no_purchase_data:'No purchase data', svc_edit_asset:'Edit asset',
     svc_collected_with:'Earned with this asset', svc_jobs_month_n:'{n} jobs this month', svc_expenses_month:'This month\'s expenses', svc_leaves_month:'Leaves this month',
-    svc_maints:'Maintenance', svc_add:'+ Add', svc_every_km:'every {n} km', svc_every_months:'every {n} months',
+    svc_maints:'Maintenance', svc_add:'+ Add', svc_every_km:'every {n} {u}', svc_every_months:'every {n} months',
     svc_last_expenses:'Latest expenses', svc_see_all:'See all ›', svc_no_expenses:'No expenses yet', svc_log_maint:'Log maintenance',
     svc_asset_new:'New asset', svc_asset_sub:'What you work with and have to maintain.', svc_asset_icon:'Icon', svc_asset_name:'Name', svc_asset_name_ph:'Truck 2',
     svc_asset_model:'Make / model', svc_purchase_date:'Purchase date', svc_purchase_price:'Purchase price',
-    svc_km:'Mileage (odometer)', svc_km_helper:'If it has an odometer. It updates itself when you log maintenance with that day\'s km.',
+    svc_km:'Odometer ({u})', svc_km_helper:'If it has an odometer. It updates itself when you log maintenance with that day\'s km.',
     svc_delete_asset:'Delete asset', svc_asset_delete_confirm:'Delete {name}? Jobs and receipts stay.', svc_asset_err:'Give it a name.', svc_asset_saved:'Asset saved',
     svc_maint_new:'Scheduled maintenance', svc_maint_sub:'How often it is due and when it was last done.', svc_maint_name:'What', svc_maint_name_ph:'Oil change',
-    svc_every_km_label:'Every how many km', svc_every_months_label:'Every how many months', svc_last_done:'Last done', svc_last_km:'Km at that time',
+    svc_every_km_label:'Every how many {u}', svc_every_months_label:'Every how many months', svc_last_done:'Last done', svc_last_km:'{u} at that time',
     svc_maint_err:'Give it a name and km or months.', svc_maint_err_name:'Say what was done.', svc_delete_maint:'Remove from list',
     svc_log_title:'Log maintenance', svc_log_sub:'It got done: it is up to date and, with a cost, saved as an asset expense.',
-    svc_log_which:'Which', svc_log_other:'Other (unscheduled)', svc_log_desc_ph:'What was done', svc_log_km:'Current km',
+    svc_log_which:'Which', svc_log_other:'Other (unscheduled)', svc_log_desc_ph:'What was done', svc_log_km:'Current {u}',
     svc_log_cost:'Cost (optional)', svc_log_cost_helper:'With a cost it is saved as a Maintenance expense of this asset.', svc_log_save:'Log it', svc_logged:'Maintenance logged',
     svc_job_new:'New job', svc_job_edit:'Job', svc_job_sub:'What you charge and what it cost you, in one place.',
     svc_client:'Client', svc_client_ph:'Client name', svc_service:'Service', svc_service_ph:'What you did',
@@ -1720,6 +1734,9 @@ function evictOldReceiptPhotos(){
    `<clave>_corrupto`. Se limpia sola en cuanto el usuario carga algo real. */
 let stateLoadFailed = false;
 function saveState(){
+  // Modo Servicios (app-15): trabajos, cobros y mantenimientos como notas del
+  // calendario, siempre al día con los datos. Idempotente.
+  if(typeof svcSyncCalendar==='function') try{ svcSyncCalendar(); }catch(e){}
   if(stateLoadFailed){
     // Un dato real nuevo (importar respaldo, un producto, un recibo) significa
     // que el usuario ya siguió adelante: se libera el freno y se guarda normal.
@@ -1778,6 +1795,7 @@ function saveState(){
   scheduleCloudSync();
   // Avisos de presupuesto: cualquier cambio de datos puede cruzar un umbral.
   checkBudgetAlerts();
+  if(typeof checkServiceAlerts==='function') checkServiceAlerts();
   return localOk;
 }
 function applyStateData(data){
