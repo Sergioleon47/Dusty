@@ -331,7 +331,11 @@
   html[data-dusty-theme="crema"], html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"],
   html[data-dusty-theme="coral"], html[data-dusty-theme="miel"], html[data-dusty-theme="appstore"]{
     color-scheme:light;
-    --tile-lift:26%; --tile-drop:4%;
+    /* Más VIVOS (pedido del usuario 2026-09-11: "los veo opacos"): antes se
+       mezclaba 26% de blanco arriba y casi nada de negro abajo, y las baldosas
+       salían lavadas. Ahora poco blanco y un fondo con más cuerpo. Solo los
+       temas claros; los oscuros quedan como estaban. */
+    --tile-lift:6%; --tile-drop:20%;
     --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
     --tomato:#e04545; --saffron:#c8860d; --basil:#0e9f6e; --sky-bright:#0a8f63;
     /* Dinero sobre fondo claro: mismos tres significados, un punto más oscuros
@@ -414,20 +418,23 @@
   html[data-dusty-theme="zafiro"]{ /* zafiro: el celeste del acento en el rol azul, resto luminoso */
     --hue-1:#73b7f1; --hue-2:#f2a466; --hue-3:#5fd0b0; --hue-4:#9d8ff0; --hue-5:#f0cc6a; --hue-6:#f08bbf;
   }
-  html[data-dusty-theme="crema"]{ /* crema: todo un punto más tostado y menos saturado */
-    --hue-1:#7ea6d6; --hue-2:#d97a4b; --hue-3:#7fb86a; --hue-4:#9b86cf; --hue-5:#d9a94a; --hue-6:#d98aa8;
+  /* Temas claros más VIVOS (pedido del usuario 2026-09-11): cada tono sube un
+     punto de saturación conservando su carácter (Crema tostado, Pastel suave,
+     Coral y Miel de sus paletas). Los temas oscuros no se tocaron. */
+  html[data-dusty-theme="crema"]{ /* crema: tostado, pero con más color */
+    --hue-1:#6f9fdc; --hue-2:#e06e39; --hue-3:#6fb85a; --hue-4:#9a7fd8; --hue-5:#e6a235; --hue-6:#e07d9f;
   }
-  html[data-dusty-theme="pastel"]{ /* pastel (gatito): sus cuatro colores más dos vecinos igual de suaves */
-    --hue-1:#87aeee; --hue-2:#f7b59a; --hue-3:#8fd6c8; --hue-4:#c9a4f5; --hue-5:#f5d27a; --hue-6:#f3a3d8;
+  html[data-dusty-theme="pastel"]{ /* pastel (gatito): suave, pero ya no lavado */
+    --hue-1:#74a3f0; --hue-2:#ffa585; --hue-3:#7fd6c2; --hue-4:#c295ff; --hue-5:#f7cc5c; --hue-6:#f78fd2;
   }
   html[data-dusty-theme="electrico"]{ /* eléctrico: saturados puros, violeta y ámbar de la paleta */
     --hue-1:#4f7cff; --hue-2:#ff7a3a; --hue-3:#22c47a; --hue-4:#752fff; --hue-5:#ffb831; --hue-6:#ff4f8b;
   }
-  html[data-dusty-theme="coral"]{ /* coral (Fujifilm): celeste, coral, salvia y amarillo de la paleta */
-    --hue-1:#7fb9e6; --hue-2:#ff8a70; --hue-3:#8fb890; --hue-4:#b3a5e8; --hue-5:#ecc56a; --hue-6:#f5a0b8;
+  html[data-dusty-theme="coral"]{ /* coral (Fujifilm): celeste, coral, salvia y amarillo, más vivos */
+    --hue-1:#5fa9e6; --hue-2:#ff7a5c; --hue-3:#7cc07c; --hue-4:#a48ff0; --hue-5:#f2bf4a; --hue-6:#f58aa8;
   }
-  html[data-dusty-theme="miel"]{ /* miel: naranja y amarillo de la paleta, resto empolvado */
-    --hue-1:#8fb0d0; --hue-2:#e38c4c; --hue-3:#9db87a; --hue-4:#b09ad0; --hue-5:#f6c561; --hue-6:#d99aa8;
+  html[data-dusty-theme="miel"]{ /* miel: naranja y amarillo de la paleta, el resto con más color */
+    --hue-1:#6fa2d6; --hue-2:#ea7f34; --hue-3:#8fbf5e; --hue-4:#a98be0; --hue-5:#f8b93a; --hue-6:#e08a9c;
   }
   /* --- "App Store" (pedido del usuario 2026-09-08, captura de la pestaña
      Buscar del App Store de iOS): las tarjetas del Dashboard toman los
@@ -439,18 +446,21 @@
      "Productivity"; el dinero sigue por --money-*, aparte. --- */
   html[data-dusty-theme="appstore"]{
     --tile-ink:#ffffff; --tile-sub:rgba(255,255,255,.85); --tile-border:transparent;
-    --tile-1:linear-gradient(170deg, #b3cef2, #71a3e9);   /* Top Downloaded Apps */
-    --tile-2:linear-gradient(170deg, #f3be87, #f0964c);   /* Top Downloaded Games */
-    --tile-3:linear-gradient(170deg, #9ade93, #5cc05e);   /* Top-Selling Apps */
-    --tile-4:linear-gradient(170deg, #b7acfe, #826bfe);   /* Top-Selling Games */
-    --tile-5:linear-gradient(170deg, #f3cd84, #ecb048);   /* Photo & Video */
-    --tile-6:linear-gradient(170deg, #ffa9eb, #f280c2);   /* Walking */
+    /* Más VIVOS (pedido del usuario 2026-09-11): los mismos tonos del App Store
+       pero con más saturación arriba y más cuerpo abajo — el pastel muestreado
+       se veía opaco en el teléfono. */
+    --tile-1:linear-gradient(170deg, #8fb8f0, #4a86e0);   /* Top Downloaded Apps */
+    --tile-2:linear-gradient(170deg, #f7ac5f, #ee7f2a);   /* Top Downloaded Games */
+    --tile-3:linear-gradient(170deg, #7fd47a, #3fb24a);   /* Top-Selling Apps */
+    --tile-4:linear-gradient(170deg, #a58cff, #6e4ef7);   /* Top-Selling Games */
+    --tile-5:linear-gradient(170deg, #f8c65a, #e9a51f);   /* Photo & Video */
+    --tile-6:linear-gradient(170deg, #ff8fe0, #ee5fb1);   /* Walking */
     /* La tarjeta de presupuesto en verde un punto MÁS OSCURO que la de Pedido
        sugerido (pedido del usuario 2026-09-08): con el verde pastel las letras
-       blancas de las cifras se lavaban. */
-    --tile-ok:linear-gradient(170deg, #7ec97a, #3ea64b);
-    --tile-warn:linear-gradient(170deg, #ffde86, #e8b55d); /* Media Readers */
-    --tile-crit:linear-gradient(170deg, #fea391, #fd7c6a); /* Lifestyle */
+       blancas de las cifras se lavaban. Verde vivo, mismo tono. */
+    --tile-ok:linear-gradient(170deg, #5ec46a, #2f9e44);
+    --tile-warn:linear-gradient(170deg, #ffcf5a, #e9a83a); /* Media Readers */
+    --tile-crit:linear-gradient(170deg, #ff8a75, #f25a45); /* Lifestyle */
     --tool-products-bg:var(--tile-2); --tool-products-ink:#ffffff;
     --tool-manual-bg:var(--tile-4); --tool-manual-ink:#ffffff;
     --tool-order-bg:var(--tile-5); --tool-order-ink:#ffffff;
