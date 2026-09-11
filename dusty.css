@@ -133,8 +133,8 @@
      de botones) se recalcula solo. El atributo lo pone un mini-script inline en
      index.html ANTES de pintar (sin parpadeo) y se guarda en localStorage
      (preferencia del dispositivo, como la vista del inventario).
-     Los 7 oscuros solo cambian acento + superficies teñidas; los 3 claros ("claro",
-     "crema", "menta") además invierten tintas, sombras y color-scheme, y las
+     Los oscuros solo cambian acento + superficies teñidas; los claros además
+     invierten tintas, sombras y color-scheme, y las
      tintas "-ink" se OSCURECEN (en claro el contraste se gana hacia negro). */
   html[data-dusty-theme="oceano"]{
     --navy:#4da3ff; --navy-soft:#7db9ff;
@@ -179,9 +179,8 @@
     --raised:color-mix(in srgb, #2B385A 55%, #3D4B78); --raised-2:#3D4B78; --line:color-mix(in srgb, #2B385A 40%, #3D4B78);
   }
   /* Base compartida de los temas CLAROS. */
-  html[data-dusty-theme="claro"], html[data-dusty-theme="crema"], html[data-dusty-theme="menta"],
-  html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"], html[data-dusty-theme="coral"], html[data-dusty-theme="miel"],
-  html[data-dusty-theme="robin"], html[data-dusty-theme="cupertino"], html[data-dusty-theme="appstore"]{
+  html[data-dusty-theme="crema"], html[data-dusty-theme="pastel"], html[data-dusty-theme="electrico"],
+  html[data-dusty-theme="coral"], html[data-dusty-theme="miel"], html[data-dusty-theme="appstore"]{
     color-scheme:light;
     --tile-lift:26%; --tile-drop:4%;
     --ink:#1b1e26; --ink-soft:#6b7280; --ink-mid:#454c58;
@@ -207,18 +206,10 @@
      la campanita, el hoy del calendario y todo lo demás toman el color del
      tema y el mostaza desaparece. (Las barras y montos de dinero no se ven
      afectados: usan los tokens --money-* fijos de :root.) */
-  html[data-dusty-theme="claro"]{
-    --navy:#e85d24; --navy-soft:#f07b47; --saffron:var(--navy);
-    --bg:#f3f4f8; --panel:#ffffff; --inset:#eaecf2; --raised:#f2f3f7; --raised-2:#e9ebf1; --line:#dfe3ea;
-  }
   html[data-dusty-theme="crema"]{
     --navy:#c65b2e; --navy-soft:#d97a4b; --saffron:var(--navy);
     --bg:#f6f1e7; --panel:#fffcf5; --inset:#eee7d8; --raised:#f4eee1; --raised-2:#ece4d3; --line:#e2d8c4;
     --ink:#2b2318; --ink-soft:#8a7c66; --ink-mid:#54483a;
-  }
-  html[data-dusty-theme="menta"]{
-    --navy:#0fa37f; --navy-soft:#3cbf9a; --saffron:var(--navy);
-    --bg:#eef6f1; --panel:#ffffff; --inset:#e3efe8; --raised:#f0f7f3; --raised-2:#e6f0ea; --line:#d6e5dc;
   }
   /* --- Claros de las paletas del usuario (mismas reglas: solo colores de la
      paleta, mezclados entre sí o con blanco/negro para las superficies). --- */
@@ -249,20 +240,6 @@
   }
   /* Dos claros más pedidos por captura (2026-09-07): "Robin" — blanco puro con
      el verde neón estilo Robinhood — y "Cupertino" — el look del App Store de
-     iOS: gris sistema, tarjetas blancas y azul Apple. En ambos, saffron = acento
-     (regla de siempre en claros); el dinero va por --money-*, aparte. */
-  html[data-dusty-theme="robin"]{
-    --navy:#00ad0f; --navy-soft:#00c805;
-    --saffron:var(--navy);
-    --bg:#ffffff; --panel:#ffffff; --inset:#f4f5f4; --raised:#f2f3f2; --raised-2:#eaece9; --line:#e6e8e6;
-    --ink:#0e0f0e; --ink-soft:#6f7570; --ink-mid:#3f453f;
-  }
-  html[data-dusty-theme="cupertino"]{
-    --navy:#007aff; --navy-soft:#3f97ff;
-    --saffron:var(--navy);
-    --bg:#f2f2f7; --panel:#ffffff; --inset:#e9e9ee; --raised:#f2f2f7; --raised-2:#e5e5ea; --line:#e0e0e5;
-    --ink:#1c1c1e; --ink-soft:#8e8e93; --ink-mid:#48484a;
-  }
   /* ================= PALETA DE TARJETAS POR TEMA (2026-09-08) =================
      Seis tonos por tema para las tarjetas de color (roles: 1 azul, 2 naranja,
      3 verde, 4 violeta, 5 amarillo, 6 rosa — ver :root). Criterio: cada tema
@@ -288,14 +265,8 @@
   html[data-dusty-theme="zafiro"]{ /* zafiro: el celeste del acento en el rol azul, resto luminoso */
     --hue-1:#73b7f1; --hue-2:#f2a466; --hue-3:#5fd0b0; --hue-4:#9d8ff0; --hue-5:#f0cc6a; --hue-6:#f08bbf;
   }
-  html[data-dusty-theme="claro"]{ /* claro: la paleta del App Store tal cual (naranja = marca) */
-    --hue-1:#6ea3ea; --hue-2:#f0964c; --hue-3:#5cc05e; --hue-4:#826bfe; --hue-5:#ecb048; --hue-6:#f280c2;
-  }
   html[data-dusty-theme="crema"]{ /* crema: todo un punto más tostado y menos saturado */
     --hue-1:#7ea6d6; --hue-2:#d97a4b; --hue-3:#7fb86a; --hue-4:#9b86cf; --hue-5:#d9a94a; --hue-6:#d98aa8;
-  }
-  html[data-dusty-theme="menta"]{ /* menta: el verde del acento en el rol verde */
-    --hue-1:#6aa6dc; --hue-2:#f0a06a; --hue-3:#3cbf9a; --hue-4:#9a8fe0; --hue-5:#e6c05a; --hue-6:#f08fbf;
   }
   html[data-dusty-theme="pastel"]{ /* pastel (gatito): sus cuatro colores más dos vecinos igual de suaves */
     --hue-1:#87aeee; --hue-2:#f7b59a; --hue-3:#8fd6c8; --hue-4:#c9a4f5; --hue-5:#f5d27a; --hue-6:#f3a3d8;
@@ -309,21 +280,15 @@
   html[data-dusty-theme="miel"]{ /* miel: naranja y amarillo de la paleta, resto empolvado */
     --hue-1:#8fb0d0; --hue-2:#e38c4c; --hue-3:#9db87a; --hue-4:#b09ad0; --hue-5:#f6c561; --hue-6:#d99aa8;
   }
-  html[data-dusty-theme="robin"]{ /* robin: limpios y saturados sobre blanco, verde neón en su rol */
-    --hue-1:#3b82f6; --hue-2:#ff8a3d; --hue-3:#00c805; --hue-4:#8b5cf6; --hue-5:#f5b400; --hue-6:#ff5c9a;
-  }
-  html[data-dusty-theme="cupertino"]{ /* cupertino: los seis colores de sistema de iOS */
-    --hue-1:#007aff; --hue-2:#ff9500; --hue-3:#34c759; --hue-4:#af52de; --hue-5:#ffcc00; --hue-6:#ff2d55;
-  }
   /* --- "App Store" (pedido del usuario 2026-09-08, captura de la pestaña
      Buscar del App Store de iOS): las tarjetas del Dashboard toman los
      degradados pastel de esa pantalla — cada color se MUESTREÓ de la captura
      (arriba y abajo de cada tarjeta) en vez de aproximarse a ojo — con la tinta
      en blanco, como allá. Dos variantes: "App Store" claro (fondo blanco puro
      como la referencia) y "Store noche" (mismas tarjetas sobre el fondo oscuro
-     de Dusty). El acento (--navy) es el azul de "Productivity"; el dinero sigue
-     por --money-*, aparte. --- */
-  html[data-dusty-theme="appstore"], html[data-dusty-theme="appstore-noche"]{
+     de Dusty, retirada el 2026-09-11). El acento (--navy) es el azul de
+     "Productivity"; el dinero sigue por --money-*, aparte. --- */
+  html[data-dusty-theme="appstore"]{
     --tile-ink:#ffffff; --tile-sub:rgba(255,255,255,.85); --tile-border:transparent;
     --tile-1:linear-gradient(170deg, #b3cef2, #71a3e9);   /* Top Downloaded Apps */
     --tile-2:linear-gradient(170deg, #f3be87, #f0964c);   /* Top Downloaded Games */
@@ -347,10 +312,6 @@
     --saffron:var(--navy);
     --bg:#ffffff; --panel:#ffffff; --inset:#f2f2f7; --raised:#f2f2f7; --raised-2:#e5e5ea; --line:#e5e5ea;
     --ink:#1c1c1e; --ink-soft:#8e8e93; --ink-mid:#48484a;
-  }
-  html[data-dusty-theme="appstore-noche"]{
-    --navy:#71a3e9; --navy-soft:#8db8ec;
-    --bg:#0f1115; --panel:#181b21; --inset:#12151b; --raised:#20242c; --raised-2:#272c35; --line:#262b34;
   }
   html[data-dusty-theme="miel"]{ /* 50K: E38C4C/F6C561/FCF1DA/977B60 */
     /* saffron = acento, mismo pedido: fuera el mostaza de Guardar y compañía. */

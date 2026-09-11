@@ -1104,7 +1104,7 @@ function inventarioView(){
              accion y dos ya estan tomados: Compartir es --basil y Borrar es
              --tomato. --sky no servia (es un ALIAS de --basil, dusty.css linea 36:
              salia del MISMO verde en los 18 temas). --navy choca con el rojo en 7
-             temas y --saffron en 3 (coral, crema, cupertino), donde queda a
+             temas y --saffron en 2 (coral, crema), donde queda a
              distancia 32-52 de Borrar: dos botones casi del mismo naranja-rojo y
              uno destruye. Todo medido tema por tema, no supuesto.
              La salida no es buscar un cuarto color que la paleta no tiene, sino
@@ -1873,8 +1873,10 @@ function monthlySpendModal(){
    no viaja por sync. index.html re-aplica el atributo al abrir, sin parpadeo. */
 const DUSTY_THEMES = [
   // Orden (pedido del usuario 2026-09-08): primero los OSCUROS, después los
-  // CLAROS. Bosque, Uva, Rosa y Dorado se quitaron a pedido (sus bloques de
-  // CSS también); un dispositivo que los tenía guardados vuelve a Noche.
+  // CLAROS. Bosque, Uva, Rosa y Dorado se quitaron a pedido el 2026-09-08, y
+  // Store noche, Claro, Menta, Robin y Cupertino el 2026-09-11 (sus bloques de
+  // CSS también). Un dispositivo que tenga guardado uno de ellos NO cae a Noche:
+  // ver TEMAS_RETIRADOS abajo.
   {id:'night',          es:'Noche',       en:'Night',     bg:'#0f1115', accent:'#ff6b35'},
   {id:'oceano',         es:'Océano',      en:'Ocean',     bg:'#0d1220', accent:'#4da3ff'},
   {id:'medianoche',     es:'Medianoche',  en:'Midnight',  bg:'#000000', accent:'#22d3ee'},
@@ -1883,30 +1885,41 @@ const DUSTY_THEMES = [
   {id:'indigo',         es:'Índigo',      en:'Indigo',    bg:'#2a2645', accent:'#F0C38E'},
   {id:'rubi',           es:'Rubí',        en:'Ruby',      bg:'#181B24', accent:'#CC324C'},
   {id:'zafiro',         es:'Zafiro',      en:'Sapphire',  bg:'#232e4a', accent:'#73B7F1'},
-  // "Store noche" (2026-09-08): las tarjetas del App Store sobre el oscuro.
-  {id:'appstore-noche', es:'Store noche', en:'Store dark', bg:'#0f1115', accent:'#71a3e9'},
   // — y claros:
-  {id:'claro',          es:'Claro',       en:'Light',     bg:'#f3f4f8', accent:'#e85d24'},
   {id:'crema',          es:'Crema',       en:'Cream',     bg:'#f6f1e7', accent:'#c65b2e'},
-  {id:'menta',          es:'Menta',       en:'Mint',      bg:'#eef6f1', accent:'#0fa37f'},
   {id:'pastel',         es:'Pastel',      en:'Pastel',    bg:'#e7f8ff', accent:'#87AEEE'},
   {id:'electrico',      es:'Eléctrico',   en:'Electric',  bg:'#f7f2ff', accent:'#752FFF'},
   {id:'coral',          es:'Coral',       en:'Coral',     bg:'#fdf7e8', accent:'#FF5844'},
   {id:'miel',           es:'Miel',        en:'Honey',     bg:'#FCF1DA', accent:'#E38C4C'},
-  // Pedidos por captura 2026-09-07 (Robinhood / App Store):
-  {id:'robin',          es:'Robin',       en:'Robin',     bg:'#ffffff', accent:'#00c805'},
-  {id:'cupertino',      es:'Cupertino',   en:'Cupertino', bg:'#f2f2f7', accent:'#007aff'},
   // "App Store" (pedido por captura 2026-09-08): tarjetas del Dashboard con los
   // degradados pastel de la pestaña Buscar del App Store, en claro.
   {id:'appstore',       es:'App Store',   en:'App Store', bg:'#ffffff', accent:'#71a3e9'},
 ];
+/* TEMAS RETIRADOS -> AL MAS PARECIDO QUE QUEDA (2026-09-11).
+   Caer a Noche estaba bien para los cuatro que se quitaron el 2026-09-08, que
+   eran oscuros: el usuario ni lo notaba. Pero cuatro de los cinco de ahora son
+   CLAROS, y uno de ellos (Cupertino) era el que el propio duenio tenia puesto:
+   abrir la app y encontrarla en NEGRO no es una limpieza, es un susto.
+   Cada uno va al vecino que de verdad se le parece:
+     cupertino  -> appstore   mismo iOS, blanco y azul
+     robin      -> appstore   los dos sobre blanco puro
+     claro      -> crema      el otro claro de acento naranja
+     menta      -> pastel     no queda ningun claro verde; pastel es el otro palido frio
+     appstore-noche -> oceano  oscuro de acento azul, que era su sello
+   Se reescribe la preferencia guardada, asi que la conversion pasa UNA vez y el
+   dispositivo queda con un tema de verdad, no con uno fantasma. */
+const TEMAS_RETIRADOS = {cupertino:'appstore', robin:'appstore', claro:'crema', menta:'pastel', 'appstore-noche':'oceano'};
 let dustyTheme = 'night';
 try{
   const v = localStorage.getItem('patron_theme');
   if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v;
-  // Tema guardado que ya no existe (Bosque/Uva/Rosa/Dorado, quitados el
-  // 2026-09-08): se limpia el atributo que puso index.html y la preferencia,
-  // para que el dispositivo quede en Noche de verdad y no en un tema fantasma.
+  else if(v && TEMAS_RETIRADOS[v]){
+    dustyTheme = TEMAS_RETIRADOS[v];
+    document.documentElement.setAttribute('data-dusty-theme', dustyTheme);
+    localStorage.setItem('patron_theme', dustyTheme);
+  }
+  // Cualquier otro guardado que ya no existe: se limpia el atributo que puso
+  // index.html y la preferencia, para que quede en Noche de verdad.
   else if(v && v!=='night'){ document.documentElement.removeAttribute('data-dusty-theme'); localStorage.removeItem('patron_theme'); }
 }catch(e){}
 /* LATIDOS de aviso (pedido del usuario 2026-09-07): un interruptor en Ajustes apaga
