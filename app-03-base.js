@@ -705,6 +705,14 @@ const I18N = {
     pulse_on:'Prendidos', pulse_off:'Apagados',
     font_size_label:'Tamaño de letra', font_size_helper:'Para leer más cómodo. Se aplica a toda la app: deslizá y mirá.', font_size_reset:'Normal',
     switch_on:'Prendido', switch_off:'Apagado',
+    /* ===== Asistente (app-16) ===== */
+    agent_title:'Asistente', agent_hello_title:'Decime qué hacer', agent_hello_sub:'Gastos, trabajos, cobros, categorías, preguntas sobre tus números. Escribí o hablá.',
+    agent_placeholder:'Escribí o tocá el micrófono…', agent_listening:'Escuchando…', agent_send:'Enviar', agent_mic:'Hablar',
+    agent_confirm:'Confirmar', agent_cancelled:'Cancelado', agent_new_chat:'Conversación nueva', agent_voice_out:'Leer las respuestas en voz alta',
+    agent_voice_out_sub:'Usa la voz del teléfono; no cuesta nada.', agent_set_on:'Asistente', agent_set_on_sub:'El botón ✨ del Dashboard: pedidos por texto o voz.',
+    agent_set_note:'Cada pedido pasa por Dusty: las acciones que escriben se confirman antes de guardar. Cupo mensual incluido en tu plan.',
+    agent_err_generic:'El asistente no pudo responder. Probá de nuevo en un momento.', agent_needs_account:'Iniciá sesión para usar el asistente.',
+    srv_upstream_error:'El asistente no pudo responder ahora mismo.',
     /* ===== Modo Servicios (2026-09-11, app-15) ===== */
     svc_tomorrow:'Mañana', svc_agenda_title:'Próximos 7 días', svc_agenda_more:'+{n} más en el calendario',
     svc_rep_label:'Se repite', svc_rep_none:'No', svc_rep_weekly:'Cada semana', svc_rep_biweekly:'Cada 2 semanas', svc_rep_monthly:'Cada mes',
@@ -1431,6 +1439,14 @@ const I18N = {
     pulse_on:'On', pulse_off:'Off',
     font_size_label:'Text size', font_size_helper:'For easier reading. Applies to the whole app: slide and see.', font_size_reset:'Normal',
     switch_on:'On', switch_off:'Off',
+    /* ===== Assistant (app-16) ===== */
+    agent_title:'Assistant', agent_hello_title:'Tell me what to do', agent_hello_sub:'Expenses, jobs, payments, categories, questions about your numbers. Type or talk.',
+    agent_placeholder:'Type or tap the mic…', agent_listening:'Listening…', agent_send:'Send', agent_mic:'Talk',
+    agent_confirm:'Confirm', agent_cancelled:'Cancelled', agent_new_chat:'New conversation', agent_voice_out:'Read answers out loud',
+    agent_voice_out_sub:'Uses the phone\'s voice; free.', agent_set_on:'Assistant', agent_set_on_sub:'The ✨ button on the Dashboard: requests by text or voice.',
+    agent_set_note:'Every request goes through Dusty: actions that write are confirmed before saving. Monthly allowance included in your plan.',
+    agent_err_generic:'The assistant could not answer. Try again in a moment.', agent_needs_account:'Sign in to use the assistant.',
+    srv_upstream_error:'The assistant could not answer right now.',
     /* ===== Services mode (2026-09-11, app-15) ===== */
     svc_tomorrow:'Tomorrow', svc_agenda_title:'Next 7 days', svc_agenda_more:'+{n} more in the calendar',
     svc_rep_label:'Repeats', svc_rep_none:'No', svc_rep_weekly:'Every week', svc_rep_biweekly:'Every 2 weeks', svc_rep_monthly:'Every month',

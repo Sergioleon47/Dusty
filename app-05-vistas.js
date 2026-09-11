@@ -2184,6 +2184,9 @@ function alertSettingsModal(){
         <div class="helper-note" style="margin-bottom:0;">${t('budget_alert_pct_helper')}</div>
       </div>
 
+      ${/* 3b. ASISTENTE (app-16): prender/apagar y voz. */''}
+      ${agentSettingsCard()}
+
       ${/* 4. CUENTA: submodal con respaldo, compartir cuenta, cerrar sesión,
            eliminar y privacidad — vuelve acá al cerrarse. */''}
       <div class="settings-card">
