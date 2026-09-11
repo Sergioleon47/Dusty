@@ -1916,7 +1916,12 @@ const DUSTY_THEMES = [
    Se reescribe la preferencia guardada, asi que la conversion pasa UNA vez y el
    dispositivo queda con un tema de verdad, no con uno fantasma. */
 const TEMAS_RETIRADOS = {cupertino:'appstore', robin:'appstore', claro:'crema', menta:'pastel', 'appstore-noche':'oceano'};
-let dustyTheme = 'night';
+// Por defecto para una instalación nueva (nada guardado todavía, incluida la
+// introducción antes de elegir idioma) — pedido del usuario 2026-09-11: "más
+// claro y representa más". Mismo cambio en el script de index.html (ANTES del
+// primer pintado, ver el comentario ahí) — si se toca uno, tocar el otro. Quien
+// ya tenía Noche guardado de antes lo conserva: la rama de abajo lo reescribe.
+let dustyTheme = 'appstore';
 try{
   const v = localStorage.getItem('patron_theme');
   if(DUSTY_THEMES.some(x=>x.id===v)) dustyTheme = v;
@@ -1925,9 +1930,11 @@ try{
     document.documentElement.setAttribute('data-dusty-theme', dustyTheme);
     localStorage.setItem('patron_theme', dustyTheme);
   }
-  // Cualquier otro guardado que ya no existe: se limpia el atributo que puso
-  // index.html y la preferencia, para que quede en Noche de verdad.
-  else if(v && v!=='night'){ document.documentElement.removeAttribute('data-dusty-theme'); localStorage.removeItem('patron_theme'); }
+  // Cualquier otro guardado que ya no existe (ni siquiera como retirado): se
+  // limpia el atributo que puso index.html y la preferencia, para que quede en
+  // Noche de verdad — dustyTheme tiene que decir lo mismo que el atributo (o
+  // Ajustes mostraría "App Store" resaltado sobre una pantalla oscura).
+  else if(v && v!=='night'){ document.documentElement.removeAttribute('data-dusty-theme'); localStorage.removeItem('patron_theme'); dustyTheme = 'night'; }
 }catch(e){}
 /* LATIDOS de aviso (pedido del usuario 2026-09-07): un interruptor en Ajustes apaga
    o prende las palpitaciones de Inventario (conteo pendiente, stock crítico, días

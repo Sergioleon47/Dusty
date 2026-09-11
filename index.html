@@ -67,8 +67,12 @@
      a propósito (el original es TEMAS_RETIRADOS en app-05): si la conversión solo
      viviera allá, esta línea pondría igual el nombre viejo, el CSS de ese tema ya
      no existe y el usuario vería un destello OSCURO antes de que el JS lo corrija
-     — justo el susto que la conversión evita. Si se toca una, tocar la otra. -->
-<script>try{var _RET={cupertino:'appstore',robin:'appstore',claro:'crema',menta:'pastel','appstore-noche':'oceano'};var _th=localStorage.getItem('patron_theme');if(_RET[_th]){_th=_RET[_th];localStorage.setItem('patron_theme',_th);}if(_th&&_th!=='night')document.documentElement.setAttribute('data-dusty-theme',_th);if(localStorage.getItem('patron_pulse')==='off')document.documentElement.setAttribute('data-dusty-pulse','off');}catch(e){}</script>
+     — justo el susto que la conversión evita. Si se toca una, tocar la otra.
+     Sin nada guardado todavía (instalación nueva, incluida la introducción antes
+     de elegir idioma) el tema por defecto es App Store, no Noche (pedido del
+     usuario 2026-09-11: "más claro y representa más") — mismo cambio en app-05,
+     ver dustyTheme ahí. Quien ya tenía Noche guardado de antes sigue en Noche. -->
+<script>try{var _RET={cupertino:'appstore',robin:'appstore',claro:'crema',menta:'pastel','appstore-noche':'oceano'};var _th=localStorage.getItem('patron_theme');if(_RET[_th]){_th=_RET[_th];localStorage.setItem('patron_theme',_th);}if(!_th)_th='appstore';if(_th&&_th!=='night')document.documentElement.setAttribute('data-dusty-theme',_th);if(localStorage.getItem('patron_pulse')==='off')document.documentElement.setAttribute('data-dusty-pulse','off');}catch(e){}</script>
 </head>
 <body>
 <div id="app"></div>
