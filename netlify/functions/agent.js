@@ -18,6 +18,10 @@ const {
 } = require('./lib/patron-admin');
 
 const AGENT_MODEL = process.env.AGENT_MODEL || 'claude-haiku-4-5-20251001';
+// Modelo GRANDE para pedidos complejos (pedido del usuario 2026-09-11: "cuando sea
+// una pregunta compleja, que pueda responder con más calidad"). El mismo que
+// leen los recibos. Solo cuando needsBigModel lo decide: 3-4x el costo por pedido.
+const AGENT_MODEL_BIG = process.env.AGENT_MODEL_BIG || 'claude-sonnet-5';
 const AGENT_LIMIT_TRIAL = 60;        // vueltas de por vida en el trial anónimo
 const AGENT_LIMIT_MONTH = 600;       // vueltas por mes con cuenta
 const MAX_MESSAGES = 30;             // historial que se acepta por pedido
@@ -91,7 +95,32 @@ ${es ? 'REGLAS' : 'RULES'}
 5. ${es ? 'Podés encadenar varias herramientas en un mismo pedido ("gasté 500 en gasolina y 200 en peajes" son dos gastos).' : 'You may chain several tools for one request ("spent 500 on gas and 200 on tolls" is two expenses).'}
 6. ${es ? 'Respondé en el idioma del usuario, en 1 a 3 frases, con los montos formateados ($1,450.00). Sin markdown, sin listas largas, sin emojis salvo uno al inicio si ayuda.' : 'Answer in the user\'s language, 1 to 3 sentences, amounts formatted ($1,450.00). No markdown, no long lists, at most one emoji.'}
 7. ${es ? 'Las acciones que escriben las confirma el usuario en la app antes de ejecutarse; si el resultado dice "cancelled", no insistas.' : 'Write actions are confirmed by the user in the app before running; if a result says "cancelled", do not insist.'}
+9. ${es ? 'Sí podés dar consejos y análisis de SU negocio (precios, márgenes, qué cliente o equipo rinde más, dónde recortar) siempre que salgan de sus datos (consultá primero). Lo que no tenga que ver con el negocio ni con Dusty (temas generales, otras apps) no lo respondas: una frase y de vuelta a lo suyo.' : 'You MAY give advice and analysis about THEIR business (prices, margins, which client or asset performs best, where to cut) as long as it comes from their data (query first). Anything unrelated to the business or Dusty (general topics, other apps): one sentence and back to their business.'}
 8. ${es ? 'Fechas: el contexto trae la fecha de hoy. "ayer", "el lunes", "la semana pasada" se resuelven desde ahí.' : 'Dates: the context carries today\'s date. Resolve "yesterday", "Monday", "last week" from it.'}`;
+}
+
+/* ---------- ¿pedido complejo? → modelo grande ----------
+   Análisis, comparaciones, consejos, proyecciones, varios montos o frases largas
+   con varias acciones. Lo simple (un gasto, un trabajo, quién me debe) queda en
+   el modelo rápido. Se decide por el ÚLTIMO texto del usuario, así una vuelta
+   con resultados de herramientas sigue con el mismo modelo que la empezó. */
+const COMPLEX_RE = /\b(compar|convien|conven|mejor|peor|por qu[eé]|porque|anali|recomend|deber[ií]a|tendenc|promedio|proyec|margen|rentab|diferenc|versus|vs\.?|estrateg|optimi|ahorr|reduc|subir|bajar el precio|cu[aá]nto m[aá]s|cu[aá]nto menos|should|why|compare|better|worse|recommend|advice|advise|trend|average|forecast|profit|margin|analy|optimi|save money|raise|lower the price|what if|si subo|si bajo|resumen|summary|explic|explain)/i;
+function lastUserText(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== 'user') continue;
+    const tb = m.content.find(b => b.type === 'text');
+    if (tb) return tb.text;
+  }
+  return '';
+}
+function needsBigModel(text) {
+  const t = String(text || '');
+  if (COMPLEX_RE.test(t)) return true;
+  const amounts = (t.match(/\d[\d.,]*/g) || []).length;
+  if (amounts >= 3) return true;
+  const clauses = t.split(/\b(y|and|menos|pero|but|excepto|except)\b/i).length;
+  return t.length > 160 || clauses >= 5;
 }
 
 /* ---------- cupo del agente ---------- */
@@ -140,6 +169,7 @@ function cleanMessages(raw) {
   return out;
 }
 
+exports.needsBigModel = needsBigModel;
 exports.handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
   if (!isAllowedOrigin(event)) return { statusCode: 403, body: JSON.stringify({ error: 'Origen no permitido' }) };
@@ -179,13 +209,14 @@ exports.handler = withCors(async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo, intenta de nuevo', code: 'quota_check_failed' }) };
   }
 
+  const deep = needsBigModel(lastUserText(messages));
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: AGENT_MODEL,
-        max_tokens: 700,
+        model: deep ? AGENT_MODEL_BIG : AGENT_MODEL,
+        max_tokens: deep ? 1000 : 700,
         // El manual y las herramientas se cachean (no cambian entre pedidos); el
         // contexto del usuario va aparte porque sí cambia.
         system: [
@@ -201,7 +232,7 @@ exports.handler = withCors(async (event) => {
       console.error('[Dusty] agente: error de la API:', data.error);
       return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del asistente', code: 'upstream_error' }) };
     }
-    return { statusCode: 200, body: JSON.stringify({ content: data.content || [], stop_reason: data.stop_reason || null, quota: quota || null }) };
+    return { statusCode: 200, body: JSON.stringify({ content: data.content || [], stop_reason: data.stop_reason || null, quota: quota || null, model: deep ? 'deep' : 'fast' }) };
   } catch (err) {
     console.error('[Dusty] agente: fallo de red:', err);
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
