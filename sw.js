@@ -530,7 +530,7 @@
 // y fusión de duplicados, cotizaciones con productos descuentan y devuelven
 // stock, nota de cobro con id 'svc-cobro-*' (deja sin efecto lápidas viejas
 // 'svc-due-*'), escáneres con presupuesto de tiempo — app-02/03/08/15/16/17.
-const CACHE_NAME = 'patron-shell-v174';
+const CACHE_NAME = 'patron-shell-v175';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

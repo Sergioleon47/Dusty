@@ -78,7 +78,7 @@ function svcQuotesTileHtml(){
   const badge = open.length ? (soon ? {cls:'warn', label:t('qt_st_expiring')} : {cls:'ok', label:t('qt_tile_open_badge')}) : {cls:'', label:t('qt_tile')};
   const total = open.reduce((s,q)=>s+quoteTotals(q).total, 0);
   return `
-    <button type="button" class="dash-tile t4" id="btn-svc-quotes">
+    <button type="button" class="dash-tile ${sellsProducts() ? 't4' : 't2'}" id="btn-svc-quotes">
       <span class="dash-tile-badge ${badge.cls}">${badge.label}</span>
       <span class="dash-tile-icon" aria-hidden="true">📄</span>
       <b class="dash-tile-num">${open.length}</b>
