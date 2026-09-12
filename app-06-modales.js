@@ -3884,6 +3884,28 @@ function applyScanResults(){
   // La info de servicio se captura ANTES del forEach de abajo — después de guardar,
   // partes del estado del escaneo ya pueden haber rotado (modo lote).
   const payInfo = scanServiceInfo();
+  /* MODO SERVICIOS (app-15): un recibo escaneado desde un trabajo o un activo, o
+     en un negocio que solo presta servicios, es GASTO línea por línea — el diésel
+     del camión o el repuesto del taller no son mercadería para revender. Sin esto
+     cada línea con cantidad ("DIESEL 45 L") creaba un producto con stock: el
+     ticket no entraba a Gastos, al presupuesto ni a la Neta del Cierre, y
+     quedaba como "Compras de mercadería" y "Valor del inventario" (auditoría de
+     la auditoría 2026-09-12). Se decide DESPUÉS de scanServiceInfo, que mira las
+     líneas de servicio de verdad (luz, internet) para ofrecer el recordatorio. */
+  const svcExpenseScan = typeof usesServices==='function' && usesServices() && ((receiptAttach && (receiptAttach.jobId || receiptAttach.assetId)) || (typeof servicesOnly==='function' && servicesOnly()));
+  if(svcExpenseScan) scanExtracted.forEach(item=>{
+    if(!item || item.unit==='servicio' || item.matchedIngId==='__eatout__') return;
+    item.unit = 'servicio';
+    // Emparejada con un producto CON stock (de un escaneo anterior que aún no
+    // sabía esto): se busca su gemelo "solo gasto" por nombre, o nace uno.
+    const ing = item.matchedIngId && item.matchedIngId!=='__new__' ? inventory.find(i=>i && i.id===item.matchedIngId) : null;
+    if(ing && !ing.expenseOnly){
+      const nm = String(ing.name||'').trim().toLowerCase();
+      const twin = inventory.find(i=>i && i.expenseOnly && String(i.name||'').trim().toLowerCase()===nm);
+      if(twin) item.matchedIngId = twin.id; else { item.matchedIngId = '__new__'; item.newIngName = ing.name; }
+    }
+    if(item.suggestedCategoryId && typeof item.suggestedCategoryId==='string' && !item.suggestedCategoryId.startsWith('__newcat__:') && !expenseCategories.some(c=>c.id===item.suggestedCategoryId)) item.suggestedCategoryId = null;
+  });
 
   const appliedItems = [];
   const createdPurchaseIds = [];

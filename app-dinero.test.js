@@ -787,3 +787,22 @@ test('las ocurrencias de un contrato tienen el mismo id en cualquier dispositivo
   assert.ok(lista.length >= 1, 'generó ocurrencias dentro de los 14 días');
   assert.ok(lista.every(s=>/^job-.+@\d{4}-\d{2}-\d{2}$/.test(s)), 'con forma de id de trabajo (job-<contrato>-<fecha>, svcChildId)');
 });
+
+test('modo Servicios: un recibo escaneado desde un trabajo es GASTO línea por línea (el diésel no es mercadería con stock)', () => {
+  const { correr } = nuevaApp({servicios:true});
+  correr(`bizProfile.services = true; bizProfile.sells = false;
+    recordOutflow({id:'jf', type:'service', date:'2026-04-01', client:'Flete', serviceName:'Viaje', price:500, paid:false, dueDate:'2026-04-16', dueDays:15, items:[], createdAt:'2026-04-01T00:00:00Z'});
+    receiptAttach = {jobId:'jf', assetId:null};`);
+  const r = JSON.parse(correr(`JSON.stringify(escanear('Shell', '2026-04-01', [{rawName:'DIESEL', qty:45, unit:'l', totalPrice:180, matchedIngId:'__new__'}]))`));
+  assert.equal(r.jobId, 'jf');
+  assert.equal(correr(`valorInventario()`), 0, 'nada en el estante');
+  assert.equal(correr(`inventory.filter(i=>!isExpenseItem(i)).length`), 0);
+  assert.equal(correr(`receiptSplit(receipts[receipts.length-1], finCache()).expense`), 180, 'entra entero como gasto');
+  assert.equal(correr(`jobExpenseTotal(jobById('jf'))`), 180);
+  // Segundo ticket del mismo producto: se reutiliza el "solo gasto", no nace un producto con stock.
+  correr(`receiptAttach = {jobId:'jf', assetId:null};`);
+  const diesel = correr(`inventory.find(i=>i.name==='DIESEL').id`);
+  correr(`escanear('Shell', '2026-04-03', [{rawName:'DIESEL', qty:40, unit:'l', totalPrice:160, matchedIngId:'${diesel}'}]);`);
+  assert.equal(correr(`valorInventario()`), 0);
+  assert.equal(correr(`jobExpenseTotal(jobById('jf'))`), 340);
+});
