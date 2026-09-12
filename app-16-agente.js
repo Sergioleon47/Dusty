@@ -132,7 +132,8 @@ function agentDescribe(name, inp){
     case 'update_asset': { const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); const ch = []; if(agentNum(inp.km)!==null) ch.push(svcFmtNum(agentNum(inp.km))+' '+distU()); if(inp.name) ch.push(inp.name); if(inp.model) ch.push(inp.model);
       return `${es?'Actualizar equipo':'Update asset'}: ${a ? a.name : inp.asset} → ${ch.join(' · ')||'—'}`; }
     case 'add_maintenance_plan': { const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); const ev = [agentNum(inp.every_km)>0 ? (es?'cada ':'every ')+svcFmtNum(agentNum(inp.every_km))+' '+distU() : '', agentNum(inp.every_months)>0 ? (es?'cada ':'every ')+agentNum(inp.every_months)+(es?' meses':' months') : ''].filter(Boolean).join(' / ');
-      return `${es?'Programar mantenimiento':'Schedule maintenance'}: ${inp.name} · ${a ? a.name : inp.asset} · ${ev||'—'}`; }
+      const exm = a ? agentFind(a.maint||[], inp.name, x=>x.name) : null;
+      return exm ? `${es?'Actualizar el plan':'Update plan'} "${exm.name}" · ${a.name} · ${ev||'—'}` : `${es?'Programar mantenimiento':'Schedule maintenance'}: ${inp.name} · ${a ? a.name : inp.asset} · ${ev||'—'}`; }
     case 'update_service': { const s = agentFind(bizProfile.catalog||[], inp.service, x=>x.name); const ch = []; if(agentNum(inp.price)!==null) ch.push(money(agentNum(inp.price))); if(inp.unit) ch.push(inp.unit); if(inp.name) ch.push(inp.name);
       return `${es?'Editar servicio':'Edit service'}: ${s ? s.name : inp.service} → ${ch.join(' · ')||'—'}`; }
     case 'delete_service': { const s = agentFind(bizProfile.catalog||[], inp.service, x=>x.name); return `${es?'Quitar servicio':'Remove service'}: ${s ? s.name : inp.service}`; }
@@ -166,7 +167,9 @@ function agentPickJob(inp){
   if(inp.job_id) return jobById(inp.job_id) || null;
   // any: también los cobrados (para corregir o borrar); sin any, solo pendientes (cobrar).
   let list = inp.any ? svcJobs().slice() : svcJobs().filter(j=>!j.paid);
-  if(inp.client){ const c = agentNorm(inp.client); const byC = list.filter(j=>agentNorm(j.client).includes(c) || c.includes(agentNorm(j.client))); if(byC.length) list = byC; }
+  // Cliente nombrado y sin trabajos que coincidan: NADA, no "el más reciente de
+  // cualquiera" — "cobrale a Pérez" sin pendientes de Pérez cobraba el de López.
+  if(inp.client){ const c = agentNorm(inp.client); list = list.filter(j=>agentNorm(j.client).includes(c) || c.includes(agentNorm(j.client))); if(!list.length) return null; }
   if(agentNum(inp.amount)!==null){ const byA = list.filter(j=>Math.abs((j.price||0)-agentNum(inp.amount))<0.01); if(byA.length) list = byA; }
   if(inp.date){ const byD = list.filter(j=>j.date===inp.date); if(byD.length) list = byD; }
   // Pendientes: el más viejo primero (es el que se cobra). Con any: el más reciente
@@ -209,7 +212,9 @@ function agentExec(name, inp){
       if(inp.date && !isValidDateStr(inp.date)) return fail('date must be a real YYYY-MM-DD date');
       const svc = inp.service ? agentFind(bizProfile.catalog||[], inp.service, x=>x.name) : null;
       const date = agentDate(inp.date), dueDays = Math.max(1, parseInt(inp.due_days,10)||15);
-      const endDate = (isValidDateStr(inp.end_date) && inp.end_date>date) ? inp.end_date : null;
+      // "Hasta" mal escrito o anterior al inicio: se avisa, no se guarda un trabajo de un día en silencio.
+      if(inp.end_date && (!isValidDateStr(inp.end_date) || inp.end_date<=date)) return fail('end_date must be a real YYYY-MM-DD date after '+date);
+      const endDate = inp.end_date ? inp.end_date : null;
       const clash = asset ? svcClash({id:null, assetId: asset.id, date, endDate}) : null;
       const job = { id: uid('job'), type:'service', date, endDate, client: String(inp.client).trim().slice(0,60), serviceName: (svc ? svc.name : String(inp.service||'').trim()).slice(0,60), serviceId: svc ? svc.id : null,
         assetId: asset ? asset.id : null, price: Math.round(price*100)/100, paid: !!inp.paid, dueDate: inp.paid ? null : addDaysStr(date, dueDays), dueDays, paidDate: inp.paid ? (date<localDateStr() ? date : localDateStr()) : null,
@@ -238,13 +243,11 @@ function agentExec(name, inp){
       const what = String(inp.what||'').trim().slice(0,60); if(!what) return fail('what required');
       const plan = agentFind(a.maint||[], what, m=>m.name);
       const date = agentDate(inp.date), km = agentNum(inp.km), cost = agentNum(inp.cost);
-      if(plan){ plan.lastDate = date; if(km!==null) plan.lastKm = km; }
-      if(km!==null) a.km = km;
-      if(cost>0){
-        const catM = expenseCategories.find(c=>/manten|mainten/i.test(c.name));
-        receipts.push({ id: uid('r'), images: [], supplier: `${plan ? plan.name : what} · ${a.name}`, date, total: Math.round(cost*100)/100, itemCount: 0, appliedItems: [], createdAt: new Date().toISOString(), purchaseIds: [],
-          manual: true, manualKind: 'expense', expenseCategoryId: catM ? catM.id : null, assetId: a.id, byAgent: true });
-      }
+      if(km!==null && km<0) return fail('km must be >= 0');
+      if(cost!==null && cost<0) return fail('cost must be >= 0');
+      // Mismo camino que el modal (svcLogMaintenance, app-15): plan y odómetro solo
+      // hacia adelante, recibo si hubo costo y la entrada del historial del activo.
+      svcLogMaintenance(a, {plan, desc: what, date, km, cost, byAgent: true});
       saveState(); logActivity('maint_logged', a.name, plan ? plan.name : what); render();
       return ok({asset: a.name, plan: plan ? plan.name : null, cost: cost||0});
     }
@@ -388,7 +391,8 @@ function agentExec(name, inp){
       if(inp.new_client){ j.client = String(inp.new_client).trim().slice(0,60); ch.client = j.client; }
       if(inp.new_service){ const svc = agentFind(bizProfile.catalog||[], inp.new_service, x=>x.name); j.serviceName = (svc ? svc.name : String(inp.new_service).trim()).slice(0,60); j.serviceId = svc ? svc.id : null; ch.service = j.serviceName; }
       if(newAsset && j.assetId!==newAsset.id){ j.assetId = newAsset.id; ch.asset = newAsset.name; receipts.forEach(r=>{ if(r && r.jobId===j.id) r.assetId = j.assetId; }); }
-      if(inp.paid===true && !j.paid){ j.paid = true; j.paidDate = localDateStr(); j.dueDate = null; ch.paid = true; }
+      // Cobrar pasa por el mismo camino que mark_paid, el modal y Por cobrar (markJobPaid).
+      if(inp.paid===true && !j.paid && markJobPaid(j)){ ch.paid = true; logActivity('job_paid', j.client, money(j.price||0)); }
       if(inp.paid===false && j.paid){ j.paid = false; j.paidDate = null; j.dueDate = addDaysStr(j.date, j.dueDays||15); ch.paid = false; }
       if(inp.due_days){ j.dueDays = Math.max(1, parseInt(inp.due_days,10)||15); if(!j.paid){ j.dueDate = addDaysStr(j.date, j.dueDays); ch.due_date = j.dueDate; } }
       if(!Object.keys(ch).length) return fail('nothing to change');
@@ -421,11 +425,26 @@ function agentExec(name, inp){
       const nm = String(inp.name||'').trim().slice(0,60); if(!nm) return fail('name required');
       const everyKm = agentNum(inp.every_km)>0 ? Math.round(agentNum(inp.every_km)) : 0, everyMonths = agentNum(inp.every_months)>0 ? Math.round(agentNum(inp.every_months)) : 0;
       if(!everyKm && !everyMonths) return fail('every_km or every_months required');
+      if(inp.last_date && !isValidDateStr(inp.last_date)) return fail('last_date must be YYYY-MM-DD');
+      if(agentNum(inp.last_km)!==null && agentNum(inp.last_km)<0) return fail('last_km must be >= 0');
       let m = agentFind(a.maint||[], nm, x=>x.name);
-      if(!m){ m = {id: uid('mt')}; a.maint = a.maint||[]; a.maint.push(m); }
-      Object.assign(m, {name: nm, emoji: m.emoji||'🔧', everyKm, everyMonths, lastDate: agentDate(inp.last_date), lastKm: agentNum(inp.last_km)!==null ? agentNum(inp.last_km) : (a.km||0)});
+      const existed = !!m;
+      if(!m){
+        m = {id: uid('mt'), name: nm, emoji: '🔧', everyKm, everyMonths, lastDate: agentDate(inp.last_date), lastKm: agentNum(inp.last_km)!==null ? agentNum(inp.last_km) : (a.km||0)};
+        a.maint = a.maint||[]; a.maint.push(m);
+      } else {
+        /* Un plan que ya existe ("Aceite" encontrado por "cambio de aceite") se
+           ACTUALIZA solo en lo que vino en el pedido: pisarlo entero reseteaba
+           lastDate/lastKm a hoy y borraba la regla por meses, así que un
+           mantenimiento vencido pasaba a "ok" sin que nadie lo hiciera (auditoría
+           de la auditoría 2026-09-12). */
+        if(everyKm) m.everyKm = everyKm;
+        if(everyMonths) m.everyMonths = everyMonths;
+        if(isValidDateStr(inp.last_date||'')) m.lastDate = inp.last_date;
+        if(agentNum(inp.last_km)!==null) m.lastKm = agentNum(inp.last_km);
+      }
       saveState(); logActivity('asset_saved', a.name); render();
-      return ok({asset: a.name, plan: m.name, every_km: everyKm||null, every_months: everyMonths||null});
+      return ok({asset: a.name, plan: m.name, updated_existing: existed, every_km: m.everyKm||null, every_months: m.everyMonths||null});
     }
     case 'update_service': {
       const s = agentFind(bizProfile.catalog||[], inp.service, x=>x.name); if(!s) return fail('service not found');
@@ -516,7 +535,7 @@ function agentQuery(inp){
     case 'jobs': { const list = svcJobs().filter(j=>inRange(j.date) && (!q || agentNorm(j.client+' '+(j.serviceName||'')).includes(q))); return JSON.stringify({from, to, count: list.length, billed: list.reduce((s,j)=>s+(j.price||0),0), paid: list.filter(j=>j.paid).reduce((s,j)=>s+(j.price||0),0), jobs: list.slice(0,30).map(j=>({job_id:j.id, date:j.date, end_date: j.endDate||null, client:j.client, service:j.serviceName, amount:j.price, paid:j.paid, asset:(assetById(j.assetId)||{}).name||null, repeat: j.repeat||null, contract_id: j.parentId||null}))}); }
     case 'inventory': { const rows = stockRowsData(); const hit = q ? rows.filter(r=>agentNorm(r.ing.name).includes(q)) : rows; return JSON.stringify({total_items: inventory.length, critical: rows.filter(r=>r.status==='crit').map(r=>r.ing.name).slice(0,30), items: hit.slice(0,30).map(r=>({name:r.ing.name, qty:r.ing.qtyOnHand, unit:r.ing.unit, cost:r.ing.costPerUnit, sale_price:r.ing.salePrice, status:r.status}))}); }
     case 'month': { const key = (inp.from && /^\d{4}-\d{2}/.test(inp.from)) ? inp.from.slice(0,7) : localMonthStr(); const f = periodFinancials(key); return JSON.stringify({month:key, revenue:f.revenue, cogs:f.cogs, expenses:f.expense, invested:f.invested, net:f.net, receipts:f.receiptsCount, jobs: jobsForMonth(key).length}); }
-    case 'assets': { const t0 = today; return JSON.stringify({assets: (bizProfile.assets||[]).map(a=>{ const st = assetMonthStats(a, localMonthStr()); return {name:a.name, model:a.model, km:a.km, month_revenue:st.revenue, month_expense:st.expense, maintenance:(a.maint||[]).map(m=>{ const s = maintStatus(m, a, t0, bizProfile.maintDays); return {name:m.name, status:s.status, when: svcMaintWhen(s)}; })}; })}); }
+    case 'assets': { const t0 = today; return JSON.stringify({assets: (bizProfile.assets||[]).map(a=>{ const st = assetMonthStats(a, localMonthStr()); return {name:a.name, model:a.model, km:a.km, month_revenue:st.revenue, month_expense:st.expense, maintenance:(a.maint||[]).map(m=>{ const s = svcMaintStatus(m, a, t0); return {name:m.name, status:s.status, when: svcMaintWhen(s)}; })}; })}); }
     case 'services': return JSON.stringify({services: (bizProfile.catalog||[]).map(c=>({name:c.name, price:c.price, unit:c.unit, description:c.desc}))});
     case 'categories': return JSON.stringify({expense: expenseCategories.map(c=>c.name), inventory: (categories||[]).map(c=>c.name)});
     // Con id: para que el agente pueda corregir o borrar el registro exacto.
@@ -568,10 +587,26 @@ async function agentCall(){
   });
   return parsed;
 }
+/* El registro que describe la tarjeta se resuelve UNA vez y se fija por id en la
+   entrada: antes la tarjeta mostraba "Pérez · $100 · 1 sep" y, al confirmar,
+   agentExec volvía a buscar por nombre — si mientras tanto ese trabajo cambió
+   (lo cobró un compañero, llegó de la nube), se cobraba o borraba OTRO trabajo
+   del mismo cliente (auditoría de la auditoría 2026-09-12). */
+function agentPinTarget(name, inp){
+  try{
+    if(name==='mark_paid'){ const j = agentPickJob(inp); if(j) inp.job_id = j.id; }
+    else if(name==='update_job' || name==='delete_job'){ const j = agentPickJob(Object.assign({}, inp, {any:true})); if(j) inp.job_id = j.id; }
+    else if(name==='update_expense' || name==='delete_expense'){ const r = agentPickReceipt(inp); if(r) inp.receipt_id = r.id; }
+    else if(name==='delete_note'){ const n = agentPickNote(inp); if(n) inp.note_id = n.id; }
+    else if(name==='quote_action' && typeof agentPickQuote==='function'){ const q = agentPickQuote(inp); if(q) inp.quote_id = q.id; }
+  }catch(e){}
+  return inp;
+}
 function agentWaitConfirm(block){
   return new Promise(resolve=>{
-    agentPending = {id: block.id, name: block.name, input: block.input||{}, resolve};
-    agentPush('card', agentDescribe(block.name, block.input||{}), {toolId: block.id});
+    block.input = agentPinTarget(block.name, block.input||{});
+    agentPending = {id: block.id, name: block.name, input: block.input, resolve};
+    agentPush('card', agentDescribe(block.name, block.input), {toolId: block.id});
     render(); agentScrollEnd();
   });
 }

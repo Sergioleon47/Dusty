@@ -615,13 +615,24 @@ function metaContentShape(m){
     profitsVisibleToMembers: m.profitsVisibleToMembers === true,
     categories: m.categories,
     expenseCategories: m.expenseCategories || [],
-    calNotes: m.calNotes || [], recipes: m.recipes || [], outflows: m.outflows || [],
+    calNotes: calNotesForCloud(m.calNotes), recipes: m.recipes || [], outflows: m.outflows || [],
     outflowArchive: m.outflowArchive || {},
     deletedInventoryIds: m.deletedInventoryIds || [], deletedReceiptIds: m.deletedReceiptIds || [],
     deletedPurchaseIds: m.deletedPurchaseIds || [], deletedCalNoteIds: m.deletedCalNoteIds || [],
     deletedRecipeIds: m.deletedRecipeIds || []
   };
 }
+/* Las notas DERIVADAS del modo Servicios (svcKind: trabajo 🚚, cobro 💵,
+   mantenimiento 🔧, cotización 📄) NO viajan a la nube: cada dispositivo las
+   regenera en svcSyncCalendar (app-15) desde los trabajos, activos y cotizaciones,
+   que sí viajan. Su texto lleva el idioma y el formato de moneda DEL DISPOSITIVO
+   (t() y money(), guardados en localStorage): con dos teléfonos en idiomas o
+   formatos distintos, cada uno "corregía" el texto del otro al aplicar el
+   snapshot, el hash de meta dejaba de coincidir y volvía a subir — un ping-pong
+   de escrituras a Firestore sin fin (auditoría de la auditoría 2026-09-12).
+   Las lápidas de las notas que el usuario borra a mano sí viajan (deletedCalNoteIds),
+   así que una nota derivada borrada en un teléfono no reaparece en el otro. */
+function calNotesForCloud(list){ return (Array.isArray(list) ? list : []).filter(n=>n && n.id && !n.svcKind); }
 function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
@@ -796,7 +807,7 @@ function syncAllToFirestore(){
     const metaHash = valueHash(metaContent);
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
-        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes,
+        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes),
         recipes: recipesForCloud(), outflows,
         // outflowArchive viaja en el mismo set con {merge:true}: Firestore mergea
         // los mapas por clave, así dos dispositivos archivando meses distintos no
@@ -1081,9 +1092,12 @@ function applyRemoteMetaSnapshot(doc){
   }).concat(
     recipes.filter(x=>x && x.id && !remoteRecipeIdsIn.has(x.id) && !recipeTombs.has(x.id)).map(x=>JSON.parse(JSON.stringify(stripRecipePhotoForCloud(x))))
   );
-  const remoteNotesIn = (Array.isArray(incomingMeta.calNotes) ? incomingMeta.calNotes : []).filter(n=>n && n.id);
+  // Las notas derivadas de Servicios (svcKind) se descartan de los dos lados: las
+  // remotas son restos de versiones que aún las subían, y las locales las vuelve a
+  // armar svcSyncCalendar en el saveState de abajo (ver calNotesForCloud).
+  const remoteNotesIn = calNotesForCloud(incomingMeta.calNotes);
   const remoteNoteIdsIn = new Set(remoteNotesIn.map(n=>n.id));
-  incomingMeta.calNotes = remoteNotesIn.concat(calNotes.filter(n=>n && n.id && !remoteNoteIdsIn.has(n.id) && !noteTombs.has(n.id)));
+  incomingMeta.calNotes = remoteNotesIn.concat(calNotesForCloud(calNotes).filter(n=>!remoteNoteIdsIn.has(n.id) && !noteTombs.has(n.id)));
   const remoteOutIn = (Array.isArray(incomingMeta.outflows) ? incomingMeta.outflows : []).filter(o=>o && o.id);
   const remoteOutIdsIn = new Set(remoteOutIn.map(o=>o.id));
   /* Trabajos y cotizaciones (app-15/17) SÍ se editan (cobrar, borrar, cambiar
@@ -1108,7 +1122,7 @@ function applyRemoteMetaSnapshot(doc){
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes), deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1648,9 +1662,12 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // ya tiene, lo local solo agrega las que la nube no conocía (creadas offline en
     // este dispositivo), y las que tienen lápida no entran de ningún lado. Mismo
     // espíritu que mergedAliasMap, más abajo.
-    const remoteNotes = (Array.isArray(remoteMetaData.calNotes) ? remoteMetaData.calNotes : []).filter(n=>n && n.id && !deletedNoteSet.has(n.id));
+    // Sin las notas derivadas de Servicios (calNotesForCloud): no viajan, cada
+    // dispositivo las regenera; contarlas como "solo locales" forzaba una
+    // escritura de meta en cada reconcile.
+    const remoteNotes = calNotesForCloud(remoteMetaData.calNotes).filter(n=>!deletedNoteSet.has(n.id));
     const remoteNoteIds = new Set(remoteNotes.map(n=>n.id));
-    const localOnlyNotes = (localSnapshot.calNotes||[]).filter(n=>n && n.id && !remoteNoteIds.has(n.id) && !deletedNoteSet.has(n.id));
+    const localOnlyNotes = calNotesForCloud(localSnapshot.calNotes).filter(n=>!remoteNoteIds.has(n.id) && !deletedNoteSet.has(n.id));
     const mergedCalNotes = remoteNotes.concat(localOnlyNotes);
     /* Recetas y salidas viven en meta igual que las notas — mismo merge por id: la
        nube manda por cada id que ya tiene, lo local solo agrega lo creado offline en

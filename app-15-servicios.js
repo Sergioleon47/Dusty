@@ -926,13 +926,21 @@ function saveJobFromDraft(){
   const unitFields = usvc ? {unit: usvc.unit, unitPrice: qty>0 ? Math.round(price/qty*100)/100 : usvc.price, qty} : {unit: null, unitPrice: null, qty: null};
   if(job){
     const prevAsset = job.assetId||null;
+    const next = Object.assign({ client:d.client, serviceName:d.serviceName, serviceId:d.serviceId||null, date:d.date, endDate, assetId:d.assetId||null,
+      price: Math.round(price*100)/100, paid:!!d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate }, unitFields);
+    /* Abrir una ocurrencia para mirarla y tocar Guardar sin cambiar nada NO es una
+       edición: si se sellara lastEditedAt igual, la ocurrencia pasaba a "tocada
+       por el usuario", dejaba de seguir el precio del contrato y sobrevivía a un
+       cambio de regla (dos cobros la misma semana). Solo se escribe si algo cambió
+       o si hay gastos a mano por colgar (auditoría de la auditoría 2026-09-12). */
+    const nv = v => (v===undefined || v==='') ? null : v;
+    const unchanged = Object.keys(next).every(k=>nv(job[k])===nv(next[k]));
+    if(unchanged && !d.pending.length){ d.id = job.id; svcLastPruned = 0; return job; }
     // Cambió la regla del contrato (fecha o frecuencia): las próximas salen desde
     // la fecha nueva y las que nacieron de la regla vieja se retiran; si solo
     // cambió precio/cliente/equipo/plazo, las próximas sin tocar lo siguen.
     const ruleChanged = job.repeat!==repeat || job.date!==d.date;
-    Object.assign(job, { client:d.client, serviceName:d.serviceName, serviceId:d.serviceId, date:d.date, endDate, assetId:d.assetId||null,
-      price: Math.round(price*100)/100, paid:d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate,
-      lastEditedAt: new Date().toISOString() }, unitFields);
+    Object.assign(job, next, { lastEditedAt: new Date().toISOString() });
     // Los gastos del trabajo siguen al equipo: si se corrigió el camión, sus
     // recibos ya no se cuentan en la ficha del camión viejo.
     if(prevAsset!==(job.assetId||null)) receipts.forEach(r=>{ if(r && r.jobId===job.id) r.assetId = job.assetId||null; });
@@ -1128,25 +1136,47 @@ function saveMaintLog(){
   const cost = costV!=='' ? parseFloat(costV) : 0;
   if(!plan && !desc){ maintLogError = t('svc_maint_err_name'); render(); return false; }
   if(costV!=='' && !(cost>=0)){ maintLogError = t('manual_spend_err'); render(); return false; }
-  if(plan){ plan.lastDate = date; if(km!==null) plan.lastKm = km; }
-  if(km!==null) a.km = km;
-  let receiptId = null;
-  if(cost>0){
-    const catM = expenseCategories.find(c=>/manten|mainten/i.test(c.name));
-    receiptId = uid('r');
-    receipts.push({ id: receiptId, images: [], supplier: `${plan ? plan.name : desc} · ${a.name}`, date, total: Math.round(cost*100)/100,
-      itemCount: 0, appliedItems: [], createdAt: new Date().toISOString(), purchaseIds: [], manual: true, manualKind: 'expense',
-      expenseCategoryId: catM ? catM.id : null, assetId: a.id });
-  }
-  // Historial del activo (auditoría 2026-09-12): antes un mantenimiento sin costo
-  // —una correa en garantía— no dejaba rastro en ningún lado.
-  a.maintLog = a.maintLog || [];
-  a.maintLog.unshift({ id: uid('ml'), date, planId: plan ? plan.id : null, desc: plan ? '' : desc, km, cost: cost>0 ? Math.round(cost*100)/100 : 0, receiptId });
-  if(a.maintLog.length>300) a.maintLog.length = 300;
+  svcLogMaintenance(a, {plan, desc, date, km, cost});
   saveState();
   logActivity('maint_logged', a.name, plan ? plan.name : desc);
   showToast(t('svc_logged'));
   return true;
+}
+/* UN solo registro de "mantenimiento hecho" para el modal y el asistente (app-16
+   tenía su copia: movía el plan y creaba el recibo, pero no dejaba rastro en el
+   historial — auditoría de la auditoría 2026-09-12). Qué hace: mueve lastDate /
+   lastKm del plan y el odómetro del activo SOLO hacia adelante (registrar un
+   cambio de aceite de hace dos meses, que faltaba cargar, no puede "retroceder"
+   el plan ni el odómetro), crea el recibo si hubo costo y guarda la entrada del
+   historial con el NOMBRE del plan copiado en desc: si el plan se borra o se
+   renombra después, el historial sigue diciendo qué se hizo. No guarda ni avisa:
+   eso lo hace el llamador. Devuelve la entrada creada. */
+function svcLogMaintenance(a, o){
+  const plan = o.plan || null;
+  const desc = String((plan ? plan.name : o.desc)||'').trim().slice(0, 60);
+  const date = isValidDateStr(o.date||'') ? o.date : localDateStr();
+  const km = (o.km!==null && o.km!==undefined && Number.isFinite(Number(o.km)) && Number(o.km)>=0) ? Number(o.km) : null;
+  const cost = Number(o.cost)>0 ? Math.round(Number(o.cost)*100)/100 : 0;
+  if(plan){
+    if(!plan.lastDate || date>=plan.lastDate){ plan.lastDate = date; if(km!==null) plan.lastKm = km; }
+    else if(km!==null && !(plan.lastKm>=km)) plan.lastKm = km;
+  }
+  if(km!==null && !(Number(a.km)>km)) a.km = km;
+  let receiptId = null;
+  if(cost>0){
+    const catM = expenseCategories.find(c=>/manten|mainten/i.test(c.name));
+    receiptId = uid('r');
+    receipts.push(Object.assign({ id: receiptId, images: [], supplier: `${desc} · ${a.name}`, date, total: cost,
+      itemCount: 0, appliedItems: [], createdAt: new Date().toISOString(), purchaseIds: [], manual: true, manualKind: 'expense',
+      expenseCategoryId: catM ? catM.id : null, assetId: a.id }, o.byAgent ? {byAgent: true} : {}));
+  }
+  // Historial del activo (auditoría 2026-09-12): antes un mantenimiento sin costo
+  // —una correa en garantía— no dejaba rastro en ningún lado.
+  a.maintLog = a.maintLog || [];
+  const entry = { id: uid('ml'), date, planId: plan ? plan.id : null, desc, km, cost, receiptId };
+  a.maintLog.unshift(entry);
+  if(a.maintLog.length>300) a.maintLog.length = 300;
+  return entry;
 }
 
 /* ---------- MODAL: SERVICIO (lista de precios) ---------- */
@@ -1957,10 +1987,14 @@ function svcRuleStamp(o){ o.lastEditedAt = o.ruleAt = new Date().toISOString(); 
 function svcChildUntouched(o){ return !o.paid && (!o.lastEditedAt || o.lastEditedAt===o.ruleAt) && !jobReceipts(o.id).length; }
 /* Ocurrencias FUTURAS de un contrato que Dusty creó y nadie tocó: sin cobrar,
    sin editar a mano, sin gastos colgados. Son las únicas que la regla puede
-   rehacer; las pasadas y las tocadas son historia del usuario y no se tocan. */
+   rehacer; las pasadas y las tocadas son historia del usuario y no se tocan.
+   La de HOY cuenta como futura mientras nadie la haya tocado: la generación sí
+   crea ocurrencias para hoy, y si la poda las dejara afuera, cambiar la
+   frecuencia dos veces en el mismo día dejaba un cobro de una regla que ya no
+   existe (auditoría de la auditoría 2026-09-12). */
 function svcUntouchedFutureChildren(tpl, today){
   today = today || localDateStr();
-  return svcJobs().filter(o=>o.parentId===tpl.id && o.date>today && svcChildUntouched(o));
+  return svcJobs().filter(o=>o.parentId===tpl.id && o.date>=today && svcChildUntouched(o));
 }
 // Cambió la regla (fecha o frecuencia) o se eliminó el contrato: las próximas
 // que nacieron de la regla vieja se retiran; con la nueva nacen las que toquen.
@@ -2043,13 +2077,18 @@ function svcGenerateRecurring(){
     /* Reconciliación: ocurrencias futuras sin tocar que ya no caen en la regla
        (llegaron de otro teléfono que todavía tenía la regla vieja, o el contrato
        se movió sobre una fecha que ya tenía ocurrencia) se retiran. Idempotente;
-       lo tocado por una persona no se toca. */
+       lo tocado por una persona no se toca. Solo se juzgan las fechas DENTRO del
+       horizonte de este dispositivo: una ocurrencia más allá (la generó otro
+       teléfono cuyo "hoy" va adelante, por huso horario o reloj) no está en
+       `expected` porque la lista termina en el horizonte, no porque la regla no
+       la pida — podarla la perdía para siempre en los dos teléfonos (auditoría
+       de la auditoría 2026-09-12). La de hoy sí se juzga (igual que en la poda). */
     const expected = new Set();
     { let d = tpl.date, g = 0; while(g++ < 20000){ d = svcNextDate(d, tpl.repeat, anchor); if(!d || d > horizon) break; if(d >= today) expected.add(d); } }
     svcJobs().forEach(o=>{
       if(o.parentId!==tpl.id || o.date<today || !svcChildUntouched(o)) return;
       const od = svcOccDate(o);
-      if(od===tpl.date || (od>today && !expected.has(od))){ o.deleted = true; o.prunedByRule = true; o.deletedAt = new Date().toISOString(); svcRuleStamp(o); changed = true; }
+      if(od===tpl.date || (od>=today && od<=horizon && !expected.has(od))){ o.deleted = true; o.prunedByRule = true; o.deletedAt = new Date().toISOString(); svcRuleStamp(o); changed = true; }
     });
     while(guard++ < 60){
       const next = svcNextDate(last, tpl.repeat, anchor);

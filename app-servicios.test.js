@@ -306,3 +306,61 @@ test('svcNextDate: cadena mensual del 31 durante un año entero, bisiesto, y sem
   assert.equal(correr(`svcNextDate('2026-03-02','weekly')`), '2026-03-09');
   assert.equal(correr(`svcNextDate('2026-10-26','biweekly')`), '2026-11-09');
 });
+
+/* ---- Auditoría de la auditoría (2026-09-12): segunda pasada sobre los arreglos ---- */
+
+test('reconciliación: una ocurrencia más allá del horizonte de ESTE teléfono (la generó otro con el "hoy" adelantado) no se poda', () => {
+  const { correr, lista } = nuevaApp('2026-09-13'); // horizonte: hasta el 27
+  correr(`contrato('tplS', '2026-09-07', 'weekly'); saveState();`); // lunes
+  assert.deepEqual(lista(`hijos('tplS')`), ['2026-09-14', '2026-09-21']);
+  // Llega de la nube la del 28 (el otro teléfono ya estaba en el 14 y la generó): está en la regla, no en el horizonte.
+  correr(`recordOutflow({ id: svcChildId('tplS','2026-09-28'), type:'service', date:'2026-09-28', occDate:'2026-09-28', parentId:'tplS', client:'ACME', serviceName:'Servicio', price:100, paid:false, dueDate:'2026-10-13', dueDays:15, items:[], createdAt:'2026-09-14T00:00:00Z' }); saveState(); saveState();`);
+  assert.deepEqual(lista(`hijos('tplS')`), ['2026-09-14', '2026-09-21', '2026-09-28'], 'sigue viva');
+  // Una de la regla vieja DENTRO del horizonte sí se retira.
+  correr(`recordOutflow({ id: svcChildId('tplS','2026-09-16'), type:'service', date:'2026-09-16', occDate:'2026-09-16', parentId:'tplS', client:'ACME', serviceName:'Servicio', price:100, paid:false, dueDate:'2026-10-01', dueDays:15, items:[], createdAt:'2026-09-10T00:00:00Z' }); saveState();`);
+  assert.deepEqual(lista(`hijos('tplS')`), ['2026-09-14', '2026-09-21', '2026-09-28']);
+});
+
+test('cambiar la frecuencia dos veces el mismo día no deja un cobro de HOY de una regla que ya no existe', () => {
+  const { correr, lista } = nuevaApp('2026-04-02'); // jueves
+  correr(`contrato('tplT', '2026-03-26', 'weekly'); saveState();`); // jueves → hoy 2, 9 y 16 de abril (horizonte inclusive)
+  assert.deepEqual(lista(`hijos('tplT')`), ['2026-04-02', '2026-04-09', '2026-04-16']);
+  correr(`{ const tpl = jobById('tplT'); tpl.repeat = 'monthly'; svcAfterJobEdit(tpl, true); saveState(); }`);
+  assert.deepEqual(lista(`hijos('tplT')`), [], 'mensual desde el 26/03: la próxima (26/04) cae fuera del horizonte; la de hoy, sin tocar, se retiró');
+  correr(`{ const tpl = jobById('tplT'); tpl.repeat = 'weekly'; svcAfterJobEdit(tpl, true); saveState(); }`);
+  assert.deepEqual(lista(`hijos('tplT')`), ['2026-04-02', '2026-04-09', '2026-04-16'], 'vuelve a semanal: las mismas tres, revividas con el mismo id');
+  assert.equal(correr(`outflows.filter(o=>o.parentId==='tplT').length`), 3);
+});
+
+test('abrir una ocurrencia y tocar Guardar sin cambiar nada no la marca como tocada (sigue al contrato y se retira con la regla)', () => {
+  const { correr } = nuevaApp('2026-04-02');
+  correr(`contrato('tplU', '2026-03-30', 'weekly'); saveState();`);
+  const antes = correr(`outflows.find(o=>o.id==='job-tplU-2026-04-06').lastEditedAt || ''`);
+  // El arnés no tiene DOM: readJobDraftFromDom no toca el borrador, igual que un usuario que no cambia nada.
+  correr(`openJobModal('job-tplU-2026-04-06'); saveJobFromDraft();`);
+  assert.equal(correr(`outflows.find(o=>o.id==='job-tplU-2026-04-06').lastEditedAt || ''`), antes, 'sin sello nuevo');
+  assert.equal(correr(`svcChildUntouched(outflows.find(o=>o.id==='job-tplU-2026-04-06'))`), true);
+  // Un cambio real sí sella.
+  correr(`openJobModal('job-tplU-2026-04-06'); draftJob.price = '120'; saveJobFromDraft();`);
+  assert.equal(correr(`outflows.find(o=>o.id==='job-tplU-2026-04-06').price`), 120);
+  assert.equal(correr(`svcChildUntouched(outflows.find(o=>o.id==='job-tplU-2026-04-06'))`), false);
+});
+
+test('registrar un mantenimiento: el historial conserva el nombre aunque se borre el plan, y una fecha o km anteriores no retroceden el plan ni el odómetro', () => {
+  const { correr, lista } = nuevaApp('2026-04-02');
+  correr(`bizProfile.assets.push({id:'cam2', name:'Camión 2', emoji:'🚚', km: 50000, maint:[{id:'mt1', name:'Aceite', emoji:'🛢', everyKm:10000, everyMonths:0, lastDate:'2026-03-01', lastKm:48000}], maintLog:[]});`);
+  correr(`svcLogMaintenance(assetById('cam2'), {plan: assetById('cam2').maint[0], date:'2026-04-01', km: 52000, cost: 80});`);
+  let a = JSON.parse(correr(`JSON.stringify(assetById('cam2'))`));
+  assert.equal(a.maint[0].lastDate, '2026-04-01'); assert.equal(a.maint[0].lastKm, 52000); assert.equal(a.km, 52000);
+  assert.equal(a.maintLog[0].desc, 'Aceite', 'el nombre del plan queda copiado');
+  assert.equal(correr(`receipts.filter(r=>r.assetId==='cam2').length`), 1, 'con costo hay recibo');
+  // Se carga tarde un cambio de hace dos meses: no retrocede nada, pero queda en el historial.
+  correr(`svcLogMaintenance(assetById('cam2'), {plan: assetById('cam2').maint[0], date:'2026-02-01', km: 45000, cost: 0});`);
+  a = JSON.parse(correr(`JSON.stringify(assetById('cam2'))`));
+  assert.equal(a.maint[0].lastDate, '2026-04-01'); assert.equal(a.maint[0].lastKm, 52000); assert.equal(a.km, 52000);
+  assert.equal(a.maintLog.length, 2);
+  assert.equal(correr(`receipts.filter(r=>r.assetId==='cam2').length`), 1, 'sin costo no hay recibo');
+  // Se borra el plan: el historial sigue diciendo qué se hizo.
+  correr(`assetById('cam2').maint = [];`);
+  assert.deepEqual(lista(`assetById('cam2').maintLog.map(l=>l.desc)`), ['Aceite', 'Aceite']);
+});
