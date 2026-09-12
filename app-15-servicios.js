@@ -432,7 +432,7 @@ function equipoView(){
   ${canSeeFinancials() ? `
   <div class="inv-stats">
     <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_assets')}</div><div class="inv-stat-value">${assets.length}</div></div>
-    <div class="inv-stat static svc-stat-mid"><div class="inv-stat-label">${t('svc_stat_value')}</div><div class="inv-stat-value">${svcMoneyShort(value)}</div></div>
+    <div class="inv-stat static svc-stat-value"><div class="inv-stat-label">${t('svc_stat_value')}</div><div class="inv-stat-value">${svcMoneyShort(value)}</div></div>
     <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_month_spend')}</div><div class="inv-stat-value">${svcMoneyShort(monthSpend)}</div></div>
   </div>` : ''}
   <div class="inv-tools" style="margin:0 0 6px;">
@@ -628,7 +628,7 @@ function collectSheet(){
     <div class="sub svc-sub" style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span>${t('svc_collect_sub2')}</span>${reportButtonHtml(localMonthStr())}</div>
     <div class="inv-stats">
       <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_pending')}</div><div class="inv-stat-value">${svcMoneyShort(cs.pending)}</div></div>
-      <div class="inv-stat static svc-stat-mid"><div class="inv-stat-label">${t('svc_stat_overdue')}</div><div class="inv-stat-value">${svcMoneyShort(cs.overdue)}</div></div>
+      <div class="inv-stat static svc-stat-overdue"><div class="inv-stat-label">${t('svc_stat_overdue')}</div><div class="inv-stat-value">${svcMoneyShort(cs.overdue)}</div></div>
       <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_paid_month')}</div><div class="inv-stat-value">${svcMoneyShort(cs.paidMonth)}</div></div>
     </div>
     ${cs.list.length===0 ? `<div class="oc-empty">${t('svc_collect_empty')}</div>` : cs.list.map(j=>{

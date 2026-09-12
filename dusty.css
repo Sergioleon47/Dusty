@@ -2877,7 +2877,17 @@
   html .svc-tag.crit{background:var(--money-neg-soft);color:var(--money-neg-ink);}
   html[data-dusty-theme="abeja"] .svc-tag.ok, html[data-dusty-theme="abeja"] .svc-tag.warn, html[data-dusty-theme="abeja"] .svc-tag.crit{background:rgba(0,0,0,.10);color:#000;}
   /* Franja de tres números (Equipo, Por cobrar): el del medio toma el tercer tono. */
-  html .inv-stat.svc-stat-mid{background:var(--tile-3);}
+  /* Franjas de tres numeros (Equipo, Por cobrar): el primero SIEMPRE es tile-ok
+     (verde, viene de la franja generica de 2 del Inventario) y el ultimo tile-1
+     (azul) -- el de en medio no puede ser otro verde ni ese mismo azul, y ademas
+     cada uno tiene su propio significado, asi que ya no comparten una sola clase:
+     'Valor' (Equipo) es informativo -> rosa (tile-6), un tono que ninguna otra
+     pieza usa en esa pantalla. 'Vencido' (Por cobrar) es una alerta real -> el
+     mismo rojo (tile-crit) que 'Vencido'/'Critico' usan en el resto de la app --
+     antes salia en VERDE, el color de 'todo bien', el opuesto de lo que dice
+     ("tienes dos verdes juntos", captura del usuario). */
+  html .inv-stat.svc-stat-value{background:var(--tile-6);}
+  html .inv-stat.svc-stat-overdue{background:var(--tile-crit);}
   .svc-row-actions{display:flex;gap:8px;margin:-4px 0 12px;}
   .svc-row-actions .btn{flex:1;padding:9px 8px;white-space:nowrap;}
   /* --- tarjetas dentro de hojas y modales --- */
