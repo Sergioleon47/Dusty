@@ -1086,8 +1086,13 @@ function applyRemoteMetaSnapshot(doc){
   incomingMeta.calNotes = remoteNotesIn.concat(calNotes.filter(n=>n && n.id && !remoteNoteIdsIn.has(n.id) && !noteTombs.has(n.id)));
   const remoteOutIn = (Array.isArray(incomingMeta.outflows) ? incomingMeta.outflows : []).filter(o=>o && o.id);
   const remoteOutIdsIn = new Set(remoteOutIn.map(o=>o.id));
-  incomingMeta.outflows = remoteOutIn.concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
-    .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+  // El tope lo aplica capOutflows (app-08): protege trabajos por cobrar y
+  // cotizaciones abiertas y archiva en outflowArchive (el local) el P&L de lo
+  // que descarta — el MISMO corte que hace recordOutflow, así todos los
+  // dispositivos convergen a la misma lista. Va ANTES del merge del archivo para
+  // que lo recién archivado entre en él.
+  incomingMeta.outflows = capOutflows(remoteOutIn.concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
+    .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))));
   incomingMeta.outflowArchive = mergeOutflowArchives(incomingMeta.outflowArchive, outflowArchive);
   incomingMeta.aliasMap = Object.assign({}, aliasMap, incomingMeta.aliasMap || {});
   // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
@@ -1652,12 +1657,16 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const remoteOutflows = (Array.isArray(remoteMetaData.outflows) ? remoteMetaData.outflows : []).filter(o=>o && o.id);
     const remoteOutflowIds = new Set(remoteOutflows.map(o=>o.id));
     const localOnlyOutflows = (localSnapshot.outflows||[]).filter(o=>o && o.id && !remoteOutflowIds.has(o.id));
-    // Historial más nuevo primero, con el mismo tope que recordOutflow() (app-08).
-    const mergedOutflows = remoteOutflows.concat(localOnlyOutflows)
-      .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+    // Historial más nuevo primero, con el MISMO corte que recordOutflow() (app-08):
+    // capOutflows protege trabajos por cobrar y cotizaciones abiertas y archiva en
+    // outflowArchive (el global) lo que descarta.
+    const mergedOutflows = capOutflows(remoteOutflows.concat(localOnlyOutflows)
+      .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))));
     // El archivo de salidas evictadas se fusiona por máximo por mes (ver
     // mergeOutflowArchives) — un reconcile jamás debe achicar el P&L histórico.
-    const mergedOutflowArchive = mergeOutflowArchives(remoteMetaData.outflowArchive, localSnapshot.outflowArchive);
+    // Se parte del archivo GLOBAL (no de la foto localSnapshot) para incluir lo
+    // que el corte de arriba acaba de consolidar.
+    const mergedOutflowArchive = mergeOutflowArchives(remoteMetaData.outflowArchive, mergeOutflowArchives(localSnapshot.outflowArchive, outflowArchive));
     const archiveChanged = !sameJSON(mergedOutflowArchive, remoteMetaData.outflowArchive || {});
     // Lápidas LOCALES que la nube todavía no conoce (borrados hechos offline)
     // también obligan a escribir meta — sin esto, el tombstone de un borrado

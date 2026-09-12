@@ -362,8 +362,10 @@ function agentExec(name, inp){
     }
     case 'delete_job': {
       const j = agentPickJob(Object.assign({}, inp, {any:true})); if(!j) return fail('job not found — query jobs first');
+      // Un trabajo nacido de una cotización con productos devuelve su stock (app-15).
+      const devueltos = (typeof restoreJobStock==='function') ? restoreJobStock(j) : 0;
       j.deleted = true; j.deletedAt = new Date().toISOString(); saveState(); logActivity('job_deleted', j.client); render();
-      return ok({deleted: j.client, amount: j.price, date: j.date});
+      return ok({deleted: j.client, amount: j.price, date: j.date, stock_restored: devueltos});
     }
     case 'update_asset': {
       const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); if(!a) return fail('asset not found');
@@ -570,7 +572,10 @@ async function agentSend(text){
         } else {
           try{ result = agentExec(u.name, u.input); }catch(e){ result = JSON.stringify({ok:false, error: String(e && e.message || e)}); }
         }
-        results.push({type:'tool_result', tool_use_id: u.id, content: String(result).slice(0, 3500)});
+        // 6000 y no 3500 (auditoría de datos 2026-09-12): una consulta de 30 filas
+        // (inventario, recibos, trabajos) pasaba de 3500 y el JSON llegaba cortado
+        // al modelo. El servidor acepta hasta 6000 por bloque (MAX_RESULT, agent.js).
+        results.push({type:'tool_result', tool_use_id: u.id, content: String(result).slice(0, 6000)});
       }
       agentMessages.push({role:'user', content: results});
       render(); agentScrollEnd();

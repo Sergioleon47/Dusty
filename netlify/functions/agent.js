@@ -15,6 +15,7 @@ const {
   admin, isAllowedOrigin, verifyCallerInfo, isUnlimitedAccount,
   currentBillingPeriod, callerCanUseAccount, checkIpRateLimit, getAccessState,
   reserveScanQuota, refundScanUsage,
+  upstreamSignal, isAbortError, upstreamTimeoutResponse,
   subscriptionRequiredResponse, withCors
 } = require('./lib/patron-admin');
 
@@ -26,7 +27,11 @@ const AGENT_MODEL_BIG = process.env.AGENT_MODEL_BIG || 'claude-sonnet-5';
 const AGENT_LIMIT_TRIAL = 60;        // vueltas de por vida en el trial anónimo
 const AGENT_LIMIT_MONTH = 600;       // vueltas por mes con cuenta
 const MAX_MESSAGES = 30;             // historial que se acepta por pedido
-const MAX_TEXT = 4000;               // chars por bloque de texto/resultado
+const MAX_TEXT = 4000;               // chars por bloque de texto
+// Resultado de una herramienta: una consulta de 30 filas (inventario, recibos,
+// trabajos) pasa de 4000 y llegaba cortada a la mitad del JSON (auditoría de
+// datos 2026-09-12). El cliente recorta al mismo tope (app-16).
+const MAX_RESULT = 6000;
 
 /* ---------- herramientas (lo único que el agente puede hacer) ---------- */
 const TOOLS = [
@@ -234,7 +239,7 @@ function cleanMessages(raw) {
       if (!b || typeof b !== 'object') return null;
       if (b.type === 'text') return typeof b.text === 'string' && b.text.trim() ? { type: 'text', text: b.text.slice(0, MAX_TEXT) } : null;
       if (b.type === 'tool_use') return (typeof b.id === 'string' && typeof b.name === 'string') ? { type: 'tool_use', id: b.id, name: b.name, input: (b.input && typeof b.input === 'object') ? b.input : {} } : null;
-      if (b.type === 'tool_result') return typeof b.tool_use_id === 'string' ? { type: 'tool_result', tool_use_id: b.tool_use_id, content: String(b.content == null ? '' : b.content).slice(0, MAX_TEXT) } : null;
+      if (b.type === 'tool_result') return typeof b.tool_use_id === 'string' ? { type: 'tool_result', tool_use_id: b.tool_use_id, content: String(b.content == null ? '' : b.content).slice(0, MAX_RESULT) } : null;
       if (b.type === 'image') {
         if (idx !== lastUserIdx) return { type: 'text', text: '[imagen enviada antes]' };
         const src = b.source || {};
@@ -255,6 +260,7 @@ function cleanMessages(raw) {
 
 exports.needsBigModel = needsBigModel;
 exports.handler = withCors(async (event) => {
+  const startedAt = Date.now();
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
   if (!isAllowedOrigin(event)) return { statusCode: 403, body: JSON.stringify({ error: 'Origen no permitido' }) };
   if (!process.env.ANTHROPIC_API_KEY) return { statusCode: 500, body: JSON.stringify({ error: 'Falta configurar ANTHROPIC_API_KEY en Netlify' }) };
@@ -308,6 +314,8 @@ exports.handler = withCors(async (event) => {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      // Tope propio, antes del corte mudo de Netlify (ver upstreamSignal).
+      signal: upstreamSignal(startedAt),
       body: JSON.stringify({
         model: deep ? AGENT_MODEL_BIG : AGENT_MODEL,
         max_tokens: deep ? (hasImage ? 1400 : 1000) : 700,
@@ -331,6 +339,7 @@ exports.handler = withCors(async (event) => {
   } catch (err) {
     console.error('[Dusty] agente: fallo de red:', err);
     if (scanReservation && scanReservation.period) await refundScanUsage(ownerUid, nImagesReserved(scanReservation), scanReservation.period).catch(()=>{});
+    if (isAbortError(err)) return upstreamTimeoutResponse();
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }
 });

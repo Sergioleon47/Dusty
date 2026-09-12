@@ -14,6 +14,7 @@ const {
   isAllowedOrigin, verifyCallerInfo,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage,
   checkIpRateLimit, getAccessState, subscriptionRequiredResponse,
+  upstreamSignal, isAbortError, upstreamTimeoutResponse,
   withCors
 } = require('./lib/patron-admin');
 
@@ -181,6 +182,7 @@ Si un producto de la foto ES uno de esa lista (criterio: abreviaturas, marcas, t
 }
 
 exports.handler = withCors(async (event) => {
+  const startedAt = Date.now();
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
   }
@@ -276,6 +278,8 @@ exports.handler = withCors(async (event) => {
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
+      // Tope propio, antes del corte mudo de Netlify (ver upstreamSignal).
+      signal: upstreamSignal(startedAt),
       body: JSON.stringify({
         model: 'claude-sonnet-5',
         // El modo lote puede devolver hasta 25 productos con su box — necesita más
@@ -405,9 +409,11 @@ exports.handler = withCors(async (event) => {
 
     return { statusCode: 200, body: JSON.stringify(productData) };
   } catch (err) {
-    // Fetch a Claude reventó por red: lo más probable es que no se haya cobrado —
-    // se devuelve la unidad reservada. Los 502 (Claude contestó mal) no refundan.
+    // Fetch a Claude reventó por red o se abortó por tiempo: lo más probable es
+    // que no se haya cobrado — se devuelve la unidad reservada. Los 502 (Claude
+    // contestó mal) no refundan.
     await refundScanUsage(ownerUid, 1, reservation.period);
+    if (isAbortError(err)) return upstreamTimeoutResponse();
     // Genérico a propósito: err.message crudo filtraba detalles internos al cliente.
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }

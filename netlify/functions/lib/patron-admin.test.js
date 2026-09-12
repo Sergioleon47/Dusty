@@ -65,3 +65,35 @@ const lib = require('./patron-admin.js');
     });
   });
 })();
+
+/* ---------- presupuesto de tiempo (auditoría de datos 2026-09-12) ---------- */
+test('remainingBudgetMs descuenta lo transcurrido y nunca baja de cero', ()=>{
+  assert.strictEqual(lib.remainingBudgetMs(1000, 24000, 1000), 24000);
+  assert.strictEqual(lib.remainingBudgetMs(1000, 24000, 11000), 14000);
+  assert.strictEqual(lib.remainingBudgetMs(1000, 24000, 99000), 0);
+  // Sin presupuesto explícito usa el de la función (>= 3 s por construcción).
+  assert.ok(lib.remainingBudgetMs(Date.now()) >= 3000 - 5);
+  assert.strictEqual(lib.FUNCTION_BUDGET_MS >= 3000, true);
+});
+test('isAbortError reconoce el aborto por tiempo y nada más', ()=>{
+  assert.strictEqual(lib.isAbortError({name:'AbortError'}), true);
+  assert.strictEqual(lib.isAbortError({name:'TimeoutError'}), true);
+  assert.strictEqual(lib.isAbortError(new Error('boom')), false);
+  assert.strictEqual(lib.isAbortError(null), false);
+});
+test('upstreamTimeoutResponse es un 504 con código estable para el cliente', ()=>{
+  const r = lib.upstreamTimeoutResponse();
+  assert.strictEqual(r.statusCode, 504);
+  assert.strictEqual(JSON.parse(r.body).code, 'upstream_timeout');
+});
+test('la relectura con el modelo grande solo se intenta si la primera lectura fue rápida', ()=>{
+  const { canEscalate, weakReasons } = require('../extract-receipt.js');
+  assert.strictEqual(canEscalate(2000), true);
+  assert.strictEqual(canEscalate(8999), true);
+  assert.strictEqual(canEscalate(9000), false);
+  assert.strictEqual(canEscalate(30000), false);
+  assert.strictEqual(canEscalate(NaN), false);
+  // y weakReasons sigue decidiendo cuándo hace falta releer
+  assert.deepStrictEqual(weakReasons({supplier:'X', invoice_total: 10, items:[{total_price: 10, confidence:'alta'}]}, false), []);
+  assert.ok(weakReasons({supplier:'X', items:[{total_price: 10}]}, false).includes('no_total'));
+});

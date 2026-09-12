@@ -15,10 +15,12 @@
 /* ---------- ESTADO ---------- */
 let recipes = [];          // {id, name, photo:{base64,mediaType}|null, components:[{ingId, qty}], createdAt, lastEditedBy, lastEditedAt}
 let deletedRecipeIds = []; // lápidas — mismo mecanismo que deletedInventoryIds (ver app-01)
-/* Historial de salidas: producciones y ajustes de estante. Viaja dentro del doc
-   meta (como calNotes) — por eso se CAPA a las últimas OUTFLOWS_MAX entradas: el
-   registro financiero de verdad son las compras/recibos, esto es el "qué salió y
-   cuándo" informativo. Más nuevo primero. */
+/* Historial de salidas: producciones y ajustes de estante — y desde el modo
+   Servicios, también los TRABAJOS (type:'service') y las COTIZACIONES
+   (type:'quote'). Viaja dentro del doc meta (como calNotes) — por eso se CAPA a
+   OUTFLOWS_MAX entradas: el registro financiero de verdad son las compras/recibos,
+   esto es el "qué salió y cuándo" informativo. Más nuevo primero. El corte lo
+   hace capOutflows, que nunca descarta un registro vivo (ver outflowIsLive). */
 let outflows = []; // {id, type:'production'|'adjust', recipeId, recipeName, count, items:[{ingId, ingName, qty, unit, costAt, priceAt}], date, createdAt, by, byLabel, reason?, saleTotal?, costTotal?}
 const OUTFLOWS_MAX = 400;
 /* Resumen financiero de las salidas que el cap evictó: {'YYYY-MM': {revenue, cogs}}.
@@ -84,6 +86,18 @@ function recipePhotoSrc(r){
 
    La receta sigue siendo la COMPOSICIÓN (qué lleva); el ítem es el STOCK (cuántas
    hay y a cuánto salieron). Se emparejan por recipeId. */
+/* ID DETERMINISTA del producto terminado (auditoría de datos 2026-09-12): sale
+   de la receta, no del azar. Dos teléfonos del mismo equipo que fabricaban la
+   misma pieza por primera vez sin señal creaban cada uno SU ítem terminado con
+   un id distinto; al sincronizar quedaban dos filas para la misma receta —
+   finishedItemFor solo veía la primera, la segunda quedaba huérfana (sumaba al
+   Valor del inventario pero no se podía producir sobre ella ni renombrar) y
+   hasta podía ofrecerse como insumo de su propia receta. Con el mismo id en los
+   dos lados, el sync por documento los funde en uno solo. Los terminados
+   creados antes conservan su id al azar: finishedItemFor empareja por recipeId,
+   no por el id, y dedupeFinishedItems funde cualquier duplicado que haya
+   quedado de aquella carrera. */
+function finishedItemId(recipe){ return 'fg-' + recipe.id; }
 function finishedItemFor(recipe){
   if(!recipe) return null;
   return inventory.find(i => i && i.finishedGood && i.recipeId === recipe.id) || null;
@@ -95,7 +109,7 @@ function ensureFinishedItem(recipe){
   let item = finishedItemFor(recipe);
   if(item) return item;
   item = {
-    id: uid('i'), name: recipe.name, unit: 'unidad',
+    id: finishedItemId(recipe), name: recipe.name, unit: 'unidad',
     costPerUnit: 0, qtyOnHand: 0, stockFullRef: null,
     salePrice: Number(recipe.salePrice)>0 ? recipe.salePrice : 0,
     photo: recipe.photo || null,
@@ -116,21 +130,91 @@ function syncFinishedItem(recipe){
   item.photo = recipe.photo || null;
   if(Number(recipe.salePrice) > 0) item.salePrice = recipe.salePrice;
 }
+/* Dos (o más) productos terminados para la MISMA receta se funden en uno: la
+   cantidad se suma y el costo queda como promedio ponderado de los dos stocks
+   (weightedAvgCost), así el Valor del inventario no cambia ni un centavo. Gana
+   el id determinista (finishedItemId) si existe; si no, el id menor — el mismo
+   criterio en todos los dispositivos, para que todos elijan el mismo ganador.
+   Los perdedores se borran con lápida (deletedInventoryIds), igual que un
+   borrado a mano, así la nube tampoco los devuelve. Corre al principio de cada
+   saveState (idempotente: sin duplicados no toca nada). Devuelve si cambió algo. */
+function dedupeFinishedItems(){
+  const byRecipe = new Map();
+  inventory.forEach(i=>{
+    if(!i || !i.finishedGood || !i.recipeId) return;
+    const arr = byRecipe.get(i.recipeId) || [];
+    arr.push(i);
+    byRecipe.set(i.recipeId, arr);
+  });
+  let changed = false;
+  byRecipe.forEach((list, recipeId)=>{
+    if(list.length < 2) return;
+    const detId = 'fg-' + recipeId;
+    list.sort((a,b)=> ((a.id===detId?0:1) - (b.id===detId?0:1)) || String(a.id).localeCompare(String(b.id)));
+    const keep = list[0];
+    list.slice(1).forEach(dup=>{
+      const q0 = Number(keep.qtyOnHand)||0, q1 = Number(dup.qtyOnHand)||0;
+      keep.costPerUnit = weightedAvgCost(q0, keep.costPerUnit, q1, q1*(Number(dup.costPerUnit)||0));
+      keep.qtyOnHand = roundQty(q0 + q1);
+      if(!(keep.stockFullRef>0) || keep.qtyOnHand > keep.stockFullRef) keep.stockFullRef = keep.qtyOnHand;
+      if(!(Number(keep.salePrice)>0) && Number(dup.salePrice)>0) keep.salePrice = dup.salePrice;
+      if(!keep.photo && dup.photo) keep.photo = dup.photo;
+      if(currentUser){ keep.lastEditedBy = currentUserLabel(); keep.lastEditedAt = new Date().toISOString(); }
+      inventory = inventory.filter(i=>i!==dup);
+      if(!deletedInventoryIds.includes(dup.id)) deletedInventoryIds.push(dup.id);
+      changed = true;
+    });
+  });
+  return changed;
+}
+/* ¿Esta salida es un REGISTRO VIVO del negocio, y no historial? Un trabajo sin
+   cobrar, un contrato (la plantilla que genera ocurrencias) y una cotización
+   abierta se editan, vencen y se cobran: no pueden caerse del tope de 400 como
+   si fueran una producción de hace un año. Auditoría de datos 2026-09-12: con el
+   tope por antigüedad a secas, un negocio de servicios activo (varios trabajos
+   por día, contratos que generan 14 días adelante) perdía en silencio trabajos
+   POR COBRAR —desaparecían de Por cobrar, del calendario y del asistente, y su
+   ingreso quedaba congelado en el archivo como facturado— y cotizaciones
+   abiertas. Las borradas (borrado suave) siguen siendo evictables: son lápidas. */
+function outflowIsLive(o){
+  if(!o || o.deleted) return false;
+  if(o.type==='service') return !o.paid || !!(o.repeat && !o.parentId);
+  if(o.type==='quote') return typeof quoteIsOpen==='function' ? quoteIsOpen(o) : (o.status!=='accepted' && o.status!=='rejected');
+  return false;
+}
+/* Antes de descartar una salida, su aporte financiero se consolida en el archivo
+   mensual — la historia del P&L no se achica (revisión de contador 2026-09-04). */
+function archiveOutflowPL(o){
+  const pl = outflowPL(o);
+  const k = o && monthKey(o.date);
+  if(!pl || !k) return;
+  const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
+  a.revenue = roundQty(a.revenue + pl.revenue);
+  a.cogs = roundQty(a.cogs + pl.cogs);
+}
+/* EL ÚNICO lugar que aplica el tope de OUTFLOWS_MAX. Lo usan recordOutflow, la
+   carga del estado (applyStateData, app-03) y los dos merges con la nube (app-02):
+   si cada uno cortara por su cuenta, dos dispositivos podían quedarse con listas
+   distintas. Evicta primero las borradas, después las más viejas, y NUNCA una
+   viva (outflowIsLive); lo evictado se archiva. Si con eso no alcanza para entrar
+   en el tope se conserva todo: es preferible un doc de meta más grande que
+   perder plata por cobrar. Devuelve la misma lista si no hay nada que cortar. */
+function capOutflows(list){
+  const arr = Array.isArray(list) ? list : [];
+  if(arr.length <= OUTFLOWS_MAX) return arr;
+  const excess = arr.length - OUTFLOWS_MAX;
+  const evictable = arr.filter(o=>o && !outflowIsLive(o))
+    .sort((a,b)=> ((a.deleted?0:1) - (b.deleted?0:1))
+      || String(a.createdAt||'').localeCompare(String(b.createdAt||''))
+      || String(a.id||'').localeCompare(String(b.id||'')));
+  const drop = new Set(evictable.slice(0, excess));
+  if(!drop.size) return arr;
+  drop.forEach(archiveOutflowPL);
+  return arr.filter(o=>!drop.has(o));
+}
 function recordOutflow(entry){
   outflows.unshift(entry);
-  if(outflows.length > OUTFLOWS_MAX){
-    // Antes de descartar, el aporte financiero de cada salida evictada se
-    // consolida en el archivo mensual — la historia del P&L no se achica.
-    outflows.slice(OUTFLOWS_MAX).forEach(o=>{
-      const pl = outflowPL(o);
-      const k = o && monthKey(o.date);
-      if(!pl || !k) return;
-      const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
-      a.revenue = roundQty(a.revenue + pl.revenue);
-      a.cogs = roundQty(a.cogs + pl.cogs);
-    });
-    outflows.length = OUTFLOWS_MAX;
-  }
+  outflows = capOutflows(outflows);
 }
 
 /* ---------- LLAMADA AL MODO STOCK (leer cantidades de una foto) ---------- */
@@ -1062,6 +1146,10 @@ function produceModal(){
 }
 
 function applyProduction(){
+  // Mismo candado que al abrir el modal: si la cuenta se cerró mientras el
+  // modal estaba abierto (402 de otra llamada), Firestore rechazaría la escritura
+  // y el descuento quedaría solo en este teléfono, distinto de la nube.
+  if(!requireWriteAccess()) return;
   const rec = recipeById(produceRecipeId);
   if(!rec) return;
   const count = Math.max(1, Math.round(Number(produceCount)||1));

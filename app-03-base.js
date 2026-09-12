@@ -462,6 +462,7 @@ const I18N = {
     err_generic_receipt:'Ocurrió un error leyendo el recibo',
     err_scan_too_big:'Las fotos pesan demasiado para mandarlas juntas — prueba con menos páginas por vez.',
     err_scan_timeout:'El lector tardó demasiado con este recibo — prueba de nuevo; si es muy largo, escanéalo en menos páginas por vez.',
+    scan_page_duplicate:'Esa foto ya está agregada como página de este recibo.',
     err_function_not_found:'No se pudo conectar con el lector de recibos. Revisá tu conexión y probá de nuevo; si sigue igual, podés cargar la compra a mano mientras tanto.',
     err_function_not_found_product:'No se pudo conectar con el identificador de productos — revisa que la función esté publicada en Netlify (netlify/functions/identify-product.js) y que tenga la API key de Anthropic configurada.',
     err_scan_auth_required:'Inicia sesión de nuevo para escanear recibos.',
@@ -532,7 +533,8 @@ const I18N = {
     srv_no_access:'No tienes acceso a esa cuenta.',
     srv_rate_limited:'Demasiados escaneos seguidos — espera un rato y prueba de nuevo.',
     srv_quota_check_failed:'No se pudo verificar tu cupo de escaneos — intenta de nuevo.',
-    srv_upstream_error:'El lector de IA está saturado en este momento — tu cupo no se descontó, prueba en un minuto.',
+    srv_upstream_error:'La IA está saturada en este momento — tu cupo no se descontó, prueba en un minuto.',
+    srv_upstream_timeout:'La IA tardó demasiado en responder — tu cupo no se descontó, prueba de nuevo.',
     srv_subscription_required:'Tu primer mes gratis terminó — suscríbete para seguir escaneando.',
     srv_account_required:'Guarda tu cuenta antes de suscribirte.',
     srv_owner_only:'Solo el dueño de la cuenta puede suscribirla.',
@@ -718,7 +720,6 @@ const I18N = {
     agent_voice_out_sub:'Usa la voz del teléfono; no cuesta nada.', agent_set_on:'Asistente', agent_set_on_sub:'El botón ✨ del Dashboard: pedidos por texto o voz.',
     agent_set_note:'Cada pedido pasa por Dusty: las acciones que escriben se confirman antes de guardar. Cupo mensual incluido en tu plan.',
     agent_err_generic:'El asistente no pudo responder. Probá de nuevo en un momento.', agent_needs_account:'Iniciá sesión para usar el asistente.',
-    srv_upstream_error:'El asistente no pudo responder ahora mismo.',
     /* ===== Modo Servicios (2026-09-11, app-15) ===== */
     svc_activity_title:'Actividad', svc_tomorrow:'Mañana', svc_agenda_title:'Próximos 7 días', svc_agenda_more:'+{n} más en el calendario',
     svc_rep_label:'Se repite', svc_rep_none:'No', svc_rep_weekly:'Cada semana', svc_rep_biweekly:'Cada 2 semanas', svc_rep_monthly:'Cada mes',
@@ -726,8 +727,9 @@ const I18N = {
     svc_clash_confirm:'{asset} ya tiene un trabajo ese día ({client}). ¿Guardar igual?',
     svc_toast_due_soon:'💵 {n} cobro(s) vencen en {days} días: {amount}.',
     svc_set_remind_days:'Avisar cobros', svc_remind_same_day:'El mismo día',
-    svc_legend_job:'Trabajo', svc_legend_due:'Cobro', svc_legend_maint:'Mantenimiento', svc_legend_note:'Nota',
+    svc_legend_job:'Trabajo', svc_legend_due:'Cobro', svc_legend_maint:'Mantenimiento', svc_legend_note:'Nota', svc_legend_quote:'Cotización',
     svc_note_due:'Cobrar {client} · {amount}',
+    svc_note_quote:'Vence cotización #{num} · {client}',
     svc_toast_overdue:'💵 {n} cobro(s) vencido(s): {amount}. Tocá Por cobrar para recordar.', svc_toast_due_today:'💵 Hoy vence(n) {n} cobro(s): {amount}.',
     svc_toast_maint_overdue:'🔧 Mantenimiento vencido: {what} (y {n} en total).', svc_toast_maint_soon:'🔧 Se acerca un mantenimiento: {what}, {when}.',
     svc_maint_card_over:'Mantenimiento vencido: {n}', svc_maint_card_soon:'Mantenimiento pronto: {n}',
@@ -785,6 +787,7 @@ const I18N = {
     svc_job_profit:'Ganancia de este trabajo', svc_collect_label:'Cobro', svc_paid:'Cobrado', svc_pending_days:'Pendiente · {n} días',
     svc_due_days:'Vence en', svc_days_word:'días', svc_save_job:'Guardar trabajo', svc_delete_job:'Eliminar trabajo',
     svc_job_err:'Ponele cliente y precio.', svc_job_saved:'Trabajo guardado', svc_job_deleted:'Trabajo eliminado',
+    svc_job_deleted_stock:'Trabajo eliminado · sus productos volvieron al inventario',
     svc_job_delete_confirm:'¿Eliminar este trabajo? Sus gastos quedan como recibos.',
     svc_collect_title:'Por cobrar', svc_collect_sub2:'Trabajos hechos que todavía no entraron.',
     svc_stat_pending:'Pendiente', svc_stat_overdue:'Vencido', svc_stat_paid_month:'Cobrado mes',
@@ -805,7 +808,7 @@ const I18N = {
     qt_discount:'Descuento', qt_tax:'Impuesto %', qt_notes:'Notas para el cliente', qt_notes_ph:'Ej.: incluye materiales y traslado', qt_subtotal:'Subtotal', qt_total:'Total',
     qt_save:'Guardar cotización', qt_err:'Ponele cliente y al menos una línea con precio.', qt_saved:'Cotización guardada', qt_deleted:'Cotización eliminada', qt_delete:'Eliminar', qt_delete_confirm:'¿Eliminar esta cotización?',
     qt_send_pdf:'PDF', qt_send_wa:'WhatsApp', qt_send_email:'Correo', qt_accept:'Aceptada → trabajo', qt_reject:'Rechazada', qt_open_job:'Ver el trabajo',
-    qt_accept_confirm:'{client} aceptó por {total}. Se crea el trabajo con cobro pendiente a 15 días.', qt_accepted_toast:'Ya es un trabajo de {client}', qt_accepted_note:'Aceptada: ya es un trabajo con cobro pendiente.', qt_rejected_toast:'Cotización marcada como rechazada',
+    qt_accept_confirm:'{client} aceptó por {total}. Se crea el trabajo con cobro pendiente a 15 días.', qt_accept_confirm_stock:'Los productos de la cotización salen del inventario.', qt_accepted_stock:'salió del inventario: {list}', qt_accepted_toast:'Ya es un trabajo de {client}', qt_accepted_note:'Aceptada: ya es un trabajo con cobro pendiente.', qt_rejected_toast:'Cotización marcada como rechazada',
     qt_st_draft:'Borrador', qt_st_sent:'Enviada', qt_st_accepted:'Aceptada', qt_st_rejected:'Rechazada', qt_st_expired:'Vencida',
     qt_pdf_title:'Cotización', qt_pdf_thanks:'Gracias por consultarnos.', qt_terms_label:'Condiciones', qt_job_name:'Cotización #{num}',
     qt_wa_msg:'Hola {client}, te paso la cotización #{num}:\n{lines}\nTotal: {total}\nVálida hasta el {until}.', qt_no_phone_hint:'Sin teléfono guardado: elegí el contacto en WhatsApp.',
@@ -1240,6 +1243,7 @@ const I18N = {
     err_generic_receipt:'Something went wrong reading the receipt',
     err_scan_too_big:'The photos are too heavy to send together — try fewer pages at a time.',
     err_scan_timeout:'The reader took too long on this receipt — try again; if it is very long, scan fewer pages at a time.',
+    scan_page_duplicate:'That photo is already added as a page of this receipt.',
     err_function_not_found:"Couldn't connect to the receipt reader. Check your connection and try again; you can log the purchase by hand in the meantime.",
     err_function_not_found_product:"Couldn't connect to the product identifier — check that the function is published on Netlify (netlify/functions/identify-product.js) and has the Anthropic API key configured.",
     err_scan_auth_required:'Sign in again to scan receipts.',
@@ -1304,7 +1308,8 @@ const I18N = {
     srv_no_access:'You do not have access to that account.',
     srv_rate_limited:'Too many scans in a row — wait a bit and try again.',
     srv_quota_check_failed:'Could not verify your scan quota — try again.',
-    srv_upstream_error:'The AI reader is overloaded right now — your quota was not charged, try again in a minute.',
+    srv_upstream_error:'The AI is overloaded right now — your quota was not charged, try again in a minute.',
+    srv_upstream_timeout:'The AI took too long to answer — your quota was not charged, try again.',
     srv_subscription_required:'Your first free month is over — subscribe to keep scanning.',
     srv_account_required:'Save your account before subscribing.',
     srv_owner_only:'Only the account owner can subscribe it.',
@@ -1478,7 +1483,6 @@ const I18N = {
     agent_voice_out_sub:'Uses the phone\'s voice; free.', agent_set_on:'Assistant', agent_set_on_sub:'The ✨ button on the Dashboard: requests by text or voice.',
     agent_set_note:'Every request goes through Dusty: actions that write are confirmed before saving. Monthly allowance included in your plan.',
     agent_err_generic:'The assistant could not answer. Try again in a moment.', agent_needs_account:'Sign in to use the assistant.',
-    srv_upstream_error:'The assistant could not answer right now.',
     /* ===== Services mode (2026-09-11, app-15) ===== */
     svc_activity_title:'Activity', svc_tomorrow:'Tomorrow', svc_agenda_title:'Next 7 days', svc_agenda_more:'+{n} more in the calendar',
     svc_rep_label:'Repeats', svc_rep_none:'No', svc_rep_weekly:'Every week', svc_rep_biweekly:'Every 2 weeks', svc_rep_monthly:'Every month',
@@ -1486,8 +1490,9 @@ const I18N = {
     svc_clash_confirm:'{asset} already has a job that day ({client}). Save anyway?',
     svc_toast_due_soon:'💵 {n} payment(s) due in {days} days: {amount}.',
     svc_set_remind_days:'Payment notice', svc_remind_same_day:'Same day',
-    svc_legend_job:'Job', svc_legend_due:'Payment', svc_legend_maint:'Maintenance', svc_legend_note:'Note',
+    svc_legend_job:'Job', svc_legend_due:'Payment', svc_legend_maint:'Maintenance', svc_legend_note:'Note', svc_legend_quote:'Quote',
     svc_note_due:'Collect from {client} · {amount}',
+    svc_note_quote:'Quote #{num} expires · {client}',
     svc_toast_overdue:'💵 {n} overdue payment(s): {amount}. Open To collect to remind.', svc_toast_due_today:'💵 {n} payment(s) due today: {amount}.',
     svc_toast_maint_overdue:'🔧 Maintenance overdue: {what} ({n} in total).', svc_toast_maint_soon:'🔧 Maintenance coming up: {what}, {when}.',
     svc_maint_card_over:'Maintenance overdue: {n}', svc_maint_card_soon:'Maintenance soon: {n}',
@@ -1545,6 +1550,7 @@ const I18N = {
     svc_job_profit:'Profit on this job', svc_collect_label:'Payment', svc_paid:'Paid', svc_pending_days:'Pending · {n} days',
     svc_due_days:'Due in', svc_days_word:'days', svc_save_job:'Save job', svc_delete_job:'Delete job',
     svc_job_err:'Add a client and a price.', svc_job_saved:'Job saved', svc_job_deleted:'Job deleted',
+    svc_job_deleted_stock:'Job deleted · its products went back into inventory',
     svc_job_delete_confirm:'Delete this job? Its expenses stay as receipts.',
     svc_collect_title:'To collect', svc_collect_sub2:'Jobs done that haven\'t been paid yet.',
     svc_stat_pending:'Pending', svc_stat_overdue:'Overdue', svc_stat_paid_month:'Paid this month',
@@ -1565,7 +1571,7 @@ const I18N = {
     qt_discount:'Discount', qt_tax:'Tax %', qt_notes:'Notes for the client', qt_notes_ph:'E.g. includes materials and travel', qt_subtotal:'Subtotal', qt_total:'Total',
     qt_save:'Save quote', qt_err:'Add a client and at least one line with a price.', qt_saved:'Quote saved', qt_deleted:'Quote deleted', qt_delete:'Delete', qt_delete_confirm:'Delete this quote?',
     qt_send_pdf:'PDF', qt_send_wa:'WhatsApp', qt_send_email:'Email', qt_accept:'Accepted → job', qt_reject:'Rejected', qt_open_job:'See the job',
-    qt_accept_confirm:'{client} accepted for {total}. A job is created with payment due in 15 days.', qt_accepted_toast:'Now a job for {client}', qt_accepted_note:'Accepted: it is now a job with payment pending.', qt_rejected_toast:'Quote marked as rejected',
+    qt_accept_confirm:'{client} accepted for {total}. A job is created with payment due in 15 days.', qt_accept_confirm_stock:'The products in the quote leave inventory.', qt_accepted_stock:'left inventory: {list}', qt_accepted_toast:'Now a job for {client}', qt_accepted_note:'Accepted: it is now a job with payment pending.', qt_rejected_toast:'Quote marked as rejected',
     qt_st_draft:'Draft', qt_st_sent:'Sent', qt_st_accepted:'Accepted', qt_st_rejected:'Rejected', qt_st_expired:'Expired',
     qt_pdf_title:'Quote', qt_pdf_thanks:'Thank you for asking us.', qt_terms_label:'Terms', qt_job_name:'Quote #{num}',
     qt_wa_msg:'Hi {client}, here is quote #{num}:\n{lines}\nTotal: {total}\nValid until {until}.', qt_no_phone_hint:'No phone saved: pick the contact in WhatsApp.',
@@ -1826,6 +1832,9 @@ function saveState(){
   // calendario, siempre al día con los datos. Idempotente.
   if(typeof svcGenerateRecurring==='function') try{ svcGenerateRecurring(); }catch(e){}
   if(typeof svcSyncCalendar==='function') try{ svcSyncCalendar(); }catch(e){}
+  // Producto terminado (app-08): dos filas para la misma receta (carrera entre
+  // dispositivos sin señal) se funden en una. Idempotente y barato.
+  if(typeof dedupeFinishedItems==='function') try{ dedupeFinishedItems(); }catch(e){}
   if(stateLoadFailed){
     // Un dato real nuevo (importar respaldo, un producto, un recibo) significa
     // que el usuario ya siguió adelante: se libera el freno y se guarda normal.
@@ -1929,8 +1938,16 @@ function applyStateData(data){
       return r;
     });
   }
-  if(Array.isArray(data.outflows)) outflows = data.outflows.filter(o=>o && o.id).slice(0, OUTFLOWS_MAX);
+  // El archivo va ANTES que las salidas: capOutflows archiva lo que descarta y
+  // lo escribe en outflowArchive — si se aplicara después, el archivo guardado
+  // pisaría lo recién consolidado.
   if(data.outflowArchive && typeof data.outflowArchive==='object' && !Array.isArray(data.outflowArchive)) outflowArchive = data.outflowArchive;
+  // El tope lo aplica capOutflows (app-08): nunca deja caer un trabajo por
+  // cobrar ni una cotización abierta, y archiva el P&L de lo que descarta.
+  if(Array.isArray(data.outflows)){
+    const lista = data.outflows.filter(o=>o && o.id);
+    outflows = typeof capOutflows==='function' ? capOutflows(lista) : lista.slice(0, typeof OUTFLOWS_MAX==='number' ? OUTFLOWS_MAX : 400);
+  }
 }
 function loadState(){
   try{
@@ -2456,7 +2473,16 @@ function outflowPL(o){
   if(o.type==='service'){
     if(o.deleted) return null;
     const p = Number(o.price)||0;
-    return p>0 ? {revenue: p, cogs: 0} : null;
+    /* Un trabajo nacido de una COTIZACIÓN CON PRODUCTOS (app-17) lleva en items
+       la mercadería que salió del inventario al aceptarla, con costAt congelado:
+       ese es su costo de lo vendido. El ingreso sigue siendo el precio del
+       trabajo, que ya incluye esas líneas — no se suma dos veces. */
+    let cogs = 0;
+    (o.items||[]).forEach(it=>{
+      const q = Math.abs(Number(it && it.qty)||0), c = Number(it && it.costAt);
+      if(q>0 && Number.isFinite(c) && c>0) cogs += q*c;
+    });
+    return (p>0 || cogs>0) ? {revenue: p, cogs} : null;
   }
   /* COTIZACIÓN (app-17): una promesa, no una venta. No aporta ingreso ni costo
      hasta que el cliente acepta y se convierte en trabajo (ahí ES un trabajo). */

@@ -3312,10 +3312,27 @@ function bestSideForPageCount(pageCount){
    Se puede llamar varias veces (una por página) antes de mandar todo junto a leer con
    processReceiptImage(). SIGUE EN USO por el flujo de Claude API — no está en el bloque
    de código viejo de más abajo aunque antes vivía ahí. */
+/* ¿Esta foto ya está agregada como página? Se compara la copia liviana byte a
+   byte: dos fotos DISTINTAS del mismo recibo no son idénticas y siguen pasando;
+   la MISMA foto elegida dos veces sí se detecta. */
+function scanPageIsDuplicate(base64){
+  return !!base64 && scanImages.some(im=>im && im.base64===base64);
+}
 async function addScanPage(file){
   try{
     const img = await loadImageFromFile(file);
-    scanImages.push(resizeToBase64(img, 1100, 0.75));
+    const light = resizeToBase64(img, 1100, 0.75);
+    // La misma foto elegida dos veces (galería con selección múltiple, o el
+    // doble toque de "Agregar página") entraba como DOS páginas: mergeReceiptPages
+    // concatenaba sus renglones y el stock entraba doble (auditoría de datos
+    // 2026-09-12). Se avisa y se descarta; el recibo sigue con lo que ya tenía.
+    if(scanPageIsDuplicate(light.base64)){
+      showToast(t('scan_page_duplicate'), 'info');
+      if(scanState==='error') scanState='idle';
+      render();
+      return;
+    }
+    scanImages.push(light);
     // La copia de máxima resolución se arma acá igual (así una sola página no paga
     // ningún trabajo extra al mandarla), pero si terminan siendo varias páginas se
     // vuelve a armar a la medida justa en processReceiptImage() — ver el presupuesto.
@@ -3384,6 +3401,7 @@ async function buildImagesForReading(){
    opts.onTrialQuota: qué hacer cuando una cuenta anónima agota el trial (cada
    llamador decide qué modal cerrar/abrir antes de ofrecer guardar la cuenta);
    con o sin callback, el Error tirado lleva .trialQuota = true. */
+const AI_CALL_TIMEOUT_MS = 90000;
 async function callDustyAI(path, body, opts){
   // Sin sesión todavía (primer escaneo de la vida): se espera acá a la cuenta
   // anónima del trial que quedó creándose en segundo plano al abrir el modal —
@@ -3399,24 +3417,41 @@ async function callDustyAI(path, body, opts){
     throw new Error(t('err_scan_auth_required'));
   }
   let response;
+  /* TOPE DE ESPERA (auditoría de datos 2026-09-12): fetch no tiene timeout
+     propio, y en una red móvil que se cae a mitad de camino el pedido quedaba
+     colgado para siempre — el lote de 5 fotos espera a TODAS (Promise.all), así
+     que una sola colgada dejaba el escáner girando sin fin, y "cancelar" solo
+     escondía la espera. El servidor corta a los ~25 s (ver FUNCTION_BUDGET_MS en
+     lib/patron-admin.js); AI_CALL_TIMEOUT_MS es holgado para cubrir eso y el
+     viaje, y aborta también la lectura del cuerpo, no solo la conexión. */
+  const ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(e){} }, AI_CALL_TIMEOUT_MS) : null;
+  let parsed, bodyNotJson = false;
   try{
-    // urlFuncion: en la web devuelve la ruta tal cual; dentro de la app de Play
-    // Store la manda al servidor real (ver API_BASE en app-01).
-    response = await fetch(urlFuncion(path), {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
-      body: JSON.stringify(Object.assign({ ownerUid: syncUid() }, body))
-    });
-  }catch(netErr){
-    // Fallo de RED (el fetch nunca llegó a completarse — sin conexión, DNS, CORS).
-    // Nunca un error del servidor, esos se manejan abajo. Confundirlos mandaba a
-    // re-sacar la foto a gente cuyo problema era no tener señal.
-    throw new Error(t('err_scan_no_connection'));
-  }
-  let parsed;
-  try{
-    parsed = await response.json();
-  }catch(parseErr){
+    try{
+      // urlFuncion: en la web devuelve la ruta tal cual; dentro de la app de Play
+      // Store la manda al servidor real (ver API_BASE en app-01).
+      response = await fetch(urlFuncion(path), {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken},
+        body: JSON.stringify(Object.assign({ ownerUid: syncUid() }, body)),
+        signal: ctrl ? ctrl.signal : undefined
+      });
+    }catch(netErr){
+      if(ctrl && ctrl.signal.aborted) throw new Error(t('err_scan_timeout'));
+      // Fallo de RED (el fetch nunca llegó a completarse — sin conexión, DNS, CORS).
+      // Nunca un error del servidor, esos se manejan abajo. Confundirlos mandaba a
+      // re-sacar la foto a gente cuyo problema era no tener señal.
+      throw new Error(t('err_scan_no_connection'));
+    }
+    try{
+      parsed = await response.json();
+    }catch(parseErr){
+      if(ctrl && ctrl.signal.aborted) throw new Error(t('err_scan_timeout'));
+      bodyNotJson = true;
+    }
+  }finally{ if(timer) clearTimeout(timer); }
+  if(bodyNotJson){
     // La función de Netlify no devolvió JSON. Antes de culpar a la publicación,
     // los dos casos reales que vimos (2026-09-08, factura de 4 páginas): el
     // pedido pesó de más (413) o la función se pasó del tiempo que Netlify le

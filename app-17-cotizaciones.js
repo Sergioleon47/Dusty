@@ -280,23 +280,75 @@ function rejectQuote(q){ if(!q) return; q.status = 'rejected'; q.lastEditedAt = 
 function deleteQuote(q){ if(!q) return; q.deleted = true; q.deletedAt = new Date().toISOString(); saveState(); logActivity('quote_deleted', q.client); }
 // El cliente dijo que sí: la cotización se vuelve TRABAJO (pendiente de cobro) y
 // queda enlazada. Devuelve el trabajo.
+/* Qué PRODUCTOS del inventario lleva una cotización y cuánto sale de cada uno.
+   Solo líneas con itemId que sigan siendo mercadería (no gastos). Igual que el
+   escáner de reducción, nunca deja stock negativo: si no alcanza sale lo que hay
+   y "short" anota lo que faltó. Varias líneas del mismo producto se descuentan
+   en orden contra el stock que va quedando. Cada fila tiene la forma de una
+   salida por venta (reason/costAt/priceAt), lista para job.items y outflowPL. */
+function quoteStockItems(q){
+  const out = [];
+  const left = new Map();
+  (q && Array.isArray(q.lines) ? q.lines : []).forEach(l=>{
+    if(!l || !l.itemId) return;
+    const ing = inventory.find(i=>i && i.id===l.itemId && !isExpenseItem(i));
+    if(!ing) return;
+    const wanted = roundQty(Number(l.qty)||0);
+    if(!(wanted>0)) return;
+    const cur = left.has(ing.id) ? left.get(ing.id) : roundQty(Math.max(0, Number(ing.qtyOnHand)||0));
+    const qty = roundQty(Math.min(cur, wanted));
+    left.set(ing.id, roundQty(cur - qty));
+    out.push({ingId: ing.id, ingName: ing.name, qty, unit: ing.unit, reason: 'sale',
+      costAt: Number(ing.costPerUnit)||0, priceAt: roundQty(Number(l.price)||0), short: roundQty(wanted - qty)});
+  });
+  return out;
+}
 function acceptQuote(q, opts){
   if(!q) return null;
-  if(q.status==='accepted' && q.jobId && jobById(q.jobId)) return jobById(q.jobId);
+  if(q.status==='accepted' && q.jobId){
+    const ya = jobById(q.jobId);
+    // Ya es un trabajo vigente: idempotente. Si ese trabajo se eliminó, aceptar
+    // de nuevo crea uno nuevo (antes devolvía el borrado y no pasaba nada).
+    if(ya && !ya.deleted) return ya;
+  }
   const tt = quoteTotals(q);
   const date = (opts && opts.date) || localDateStr();
   const dueDays = 15;
   const first = (q.lines||[])[0];
   const svc = first && first.serviceId ? serviceById(first.serviceId) : null;
+  /* LOS PRODUCTOS DE LA COTIZACIÓN SALEN DEL INVENTARIO (auditoría de datos
+     2026-09-12). Una cotización mezcla servicios y productos físicos (líneas
+     con itemId). Antes, al aceptarla, el trabajo llevaba el total como ingreso
+     pero el stock no se movía y el Cierre de mes no tenía costo de lo vendido:
+     ganancia bruta inflada y mercadería fantasma en el Valor del inventario.
+     Ahora cada línea con producto es una salida por venta como la del escáner
+     de reducción (costAt/priceAt congelados al día), colgada del trabajo
+     (job.items): outflowPL le suma el COGS y el ingreso sigue siendo el precio
+     del trabajo, que ya incluye esas líneas. Eliminar el trabajo devuelve el
+     stock (restoreJobStock, app-15). */
+  const items = quoteStockItems(q).filter(it=>it.qty>0);
+  items.forEach(it=>{
+    const ing = inventory.find(i=>i && i.id===it.ingId);
+    if(!ing) return;
+    ing.qtyOnHand = roundQty(Math.max(0, (Number(ing.qtyOnHand)||0) - it.qty));
+    if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
+  });
   const job = { id: uid('job'), type:'service', date, client: q.client, serviceName: quoteTitleLine(q).slice(0, 60), serviceId: svc ? svc.id : null, assetId: null,
-    price: tt.total, paid: false, dueDate: addDaysStr(date, dueDays), dueDays, paidDate: null, repeat: null, items: [], createdAt: new Date().toISOString(),
+    price: tt.total, paid: false, dueDate: addDaysStr(date, dueDays), dueDays, paidDate: null, repeat: null, items, createdAt: new Date().toISOString(),
     quoteId: q.id, byLabel: (typeof currentUserLabel==='function' && currentUser) ? currentUserLabel() : '', byAgent: !!(opts && opts.byAgent) };
   recordOutflow(job);
   q.status = 'accepted'; q.acceptedAt = new Date().toISOString(); q.jobId = job.id; q.lastEditedAt = q.acceptedAt;
   saveState();
   logActivity('quote_accepted', q.client, money(tt.total));
   logActivity('job_saved', job.client, job.serviceName);
+  if(items.length) logActivity('stock_adjust', '', String(items.length));
   return job;
+}
+// Texto corto de lo que salió del inventario al aceptar, para el aviso.
+function quoteStockToast(job){
+  const salidas = (job && Array.isArray(job.items) ? job.items : []).filter(it=>it.qty>0);
+  if(!salidas.length) return '';
+  return ' · ' + t('qt_accepted_stock').replace('{list}', salidas.map(it=>`${quoteFmtQty(it.qty)} ${unitLabel(it.unit)} ${it.ingName}`).join(', '));
 }
 
 /* ---------- PDF de la cotización (mismo escritor que la cuenta de cobro) ---------- */
@@ -498,9 +550,11 @@ function attachQuotesEvents(){
       on('btn-qt-email', ()=>{ const q = persist(); if(q) sendQuoteEmail(q); });
       on('btn-qt-accept', ()=>{
         const q = persist(); if(!q) return;
-        if(!confirm(t('qt_accept_confirm').replace('{client}', q.client).replace('{total}', money(quoteTotals(q).total)))) return;
+        const conStock = quoteStockItems(q).length>0;
+        if(!confirm(t('qt_accept_confirm').replace('{client}', q.client).replace('{total}', money(quoteTotals(q).total)) + (conStock ? ' ' + t('qt_accept_confirm_stock') : ''))) return;
+        const yaAceptada = quoteState(q)==='accepted';
         const job = acceptQuote(q);
-        showToast(t('qt_accepted_toast').replace('{client}', q.client));
+        showToast(t('qt_accepted_toast').replace('{client}', q.client) + (yaAceptada ? '' : quoteStockToast(job)));
         closeQuoteModal();
         if(job) openJobModal(job.id);
       });
@@ -599,7 +653,9 @@ function quoteAgentAction(inp){
       if(!clientEmailOk(cl)) return {ok:false, error:'client has no email; ask for it or use add_client'};
       sendQuoteEmail(q); return {ok:true, quote_id:q.id, sending_to: cl.email};
     }
-    case 'accept': { const job = acceptQuote(q, {byAgent:true, date: inp.date ? agentDate(inp.date) : null}); render(); return {ok:true, quote_id:q.id, job_id: job ? job.id : null, amount: quoteTotals(q).total, due_date: job ? job.dueDate : null}; }
+    case 'accept': { const job = acceptQuote(q, {byAgent:true, date: inp.date ? agentDate(inp.date) : null}); render();
+      return {ok:true, quote_id:q.id, job_id: job ? job.id : null, amount: quoteTotals(q).total, due_date: job ? job.dueDate : null,
+        stock_out: (job && job.items||[]).filter(it=>it.qty>0).map(it=>({item: it.ingName, qty: it.qty, unit: it.unit, short: it.short||0}))}; }
     case 'reject': { rejectQuote(q); render(); return {ok:true, quote_id:q.id}; }
     case 'delete': { deleteQuote(q); render(); return {ok:true, quote_id:q.id}; }
     default: return {ok:false, error:'unknown action'};
