@@ -417,6 +417,16 @@ function mergeOutflowArchives(remote, local){
       ? {revenue: Math.max(l.revenue||0, r.revenue||0), cogs: Math.max(l.cogs||0, r.cogs||0), internalUse: Math.max(l.internalUse||0, r.internalUse||0)}
       : {revenue: l.revenue||0, cogs: l.cogs||0, internalUse: l.internalUse||0};
     if(ids.length) out[k].ids = ids;
+    // Por activo (archiveEvictedOutflows, app-08): mismo máximo por campo, por activo.
+    const rb = (r && r.byAsset && typeof r.byAsset==='object') ? r.byAsset : null, lb = (l.byAsset && typeof l.byAsset==='object') ? l.byAsset : null;
+    if(rb || lb){
+      const byAsset = {};
+      Object.keys(Object.assign({}, rb||{}, lb||{})).forEach(id=>{
+        const x = (rb && rb[id]) || {}, y = (lb && lb[id]) || {};
+        byAsset[id] = {revenue: Math.max(x.revenue||0, y.revenue||0), paid: Math.max(x.paid||0, y.paid||0), cogs: Math.max(x.cogs||0, y.cogs||0), jobs: Math.max(x.jobs||0, y.jobs||0)};
+      });
+      out[k].byAsset = byAsset;
+    }
   });
   return out;
 }

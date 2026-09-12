@@ -664,3 +664,10 @@ test('pickOutflow: la bandera stockRestored (efecto ya aplicado) sobrevive al me
   assert.equal(w, cobrado, 'gana el sello más nuevo (el cobro)');
   assert.equal(w.stockRestored, true, 'pero recuerda que el stock ya volvió al estante');
 });
+
+test('mergeOutflowArchives: el aporte por activo se une por máximo, activo por activo', () => {
+  const { mergeOutflowArchives } = require('./patron-core.js');
+  const m = mergeOutflowArchives({'2026-01': {revenue:300, cogs:0, byAsset:{cam1:{revenue:300, paid:300, cogs:0, jobs:1}}}},
+                                 {'2026-01': {revenue:300, cogs:0, byAsset:{cam1:{revenue:300, paid:0, cogs:0, jobs:1}, cam2:{revenue:50, paid:50, cogs:5, jobs:1}}}});
+  assert.deepEqual(m['2026-01'].byAsset, {cam1:{revenue:300, paid:300, cogs:0, jobs:1}, cam2:{revenue:50, paid:50, cogs:5, jobs:1}});
+});

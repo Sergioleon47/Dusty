@@ -379,3 +379,27 @@ test('archivo de salidas idempotente por id: evictar dos veces la misma salida n
   assert.equal(correr(`!!outflows.find(o=>o.id==='jan1')`), false, 'no revive');
   assert.equal(correr(`outflowArchive['2026-01'].revenue`), 100);
 });
+
+test('ficha del activo: una sola cuenta (facturado − mercadería − recibos), los recibos de un trabajo borrado siguen en su activo, y lo recortado por el tope se suma desde el archivo', () => {
+  const { correr } = nuevaApp('2026-04-02');
+  correr(`bizProfile.assets.push({id:'cam3', name:'Camión 3', emoji:'🚚', maint:[], maintLog:[]});
+    recordOutflow({id:'jq', type:'service', date:'2026-04-01', client:'Taller', serviceName:'Reparación', assetId:'cam3', price:500, paid:true, paidDate:'2026-04-01',
+      items:[{ingId:'x', ingName:'Filtro', qty:2, unit:'unidad', costAt:40, priceAt:60, reason:'sale'}], createdAt:'2026-04-01T00:00:00Z'});
+    receipts.push({id:'r1', images:[], supplier:'Shell', date:'2026-04-01', total:180, itemCount:0, appliedItems:[], purchaseIds:[], manual:true, manualKind:'expense', jobId:'jq', assetId:'cam3', createdAt:'2026-04-01T00:00:00Z'});`);
+  let st = JSON.parse(correr(`JSON.stringify(assetMonthStats(assetById('cam3'), '2026-04'))`));
+  assert.deepEqual(st, {revenue:500, paid:500, cogs:80, jobs:1, expense:180, net:240});
+  assert.deepEqual(JSON.parse(correr(`JSON.stringify(assetAllTimeStats(assetById('cam3')))`)), st, 'mes y "desde siempre" coinciden');
+  assert.equal(correr(`jobExpenseTotal(jobById('jq'))`), 180);
+  assert.equal(correr(`jobCogs(jobById('jq'))`), 80);
+  // Se elimina el trabajo: su recibo sigue siendo un gasto del camión (la ficha del recibo dice "Activo: Camión 3").
+  correr(`deleteJob(jobById('jq')); saveState();`);
+  st = JSON.parse(correr(`JSON.stringify(assetMonthStats(assetById('cam3'), '2026-04'))`));
+  assert.deepEqual(st, {revenue:0, paid:0, cogs:0, jobs:0, expense:180, net:-180});
+  // Un trabajo cobrado de enero que el tope de 400 recortó: sigue en la ficha vía el archivo por activo.
+  correr(`recordOutflow({id:'jan', type:'service', date:'2026-01-10', client:'A', serviceName:'S', assetId:'cam3', price:300, paid:true, paidDate:'2026-01-10', items:[], createdAt:'2026-01-10T00:00:00Z'});
+    for(let i=0;i<450;i++) recordOutflow({id:'adj'+i, type:'adjust', date:'2026-03-01', items:[], createdAt:'2026-03-01T00:00:00Z'});`);
+  assert.equal(correr(`!!outflows.find(o=>o.id==='jan')`), false);
+  assert.deepEqual(JSON.parse(correr(`JSON.stringify(outflowArchive['2026-01'].byAsset.cam3)`)), {revenue:300, paid:300, cogs:0, jobs:1});
+  assert.deepEqual(JSON.parse(correr(`JSON.stringify(assetMonthStats(assetById('cam3'), '2026-01'))`)), {revenue:300, paid:300, cogs:0, jobs:1, expense:0, net:300});
+  assert.equal(JSON.parse(correr(`JSON.stringify(assetAllTimeStats(assetById('cam3')))`)).revenue, 300);
+});

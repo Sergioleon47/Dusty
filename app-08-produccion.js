@@ -194,6 +194,17 @@ function archiveEvictedOutflows(evicted){
     a.revenue = roundQty(a.revenue + pl.revenue);
     a.cogs = roundQty(a.cogs + pl.cogs);
     a.internalUse = roundQty((a.internalUse||0) + (pl.internalUse||0));
+    // Por activo (app-15): la ficha del camión y "Por activo" del Cierre suman
+    // esto para que un trabajo cobrado que el tope recortó no desaparezca de la
+    // historia del activo mientras el Cierre sí lo conserva.
+    if(o.type==='service' && o.assetId){
+      a.byAsset = a.byAsset || {};
+      const b = a.byAsset[o.assetId] || (a.byAsset[o.assetId] = {revenue:0, paid:0, cogs:0, jobs:0});
+      b.revenue = roundQty(b.revenue + pl.revenue);
+      b.cogs = roundQty(b.cogs + pl.cogs);
+      if(o.paid) b.paid = roundQty(b.paid + pl.revenue);
+      b.jobs++;
+    }
   });
 }
 function recordOutflow(entry){

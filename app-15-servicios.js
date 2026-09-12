@@ -134,7 +134,19 @@ function restoreJobStock(job){
 function assetById(id){ return (bizProfile.assets||[]).find(a=>a.id===id) || null; }
 function serviceById(id){ return (bizProfile.catalog||[]).find(c=>c.id===id) || null; }
 function jobReceipts(jobId){ return receipts.filter(r=>r && r.jobId===jobId); }
-function jobExpenseTotal(job){ return jobReceipts(job.id).reduce((s,r)=>s+(Number(r.total)||0),0); }
+/* UNA sola forma de contar un recibo en las vistas por trabajo y por activo: el
+   total entero. Para el dueño, lo que gastó en un trabajo o en un camión es el
+   ticket completo (combustible, repuestos, lo que sea); la separación entre gasto
+   y mercadería es cosa del Cierre de mes (receiptSplit). Antes convivían tres
+   cuentas —total en el modal y en "Desde siempre", solo la parte de gasto en el
+   mes y en el Cierre— y la ficha se contradecía a sí misma (auditoría de la
+   auditoría 2026-09-12). */
+function svcReceiptAmount(r){ return Number(r && r.total)||0; }
+function jobExpenseTotal(job){ return jobReceipts(job.id).reduce((s,r)=>s+svcReceiptAmount(r),0); }
+// Costo de la mercadería que salió con el trabajo (cotización con productos
+// aceptada, app-17: job.items con costAt congelado) — la misma regla que outflowPL,
+// para que el modal, la ficha del activo y el Cierre digan la misma ganancia.
+function jobCogs(job){ return (job && Array.isArray(job.items) ? job.items : []).reduce((s,it)=>s+Math.abs(Number(it && it.qty)||0)*(Number(it && it.costAt)||0),0); }
 function jobIsOverdue(j, today){ today = today||localDateStr(); return !j.paid && !!j.dueDate && j.dueDate<today; }
 function jobsForMonth(key){ return svcJobs().filter(j=>monthKey(j.date)===key); }
 // Cobrado en el mes = trabajos marcados como cobrados, por la fecha en que se cobraron.
@@ -164,30 +176,53 @@ function svcClientNames(){
 }
 /* ---------- activos ---------- */
 function assetReceipts(assetId, key){
-  const jobIds = new Set(svcJobs().filter(j=>j.assetId===assetId).map(j=>j.id));
-  // Con jobId manda el trabajo (si el trabajo cambió de equipo, el recibo lo sigue);
-  // sin jobId, el assetId propio. Antes un recibo podía contar en dos activos.
-  return receipts.filter(r=>r && (r.jobId ? jobIds.has(r.jobId) : r.assetId===assetId) && (!key || monthKey(r.date)===key));
+  // Con jobId y el trabajo VIVO manda el trabajo (si cambió de equipo, el recibo
+  // lo sigue; un recibo nunca cuenta en dos activos). Si el trabajo ya no está
+  // (eliminado, o recortado por el tope de 400 salidas) vale el assetId propio del
+  // recibo: el gasto del camión no desaparece porque el trabajo se borró — la
+  // ficha del recibo sigue diciendo "Activo: Camión 1" y el texto de confirmación
+  // promete que "sus gastos quedan como recibos" (auditoría de la auditoría 2026-09-12).
+  const jobAsset = new Map(svcJobs().map(j=>[j.id, j.assetId||null]));
+  return receipts.filter(r=>{
+    if(!r || (key && monthKey(r.date)!==key)) return false;
+    if(r.jobId && jobAsset.has(r.jobId)) return jobAsset.get(r.jobId)===assetId;
+    return r.assetId===assetId;
+  });
 }
-// Parte de GASTO de un recibo (sin la mercadería comprada), igual que el Cierre de mes.
-function receiptExpenseAmount(r){ try{ return receiptSplit(r, finCache()).expense; }catch(e){ return Number(r.total)||0; } }
-// revenue = FACTURADO con el activo en el mes (trabajos por fecha, cobrados o no);
-// paid = lo que de esos trabajos ya se cobró. Antes la ficha llamaba "Cobrado" al
-// facturado y contradecía a Por cobrar (auditoría 2026-09-12).
+/* revenue = FACTURADO con el activo (trabajos por fecha, cobrados o no); paid = lo
+   que de esos trabajos ya se cobró (antes la ficha llamaba "Cobrado" al facturado
+   y contradecía a Por cobrar, auditoría 2026-09-12); cogs = mercadería que salió
+   con esos trabajos (cotizaciones con productos); expense = recibos del activo,
+   total entero (svcReceiptAmount); net = revenue − cogs − expense, la misma
+   cuenta que el Cierre de mes. Los trabajos que el tope de 400 salidas ya
+   consolidó en el archivo (byAsset, app-08) se suman para que "Desde siempre" y
+   los meses viejos no se achiquen en silencio. */
+function svcAssetStats(asset, jobs, recs, archived){
+  const revenue = jobs.reduce((s,j)=>s+(Number(j.price)||0),0) + (archived.revenue||0);
+  const paid = jobs.filter(j=>j.paid).reduce((s,j)=>s+(Number(j.price)||0),0) + (archived.paid||0);
+  const cogs = jobs.reduce((s,j)=>s+jobCogs(j),0) + (archived.cogs||0);
+  const expense = recs.reduce((s,r)=>s+svcReceiptAmount(r),0);
+  return {revenue, paid, cogs, jobs: jobs.length + (archived.jobs||0), expense, net: revenue-cogs-expense};
+}
+// Aporte archivado del activo en los meses que pasan el filtro (todos sin filtro).
+function svcArchivedForAssetPeriod(assetId, monthOk){
+  const out = {revenue:0, paid:0, cogs:0, jobs:0};
+  Object.keys(outflowArchive||{}).forEach(k=>{
+    if(monthOk && !monthOk(k+'-01')) return;
+    const a = outflowArchive[k] && outflowArchive[k].byAsset && outflowArchive[k].byAsset[assetId];
+    if(!a) return;
+    out.revenue += a.revenue||0; out.paid += a.paid||0; out.cogs += a.cogs||0; out.jobs += a.jobs||0;
+  });
+  return out;
+}
+// En un mes (key) o en todos (sin key).
+function svcArchivedForAsset(assetId, key){ return svcArchivedForAssetPeriod(assetId, key ? (d=>monthKey(d)===key) : null); }
 function assetMonthStats(asset, key){
-  const jobs = jobsForMonth(key).filter(j=>j.assetId===asset.id);
-  const revenue = jobs.reduce((s,j)=>s+(Number(j.price)||0),0);
-  const paid = jobs.filter(j=>j.paid).reduce((s,j)=>s+(Number(j.price)||0),0);
-  const expense = assetReceipts(asset.id, key).reduce((s,r)=>s+receiptExpenseAmount(r),0);
-  return {revenue, paid, jobs: jobs.length, expense, net: revenue-expense};
+  return svcAssetStats(asset, jobsForMonth(key).filter(j=>j.assetId===asset.id), assetReceipts(asset.id, key), svcArchivedForAsset(asset.id, key));
 }
 // Acumulado desde siempre (la ficha lo muestra como "Desde la compra").
 function assetAllTimeStats(asset){
-  const jobs = svcJobs().filter(j=>j.assetId===asset.id);
-  const revenue = jobs.reduce((s,j)=>s+(Number(j.price)||0),0);
-  const paid = jobs.filter(j=>j.paid).reduce((s,j)=>s+(Number(j.price)||0),0);
-  const expense = assetReceipts(asset.id).reduce((s,r)=>s+(Number(r.total)||0),0);
-  return {revenue, paid, jobs: jobs.length, expense, net: revenue-expense};
+  return svcAssetStats(asset, svcJobs().filter(j=>j.assetId===asset.id), assetReceipts(asset.id), svcArchivedForAsset(asset.id));
 }
 // Estado de un plan de mantenimiento. Con el odómetro apagado en Ajustes los km
 // del activo no cuentan (antes un plan "cada 5.000 km" seguía diciendo "en 3.000
@@ -774,9 +809,12 @@ function jobDraftExpenses(){
 function jobProfitHtml(){
   const price = Number(draftJob.price)||0;
   const exp = jobDraftExpenses().reduce((s,e)=>s+e.amount,0);
-  const gain = price-exp;
+  // La mercadería que salió con el trabajo (cotización con productos) también
+  // cuesta: sin restarla el modal decía "Ganancia 100 %" y el Cierre otra cosa.
+  const cogs = draftJob.id ? jobCogs(jobById(draftJob.id)) : 0;
+  const gain = price-exp-cogs;
   const pct = price>0 ? Math.round(gain/price*100) : null;
-  return `<strong style="color:${gain>=0?'var(--money-pos)':'var(--money-neg)'};">${gain<0?'−':''}${money(Math.abs(gain))}${pct!==null ? ` · ${pct}%` : ''}</strong>`;
+  return `<strong style="color:${gain>=0?'var(--money-pos)':'var(--money-neg)'};">${gain<0?'−':''}${money(Math.abs(gain))}${pct!==null ? ` · ${pct}%` : ''}</strong>${cogs>0 ? `<div class="helper-note" style="margin:2px 0 0;">${t('svc_job_cogs_note').replace('{amount}', money(cogs))}</div>` : ''}`;
 }
 function jobModal(){
   const d = draftJob; if(!d) return '';
@@ -1237,13 +1275,13 @@ function svcRecapRows(key, crow){
   if(jobs.length){
     html += `<div class="recap-note">${t('recap_jobs_n').replace('{n}', String(jobs.length))}</div>`;
   }
+  // Misma cuenta que la ficha del activo (svcAssetStats): facturado − mercadería − recibos, archivo incluido.
   const perAsset = assets.map(a=>{
-    const rev = jobs.filter(j=>j.assetId===a.id).reduce((s,j)=>s+(Number(j.price)||0),0);
-    const exp = assetReceipts(a.id).filter(r=>inPeriod(r.date)).reduce((s,r)=>s+receiptExpenseAmount(r),0);
-    return {a, net: rev-exp, any: rev>0 || exp>0};
+    const st = svcAssetStats(a, jobs.filter(j=>j.assetId===a.id), assetReceipts(a.id).filter(r=>inPeriod(r.date)), svcArchivedForAssetPeriod(a.id, inPeriod));
+    return {a, net: st.net, any: st.revenue>0 || st.expense>0 || st.cogs>0};
   }).filter(x=>x.any);
   if(perAsset.length){
-    html += `<div class="recap-section-title">${t('recap_by_asset')}</div>` + perAsset.map(x=>crow(escapeHtml(x.a.emoji||'🚚'), escapeHtml(x.a.name), (x.net<0?'−':'+')+money(Math.abs(x.net)), x.net>=0?'var(--money-pos)':'var(--money-neg)')).join('');
+    html += `<div class="recap-section-title">${t('recap_by_asset')}</div>` + perAsset.map(x=>crow(escapeHtml(x.a.emoji||svcBizEmoji()), escapeHtml(x.a.name), (x.net<0?'−':'+')+money(Math.abs(x.net)), x.net>=0?'var(--money-pos)':'var(--money-neg)')).join('');
   }
   if(key.length===7){
     const cats = expenseByCategoryForMonth(key);
@@ -1884,15 +1922,16 @@ function svcReportSection(pdf, key){
     pdf.table([{key:'date', label: t('rp_col_date'), w: 70}, {key:'client', label: t('svc_client'), w: 130}, {key:'svc', label: t('svc_service')}, {key:'status', label: t('svc_pdf_status'), w: 75}, {key:'total', label: t('rp_col_total'), w: 85, align:'right'}], rows);
     pdf.gap(14);
   }
+  // Misma cuenta que la ficha del activo y el Cierre (svcAssetStats): la mercadería
+  // de las cotizaciones aceptadas va dentro de "gastos" en esta tabla.
   const per = (bizProfile.assets||[]).map(a=>{
-    const rev = jobs.filter(j=>j.assetId===a.id).reduce((s,j)=>s+(Number(j.price)||0),0);
-    const exp = assetReceipts(a.id).filter(r=>inPeriod(r.date)).reduce((s,r)=>s+receiptExpenseAmount(r),0);
-    return {a, rev, exp};
+    const st = svcAssetStats(a, jobs.filter(j=>j.assetId===a.id), assetReceipts(a.id).filter(r=>inPeriod(r.date)), svcArchivedForAssetPeriod(a.id, inPeriod));
+    return {a, rev: st.revenue, exp: st.expense + st.cogs, net: st.net};
   }).filter(x=>x.rev>0 || x.exp>0);
   if(per.length){
     pdf.line(t('recap_by_asset'), {size: 12.5, bold: true, lh: 24});
     pdf.table([{key:'name', label: t('svc_tool_asset')}, {key:'rev', label: t('recap_revenue_jobs'), w: 110, align:'right'}, {key:'exp', label: t('spend_expenses'), w: 110, align:'right'}, {key:'net', label: t('recap_net'), w: 110, align:'right'}],
-      per.map(x=>({name: x.a.name, rev: money(x.rev), exp: money(x.exp), net: (x.rev-x.exp<0?'-':'')+money(Math.abs(x.rev-x.exp))})));
+      per.map(x=>({name: x.a.name, rev: money(x.rev), exp: money(x.exp), net: (x.net<0?'-':'')+money(Math.abs(x.net))})));
     pdf.gap(14);
   }
 }
