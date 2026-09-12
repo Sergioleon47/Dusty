@@ -201,6 +201,56 @@ function needsBigModel(text) {
 function nImagesReserved(res) { return (res && Number.isFinite(res.count)) ? res.count : 1; }
 
 /* ---------- cupo del agente ---------- */
+/* VUELTAS DE HERRAMIENTAS (el último mensaje es solo tool_result): no descuentan
+   el cupo de pedidos porque son parte del mismo pedido — pero eso era un agujero
+   (auditoría de la auditoría 2026-09-12): un script podía fabricar un historial
+   con un tool_use inventado y pegarle al modelo grande sin cupo, sin freno por IP
+   y sin tope de saltos. Ahora una vuelta de herramientas tiene que (1) responder
+   a un tool_use del mensaje assistant inmediatamente anterior, con nombre real de
+   TOOLS; (2) no pasar de AGENT_MAX_HOPS saltos desde el último texto del usuario
+   (mismo tope que el cliente); y además paga (3) su propio freno por IP y (4) un
+   cupo de saltos por cuenta (AGENT_MAX_HOPS por cada pedido del cupo). */
+const AGENT_MAX_HOPS = 6;
+function toolTurnProblem(messages) {
+  const last = messages[messages.length - 1];
+  const prev = messages[messages.length - 2];
+  if (!prev || prev.role !== 'assistant') return 'tool_result without a preceding assistant turn';
+  const uses = new Map(prev.content.filter(b => b.type === 'tool_use').map(b => [b.id, b.name]));
+  const names = new Set(TOOLS.map(t => t.name));
+  for (const b of last.content) {
+    const name = uses.get(b.tool_use_id);
+    if (!name) return 'tool_result does not match a tool_use of the previous turn';
+    if (!names.has(name)) return 'unknown tool ' + name;
+  }
+  // Saltos desde el último mensaje del usuario con texto/imagen (no solo resultados).
+  let hops = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== 'user') continue;
+    if (m.content.every(b => b.type === 'tool_result')) hops++; else break;
+  }
+  if (hops > AGENT_MAX_HOPS) return 'too many tool hops';
+  return null;
+}
+async function reserveAgentHop(ownerUid, caller) {
+  if (await isUnlimitedAccount(ownerUid)) return true;
+  const db = admin.firestore();
+  const ref = db.doc(`users/${ownerUid}/meta/billing`);
+  const period = currentBillingPeriod();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    const limit = (caller.isAnonymous ? AGENT_LIMIT_TRIAL : AGENT_LIMIT_MONTH) * AGENT_MAX_HOPS;
+    const used = caller.isAnonymous ? (data.agentHopsTotal || 0) : (data.agentHopsPeriod === period ? (data.agentHops || 0) : 0);
+    if (used + 1 > limit) return false;
+    tx.set(ref, {
+      agentHops: (data.agentHopsPeriod === period ? (data.agentHops || 0) : 0) + 1,
+      agentHopsPeriod: period,
+      agentHopsTotal: (data.agentHopsTotal || 0) + 1
+    }, { merge: true });
+    return true;
+  });
+}
 async function reserveAgentTurn(ownerUid, caller) {
   if (await isUnlimitedAccount(ownerUid)) return { allowed: true, limit: null, used: null };
   const db = admin.firestore();
@@ -260,6 +310,7 @@ function cleanMessages(raw) {
 }
 
 exports.needsBigModel = needsBigModel;
+exports.toolTurnProblem = toolTurnProblem;
 exports.handler = withCors(async (event) => {
   const startedAt = Date.now();
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
@@ -286,12 +337,18 @@ exports.handler = withCors(async (event) => {
   try {
     if (!(await callerCanUseAccount(callerUid, ownerUid))) return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta', code: 'no_access' }) };
     if ((await getAccessState(ownerUid, caller)).locked) return subscriptionRequiredResponse();
-    const toolTurnEarly = messages[messages.length - 1].role === 'user' && messages[messages.length - 1].content.every(b => b.type === 'tool_result');
-    if (!toolTurnEarly && !(await checkIpRateLimit(event))) return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados pedidos seguidos — espera un rato', code: 'rate_limited' }) };
     // Solo la vuelta que arranca con un pedido NUEVO del usuario descuenta cupo:
-    // las continuaciones con resultados de herramientas son parte del mismo pedido.
+    // las continuaciones con resultados de herramientas son parte del mismo pedido
+    // — pero tienen forma, tope de saltos, freno por IP y cupo propios (ver
+    // toolTurnProblem / reserveAgentHop).
     const last = messages[messages.length - 1];
     const isToolTurn = last.role === 'user' && last.content.every(b => b.type === 'tool_result');
+    if (isToolTurn) {
+      const problem = toolTurnProblem(messages);
+      if (problem) return { statusCode: 400, body: JSON.stringify({ error: 'Vuelta de herramientas inválida: ' + problem, code: 'bad_request' }) };
+      if (!(await checkIpRateLimit(event, { scope: 'tool', limit: 30 * AGENT_MAX_HOPS }))) return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados pedidos seguidos — espera un rato', code: 'rate_limited' }) };
+      if (!(await reserveAgentHop(ownerUid, caller))) return { statusCode: 429, body: JSON.stringify({ error: caller.isAnonymous ? 'Usaste los pedidos gratis de prueba. Guarda tu cuenta para seguir.' : 'Llegaste al límite de pedidos al asistente de este mes', quotaExceeded: true }) };
+    } else if (!(await checkIpRateLimit(event))) return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados pedidos seguidos — espera un rato', code: 'rate_limited' }) };
     const nImages = (!isToolTurn && last.role === 'user') ? last.content.filter(b => b.type === 'image').length : 0;
     if (nImages) {
       // Una foto por el agente es un escaneo: mismo cupo que el lector de recibos,

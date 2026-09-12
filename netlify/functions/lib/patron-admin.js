@@ -293,22 +293,27 @@ async function refundScanUsage(ownerUid, count, period) {
    por IP-hora, con expireAt por si algún día se activa TTL en la consola; aún sin
    TTL son docs de dos campos, no pesan. Falla ABIERTO a propósito: si Firestore
    está caído, un negocio real no se queda sin escanear por culpa del freno. */
-async function checkIpRateLimit(event) {
+// opts.scope: contador aparte (misma IP, otra clave) con su propio tope opts.limit —
+// las vueltas de herramientas del asistente usan uno más alto que las llamadas
+// que arrancan un pedido, sin quedar sin freno (auditoría de la auditoría 2026-09-12).
+async function checkIpRateLimit(event, opts) {
   try {
     const ip = event.headers['x-nf-client-connection-ip']
       || ((event.headers['x-forwarded-for'] || '').split(',')[0] || '').trim();
     if (!ip) return true;
     const crypto = require('crypto');
     const hour = Math.floor(Date.now() / 3600000);
+    const scope = opts && opts.scope ? '-' + String(opts.scope).replace(/[^\w]/g, '') : '';
+    const limit = opts && Number.isFinite(opts.limit) && opts.limit > 0 ? opts.limit : IP_RATE_LIMIT_PER_HOUR;
     // Se guarda un hash, no la IP en claro — para frenar abuso no hace falta
     // retener el dato personal.
-    const key = crypto.createHash('sha256').update(ip).digest('hex').slice(0, 24) + '-' + hour;
+    const key = crypto.createHash('sha256').update(ip).digest('hex').slice(0, 24) + scope + '-' + hour;
     const db = admin.firestore();
     const ref = db.doc(`rateLimits/${key}`);
     return await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const n = snap.exists ? (snap.data().n || 0) : 0;
-      if (n >= IP_RATE_LIMIT_PER_HOUR) return false;
+      if (n >= limit) return false;
       tx.set(ref, {
         n: n + 1,
         expireAt: admin.firestore.Timestamp.fromMillis((hour + 2) * 3600000)

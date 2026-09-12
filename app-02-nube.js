@@ -904,7 +904,18 @@ function onCloudSyncWriteFailed(err){
   // PROPIO (regla mal desplegada, token con reloj corrido) caía en un handler
   // que no hace nada y, como tampoco se agendaba reintento, el sync quedaba
   // muerto para toda la sesión — ahora reintenta con el backoff normal.
-  if(err && err.code==='permission-denied' && joinedOwnerUid){ handleSyncPermissionDenied(err); return; }
+  if(err && err.code==='permission-denied' && joinedOwnerUid){
+    /* Con la cuenta del dueño VENCIDA (candado de cobro), las reglas niegan la
+       escritura de meta/settings a todo el equipo — no es una expulsión. Un
+       miembro en solo lectura igual genera escrituras automáticas (ocurrencias
+       de contratos, notas del calendario) y, sin esta distinción, el
+       permission-denied borraba su 'joined' y todo lo local: veía una cuenta
+       propia vacía como si lo hubieran echado (auditoría de la auditoría
+       2026-09-12). Con el candado puesto no se reintenta: no hay nada que subir
+       hasta que el dueño renueve. */
+    if(typeof accessLocked==='function' && accessLocked()) return;
+    handleSyncPermissionDenied(err); return;
+  }
   clearTimeout(cloudSyncRetryTimer);
   cloudSyncRetryTimer = setTimeout(()=>{ if(cloudSyncDirty) syncAllToFirestore(); }, cloudSyncRetryDelayMs);
   cloudSyncRetryDelayMs = Math.min(cloudSyncRetryDelayMs*2, CLOUD_SYNC_RETRY_MAX_MS);
