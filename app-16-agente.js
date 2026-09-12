@@ -30,6 +30,9 @@ let agentPending = null;  // {id, name, input, resolve} — herramienta esperand
 let agentDraft = '';
 let agentListening = false, agentRecognizer = null;
 let agentError = '';
+let agentAttach = [];      // fotos listas para mandar: {file, base64, mediaType, thumb}
+let agentLastFiles = [];   // las de la última vuelta, por si el agente las deriva al escáner
+let showAgentCam = false;
 
 const AGENT_WRITE_TOOLS = ['add_expense','add_job','mark_paid','add_category','log_maintenance','add_asset','add_service','add_item','add_note','set_budget'];
 const AGENT_MAX_HOPS = 6;
@@ -203,6 +206,14 @@ function agentExec(name, inp){
       const amt = agentNum(inp.amount); if(!(amt>0)) return fail('amount must be > 0');
       setMonthlyBudget(amt); saveState(); render(); return ok({budget: amt});
     }
+    case 'scan_receipt': {
+      // Recibo de compra: al escáner de siempre, con la misma foto ya cargada.
+      const files = agentLastFiles.slice(); if(!files.length) return fail('no photo');
+      showAgentSheet = false; render();
+      openScanModal();
+      (async()=>{ for(const f of files){ try{ await addScanPage(f); }catch(e){} } })();
+      return ok({opened:'scanner', pages: files.length});
+    }
     case 'query': return agentQuery(inp);
     case 'open_screen': return agentOpen(inp.screen);
     case 'print': {
@@ -275,11 +286,14 @@ function agentWaitConfirm(block){
 }
 async function agentSend(text){
   text = String(text||'').trim();
-  if(!text || agentBusy) return;
+  if((!text && !agentAttach.length) || agentBusy) return;
+  if(!text) text = t('agent_attach_default');
   if(!currentUser && typeof everHadRealAccount==='function' && everHadRealAccount()){ openAuthModal(t('agent_needs_account')); return; }
   agentDraft = ''; agentError = '';
-  agentPush('user', text);
-  agentMessages.push({role:'user', content:[{type:'text', text}]});
+  // Fotos: van como bloques de imagen delante del texto; en el hilo se ven las miniaturas.
+  const attach = agentAttach.slice(); agentAttach = []; agentLastFiles = attach.map(a=>a.file);
+  agentPush('user', text, attach.length ? {thumbs: attach.map(a=>a.thumb)} : null);
+  agentMessages.push({role:'user', content: attach.map(a=>({type:'image', source:{type:'base64', media_type:a.mediaType, data:a.base64}})).concat([{type:'text', text}])});
   if(agentMessages.length>28) agentMessages = agentMessages.slice(-28);
   agentBusy = true; render(); agentScrollEnd();
   try{
@@ -287,6 +301,9 @@ async function agentSend(text){
       const res = await agentCall();
       const content = Array.isArray(res.content) ? res.content : [];
       agentMessages.push({role:'assistant', content});
+      // La foto ya fue leída en este salto: las vueltas siguientes de la misma
+      // conversación no la vuelven a subir (el servidor tampoco la reenviaría).
+      agentStripImages();
       const texts = content.filter(b=>b.type==='text' && b.text && b.text.trim());
       texts.forEach(b=>agentPush('bot', b.text.trim()));
       const uses = content.filter(b=>b.type==='tool_use');
@@ -313,7 +330,13 @@ async function agentSend(text){
     // El último turno quedó sin respuesta: se saca para que la conversación siga válida.
     if(agentMessages.length && agentMessages[agentMessages.length-1].role==='user') agentMessages.pop();
   }
+  agentStripImages();
   agentBusy = false; agentPending = null; render(); agentScrollEnd();
+}
+// Las fotos ya leídas no vuelven a viajar en las vueltas siguientes (pesan y se
+// cobrarían de nuevo): quedan como una marca en el historial.
+function agentStripImages(){
+  agentMessages.forEach(m=>{ if(m.role==='user' && Array.isArray(m.content)) m.content = m.content.map(b=>b.type==='image' ? {type:'text', text:'[imagen enviada antes]'} : b); });
 }
 function agentScrollEnd(){ requestAnimationFrame(()=>{ const el = document.getElementById('agent-thread'); if(el) el.scrollTop = el.scrollHeight; }); }
 function agentReset(){ agentMessages = []; agentUi = []; agentPending = null; agentError = ''; }
@@ -369,7 +392,7 @@ function agentSuggestions(){
 function agentSheet(){
   const es = uiLang==='es';
   const bubbles = agentUi.map(m=>{
-    if(m.kind==='user') return `<div class="ag-msg ag-user">${escapeHtml(m.text)}</div>`;
+    if(m.kind==='user') return `<div class="ag-msg ag-user">${m.thumbs ? `<div class="ag-thumbs">${m.thumbs.map(t=>`<img src="data:${escapeHtml(t.mediaType)};base64,${t.base64}" alt="">`).join('')}</div>` : ''}${escapeHtml(m.text)}</div>`;
     if(m.kind==='bot') return `<div class="ag-msg ag-bot">${escapeHtml(m.text)}</div>`;
     if(m.kind==='note') return `<div class="ag-note">${escapeHtml(m.text)}</div>`;
     if(m.kind==='card'){
@@ -392,7 +415,9 @@ function agentSheet(){
       </div>` : bubbles}
       ${agentBusy && !agentPending ? `<div class="ag-msg ag-bot ag-typing"><i></i><i></i><i></i></div>` : ''}
     </div>
+    ${agentAttach.length ? `<div class="ag-attach">${agentAttach.map((a,i)=>`<span class="ag-attach-item"><img src="data:${escapeHtml(a.thumb.mediaType)};base64,${a.thumb.base64}" alt=""><button type="button" class="ag-attach-x" data-agent-attach-del="${i}" aria-label="${t('btn_delete')}">✕</button></span>`).join('')}<span class="ag-attach-hint">${t('agent_photo_hint')}</span></div>` : ''}
     <div class="ag-composer">
+      <button type="button" class="ag-mic" id="btn-agent-cam" title="${t('agent_cam_title')}" aria-label="${t('agent_cam_title')}" ${agentBusy||agentAttach.length>=3?'disabled':''}>${lineIcon('camera',20)}</button>
       ${agentSpeechSupported() ? `<button type="button" class="ag-mic ${agentListening?'on':''}" id="btn-agent-mic" title="${t('agent_mic')}" aria-label="${t('agent_mic')}">${agentListening ? '<span class="ag-mic-dot"></span>' : lineIcon('camera',0) ? '' : ''}<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/><path d="M8 21h8"/></svg></button>` : ''}
       <input id="agent-input" type="text" value="${escapeHtml(agentDraft)}" placeholder="${agentListening ? t('agent_listening') : t('agent_placeholder')}" autocomplete="off" ${agentBusy?'disabled':''}>
       <button type="button" class="ag-send" id="btn-agent-send" title="${t('agent_send')}" aria-label="${t('agent_send')}" ${agentBusy?'disabled':''}><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
@@ -413,6 +438,34 @@ function agentSheet(){
       <div class="full-sheet-body ag-body">${body}</div>
     </div>
   </div>`;
+}
+// Cámara del asistente: la MISMA introducción que las otras cámaras de Dusty
+// (título, línea explicativa, caja punteada que abre la cámara, link a galería).
+function agentCamModal(){
+  return `
+  <div class="overlay" id="agent-cam-overlay">
+    <div class="modal">
+      <h3 class="sky">${t('agent_cam_title')}</h3>
+      <div class="sub">${t('agent_cam_sub')}</div>
+      <div class="drop-zone" id="agent-cam-zone">
+        <div class="dz-icon">${lineIcon('camera',26)}</div>
+        <div style="font-weight:600;font-size:calc(13.5px * var(--fs, 1));">${t('scan_tap_photo')}</div>
+      </div>
+      <button type="button" id="btn-agent-cam-gallery" class="dz-gallery-link">${t('scan_upload_gallery_btn')}</button>
+      <div class="scan-tip">📷 ${t('agent_photo_hint')}</div>
+      <input type="file" id="agent-cam-file" accept="image/*" capture="environment" style="display:none;">
+      <input type="file" id="agent-cam-gallery" accept="image/*" multiple style="display:none;">
+      <div class="modal-actions"><button class="btn btn-ghost" id="btn-cancel-agent-cam" style="width:100%;">${t('btn_cancel')}</button></div>
+    </div>
+  </div>`;
+}
+async function agentAddPhoto(file){
+  if(agentAttach.length>=3) return;
+  try{
+    const img = await loadImageFromFile(file);
+    agentAttach.push({ file, base64: resizeToBase64(img, 1600, 0.85).base64, mediaType: 'image/jpeg', thumb: resizeToBase64(img, 220, 0.7) });
+  }catch(e){ showToast(t('err_img_process'), 'error'); }
+  showAgentCam = false; render();
 }
 // Botón del topbar (junto a Ajustes). Solo con el asistente prendido.
 function agentTopbarButtonHtml(){
@@ -454,6 +507,8 @@ function attachAgentEvents(){
     on('btn-agent-reset', ()=>{ agentReset(); render(); });
     on('btn-agent-voice', ()=>{ agentVoiceOut = !agentVoiceOut; try{ localStorage.setItem('patron_agent_voice', agentVoiceOut ? 'on' : 'off'); }catch(e){} if(!agentVoiceOut){ try{ window.speechSynthesis.cancel(); }catch(e){} } render(); });
     on('btn-agent-mic', agentListen);
+    on('btn-agent-cam', ()=>{ showAgentCam = true; render(); });
+    document.querySelectorAll('[data-agent-attach-del]').forEach(b=>{ b.onclick = ()=>{ agentAttach.splice(parseInt(b.dataset.agentAttachDel,10), 1); render(); }; });
     const inp = g('agent-input');
     if(inp){
       inp.oninput = ()=>{ agentDraft = inp.value; };
@@ -463,6 +518,18 @@ function attachAgentEvents(){
     document.querySelectorAll('[data-agent-say]').forEach(b=>{ b.onclick = ()=>{ const s = b.dataset.agentSay; if(/…/.test(s)){ const i = g('agent-input'); if(i){ i.value = s.replace('…','').replace(/\s+/g,' ').trim()+' '; agentDraft = i.value; } return; } agentSend(s); }; });
     on('btn-agent-confirm', ()=>{ const p = agentPending; if(!p) return; agentPending = null; p.resolve(true); });
     on('btn-agent-cancel', ()=>{ const p = agentPending; if(!p) return; agentPending = null; const card = agentUi.find(c=>c.toolId===p.id); if(card) card.done = null; p.resolve(false); });
+  }
+  const cam = g('agent-cam-overlay');
+  if(cam){
+    const closeCam = ()=>{ showAgentCam = false; render(); };
+    cam.onmousedown = (e)=>{ if(e.target===cam) closeCam(); };
+    on('btn-cancel-agent-cam', closeCam);
+    const fileInp = g('agent-cam-file'), galInp = g('agent-cam-gallery');
+    const chosen = (input)=>async(e)=>{ const files = Array.from(e.target.files||[]); input.value=''; for(const f of files) await agentAddPhoto(f); };
+    if(fileInp) fileInp.onchange = chosen(fileInp);
+    if(galInp) galInp.onchange = chosen(galInp);
+    on('agent-cam-zone', ()=>fileInp && fileInp.click());
+    on('btn-agent-cam-gallery', ()=>galInp && galInp.click());
   }
   const tg = g('agent-toggle');
   if(tg) tg.onchange = ()=>{ agentEnabled = !!tg.checked; try{ localStorage.setItem('patron_agent', agentEnabled ? 'on' : 'off'); }catch(e){} render(); };

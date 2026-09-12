@@ -2908,3 +2908,12 @@
   .ag-mic:active, .ag-send:active{transform:scale(.92);}
   .ag-mic.on{background:var(--tomato);border-color:var(--tomato);color:#fff;animation:obBreathe 1.4s ease-in-out infinite;}
   .sheet-close.ag-on{background:var(--navy-wash);border-color:var(--navy);}
+  /* Asistente: fotos de documentos */
+  .ag-attach{display:flex;align-items:center;gap:8px;padding:8px 12px 0;background:var(--panel);border-top:1px solid var(--line);flex-wrap:wrap;}
+  .ag-attach-item{position:relative;width:54px;height:54px;border-radius:10px;overflow:hidden;border:1px solid var(--line);flex-shrink:0;}
+  .ag-attach-item img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ag-attach-x{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:10px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .ag-attach-hint{font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);}
+  .ag-thumbs{display:flex;gap:6px;margin-bottom:6px;}
+  .ag-thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.35);}
+  .ag-composer{border-top:0;}

@@ -14,6 +14,7 @@
 const {
   admin, isAllowedOrigin, verifyCallerInfo, isUnlimitedAccount,
   currentBillingPeriod, callerCanUseAccount, checkIpRateLimit, getAccessState,
+  reserveScanQuota, refundScanUsage,
   subscriptionRequiredResponse, withCors
 } = require('./lib/patron-admin');
 
@@ -67,6 +68,8 @@ const TOOLS = [
         description: 'collect=por cobrar; budget=presupuesto del mes; agenda=próximos días; expenses=gastos por categoría en un rango; jobs=trabajos en un rango; inventory=stock (críticos y búsqueda); month=cierre del mes (ingresos, gastos, ganancia); assets=equipos y mantenimientos; services=lista de precios; categories=categorías' },
       from: { type: 'string', description: 'YYYY-MM-DD' }, to: { type: 'string' }, category: { type: 'string' }, text: { type: 'string', description: 'Filtro por nombre (cliente, producto, activo)' }, days: { type: 'integer', description: 'Para agenda: cuántos días (default 7)' }
     }, required: ['topic'] } },
+  { name: 'scan_receipt', description: 'La foto que acaba de mandar el usuario es un RECIBO O FACTURA DE COMPRA (líneas de productos con precios, ticket de supermercado, factura de proveedor, boleta de luz/agua/internet): mandala al escáner de recibos de Dusty, que la lee con más precisión y deja revisar línea por línea. No leas vos el recibo ni registres el gasto a mano.',
+    input_schema: { type: 'object', properties: {}, required: [] } },
   { name: 'open_screen', description: 'Abre una pantalla de Dusty para que el usuario la vea.',
     input_schema: { type: 'object', properties: { screen: { type: 'string', enum: ['collect', 'jobs', 'equipment', 'inventory', 'receipts', 'budget', 'recap', 'settings', 'services', 'scan'] } }, required: ['screen'] } },
   { name: 'print', description: 'Genera un PDF para compartir o imprimir: el informe del mes, la cuenta de cobro de un trabajo, o la ficha de un equipo.',
@@ -96,6 +99,7 @@ ${es ? 'REGLAS' : 'RULES'}
 6. ${es ? 'Respondé en el idioma del usuario, en 1 a 3 frases, con los montos formateados ($1,450.00). Sin markdown, sin listas largas, sin emojis salvo uno al inicio si ayuda.' : 'Answer in the user\'s language, 1 to 3 sentences, amounts formatted ($1,450.00). No markdown, no long lists, at most one emoji.'}
 7. ${es ? 'Las acciones que escriben las confirma el usuario en la app antes de ejecutarse; si el resultado dice "cancelled", no insistas.' : 'Write actions are confirmed by the user in the app before running; if a result says "cancelled", do not insist.'}
 9. ${es ? 'Sí podés dar consejos y análisis de SU negocio (precios, márgenes, qué cliente o equipo rinde más, dónde recortar) siempre que salgan de sus datos (consultá primero). Lo que no tenga que ver con el negocio ni con Dusty (temas generales, otras apps) no lo respondas: una frase y de vuelta a lo suyo.' : 'You MAY give advice and analysis about THEIR business (prices, margins, which client or asset performs best, where to cut) as long as it comes from their data (query first). Anything unrelated to the business or Dusty (general topics, other apps): one sentence and back to their business.'}
+10. ${es ? 'FOTOS: si el usuario manda una foto, primero decidí qué es. Recibo o factura de compra → scan_receipt (siempre, sin excepción). Cualquier otro documento (orden de trabajo, presupuesto de un cliente, factura de taller, lista a mano, captura de un pedido, contrato) → leelo, decí en una frase qué entendiste y proponé la acción que corresponda con las herramientas (un trabajo, un mantenimiento, una nota, un gasto). Si no se lee, decilo y pedí otra foto. Nunca inventes montos que no se vean.' : 'PHOTOS: when the user sends a photo, first decide what it is. A purchase receipt or invoice → scan_receipt (always). Any other document (work order, client quote, workshop invoice, handwritten list, order screenshot, contract) → read it, say in one sentence what you understood and propose the matching action with the tools (a job, a maintenance, a note, an expense). If unreadable, say so and ask for another photo. Never invent amounts you cannot see.'}
 8. ${es ? 'Fechas: el contexto trae la fecha de hoy. "ayer", "el lunes", "la semana pasada" se resuelven desde ahí.' : 'Dates: the context carries today\'s date. Resolve "yesterday", "Monday", "last week" from it.'}`;
 }
 
@@ -123,6 +127,8 @@ function needsBigModel(text) {
   return t.length > 160 || clauses >= 5;
 }
 
+function nImagesReserved(res) { return (res && Number.isFinite(res.count)) ? res.count : 1; }
+
 /* ---------- cupo del agente ---------- */
 async function reserveAgentTurn(ownerUid, caller) {
   if (await isUnlimitedAccount(ownerUid)) return { allowed: true, limit: null, used: null };
@@ -146,10 +152,15 @@ async function reserveAgentTurn(ownerUid, caller) {
 }
 
 /* ---------- limpieza del historial que manda el cliente ---------- */
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 function cleanMessages(raw) {
   if (!Array.isArray(raw)) return [];
   const out = [];
-  raw.slice(-MAX_MESSAGES).forEach(m => {
+  const src = raw.slice(-MAX_MESSAGES);
+  // Las fotos viajan solo en el ÚLTIMO mensaje del usuario: las anteriores se
+  // reemplazan por una marca, si no cada vuelta volvería a pagar todas las imágenes.
+  let lastUserIdx = -1; src.forEach((m, i) => { if (m && m.role === 'user') lastUserIdx = i; });
+  src.forEach((m, idx) => {
     if (!m || (m.role !== 'user' && m.role !== 'assistant')) return;
     let content = m.content;
     if (typeof content === 'string') content = [{ type: 'text', text: content }];
@@ -159,8 +170,16 @@ function cleanMessages(raw) {
       if (b.type === 'text') return typeof b.text === 'string' && b.text.trim() ? { type: 'text', text: b.text.slice(0, MAX_TEXT) } : null;
       if (b.type === 'tool_use') return (typeof b.id === 'string' && typeof b.name === 'string') ? { type: 'tool_use', id: b.id, name: b.name, input: (b.input && typeof b.input === 'object') ? b.input : {} } : null;
       if (b.type === 'tool_result') return typeof b.tool_use_id === 'string' ? { type: 'tool_result', tool_use_id: b.tool_use_id, content: String(b.content == null ? '' : b.content).slice(0, MAX_TEXT) } : null;
+      if (b.type === 'image') {
+        if (idx !== lastUserIdx) return { type: 'text', text: '[imagen enviada antes]' };
+        const src = b.source || {};
+        if (src.type !== 'base64' || typeof src.data !== 'string' || !src.data || src.data.length > 7000000) return null;
+        return { type: 'image', source: { type: 'base64', media_type: IMAGE_TYPES.indexOf(src.media_type) >= 0 ? src.media_type : 'image/jpeg', data: src.data } };
+      }
       return null;
     }).filter(Boolean);
+    // Máximo 3 fotos por mensaje.
+    let imgs = 0; for (let i = blocks.length - 1; i >= 0; i--) { if (blocks[i].type === 'image' && ++imgs > 3) blocks.splice(i, 1); }
     if (blocks.length) out.push({ role: m.role, content: blocks });
   });
   // La conversación tiene que empezar por el usuario y alternar; si el recorte
@@ -191,7 +210,7 @@ exports.handler = withCors(async (event) => {
   }
   if (!messages.length) return { statusCode: 400, body: JSON.stringify({ error: 'Sin mensaje', code: 'bad_request' }) };
 
-  let quota;
+  let quota, scanReservation = null;
   try {
     if (!(await callerCanUseAccount(callerUid, ownerUid))) return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta', code: 'no_access' }) };
     if ((await getAccessState(ownerUid, caller)).locked) return subscriptionRequiredResponse();
@@ -200,7 +219,15 @@ exports.handler = withCors(async (event) => {
     // las continuaciones con resultados de herramientas son parte del mismo pedido.
     const last = messages[messages.length - 1];
     const isToolTurn = last.role === 'user' && last.content.every(b => b.type === 'tool_result');
-    if (!isToolTurn) {
+    const nImages = (!isToolTurn && last.role === 'user') ? last.content.filter(b => b.type === 'image').length : 0;
+    if (nImages) {
+      // Una foto por el agente es un escaneo: mismo cupo que el lector de recibos,
+      // si no sería la forma de escanear gratis saltándose el límite.
+      scanReservation = await reserveScanQuota(ownerUid, caller, nImages);
+      if (scanReservation) scanReservation.count = nImages;
+      if (!scanReservation.allowed) return { statusCode: 429, body: JSON.stringify({ error: caller.isAnonymous ? 'Usaste los escaneos gratis de prueba. Guarda tu cuenta para seguir.' : 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
+      quota = Number.isFinite(scanReservation.limit) ? { limit: scanReservation.limit, used: scanReservation.used } : null;
+    } else if (!isToolTurn) {
       quota = await reserveAgentTurn(ownerUid, caller);
       if (!quota.allowed) return { statusCode: 429, body: JSON.stringify({ error: caller.isAnonymous ? 'Usaste los pedidos gratis de prueba. Guarda tu cuenta para seguir.' : 'Llegaste al límite de pedidos al asistente de este mes', quotaExceeded: true, quota }) };
     }
@@ -209,14 +236,16 @@ exports.handler = withCors(async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar tu cupo, intenta de nuevo', code: 'quota_check_failed' }) };
   }
 
-  const deep = needsBigModel(lastUserText(messages));
+  const hasImage = messages.some(m => m.role === 'user' && m.content.some(b => b.type === 'image'));
+  // Leer un documento sí necesita el modelo grande.
+  const deep = hasImage || needsBigModel(lastUserText(messages));
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: deep ? AGENT_MODEL_BIG : AGENT_MODEL,
-        max_tokens: deep ? 1000 : 700,
+        max_tokens: deep ? (hasImage ? 1400 : 1000) : 700,
         // El manual y las herramientas se cachean (no cambian entre pedidos); el
         // contexto del usuario va aparte porque sí cambia.
         system: [
@@ -230,11 +259,13 @@ exports.handler = withCors(async (event) => {
     const data = await response.json();
     if (data.error) {
       console.error('[Dusty] agente: error de la API:', data.error);
+      if (scanReservation && scanReservation.period) await refundScanUsage(ownerUid, nImagesReserved(scanReservation), scanReservation.period);
       return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del asistente', code: 'upstream_error' }) };
     }
     return { statusCode: 200, body: JSON.stringify({ content: data.content || [], stop_reason: data.stop_reason || null, quota: quota || null, model: deep ? 'deep' : 'fast' }) };
   } catch (err) {
     console.error('[Dusty] agente: fallo de red:', err);
+    if (scanReservation && scanReservation.period) await refundScanUsage(ownerUid, nImagesReserved(scanReservation), scanReservation.period).catch(()=>{});
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }
 });

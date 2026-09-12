@@ -239,6 +239,7 @@ function renderApp(){
     ${showServicesSheet ? servicesSheet() : ''}
     ${showExpenseCatsSheet ? expenseCatsSheet() : ''}
     ${showAgentSheet ? agentSheet() : ''}
+    ${showAgentCam ? agentCamModal() : ''}
     ${showAssetSheet ? assetSheet() : ''}
     ${showBudgetModal ? budgetModal() : ''}
     ${showFinishedItemModal ? finishedItemModal() : ''}
