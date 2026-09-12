@@ -2468,22 +2468,32 @@
   /* El logo INLINE, una sola D (la "usty," va pegada como parte de la misma palabra). */
   .ob-head .brand-mark{display:inline-flex;vertical-align:-9px;width:36px;height:36px;border-radius:9.5px;font-size:21px;line-height:1;margin-right:1px;letter-spacing:0;}
   .ob-head .w{display:inline-block;animation:obWordIn .9s var(--ease-soft) both;}
-  .ob-scan{display:flex;align-items:center;gap:16px;padding:12px 16px;border-radius:18px;background:var(--inset);margin-top:6px;}
-  .ob-scan .ob-cam{width:72px;height:72px;}
-  .ob-scan .scan-fab-ring{animation-delay:3.9s;} .ob-scan .scan-fab-ring.delay{animation-delay:4.5s;}
-  .ob-scan-text b{display:block;font-size:calc(17px * var(--fs, 1));font-weight:800;letter-spacing:-.01em;line-height:1.15;}
-  .ob-scan-text span{display:block;font-size:calc(13px * var(--fs, 1));color:var(--ink-mid);margin-top:3px;line-height:1.35;}
+  /* Dos gestos, uno debajo del otro (v2 2026-09-11): la cámara roja y la IA
+     azul, mismo tarjetón y misma medida — el usuario ve que hay DOS formas de
+     cargar. La IA lleva la sigla en letras (AI / IA), como la pastilla de arriba. */
+  .ob-gest{display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:18px;background:var(--inset);}
+  .ob-gest .ob-cam{width:64px;height:64px;}
+  .ob-gest .ob-cam svg{width:28px;height:28px;}
+  .ob-gest-ai{position:relative;flex-shrink:0;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(170deg,#71a3e9,#2f6fd1);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;letter-spacing:.02em;box-shadow:var(--shadow);}
+  .ob-gest-ai .scan-fab-ring{background:rgba(63,143,227,.28);}
+  .ob-gest-ai span{position:relative;z-index:2;}
+  .ob-gest-text{flex:1;min-width:0;}
+  .ob-gest-text b{display:block;font-size:calc(16px * var(--fs, 1));font-weight:800;letter-spacing:-.01em;line-height:1.15;}
+  .ob-gest-text span{display:block;font-size:calc(12.5px * var(--fs, 1));color:var(--ink-mid);margin-top:3px;line-height:1.35;}
   .ob-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .ob-grid .dash-tile{min-height:112px;padding:12px 14px;cursor:default;}
-  .ob-grid .dash-cal{margin-top:4px;}
+  .ob-grid .dash-tile{min-height:104px;padding:12px 14px;cursor:default;}
   .ob-grid .dash-tile{--tile-ico:calc(30px * var(--fs, 1));}
   .ob-grid .dash-tile-icon{font-size:var(--tile-ico);top:6px;}
   .ob-grid .dash-tile-title{font-size:calc(14.5px * var(--fs, 1));}
   .ob-cta{width:100%;border:none;border-radius:14px;padding:15px;font:inherit;font-size:calc(16px * var(--fs, 1));font-weight:800;color:#fff;background:var(--navy);cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.16);}
   .ob-cta:active{transform:scale(.98);}
   .ob-in{animation:obIn 1s var(--ease-soft) both;}
-  .ob-in.d3{animation-delay:3.2s} .ob-in.d4{animation-delay:3.9s} .ob-in.d5{animation-delay:4.4s}
-  .ob-in.d6{animation-delay:4.9s} .ob-in.d7{animation-delay:5.4s} .ob-in.d8{animation-delay:6s}
+  /* El titular termina de entrar a los ~2 s (7 palabras); lo demás lo sigue con aire. */
+  .ob-in.d3{animation-delay:2.4s} .ob-in.d4{animation-delay:3s} .ob-in.d5{animation-delay:3.6s} .ob-in.d6{animation-delay:3.9s}
+  .ob-in.d7{animation-delay:4.2s} .ob-in.d8{animation-delay:4.5s} .ob-in.d9{animation-delay:5.1s}
+  .ob-intro .ob-cam .scan-fab-ring{animation-delay:3.2s;} .ob-intro .ob-cam .scan-fab-ring.delay{animation-delay:3.8s;}
+  .ob-intro .ob-gest-ai .scan-fab-ring{animation-delay:3.9s;} .ob-intro .ob-gest-ai .scan-fab-ring.delay{animation-delay:4.5s;}
   @keyframes obIn{from{opacity:0;transform:translateY(12px) scale(.985);} to{opacity:1;transform:none;}}
   @keyframes obWordIn{from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:none;}}
   /* ---- 3. oferta + tema ---- */
@@ -2496,7 +2506,8 @@
   html[lang="es"] .ob-big{font-size:calc(30px * var(--fs, 1));text-wrap:auto;}
   .ob-big.ob-in{animation-name:obPopIn;animation-duration:1.1s;}
   @keyframes obPopIn{0%{opacity:0;transform:translateY(10px) scale(.86);} 60%{opacity:1;transform:translateY(0) scale(1.05);} 100%{opacity:1;transform:none;}}
-  .ob-hint{margin-top:30px;font-size:calc(13.5px * var(--fs, 1));color:var(--ink-mid);}
+  /* Más aire entre la oferta y la elección de tema (v2: antes iba pegado). */
+  .ob-hint{margin-top:34px;margin-bottom:6px;font-size:calc(13.5px * var(--fs, 1));color:var(--ink-mid);}
   .ob-pick{display:flex;gap:14px;margin-top:6px;}
   .ob-theme{width:150px;border:none;padding:0;background:none;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:9px;align-items:center;transition:transform .12s;}
   .ob-theme:active{transform:scale(.97);}
@@ -2530,7 +2541,7 @@
   /* Pantallas mas bajas que 700px (Android chicos con barra del sistema): se
      aprieta la intro para que Empezar siga a la vista sin scroll. */
   @media (max-height:700px){
-    .ob-head{font-size:calc(22px * var(--fs, 1));} .ob-grid .dash-tile{min-height:98px;} .ob-scan .ob-cam{width:60px;height:60px;}
+    .ob-head{font-size:calc(22px * var(--fs, 1));} .ob-grid .dash-tile{min-height:92px;} .ob-gest .ob-cam, .ob-gest-ai{width:56px;height:56px;}
     .ob-shot{height:170px;} .ob-hint{margin-top:18px;}
   }
   @media (prefers-reduced-motion: reduce){
@@ -2767,8 +2778,10 @@
      Solo composición: cada color sale de los tokens que ya existen (baldosas,
      pastillas de estado, dinero, tinta). Nada nuevo de paleta. */
   /* --- introducción: ¿Qué hace tu negocio? --- */
-  .ob-biz{justify-content:flex-start;gap:10px;}
-  .ob-biz-mark{display:flex;justify-content:center;margin-top:6px;}
+  /* Bloque centrado (v2 2026-09-11): antes quedaba media pantalla vacía abajo. */
+  .ob-biz{justify-content:center;gap:10px;}
+  .ob-biz-mark{display:flex;justify-content:center;margin-bottom:4px;}
+  .ob-biz-hint{text-align:center;font-size:calc(12.5px * var(--fs, 1));color:var(--ink-soft);margin:6px 0 2px;}
   .ob-biz-mark .brand-mark{width:52px;height:52px;border-radius:14px;font-size:30px;}
   .ob-biz .ob-head{font-size:calc(23px * var(--fs, 1));}
   .ob-biz-tile{flex-direction:row;align-items:center;gap:14px;min-height:0;padding:14px 16px;border-radius:20px;opacity:.55;transition:opacity .2s, transform .12s;}
@@ -2781,7 +2794,7 @@
   .ob-biz-tile.on .ob-biz-chk{background:#fff;color:var(--navy);}
   html[data-dusty-theme="abeja"] .ob-biz-tile.on .ob-biz-chk{background:rgba(0,0,0,.75);color:#fff;}
   .ob-biz .ob-in.b1{animation-delay:.1s} .ob-biz .ob-in.b2{animation-delay:.35s} .ob-biz .ob-in.b3{animation-delay:.5s}
-  .ob-biz .ob-in.b4{animation-delay:.65s} .ob-biz .ob-in.b5{animation-delay:.9s}
+  .ob-biz .ob-in.b4{animation-delay:.65s} .ob-biz .ob-in.b5{animation-delay:.85s} .ob-biz .ob-in.b6{animation-delay:1s}
   /* --- filas (activos, cobros, trabajos, servicios) sobre .matched-item --- */
   .svc-page-title{margin:4px 0 12px;font-size:calc(19px * var(--fs, 1));font-weight:800;letter-spacing:-.01em;color:var(--ink);}
   .svc-sheet-title{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:calc(18px * var(--fs, 1));font-weight:800;color:var(--navy);}

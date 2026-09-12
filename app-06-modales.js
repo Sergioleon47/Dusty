@@ -397,27 +397,11 @@ function startOnboarding(){
         <button type="button" data-ob-lang="es" lang="es" aria-label="Español">ES</button>
       </div>
     </div>
-    <div class="ob-intro" id="ob-intro" hidden>
-      <div class="ob-spacer"></div>
-      <h1 class="ob-head" id="ob-head"></h1>
-      <div class="ob-scan ob-in d3">
-        <div class="shelf-scan-fab ob-cam" role="img" aria-hidden="true">
-          <div class="scan-fab-ring"></div><div class="scan-fab-ring delay"></div>
-          ${OB_CAMERA_SVG}
-        </div>
-        <div class="ob-scan-text"><b data-ob="ob_scan_title"></b><span data-ob="ob_scan_sub"></span></div>
-      </div>
-      <div class="ob-grid">
-        <div class="dash-tile t1 ob-in d4"><span class="dash-tile-icon" aria-hidden="true">👥</span><span class="dash-tile-title" data-ob="ob_team"></span><span class="dash-tile-sub" data-ob="ob_team_sub"></span></div>
-        <div class="dash-tile t4 ob-in d5"><span class="dash-tile-title" data-ob="ob_cal"></span><span class="dash-tile-sub" data-ob="ob_cal_sub"></span><div class="dash-cal" id="ob-cal"></div></div>
-        <div class="dash-tile t3 ob-in d6"><span class="dash-tile-icon" aria-hidden="true">🛒</span><span class="dash-tile-title" data-ob="ob_order"></span><span class="dash-tile-sub" data-ob="ob_order_sub"></span></div>
-        <div class="dash-tile t6 ob-in d7"><span class="dash-tile-icon" aria-hidden="true">📈</span><span class="dash-tile-title" data-ob="ob_activity"></span><span class="dash-tile-sub" data-ob="ob_activity_sub"></span></div>
-      </div>
-      <div class="ob-spacer"></div>
-      <button type="button" class="ob-cta ob-in d8" id="ob-cta" data-ob="ob_cta"></button>
-    </div>
-    ${/* 2b. ¿QUÉ HACE TU NEGOCIO? (modo Servicios, 2026-09-11): vende / fabrica /
-         presta servicios, combinables. Decide las pestañas y el Dashboard. */''}
+    ${/* 2. ¿QUÉ HACE TU NEGOCIO? (v2 2026-09-11, aprobada sobre prototipo): va
+         ANTES de la bienvenida, que se arma con lo que se marque acá. Vende /
+         fabrica / presta servicios, combinables. Bloque centrado, con la línea
+         "Dusty se arma según esto" y el botón pegado (antes quedaba media
+         pantalla vacía abajo). */''}
     <div class="ob-intro ob-biz" id="ob-biz" hidden>
       <div class="ob-biz-mark ob-in b1"><span class="brand-mark">D</span></div>
       <h1 class="ob-head ob-in b1" data-ob="ob_biz_title"></h1>
@@ -425,8 +409,29 @@ function startOnboarding(){
       <button type="button" class="dash-tile t1 ob-biz-tile ob-in b2 on" data-ob-biz="sells"><span class="ob-biz-emoji" aria-hidden="true">🛒</span><span class="ob-biz-text"><b data-ob="ob_biz_sells"></b><small data-ob="ob_biz_sells_sub"></small></span><span class="ob-biz-chk" aria-hidden="true">✓</span></button>
       <button type="button" class="dash-tile t2 ob-biz-tile ob-in b3" data-ob-biz="makes"><span class="ob-biz-emoji" aria-hidden="true">🍳</span><span class="ob-biz-text"><b data-ob="ob_biz_makes"></b><small data-ob="ob_biz_makes_sub"></small></span><span class="ob-biz-chk" aria-hidden="true">✓</span></button>
       <button type="button" class="dash-tile t4 ob-biz-tile ob-in b4" data-ob-biz="services"><span class="ob-biz-emoji" aria-hidden="true">🚚</span><span class="ob-biz-text"><b data-ob="ob_biz_services"></b><small data-ob="ob_biz_services_sub"></small></span><span class="ob-biz-chk" aria-hidden="true">✓</span></button>
+      <div class="ob-biz-hint ob-in b5" data-ob="ob_biz_hint"></div>
+      <button type="button" class="ob-cta ob-in b6" id="ob-biz-cta" data-ob="ob_biz_continue"></button>
+    </div>
+    ${/* 3. BIENVENIDA ADAPTADA: titular corto, dos gestos del mismo tamaño (la
+         cámara roja y la IA azul; en un negocio solo de servicios la IA va
+         primero) y cuatro baldosas del perfil (ver buildIntro). */''}
+    <div class="ob-intro" id="ob-intro" hidden>
       <div class="ob-spacer"></div>
-      <button type="button" class="ob-cta ob-in b5" id="ob-biz-cta" data-ob="ob_biz_continue"></button>
+      <h1 class="ob-head" id="ob-head"></h1>
+      <div class="ob-gest ob-in d3" id="ob-gest-cam">
+        <div class="shelf-scan-fab ob-cam" role="img" aria-hidden="true">
+          <div class="scan-fab-ring"></div><div class="scan-fab-ring delay"></div>
+          ${OB_CAMERA_SVG}
+        </div>
+        <div class="ob-gest-text"><b data-ob="ob_cam_title"></b><span id="ob-cam-sub"></span></div>
+      </div>
+      <div class="ob-gest ob-in d4" id="ob-gest-ai">
+        <div class="ob-gest-ai" role="img" aria-hidden="true"><div class="scan-fab-ring"></div><div class="scan-fab-ring delay"></div><span id="ob-ai-badge">AI</span></div>
+        <div class="ob-gest-text"><b data-ob="ob_ai_title"></b><span id="ob-ai-sub"></span></div>
+      </div>
+      <div class="ob-grid" id="ob-grid"></div>
+      <div class="ob-spacer"></div>
+      <button type="button" class="ob-cta ob-in d9" id="ob-cta" data-ob="ob_cta"></button>
     </div>
     <div class="ob-offer" id="ob-offer" hidden>
       <div class="ob-kicker ob-in o1" data-ob="ob_offer_kicker"></div>
@@ -462,27 +467,42 @@ function startOnboarding(){
     });
     head.innerHTML = out.join('');
   }
-  // Calendario de muestra en la baldosa: el mes actual, con algunos días marcados
-  // como "hubo compra" para que se lea como el de verdad.
-  function buildCal(){
-    const now = new Date(), y = now.getFullYear(), m = now.getMonth();
-    const first = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate();
-    const has = new Set([2, 5, 9, 12, 16, 19, 23, 26]);
-    let cells = '';
-    for(let k=0;k<first;k++) cells += '<i class="mc-day out"></i>';
-    for(let d=1; d<=days; d++){
-      const c = ['mc-day']; if(has.has(d)) c.push('has'); if(d===now.getDate()) c.push('today');
-      cells += '<i class="'+c.join(' ')+'"></i>';
-    }
-    let n = first + days; while(n++ < 42) cells += '<i class="mc-day out"></i>';
-    const week = WEEKDAY_NAMES[uiLang] || WEEKDAY_NAMES.en;
-    root.querySelector('#ob-cal').innerHTML = '<div class="mc-week">'+week.map(d=>'<span>'+d+'</span>').join('')+'</div><div class="mc-grid">'+cells+'</div>';
-  }
   function fillCopy(){
     root.querySelectorAll('[data-ob]').forEach(el=>{ el.textContent = t(el.dataset.ob); });
+    root.querySelector('#ob-ai-badge').textContent = uiLang==='es' ? 'IA' : 'AI';
+  }
+  const pick = (k)=> !!root.querySelector('[data-ob-biz="'+k+'"].on');
+  // Baldosas de la bienvenida: una por perfil marcado, después la segunda de
+  // cada uno, y las de siempre (Equipo, Cierre de mes) rellenan hasta cuatro.
+  // Solo servicios: Trabajos, Por cobrar, Equipo, Cierre. Los tres: Críticos,
+  // Producción, Trabajos, Equipo. Solo vende: Críticos, Pedido, Equipo, Cierre.
+  const OB_TILES = { crit:['🛡️','t1'], order:['🛒','t3'], prod:['🍳','t2'], raw:['📦','t5'], jobs:['🚚','t4'], collect:['💵','t3'], team:['👥','t1'], recap:['📊','t6'] };
+  function pickTiles(){
+    const per = [];
+    if(pick('sells')) per.push(['crit','order']);
+    if(pick('makes')) per.push(['prod','raw']);
+    if(pick('services')) per.push(['jobs','collect']);
+    const out = [];
+    per.forEach(x=>out.push(x[0]));
+    if(per.length>=3) out.push('team'); // con los tres marcados, el 4.º es Equipo (vale para todos)
+    per.forEach(x=>out.push(x[1]));
+    out.push('team','recap');
+    return [...new Set(out)].slice(0,4);
+  }
+  // Arma la bienvenida con lo marcado en "¿Qué hace tu negocio?".
+  function buildIntro(){
     head.innerHTML = t('ob_head').replace('{logo}', '<span class="brand-mark">D</span>usty');
-    buildCal();
     wrapWords();
+    const stock = pick('sells') || pick('makes');
+    root.querySelector('#ob-cam-sub').textContent = stock ? t('ob_cam_sub_stock') : t('ob_cam_sub_job');
+    const ej = (pick('services') && !stock) ? t('ob_ai_ex_services') : (pick('sells') ? t('ob_ai_ex_sells') : (pick('makes') ? t('ob_ai_ex_makes') : t('ob_ai_ex_services')));
+    root.querySelector('#ob-ai-sub').textContent = t('ob_ai_sub').replace('{ej}', ej);
+    // En un negocio solo de servicios la IA va primero: es su gesto estrella.
+    const cam = root.querySelector('#ob-gest-cam'), ai = root.querySelector('#ob-gest-ai');
+    if(stock) cam.parentNode.insertBefore(cam, ai); else ai.parentNode.insertBefore(ai, cam);
+    cam.className = 'ob-gest ob-in ' + (stock ? 'd3' : 'd4');
+    ai.className = 'ob-gest ob-in ' + (stock ? 'd4' : 'd3');
+    root.querySelector('#ob-grid').innerHTML = pickTiles().map((k, i)=>`<div class="dash-tile ${OB_TILES[k][1]} ob-in d${5+i}"><span class="dash-tile-icon" aria-hidden="true">${OB_TILES[k][0]}</span><span class="dash-tile-title">${t('ob_t_'+k)}</span><span class="dash-tile-sub">${t('ob_t_'+k+'_sub')}</span></div>`).join('');
   }
   // 1 → 2: elegir idioma. setLang guarda y redibuja la app de abajo en ese idioma.
   root.querySelectorAll('[data-ob-lang]').forEach(b=>{
@@ -491,15 +511,10 @@ function startOnboarding(){
       setLang(b.dataset.obLang);
       fillCopy();
       splash.classList.add('out');
-      intro.hidden = false;
+      biz.hidden = false;
     };
   });
-  // 2 → 2b: Empezar lleva a "¿Qué hace tu negocio?".
-  root.querySelector('#ob-cta').onclick = ()=>{
-    intro.classList.add('out');
-    setTimeout(()=>{ intro.hidden = true; biz.hidden = false; }, 450);
-  };
-  // 2b: las tres opciones se combinan; al menos una queda marcada.
+  // 2: las tres opciones se combinan; al menos una queda marcada.
   root.querySelectorAll('[data-ob-biz]').forEach(b=>{
     b.onclick = ()=>{
       const on = root.querySelectorAll('[data-ob-biz].on');
@@ -507,10 +522,10 @@ function startOnboarding(){
       b.classList.toggle('on');
     };
   });
-  // 2b → 3: se guarda el perfil (viaja con la cuenta) y "Fabrica" prende la
-  // pestaña Producción como lo hace el interruptor de Ajustes.
+  // 2 → 3: se guarda el perfil (viaja con la cuenta), "Fabrica" prende la
+  // pestaña Producción como lo hace el interruptor de Ajustes, y la bienvenida
+  // se arma con lo marcado.
   root.querySelector('#ob-biz-cta').onclick = ()=>{
-    const pick = (k)=> !!root.querySelector('[data-ob-biz="'+k+'"].on');
     bizProfile.sells = pick('sells') || !pick('services');
     bizProfile.services = pick('services');
     if(bizProfile.services && !bizProfile.catsSeeded){ ensureServiceCategories(); bizProfile.catsSeeded = true; }
@@ -518,10 +533,16 @@ function startOnboarding(){
     saveState();
     refreshTabOrder();
     render();
+    buildIntro();
     biz.classList.add('out');
-    setTimeout(()=>{ biz.hidden = true; offer.hidden = false; }, 450);
+    setTimeout(()=>{ biz.hidden = true; intro.hidden = false; }, 450);
   };
-  // 3 → Dashboard: el tema se aplica en el acto (el tablero de abajo ya cambia
+  // 3 → 4: Empezar lleva a "Primer mes".
+  root.querySelector('#ob-cta').onclick = ()=>{
+    intro.classList.add('out');
+    setTimeout(()=>{ intro.hidden = true; offer.hidden = false; }, 450);
+  };
+  // 4 → Dashboard: el tema se aplica en el acto (el tablero de abajo ya cambia
   // de color detrás del velo) y la introducción se funde encima de él.
   root.querySelectorAll('[data-ob-theme]').forEach(card=>{
     card.onclick = ()=>{
