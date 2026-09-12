@@ -34,7 +34,9 @@ let agentAttach = [];      // fotos listas para mandar: {file, base64, mediaType
 let agentLastFiles = [];   // las de la última vuelta, por si el agente las deriva al escáner
 let showAgentCam = false;
 
-const AGENT_WRITE_TOOLS = ['add_expense','add_job','mark_paid','add_category','log_maintenance','add_asset','add_service','add_item','add_note','set_budget'];
+const AGENT_WRITE_TOOLS = ['add_expense','add_job','mark_paid','add_category','log_maintenance','add_asset','add_service','add_item','add_note','set_budget',
+  // Corregir / ajustar / borrar (2026-09-11): mismas confirmaciones que el resto.
+  'adjust_stock','update_item','delete_item','update_expense','delete_expense','update_job','delete_job','update_asset','add_maintenance_plan','update_service','delete_service','rename_category','delete_category','delete_note'];
 const AGENT_MAX_HOPS = 6;
 
 function agentAvailable(){ return agentEnabled; }
@@ -103,16 +105,61 @@ function agentDescribe(name, inp){
     case 'add_item': return `${es?'Producto nuevo':'New item'}: ${inp.name}${agentNum(inp.qty)!==null ? ' · '+inp.qty+' '+(inp.unit||'unidad') : ''}${agentNum(inp.cost_per_unit) ? ' · '+money(agentNum(inp.cost_per_unit)) : ''}`;
     case 'add_note': return `${es?'Nota':'Note'}: "${inp.text}"${inp.date ? ' · '+inp.date : ''}`;
     case 'set_budget': return `${es?'Presupuesto mensual':'Monthly budget'}: ${money(agentNum(inp.amount)||0)}`;
+    case 'adjust_stock': { const it = agentPickItem(inp.item); const nm = it ? it.name : (inp.item||'?'); const q = agentNum(inp.qty)||0; const u = it ? unitLabel(it.unit) : '';
+      if(inp.mode==='add') return `${es?'Entra stock':'Stock in'}: +${q} ${u} ${nm}`;
+      if(inp.mode==='set') return `${es?'Stock contado':'Counted stock'}: ${nm} = ${q} ${u}`;
+      const r = inp.reason==='loss' ? (es?'Merma':'Loss') : inp.reason==='internal' ? (es?'Consumo propio':'Internal use') : (es?'Venta':'Sale');
+      const pr = agentNum(inp.price)!==null ? agentNum(inp.price) : (it ? (Number(it.salePrice)||0) : 0);
+      return `${r}: ${q} ${u} ${nm}${inp.reason==='sale'||!inp.reason ? ' · '+money(q*pr) : ''}`; }
+    case 'update_item': { const it = agentPickItem(inp.item); const ch = []; if(inp.name) ch.push((es?'nombre → ':'name → ')+inp.name); if(agentNum(inp.cost_per_unit)!==null) ch.push((es?'costo ':'cost ')+money(agentNum(inp.cost_per_unit))); if(agentNum(inp.sale_price)!==null) ch.push((es?'precio ':'price ')+money(agentNum(inp.sale_price))); if(inp.unit) ch.push((es?'unidad ':'unit ')+inp.unit); if(inp.category) ch.push((es?'categoría ':'category ')+inp.category); if(agentNum(inp.full_stock)!==null) ch.push((es?'lleno = ':'full = ')+agentNum(inp.full_stock));
+      return `${es?'Editar producto':'Edit item'}: ${it ? it.name : inp.item} · ${ch.join(' · ')||'—'}`; }
+    case 'delete_item': { const it = agentPickItem(inp.item); return `${es?'ELIMINAR producto':'DELETE item'}: ${it ? it.name+' ('+(it.qtyOnHand||0)+' '+unitLabel(it.unit)+')' : inp.item}`; }
+    case 'update_expense': { const r = agentPickReceipt(inp); const ch = []; if(agentNum(inp.new_amount)!==null) ch.push(money(agentNum(inp.new_amount))); if(inp.new_description) ch.push(inp.new_description); if(inp.new_category) ch.push(inp.new_category); if(inp.new_date) ch.push(inp.new_date);
+      return `${es?'Corregir gasto':'Fix expense'}: ${r ? r.supplier+' · '+money(r.total||0)+' · '+r.date : (es?'(no encontrado)':'(not found)')} → ${ch.join(' · ')||'—'}`; }
+    case 'delete_expense': { const r = agentPickReceipt(inp); return `${es?'BORRAR gasto':'DELETE expense'}: ${r ? r.supplier+' · '+money(r.total||0)+' · '+r.date : (es?'(no encontrado)':'(not found)')}`; }
+    case 'update_job': { const j = agentPickJob(Object.assign({}, inp, {any:true})); const ch = []; if(agentNum(inp.new_price)!==null) ch.push(money(agentNum(inp.new_price))); if(inp.new_date) ch.push(inp.new_date); if(inp.new_client) ch.push(inp.new_client); if(inp.new_service) ch.push(inp.new_service); if(inp.new_asset) ch.push(inp.new_asset); if(inp.paid===false) ch.push(es?'vuelve a pendiente':'back to pending'); if(inp.paid===true) ch.push(es?'cobrado':'paid'); if(inp.due_days) ch.push((es?'vence en ':'due in ')+inp.due_days+(es?' días':' days'));
+      return `${es?'Corregir trabajo':'Fix job'}: ${j ? j.client+' · '+money(j.price||0)+' · '+svcShortDate(j.date) : (es?'(no encontrado)':'(not found)')} → ${ch.join(' · ')||'—'}`; }
+    case 'delete_job': { const j = agentPickJob(Object.assign({}, inp, {any:true})); return `${es?'ELIMINAR trabajo':'DELETE job'}: ${j ? j.client+' · '+money(j.price||0)+' · '+svcShortDate(j.date) : (es?'(no encontrado)':'(not found)')}`; }
+    case 'update_asset': { const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); const ch = []; if(agentNum(inp.km)!==null) ch.push(svcFmtNum(agentNum(inp.km))+' '+distU()); if(inp.name) ch.push(inp.name); if(inp.model) ch.push(inp.model);
+      return `${es?'Actualizar equipo':'Update asset'}: ${a ? a.name : inp.asset} → ${ch.join(' · ')||'—'}`; }
+    case 'add_maintenance_plan': { const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); const ev = [agentNum(inp.every_km)>0 ? (es?'cada ':'every ')+svcFmtNum(agentNum(inp.every_km))+' '+distU() : '', agentNum(inp.every_months)>0 ? (es?'cada ':'every ')+agentNum(inp.every_months)+(es?' meses':' months') : ''].filter(Boolean).join(' / ');
+      return `${es?'Programar mantenimiento':'Schedule maintenance'}: ${inp.name} · ${a ? a.name : inp.asset} · ${ev||'—'}`; }
+    case 'update_service': { const s = agentFind(bizProfile.catalog||[], inp.service, x=>x.name); const ch = []; if(agentNum(inp.price)!==null) ch.push(money(agentNum(inp.price))); if(inp.unit) ch.push(inp.unit); if(inp.name) ch.push(inp.name);
+      return `${es?'Editar servicio':'Edit service'}: ${s ? s.name : inp.service} → ${ch.join(' · ')||'—'}`; }
+    case 'delete_service': { const s = agentFind(bizProfile.catalog||[], inp.service, x=>x.name); return `${es?'Quitar servicio':'Remove service'}: ${s ? s.name : inp.service}`; }
+    case 'rename_category': return `${es?'Renombrar categoría':'Rename category'}: ${inp.name} → ${inp.new_name}`;
+    case 'delete_category': return `${es?'ELIMINAR categoría':'DELETE category'}: ${inp.name} (${inp.kind==='inventory' ? (es?'productos':'products') : (es?'gasto':'expense')})`;
+    case 'delete_note': { const n = agentPickNote(inp); return `${es?'Borrar recordatorio':'Delete reminder'}: ${n ? '"'+n.text+'" · '+n.date : (es?'(no encontrado)':'(not found)')}`; }
   }
   return name;
 }
+/* ---------- localizar el registro que el usuario quiere tocar ---------- */
+function agentPickItem(name){ return agentFind(inventory.filter(i=>i && !isExpenseItem(i)), name, i=>i.name); }
+function agentPickReceipt(inp){
+  if(inp.receipt_id){ const r = receipts.find(x=>x && x.id===inp.receipt_id); if(r) return r; }
+  let list = receipts.filter(r=>r).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  if(inp.description){ const q = agentNorm(inp.description); const byD = list.filter(r=>agentNorm(r.supplier).includes(q) || q.includes(agentNorm(r.supplier)) || agentNorm(receiptCatName(r)||'').includes(q)); if(byD.length) list = byD; }
+  if(agentNum(inp.amount)!==null){ const byA = list.filter(r=>Math.abs((r.total||0)-agentNum(inp.amount))<0.01); if(byA.length) list = byA; }
+  if(inp.date){ const byDt = list.filter(r=>r.date===inp.date); if(byDt.length) list = byDt; }
+  // Sin ninguna pista no se adivina: el agente tiene que consultar primero.
+  if(!inp.description && agentNum(inp.amount)===null && !inp.date) return null;
+  return list[0] || null;
+}
+function agentPickNote(inp){
+  if(inp.note_id){ const n = calNotes.find(x=>x && x.id===inp.note_id); if(n) return n; }
+  let list = calNotes.filter(n=>n && !/^svc-/.test(n.id||''));
+  if(inp.date){ const byD = list.filter(n=>n.date===inp.date); if(byD.length) list = byD; }
+  return agentFind(list, inp.text, n=>n.text);
+}
 function agentPickJob(inp){
   if(inp.job_id){ const j = jobById(inp.job_id); if(j) return j; }
-  let list = svcJobs().filter(j=>!j.paid);
+  // any: también los cobrados (para corregir o borrar); sin any, solo pendientes (cobrar).
+  let list = inp.any ? svcJobs().slice() : svcJobs().filter(j=>!j.paid);
   if(inp.client){ const c = agentNorm(inp.client); const byC = list.filter(j=>agentNorm(j.client).includes(c) || c.includes(agentNorm(j.client))); if(byC.length) list = byC; }
   if(agentNum(inp.amount)!==null){ const byA = list.filter(j=>Math.abs((j.price||0)-agentNum(inp.amount))<0.01); if(byA.length) list = byA; }
   if(inp.date){ const byD = list.filter(j=>j.date===inp.date); if(byD.length) list = byD; }
-  list.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  // Pendientes: el más viejo primero (es el que se cobra). Con any: el más reciente.
+  list.sort((a,b)=> inp.any ? String(b.date).localeCompare(String(a.date)) : String(a.date).localeCompare(String(b.date)));
   return list[0] || null;
 }
 
@@ -206,6 +253,171 @@ function agentExec(name, inp){
       const amt = agentNum(inp.amount); if(!(amt>0)) return fail('amount must be > 0');
       setMonthlyBudget(amt); saveState(); render(); return ok({budget: amt});
     }
+    /* ---- corregir / ajustar / borrar (2026-09-11) ---- */
+    case 'adjust_stock': {
+      const it = agentPickItem(inp.item); if(!it) return fail('item not found');
+      const q = agentNum(inp.qty); if(!(q>=0)) return fail('qty must be >= 0');
+      const cur = Number(it.qtyOnHand)||0;
+      const touch = ()=>{ if(currentUser){ it.lastEditedBy = currentUserLabel(); it.lastEditedAt = new Date().toISOString(); } };
+      if(inp.mode==='add'){
+        it.qtyOnHand = roundQty(cur + q);
+        if(!(it.stockFullRef>0) || it.qtyOnHand > it.stockFullRef) it.stockFullRef = it.qtyOnHand;
+        touch(); saveState(); logActivity('item_edited', it.name); render();
+        return ok({item: it.name, qty: it.qtyOnHand});
+      }
+      if(inp.mode==='set'){
+        it.qtyOnHand = roundQty(q); touch(); saveState(); logActivity('item_edited', it.name); render();
+        return ok({item: it.name, qty: it.qtyOnHand, was: cur});
+      }
+      // remove: una SALIDA como las del escáner de reducción — venta (ingreso),
+      // merma (pérdida) o consumo propio — con costo y precio de hoy congelados.
+      const out = Math.min(cur, roundQty(q)); if(!(out>0)) return fail('nothing in stock');
+      const reason = (inp.reason==='loss' || inp.reason==='internal') ? inp.reason : 'sale';
+      const price = reason!=='sale' ? 0 : (agentNum(inp.price)!==null && agentNum(inp.price)>=0 ? roundQty(agentNum(inp.price)) : (Number(it.salePrice)||0));
+      it.qtyOnHand = roundQty(cur - out); touch();
+      recordOutflow({ id: uid('o'), type:'adjust', recipeId:null, recipeName:'', count:null, reason,
+        items:[{ingId: it.id, ingName: it.name, qty: out, unit: it.unit, reason, costAt: Number(it.costPerUnit)||0, priceAt: price}],
+        date: localDateStr(), createdAt: new Date().toISOString(), by: currentUser ? currentUser.uid : null, byLabel: currentUser ? currentUserLabel() : '', byAgent: true });
+      saveState(); logActivity('stock_adjust', '', '1'); render();
+      return ok({item: it.name, removed: out, left: it.qtyOnHand, reason, revenue: reason==='sale' ? roundQty(out*price) : 0, short: out<q ? q-out : 0});
+    }
+    case 'update_item': {
+      const it = agentPickItem(inp.item); if(!it) return fail('item not found');
+      const ch = {};
+      if(inp.name){ it.name = String(inp.name).trim().slice(0,60); ch.name = it.name; }
+      if(agentNum(inp.cost_per_unit)!==null && agentNum(inp.cost_per_unit)>=0){ it.costPerUnit = roundQty(agentNum(inp.cost_per_unit)); ch.cost = it.costPerUnit; }
+      if(agentNum(inp.sale_price)!==null && agentNum(inp.sale_price)>=0){ it.salePrice = roundQty(agentNum(inp.sale_price)); ch.sale_price = it.salePrice; }
+      if(inp.unit && ['unidad','caja','lb','kg','oz','g','ml','l'].indexOf(inp.unit)>=0){ it.unit = inp.unit; ch.unit = it.unit; }
+      if(inp.category){ let c = agentFind(categories||[], inp.category, x=>x.name); if(!c){ c = {id: uid('cat'), name: String(inp.category).trim().slice(0,40)}; (categories||(categories=[])).push(c); } it.categoryId = c.id; ch.category = c.name; }
+      if(agentNum(inp.full_stock)!==null && agentNum(inp.full_stock)>0){ it.stockFullRef = roundQty(agentNum(inp.full_stock)); ch.full_stock = it.stockFullRef; }
+      if(!Object.keys(ch).length) return fail('nothing to change');
+      if(currentUser){ it.lastEditedBy = currentUserLabel(); it.lastEditedAt = new Date().toISOString(); }
+      saveState(); logActivity('item_edited', it.name); render();
+      return ok({item: it.name, changed: ch});
+    }
+    case 'delete_item': {
+      const it = agentPickItem(inp.item); if(!it) return fail('item not found');
+      const nm = it.name; removeInventoryItem(it.id); render();
+      return ok({deleted: nm});
+    }
+    case 'update_expense': {
+      const r = agentPickReceipt(inp); if(!r) return fail('expense not found — query receipts first');
+      const ch = {};
+      if(agentNum(inp.new_amount)!==null){
+        if(!r.manual) return fail('scanned receipt: amount must be fixed from the receipt screen (open_screen receipts)');
+        if(!(agentNum(inp.new_amount)>0)) return fail('amount must be > 0');
+        r.total = Math.round(agentNum(inp.new_amount)*100)/100; ch.amount = r.total;
+      }
+      if(inp.new_description){ r.supplier = String(inp.new_description).trim().slice(0,60); ch.description = r.supplier; }
+      if(inp.new_category){ let cat = agentFind(expenseCategories, inp.new_category, c=>c.name); if(!cat){ cat = {id: uid('xcat'), name: String(inp.new_category).trim().slice(0,40)}; expenseCategories.push(cat); } r.expenseCategoryId = cat.id; ch.category = cat.name; }
+      if(inp.new_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.new_date)){ r.date = inp.new_date; ch.date = r.date; }
+      if(!Object.keys(ch).length) return fail('nothing to change');
+      r.editedAt = new Date().toISOString(); saveState(); render();
+      return ok({receipt_id: r.id, changed: ch});
+    }
+    case 'delete_expense': {
+      const r = agentPickReceipt(inp); if(!r) return fail('expense not found — query receipts first');
+      if(!r.manual && ((r.purchaseIds||[]).length || (r.appliedItems||[]).length || (r.itemCount||0)>0)) return fail('scanned receipt with products: delete it from the receipt screen (open_screen receipts)');
+      receipts = receipts.filter(x=>x.id!==r.id);
+      if(!deletedReceiptIds.includes(r.id)) deletedReceiptIds.push(r.id);
+      saveState(); render();
+      return ok({deleted: r.supplier, amount: r.total, date: r.date});
+    }
+    case 'update_job': {
+      if(!usesServices()) return fail('services mode is off');
+      const j = agentPickJob(Object.assign({}, inp, {any:true})); if(!j) return fail('job not found — query jobs first');
+      // Se resuelve TODO antes de tocar el trabajo: si el equipo no existe, no
+      // queda un cambio a medias sin guardar.
+      const newAsset = inp.new_asset ? agentFind(bizProfile.assets||[], inp.new_asset, x=>x.name) : null;
+      if(inp.new_asset && !newAsset) return fail('asset not found');
+      const ch = {};
+      if(agentNum(inp.new_price)!==null && agentNum(inp.new_price)>=0){ j.price = Math.round(agentNum(inp.new_price)*100)/100; ch.price = j.price; }
+      if(inp.new_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.new_date)){ j.date = inp.new_date; ch.date = j.date; }
+      if(inp.new_client){ j.client = String(inp.new_client).trim().slice(0,60); ch.client = j.client; }
+      if(inp.new_service){ const svc = agentFind(bizProfile.catalog||[], inp.new_service, x=>x.name); j.serviceName = (svc ? svc.name : String(inp.new_service).trim()).slice(0,60); j.serviceId = svc ? svc.id : null; ch.service = j.serviceName; }
+      if(newAsset){ j.assetId = newAsset.id; ch.asset = newAsset.name; }
+      if(inp.paid===true && !j.paid){ j.paid = true; j.paidDate = localDateStr(); j.dueDate = null; ch.paid = true; }
+      if(inp.paid===false && j.paid){ j.paid = false; j.paidDate = null; j.dueDate = addDaysStr(j.date, j.dueDays||15); ch.paid = false; }
+      if(inp.due_days){ j.dueDays = Math.max(1, parseInt(inp.due_days,10)||15); if(!j.paid){ j.dueDate = addDaysStr(j.date, j.dueDays); ch.due_date = j.dueDate; } }
+      if(!Object.keys(ch).length) return fail('nothing to change');
+      saveState(); logActivity('job_saved', j.client, j.serviceName); render();
+      return ok({job_id: j.id, changed: ch});
+    }
+    case 'delete_job': {
+      const j = agentPickJob(Object.assign({}, inp, {any:true})); if(!j) return fail('job not found — query jobs first');
+      j.deleted = true; j.deletedAt = new Date().toISOString(); saveState(); logActivity('job_deleted', j.client); render();
+      return ok({deleted: j.client, amount: j.price, date: j.date});
+    }
+    case 'update_asset': {
+      const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); if(!a) return fail('asset not found');
+      const ch = {};
+      if(agentNum(inp.km)!==null && agentNum(inp.km)>=0){ a.km = agentNum(inp.km); ch.km = a.km; }
+      if(inp.name){ a.name = String(inp.name).trim().slice(0,60); ch.name = a.name; }
+      if(inp.model){ a.model = String(inp.model).trim().slice(0,60); ch.model = a.model; }
+      if(!Object.keys(ch).length) return fail('nothing to change');
+      saveState(); logActivity('asset_saved', a.name); render();
+      return ok({asset: a.name, changed: ch});
+    }
+    case 'add_maintenance_plan': {
+      const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); if(!a) return fail('asset not found');
+      const nm = String(inp.name||'').trim().slice(0,60); if(!nm) return fail('name required');
+      const everyKm = agentNum(inp.every_km)>0 ? Math.round(agentNum(inp.every_km)) : 0, everyMonths = agentNum(inp.every_months)>0 ? Math.round(agentNum(inp.every_months)) : 0;
+      if(!everyKm && !everyMonths) return fail('every_km or every_months required');
+      let m = agentFind(a.maint||[], nm, x=>x.name);
+      if(!m){ m = {id: uid('mt')}; a.maint = a.maint||[]; a.maint.push(m); }
+      Object.assign(m, {name: nm, emoji: m.emoji||'🔧', everyKm, everyMonths, lastDate: agentDate(inp.last_date), lastKm: agentNum(inp.last_km)!==null ? agentNum(inp.last_km) : (a.km||0)});
+      saveState(); logActivity('asset_saved', a.name); render();
+      return ok({asset: a.name, plan: m.name, every_km: everyKm||null, every_months: everyMonths||null});
+    }
+    case 'update_service': {
+      const s = agentFind(bizProfile.catalog||[], inp.service, x=>x.name); if(!s) return fail('service not found');
+      const ch = {};
+      if(agentNum(inp.price)!==null && agentNum(inp.price)>=0){ s.price = roundQty(agentNum(inp.price)); ch.price = s.price; }
+      if(inp.unit && ['fixed','km','day','hour'].indexOf(inp.unit)>=0){ s.unit = inp.unit; ch.unit = s.unit; }
+      if(inp.name){ s.name = String(inp.name).trim().slice(0,60); ch.name = s.name; }
+      if(!Object.keys(ch).length) return fail('nothing to change');
+      saveState(); render(); return ok({service: s.name, changed: ch});
+    }
+    case 'delete_service': {
+      const s = agentFind(bizProfile.catalog||[], inp.service, x=>x.name); if(!s) return fail('service not found');
+      bizProfile.catalog = (bizProfile.catalog||[]).filter(x=>x.id!==s.id); saveState(); render();
+      return ok({deleted: s.name});
+    }
+    case 'rename_category': {
+      const list = inp.kind==='inventory' ? (categories||[]) : expenseCategories;
+      const c = agentFind(list, inp.name, x=>x.name); if(!c) return fail('category not found');
+      const nm = String(inp.new_name||'').trim().slice(0,40); if(!nm) return fail('new_name required');
+      const was = c.name; c.name = nm; saveState(); render();
+      return ok({was, name: nm});
+    }
+    case 'delete_category': {
+      if(inp.kind==='inventory'){
+        const c = agentFind(categories||[], inp.name, x=>x.name); if(!c) return fail('category not found');
+        categories = categories.filter(x=>x.id!==c.id); inventory.forEach(i=>{ if(i && i.categoryId===c.id) i.categoryId = null; });
+        saveState(); render(); return ok({deleted: c.name});
+      }
+      const c = agentFind(expenseCategories, inp.name, x=>x.name); if(!c) return fail('category not found');
+      const used = receipts.filter(r=>r && r.expenseCategoryId===c.id).length;
+      expenseCategories = expenseCategories.filter(x=>x.id!==c.id);
+      if(budgetMeta && budgetMeta.byCategory) delete budgetMeta.byCategory[c.id];
+      saveState(); render(); return ok({deleted: c.name, receipts_left_uncategorized: used});
+    }
+    case 'delete_note': {
+      const n = agentPickNote(inp); if(!n) return fail('note not found — query notes first');
+      calNotes = calNotes.filter(x=>x.id!==n.id);
+      if(typeof deletedCalNoteIds!=='undefined' && !deletedCalNoteIds.includes(n.id)) deletedCalNoteIds.push(n.id);
+      saveState(); logActivity('note_deleted', n.text); render();
+      return ok({deleted: n.text, date: n.date});
+    }
+    case 'set_preference': {
+      const ch = {};
+      if(inp.theme==='dark' || inp.theme==='light'){ setDustyTheme(inp.theme==='dark' ? 'night' : 'appstore'); ch.theme = inp.theme; }
+      const fs = parseInt(inp.font_scale,10);
+      if(fs>=90 && fs<=140){ dustyFontScale = fs; applyFontScale(); try{ localStorage.setItem('patron_font_scale', String(fs)); }catch(e){} ch.font_scale = fs; }
+      if(inp.language==='es' || inp.language==='en'){ setLang(inp.language); ch.language = inp.language; }
+      if(!Object.keys(ch).length) return fail('nothing to change');
+      render(); return ok({changed: ch});
+    }
     case 'scan_receipt': {
       // Recibo de compra: al escáner de siempre, con la misma foto ya cargada.
       const files = agentLastFiles.slice(); if(!files.length) return fail('no photo');
@@ -215,7 +427,7 @@ function agentExec(name, inp){
       return ok({opened:'scanner', pages: files.length});
     }
     case 'query': return agentQuery(inp);
-    case 'open_screen': return agentOpen(inp.screen);
+    case 'open_screen': return agentOpen(inp.screen, inp.text);
     case 'print': {
       if(inp.what==='month_report'){ downloadMonthReport(/^\d{4}-\d{2}$/.test(inp.month||'') ? inp.month : localMonthStr()); return ok(); }
       if(inp.what==='job_invoice'){ const j = agentPickJob({client: inp.client}) || svcJobs().filter(j=>agentNorm(j.client).includes(agentNorm(inp.client||''))).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]; if(!j) return fail('job not found'); downloadJobPdf(j); return ok({client: j.client}); }
@@ -246,12 +458,24 @@ function agentQuery(inp){
     case 'assets': { const t0 = today; return JSON.stringify({assets: (bizProfile.assets||[]).map(a=>{ const st = assetMonthStats(a, localMonthStr()); return {name:a.name, model:a.model, km:a.km, month_revenue:st.revenue, month_expense:st.expense, maintenance:(a.maint||[]).map(m=>{ const s = maintStatus(m, a, t0, bizProfile.maintDays); return {name:m.name, status:s.status, when: svcMaintWhen(s)}; })}; })}); }
     case 'services': return JSON.stringify({services: (bizProfile.catalog||[]).map(c=>({name:c.name, price:c.price, unit:c.unit, description:c.desc}))});
     case 'categories': return JSON.stringify({expense: expenseCategories.map(c=>c.name), inventory: (categories||[]).map(c=>c.name)});
+    // Con id: para que el agente pueda corregir o borrar el registro exacto.
+    case 'receipts': { const rows = receipts.filter(r=>r && inRange(r.date) && (!q || agentNorm(r.supplier+' '+(receiptCatName(r)||'')).includes(q))).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+      return JSON.stringify({from, to, count: rows.length, receipts: rows.slice(0,30).map(r=>({receipt_id:r.id, date:r.date, description:r.supplier, amount:r.total, category: receiptCatName(r)||null, kind: r.manual ? (r.manualKind||'expense') : 'scanned', editable_amount: !!r.manual, items: r.itemCount||0, job: r.jobId ? ((jobById(r.jobId)||{}).client||null) : null, asset: r.assetId ? ((assetById(r.assetId)||{}).name||null) : null}))}); }
+    case 'notes': { const days = Math.min(120, Math.max(1, parseInt(inp.days,10)||60)); const lim = addDaysStr(today, days);
+      const list = calNotes.filter(n=>n && !/^svc-/.test(n.id||'') && (!q || agentNorm(n.text).includes(q)) && (n.recurring || (n.date>=addDaysStr(today,-30) && n.date<=lim))).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+      return JSON.stringify({count: list.length, notes: list.slice(0,40).map(n=>({note_id:n.id, date:n.date, text:n.text, recurring: !!n.recurring}))}); }
+    case 'activity': { const log = (typeof activityLog!=='undefined' && Array.isArray(activityLog)) ? activityLog : []; const rows = log.slice(0,25).map(a=>({when: a.at||a.createdAt||a.ts||null, who: a.byLabel||a.by||a.user||null, type: a.type||null, what: a.itemName||a.item||'', detail: a.detail||''}));
+      return JSON.stringify({count: log.length, recent: rows}); }
   }
   return JSON.stringify({ok:false, error:'unknown topic'});
 }
-function agentOpen(screen){
+function agentOpen(screen, text){
   const closeAgent = ()=>{ showAgentSheet = false; };
   switch(screen){
+    // Fichas concretas: el producto, el trabajo o el equipo que nombró el usuario.
+    case 'item': { const it = agentPickItem(text); if(!it) return JSON.stringify({ok:false, error:'item not found'}); closeAgent(); render(); openItemModal(it); return JSON.stringify({ok:true, item: it.name}); }
+    case 'job': { const j = agentPickJob({client: text, any:true}); if(!j) return JSON.stringify({ok:false, error:'job not found'}); closeAgent(); render(); openJobModal(j.id); return JSON.stringify({ok:true, client: j.client}); }
+    case 'asset': { const a = agentFind(bizProfile.assets||[], text, x=>x.name); if(!a) return JSON.stringify({ok:false, error:'asset not found'}); closeAgent(); render(); openAssetModal(a.id); return JSON.stringify({ok:true, asset: a.name}); }
     case 'collect': closeAgent(); showCollectSheet = true; break;
     case 'jobs': closeAgent(); showJobsSheet = true; break;
     case 'equipment': closeAgent(); if(TAB_ORDER[1]==='equipo') activeTab = 'equipo'; else showEquipoSheet = true; break;

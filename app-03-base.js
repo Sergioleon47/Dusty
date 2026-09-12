@@ -712,7 +712,7 @@ const I18N = {
     switch_on:'Prendido', switch_off:'Apagado',
     /* ===== Asistente (app-16) ===== */
     agent_cam_title:'Leer un documento', agent_cam_sub:'Una orden de trabajo, la factura del taller, una lista a mano, la captura de un pedido. Los recibos de compra los manda solo al escáner de recibos.', agent_attach_default:'¿Qué dice este documento? Proponeme qué hacer.', agent_photo_hint:'Cada foto cuenta como un escaneo.',
-    agent_title:'Asistente', agent_badge:'IA', agent_hello_title:'Decime qué hacer', agent_hello_sub:'Gastos, trabajos, cobros, categorías, preguntas sobre tus números. Escribí o hablá.',
+    agent_title:'Asistente', agent_badge:'ia', agent_hello_title:'Decime qué hacer', agent_hello_sub:'Gastos, trabajos, cobros, categorías, preguntas sobre tus números. Escribí o hablá.',
     agent_placeholder:'Escribí o tocá el micrófono…', agent_listening:'Escuchando…', agent_send:'Enviar', agent_mic:'Hablar',
     agent_confirm:'Confirmar', agent_cancelled:'Cancelado', agent_new_chat:'Conversación nueva', agent_voice_out:'Leer las respuestas en voz alta',
     agent_voice_out_sub:'Usa la voz del teléfono; no cuesta nada.', agent_set_on:'Asistente', agent_set_on_sub:'El botón ✨ del Dashboard: pedidos por texto o voz.',
@@ -1450,7 +1450,7 @@ const I18N = {
     switch_on:'On', switch_off:'Off',
     /* ===== Assistant (app-16) ===== */
     agent_cam_title:'Read a document', agent_cam_sub:'A work order, the workshop invoice, a handwritten list, an order screenshot. Purchase receipts go straight to the receipt scanner.', agent_attach_default:'What does this document say? Suggest what to do.', agent_photo_hint:'Each photo counts as one scan.',
-    agent_title:'Assistant', agent_badge:'AI', agent_hello_title:'Tell me what to do', agent_hello_sub:'Expenses, jobs, payments, categories, questions about your numbers. Type or talk.',
+    agent_title:'Assistant', agent_badge:'ai', agent_hello_title:'Tell me what to do', agent_hello_sub:'Expenses, jobs, payments, categories, questions about your numbers. Type or talk.',
     agent_placeholder:'Type or tap the mic…', agent_listening:'Listening…', agent_send:'Send', agent_mic:'Talk',
     agent_confirm:'Confirm', agent_cancelled:'Cancelled', agent_new_chat:'New conversation', agent_voice_out:'Read answers out loud',
     agent_voice_out_sub:'Uses the phone\'s voice; free.', agent_set_on:'Assistant', agent_set_on_sub:'The ✨ button on the Dashboard: requests by text or voice.',

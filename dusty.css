@@ -2890,7 +2890,7 @@
 
   /* ================= ASISTENTE (app-16) ================= */
   /* "AI" / "IA" en letras, con la tinta de acento para distinguirlo de EN/ES. */
-  .ag-topbtn{font-size:13px;font-weight:800;letter-spacing:.04em;color:var(--navy);}
+  .ag-topbtn{font-size:15px;font-weight:800;letter-spacing:.02em;color:var(--navy);text-transform:lowercase;}
   .ag-sheet .full-sheet-body{display:flex;flex-direction:column;padding:0;}
   .ag-body{display:flex;flex-direction:column;min-height:0;}
   .ag-thread{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 8px;display:flex;flex-direction:column;gap:8px;}
