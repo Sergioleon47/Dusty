@@ -1803,7 +1803,10 @@ function effectiveBudgetForMonth(key){
   let carry = 0;
   if(budgetMeta.rollover){
     const prev = shiftMonthStr(key, -1);
-    carry = carryFromPrevious(budgetForMonth(prev), spendSplitForMonth(prev).expense, base);
+    // Solo arrastra de un mes que existió de verdad: con presupuesto propio o con
+    // recibos. Si no, el primer presupuesto se duplicaba (el mes anterior "sobraba" entero).
+    const prevKnown = budgetMeta.byMonth[prev]!==undefined || receipts.some(r=>r && monthKey(r.date)===prev);
+    carry = prevKnown ? carryFromPrevious(budgetForMonth(prev), spendSplitForMonth(prev).expense, base) : 0;
   }
   return { budget: base+carry, base, carry };
 }

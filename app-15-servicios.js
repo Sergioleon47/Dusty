@@ -165,8 +165,12 @@ function svcClientNames(){
 /* ---------- activos ---------- */
 function assetReceipts(assetId, key){
   const jobIds = new Set(svcJobs().filter(j=>j.assetId===assetId).map(j=>j.id));
-  return receipts.filter(r=>r && (r.assetId===assetId || (r.jobId && jobIds.has(r.jobId))) && (!key || monthKey(r.date)===key));
+  // Con jobId manda el trabajo (si el trabajo cambió de equipo, el recibo lo sigue);
+  // sin jobId, el assetId propio. Antes un recibo podía contar en dos activos.
+  return receipts.filter(r=>r && (r.jobId ? jobIds.has(r.jobId) : r.assetId===assetId) && (!key || monthKey(r.date)===key));
 }
+// Parte de GASTO de un recibo (sin la mercadería comprada), igual que el Cierre de mes.
+function receiptExpenseAmount(r){ try{ return receiptSplit(r, finCache()).expense; }catch(e){ return Number(r.total)||0; } }
 // revenue = FACTURADO con el activo en el mes (trabajos por fecha, cobrados o no);
 // paid = lo que de esos trabajos ya se cobró. Antes la ficha llamaba "Cobrado" al
 // facturado y contradecía a Por cobrar (auditoría 2026-09-12).
@@ -174,7 +178,7 @@ function assetMonthStats(asset, key){
   const jobs = jobsForMonth(key).filter(j=>j.assetId===asset.id);
   const revenue = jobs.reduce((s,j)=>s+(Number(j.price)||0),0);
   const paid = jobs.filter(j=>j.paid).reduce((s,j)=>s+(Number(j.price)||0),0);
-  const expense = assetReceipts(asset.id, key).reduce((s,r)=>s+(Number(r.total)||0),0);
+  const expense = assetReceipts(asset.id, key).reduce((s,r)=>s+receiptExpenseAmount(r),0);
   return {revenue, paid, jobs: jobs.length, expense, net: revenue-expense};
 }
 // Acumulado desde siempre (la ficha lo muestra como "Desde la compra").
@@ -1205,7 +1209,7 @@ function svcRecapRows(key, crow){
   }
   const perAsset = assets.map(a=>{
     const rev = jobs.filter(j=>j.assetId===a.id).reduce((s,j)=>s+(Number(j.price)||0),0);
-    const exp = assetReceipts(a.id).filter(r=>inPeriod(r.date)).reduce((s,r)=>s+(Number(r.total)||0),0);
+    const exp = assetReceipts(a.id).filter(r=>inPeriod(r.date)).reduce((s,r)=>s+receiptExpenseAmount(r),0);
     return {a, net: rev-exp, any: rev>0 || exp>0};
   }).filter(x=>x.any);
   if(perAsset.length){
@@ -1852,7 +1856,7 @@ function svcReportSection(pdf, key){
   }
   const per = (bizProfile.assets||[]).map(a=>{
     const rev = jobs.filter(j=>j.assetId===a.id).reduce((s,j)=>s+(Number(j.price)||0),0);
-    const exp = assetReceipts(a.id).filter(r=>inPeriod(r.date)).reduce((s,r)=>s+(Number(r.total)||0),0);
+    const exp = assetReceipts(a.id).filter(r=>inPeriod(r.date)).reduce((s,r)=>s+receiptExpenseAmount(r),0);
     return {a, rev, exp};
   }).filter(x=>x.rev>0 || x.exp>0);
   if(per.length){

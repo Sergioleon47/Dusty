@@ -229,7 +229,7 @@ function attachInventoryEvents(){
   // Salida del callejón de "sin resultados" (auditoría 2026-09-09).
   const btnClearFilters=document.getElementById('btn-inv-clear-filters');
   if(btnClearFilters) btnClearFilters.onclick=()=>{
-    invSearch=''; invQuickFilter=null; inventoryCategoryFilter=null;
+    invSearch=''; invQuickFilter=null;
     render();
     const inp=document.getElementById('inv-search'); if(inp) inp.value='';
   };
@@ -580,6 +580,9 @@ function attachInventoryEvents(){
         // guarda como null, nunca como un cero que el escáner tomaría por real.
         capacityFull:(()=>{ const el=document.getElementById('fi-capacity'); if(!el) return draftItem.capacityFull||null; const v=parseFloat(el.value); return Number.isFinite(v) && v>0 ? v : null; })()
       };
+      // Producto TERMINADO (Producción): la ficha lo reconstruye sin sus marcas y
+      // dejaba de ser terminado (auditoría 2026-09-12): se conservan.
+      if(draftItem.finishedGood){ item.finishedGood = true; item.recipeId = draftItem.recipeId||null; }
       // stockFullRef no tiene campo en el formulario, así que hay que arrastrarlo a
       // mano (este objeto se reconstruye desde cero y lo perdería). Subir el stock
       // a mano cuenta como entrada → ese nivel es el nuevo "lleno"; bajarlo es

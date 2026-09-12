@@ -149,7 +149,10 @@ function maintStatus(plan, asset, today, soonDays){
   }
   if(plan.everyMonths>0 && plan.lastDate){
     const d = new Date(plan.lastDate+'T00:00:00');
-    d.setMonth(d.getMonth()+plan.everyMonths);
+    // Día fijo del mes: hecho el 31 y "cada 1 mes" vence el último día del mes
+    // siguiente, no el 2 o 3 del subsiguiente (setMonth desborda).
+    const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+plan.everyMonths);
+    d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()));
     dueDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     daysLeft = daysBetweenStr(today, dueDate);
   }
@@ -413,7 +416,12 @@ function recipeCostTotal(components, inventory){
 function productionPlan(components, count, inventory){
   const n = Number(count);
   if(!Number.isFinite(n) || n<=0) return [];
-  return (components||[]).map(c=>{
+  // Mismo insumo en dos renglones (auditoría 2026-09-12): se suman ANTES de
+  // planificar. Si no, el stock se descontaba una vez (la segunda asignación
+  // pisaba a la primera) pero el costo se cobraba dos veces.
+  const merged = [];
+  (components||[]).forEach(c=>{ const prev = merged.find(m=>m.ingId===c.ingId); if(prev) prev.qty = (Number(prev.qty)||0) + (Number(c.qty)||0); else merged.push(Object.assign({}, c)); });
+  return merged.map(c=>{
     const ing = inventory.find(i=>i.id===c.ingId);
     const qty = Number(c.qty)||0;
     const deduct = roundQty(qty*n);

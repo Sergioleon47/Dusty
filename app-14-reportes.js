@@ -45,7 +45,7 @@ function DustyPdf(){
       else if(c > 255){ const base = ch.normalize('NFD')[0]; c = base.codePointAt(0) <= 255 ? base.codePointAt(0) : 63; }
       if(c === 40 || c === 41 || c === 92) out += '\\' + ch;
       else if(c < 32 || c > 126) out += '\\' + ('000' + c.toString(8)).slice(-3);
-      else out += ch;
+      else out += String.fromCharCode(c);
     }
     return out;
   }
@@ -446,10 +446,12 @@ function buildRangeReport(){
     (r.appliedItems || []).forEach(it=>{
       const ing = it.ingId ? cache.byId.get(it.ingId) : null;
       const isExp = it.unit === 'servicio' || it.expenseOnly === true || (ing && isExpenseItem(ing));
-      if(isExp){ const c = ing && ing.expenseCategoryId ? expenseCategories.find(x=> x.id === ing.expenseCategoryId) : null; const k = c ? c.name : t('categories_uncategorized'); byCat.set(k, (byCat.get(k) || 0) + (Number(it.totalPrice) || 0)); }
+      if(isExp){ const c = ing && ing.expenseCategoryId ? expenseCategories.find(x=> x.id === ing.expenseCategoryId) : null; const k = c ? c.name : t('categories_uncategorized'); byCat.set(k, (byCat.get(k) || 0) + (Number(it.totalPrice) || 0) * (s.factor || 1)); }
       const key = it.ingId || ('raw:' + (it.rawName || '')); const prev = byIng.get(key) || {name: (ing && ing.name) || it.rawName || '—', qty: 0, unit: it.unit || '', total: 0};
       prev.qty += Number(it.qty) || 0; prev.total += Number(it.totalPrice) || 0; byIng.set(key, prev);
     });
+    // Gasto que ninguna línea explica (impuestos, recibo sin líneas): a Sin categoría, como la barra del presupuesto.
+    if(!r.manual && s.unassignedExpense > 0){ const k = t('categories_uncategorized'); byCat.set(k, (byCat.get(k) || 0) + s.unassignedExpense); }
     if(r.manual && r.manualKind !== 'investment'){ const c = r.expenseCategoryId ? expenseCategories.find(x=> x.id === r.expenseCategoryId) : null; const k = c ? c.name : t('categories_uncategorized'); byCat.set(k, (byCat.get(k) || 0) + (r.total || 0)); }
   });
   pdf.line(t('rb_summary'), {size: 12.5, bold: true, lh: 24});

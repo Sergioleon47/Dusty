@@ -255,7 +255,7 @@ function cleanMessages(raw) {
   });
   // La conversación tiene que empezar por el usuario y alternar; si el recorte
   // dejó un assistant primero, se descarta.
-  while (out.length && out[0].role !== 'user') out.shift();
+  while (out.length && !(out[0].role === 'user' && out[0].content.some(b => b.type === 'text' || b.type === 'image'))) out.shift();
   return out;
 }
 
@@ -286,7 +286,8 @@ exports.handler = withCors(async (event) => {
   try {
     if (!(await callerCanUseAccount(callerUid, ownerUid))) return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta', code: 'no_access' }) };
     if ((await getAccessState(ownerUid, caller)).locked) return subscriptionRequiredResponse();
-    if (!(await checkIpRateLimit(event))) return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados pedidos seguidos — espera un rato', code: 'rate_limited' }) };
+    const toolTurnEarly = messages[messages.length - 1].role === 'user' && messages[messages.length - 1].content.every(b => b.type === 'tool_result');
+    if (!toolTurnEarly && !(await checkIpRateLimit(event))) return { statusCode: 429, body: JSON.stringify({ error: 'Demasiados pedidos seguidos — espera un rato', code: 'rate_limited' }) };
     // Solo la vuelta que arranca con un pedido NUEVO del usuario descuenta cupo:
     // las continuaciones con resultados de herramientas son parte del mismo pedido.
     const last = messages[messages.length - 1];
@@ -319,7 +320,10 @@ exports.handler = withCors(async (event) => {
       signal: upstreamSignal(startedAt),
       body: JSON.stringify({
         model: deep ? AGENT_MODEL_BIG : AGENT_MODEL,
-        max_tokens: deep ? (hasImage ? 1400 : 1000) : 700,
+        max_tokens: deep ? (hasImage ? 3000 : 2500) : 700,
+        // Sonnet 5 razona por defecto y eso consume del mismo max_tokens: se deja en
+        // esfuerzo bajo con margen suficiente. Haiku no acepta el parámetro.
+        ...(deep ? { thinking: { type: 'adaptive' }, output_config: { effort: 'low' } } : {}),
         // El manual y las herramientas se cachean (no cambian entre pedidos); el
         // contexto del usuario va aparte porque sí cambia.
         system: [

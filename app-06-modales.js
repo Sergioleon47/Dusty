@@ -1562,7 +1562,7 @@ function monthRecapModal(){
       return colHtml({ fin:finOf(k), base:withData.has(baseKey)?finOf(baseKey):null,
         headLabel:recapKeyLabel(k), vsLabel:recapKeyLabel(baseKey),
         isCur:k===nowKey, isFocus:k===focusKey, idx:idx+(ytdCol?1:0),
-        showBudget:!demo && recapMode==='month' && !!effectiveBudgetForMonth(k), budgetAmt: (effectiveBudgetForMonth(k)||{}).budget, pickKey:k });
+        showBudget:!demo && recapMode==='month' && !!effectiveBudgetForMonth(k), budgetAmt: recapMode==='month' ? (effectiveBudgetForMonth(k)||{}).budget : 0, pickKey:k });
     }).join('');
     // Tabla comparativa A | B | Δ cuando hay dos períodos elegidos: el estado
     // comparativo clásico — Δ en monto (lo que le habla al dueño) con el % debajo,
@@ -1670,7 +1670,7 @@ function monthRecapModal(){
     <div class="oc-sheet-head">
       <span class="oc-title" style="flex:1;">${t('recap_title')}</span>
       ${/* "Reports": el informe del período enfocado en PDF (app-14). */''}
-      ${showMonthRecap && monthRecapKey && !recapDemo && canSeeFinancials() ? reportButtonHtml(monthRecapKey) : ''}
+      ${showMonthRecap && monthRecapKey && !recapDemo && canSeeFinancials() ? reportButtonHtml(recapMode==='year' ? String(monthRecapKey).slice(0,4) : monthRecapKey) : ''}
       <button type="button" class="oc-close" id="btn-close-month-recap" aria-label="${t('btn_close')}">✕</button>
     </div>
     ${body}
@@ -4039,7 +4039,7 @@ function applyScanResults(){
     // Preferimos el total impreso de la factura (lo que de verdad se pagó, incluye
     // impuestos/cargos que no vienen como línea de producto) sobre la suma de los
     // productos confirmados, que puede quedar corta si algo no se leyó o se sacó de la lista.
-    const receiptTotal = scanInvoiceTotal!==null ? scanInvoiceTotal : itemsSum;
+    const receiptTotal = (scanInvoiceTotal!==null && scanInvoiceTotal>0) ? scanInvoiceTotal : itemsSum;
     const newReceipt = {
       // En modo lote cada recibo guarda solo la foto de la que salió (scanCurrentImages);
       // en modo normal, todas las páginas como siempre.

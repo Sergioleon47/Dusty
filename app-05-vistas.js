@@ -1888,7 +1888,7 @@ function closeMonthlySpendModal(){ showMonthlySpendModal = false; render(); }
    la mercadería va aparte, en la línea chica de abajo, porque comprar stock no
    es gastar — es convertir plata en inventario. */
 function monthlySpendCard(m, currentMonthKey){
-  const s = spendSplitForMonth(m), b = budgetForMonth(m) || 0;
+  const s = spendSplitForMonth(m), b = (effectiveBudgetForMonth(m)||{}).budget || 0;
   const pct = b ? Math.round(s.expense/b*100) : 0;
   const over = Math.max(s.expense - b, 0), left = Math.max(b - s.expense, 0);
   const isCurrent = m === currentMonthKey;
@@ -1940,7 +1940,7 @@ const MS_GHOST_MONTHS = [
 // frase de la tarjeta no se puede armar. Con presupuesto puesto se usa el real.
 const MS_GHOST_BUDGET = 450;
 function monthlySpendGhostCard(m, g){
-  const bud = budgetForMonth(m) || MS_GHOST_BUDGET;
+  const bud = (effectiveBudgetForMonth(m)||{}).budget || MS_GHOST_BUDGET;
   const exp = Math.round(bud * g.fill / 100);
   const over = Math.max(exp - bud, 0), left = Math.max(bud - exp, 0);
   const line = over > 0

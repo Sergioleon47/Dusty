@@ -84,7 +84,7 @@ function agentFind(list, name, getName){
   hit = items.find(i=>i.n.includes(q) || q.includes(i.n)); if(hit) return hit.x;
   const toks = q.split(/\s+/).filter(Boolean);
   hit = items.find(i=>toks.every(tk=>i.n.includes(tk))); if(hit) return hit.x;
-  if(typeof levenshtein==='function'){
+  if(typeof levenshtein==='function' && q.length>=5){
     let best = null, bd = 99;
     items.forEach(i=>{ const d = levenshtein(i.n, q); if(d<bd){ bd = d; best = i.x; } });
     if(best && bd <= Math.max(2, Math.floor(q.length/4))) return best;
@@ -510,7 +510,7 @@ function agentQuery(inp){
     case 'budget': { const p = budgetPace(localMonthStr()); return JSON.stringify(p ? {budget:p.budget, spent:p.expense, left:p.left, pct:Math.round(p.pct), status:p.status, projected:p.projected} : {budget:null, spent: spendSplitForMonth(localMonthStr()).expense}); }
     case 'agenda': { const days = Math.min(31, Math.max(1, parseInt(inp.days,10)||7)); const out = []; for(let i=0;i<days;i++){ const d = addDaysStr(today,i); calNotesOnDate(calNotes, d).forEach(n=>out.push({date:d, kind:n.svcKind||'note', text:n.text})); } return JSON.stringify({from: today, days, items: out.slice(0,40)}); }
     case 'expenses': { const cache = finCache(); const rows = receipts.filter(r=>r && inRange(r.date)); const byCat = {}; let total = 0;
-      rows.forEach(r=>{ const s = receiptSplit(r, cache); const k = receiptCatName(r) || (s.invested>0 && !(s.expense>0) ? t('manual_kind_investment') : t('categories_uncategorized')); byCat[k] = (byCat[k]||0) + (r.total||0); total += r.total||0; });
+      rows.forEach(r=>{ const s = receiptSplit(r, cache); if(s.expense>0){ const k = receiptCatName(r) || t('categories_uncategorized'); byCat[k] = (byCat[k]||0) + s.expense; } if(s.invested>0){ const ki = t('manual_kind_investment'); byCat[ki] = (byCat[ki]||0) + s.invested; } total += s.expense + s.invested; });
       const filtered = inp.category ? rows.filter(r=>agentNorm(receiptCatName(r)).includes(agentNorm(inp.category))) : rows;
       return JSON.stringify({from, to, total, by_category: byCat, ...(inp.category ? {category_total: filtered.reduce((s,r)=>s+(r.total||0),0), items: filtered.slice(-20).map(r=>({date:r.date, description:r.supplier, amount:r.total}))} : {count: rows.length})}); }
     case 'jobs': { const list = svcJobs().filter(j=>inRange(j.date) && (!q || agentNorm(j.client+' '+(j.serviceName||'')).includes(q))); return JSON.stringify({from, to, count: list.length, billed: list.reduce((s,j)=>s+(j.price||0),0), paid: list.filter(j=>j.paid).reduce((s,j)=>s+(j.price||0),0), jobs: list.slice(0,30).map(j=>({job_id:j.id, date:j.date, end_date: j.endDate||null, client:j.client, service:j.serviceName, amount:j.price, paid:j.paid, asset:(assetById(j.assetId)||{}).name||null, repeat: j.repeat||null, contract_id: j.parentId||null}))}); }
@@ -682,7 +682,7 @@ function agentListen(){
     const inp = document.getElementById('agent-input');
     const txt = (finalText || (inp ? inp.value : '')).trim();
     render();
-    if(txt) agentSend(txt);
+    if(txt && showAgentSheet) agentSend(txt);
   };
   agentRecognizer = rec; agentListening = true; render();
   try{ rec.start(); }catch(e){ agentListening = false; agentRecognizer = null; render(); }

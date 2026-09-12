@@ -181,6 +181,7 @@ function archiveEvictedOutflows(evicted){
     const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
     a.revenue = roundQty(a.revenue + pl.revenue);
     a.cogs = roundQty(a.cogs + pl.cogs);
+      a.internalUse = roundQty((a.internalUse||0) + (pl.internalUse||0));
   });
 }
 function recordOutflow(entry){

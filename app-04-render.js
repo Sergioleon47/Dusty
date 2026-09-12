@@ -233,7 +233,7 @@ function renderApp(){
     ${/* Modo Servicios (app-15): hojas a pantalla completa, antes de los modales
          para que cualquiera de ellos se apile encima. La ficha de activo va
          después de Equipo porque se abre desde ahí. */''}
-    ${showEquipoSheet ? equipoSheet() : ''}
+    ${showEquipoSheet && TAB_ORDER[1]!=='equipo' ? equipoSheet() : ''}
     ${showJobsSheet ? jobsSheet() : ''}
     ${(typeof showQuotesSheet!=='undefined' && showQuotesSheet) ? quotesSheet() : ''}
     ${(typeof showClientsSheet!=='undefined' && showClientsSheet) ? clientsSheet() : ''}
