@@ -235,6 +235,8 @@ function renderApp(){
          después de Equipo porque se abre desde ahí. */''}
     ${showEquipoSheet ? equipoSheet() : ''}
     ${showJobsSheet ? jobsSheet() : ''}
+    ${(typeof showQuotesSheet!=='undefined' && showQuotesSheet) ? quotesSheet() : ''}
+    ${(typeof showClientsSheet!=='undefined' && showClientsSheet) ? clientsSheet() : ''}
     ${showCollectSheet ? collectSheet() : ''}
     ${showServicesSheet ? servicesSheet() : ''}
     ${showExpenseCatsSheet ? expenseCatsSheet() : ''}
@@ -278,6 +280,8 @@ function renderApp(){
     ${showExitSurvey ? exitSurveyModal() : ''}
     ${showManualSpendModal ? manualSpendModal() : ''}
     ${showJobModal ? jobModal() : ''}
+    ${(typeof showQuoteModal!=='undefined' && showQuoteModal) ? quoteModal() : ''}
+    ${(typeof showClientModal!=='undefined' && showClientModal) ? clientModal() : ''}
     ${showAssetModal ? assetModal() : ''}
     ${showMaintModal ? maintModal() : ''}
     ${showMaintLogModal ? maintLogModal() : ''}

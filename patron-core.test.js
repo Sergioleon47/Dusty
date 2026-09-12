@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const {
   money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
   receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
-  profitMarginPct, sameJSON, normalizeBizProfile, maintStatus
+  profitMarginPct, sameJSON, normalizeBizProfile, maintStatus, quoteTotals
 } = require('./patron-core.js');
 
 test('money formatea números y cae en $0.00 si no es un número', () => {
@@ -521,4 +521,35 @@ test('maintStatus: por km y por meses, gana el más urgente', () => {
   // Sin último hecho no hay nada que contar
   assert.equal(maintStatus({everyKm:5000}, asset, '2026-09-11', 7).status, 'none');
   assert.equal(maintStatus({everyKm:5000, lastKm:145000}, {}, '2026-09-11', 7).status, 'none');
+});
+test('quoteTotals: líneas × cantidad, descuento acotado, impuesto sobre lo neto, centavos', () => {
+  const q = {lines:[{qty:3, price:200}, {qty:2, price:35.5}, {qty:0, price:99}, {qty:1, price:-5}, {qty:'x', price:10}, null], discount: 50, taxPct: 16};
+  const tt = quoteTotals(q);
+  assert.equal(tt.subtotal, 671);          // 600 + 71; las líneas inválidas no suman
+  assert.equal(tt.discount, 50);
+  assert.equal(tt.tax, 99.36);             // (671-50) × 16% = 99.36
+  assert.equal(tt.total, 720.36);
+  // Descuento mayor que el subtotal se acota; impuesto fuera de rango se ignora.
+  assert.deepEqual(quoteTotals({lines:[{qty:1, price:10}], discount: 999, taxPct: 250}), {subtotal:10, discount:10, tax:0, total:0});
+  // Basura → ceros, nunca NaN.
+  assert.deepEqual(quoteTotals(null), {subtotal:0, discount:0, tax:0, total:0});
+  assert.deepEqual(quoteTotals({lines:'nope', discount:'abc', taxPct:null}), {subtotal:0, discount:0, tax:0, total:0});
+  // Redondeo a centavos por paso: 3 × 0.1 no arrastra 0.30000000000000004.
+  assert.equal(quoteTotals({lines:[{qty:3, price:0.1}]}).total, 0.3);
+});
+test('normalizeBizProfile: cotizaciones (impuesto, validez, condiciones) y clientes', () => {
+  const p = normalizeBizProfile(null);
+  assert.equal(p.taxPct, 0); assert.equal(p.quoteValidDays, 15); assert.equal(p.quoteTerms, ''); assert.deepEqual(p.clients, []);
+  const q = normalizeBizProfile({taxPct:'16', quoteValidDays:30, quoteTerms:'50% anticipo', clients:[
+    {id:'c1', name:'Juan Pérez', phone:'+52 55 1234 5678', email:'JUAN@correo.com ', notes:'Col. Centro'},
+    {id:'c2', name:'sin correo', email:'no-es-correo'}, {name:'sin id'}, null, {id:'c4'}
+  ]});
+  assert.equal(q.taxPct, 16); assert.equal(q.quoteValidDays, 30); assert.equal(q.quoteTerms, '50% anticipo');
+  assert.equal(q.clients.length, 2);
+  assert.equal(q.clients[0].phone, '+52 55 1234 5678');
+  assert.equal(q.clients[0].email, 'juan@correo.com');   // se guarda en minúsculas y sin espacios
+  assert.equal(q.clients[1].email, '');                  // un correo inválido no se guarda
+  assert.equal(normalizeBizProfile({taxPct: 150}).taxPct, 0);
+  assert.equal(normalizeBizProfile({taxPct: -3}).taxPct, 0);
+  assert.equal(normalizeBizProfile({quoteValidDays: 45}).quoteValidDays, 15);
 });

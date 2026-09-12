@@ -338,6 +338,9 @@ function activityVerb(entry){
   if(entry.type==='job_saved') return `${t('activity_job_saved')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='job_paid') return `${t('activity_job_paid')} "${escapeHtml(entry.itemName)}" · ${escapeHtml(entry.detail||'')}`;
   if(entry.type==='job_deleted') return `${t('activity_job_deleted')} "${escapeHtml(entry.itemName)}"`;
+  // Cotizaciones (app-17) — itemName es el cliente, detail el total.
+  if(entry.type==='quote_saved' || entry.type==='quote_sent' || entry.type==='quote_accepted') return `${t('activity_'+entry.type)} "${escapeHtml(entry.itemName)}" · ${escapeHtml(entry.detail||'')}`;
+  if(entry.type==='quote_deleted') return `${t('activity_quote_deleted')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='asset_saved') return `${t('activity_asset_saved')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='maint_logged') return `${t('activity_maint_logged')} "${escapeHtml(entry.itemName)}" · ${escapeHtml(entry.detail||'')}`;
   return escapeHtml(entry.detail||'');

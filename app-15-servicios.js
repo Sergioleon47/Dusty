@@ -92,7 +92,12 @@ function collectStats(){
 }
 function svcClientNames(){
   const seen = new Map();
-  svcJobs().forEach(j=>{ const n = String(j.client||'').trim(); if(n && !seen.has(n.toLowerCase())) seen.set(n.toLowerCase(), n); });
+  const add = (n)=>{ n = String(n||'').trim(); if(n && !seen.has(n.toLowerCase())) seen.set(n.toLowerCase(), n); };
+  // Clientes guardados primero (app-17: con teléfono y correo), después los de
+  // trabajos y cotizaciones que se escribieron a mano.
+  ((bizProfile && bizProfile.clients)||[]).forEach(c=>add(c.name));
+  svcJobs().forEach(j=>add(j.client));
+  if(typeof svcQuotes==='function') svcQuotes().forEach(q=>add(q.client));
   return [...seen.values()].sort((a,b)=>a.localeCompare(b));
 }
 /* ---------- activos ---------- */
@@ -263,6 +268,7 @@ function svcDashTilesHtml(){
       <span class="dash-tile-title">${t('svc_tile_collect')}</span>
       <span class="dash-tile-sub">${cs.pending>0 ? t('svc_collect_sub').replace('{c}', String(cs.clients)).replace('{o}', String(cs.overdueCount)) : t('svc_collect_none')}</span>
     </button>
+    ${typeof svcQuotesTileHtml==='function' ? svcQuotesTileHtml() : ''}
     ${(bizProfile.assets||[]).length ? `
     <button type="button" class="dash-tile ${mo.overdue.length?'alert':'t3'}" id="btn-svc-maint">
       <span class="dash-tile-badge ${maintBadge.cls}">${maintBadge.label}</span>
@@ -1021,8 +1027,15 @@ function svcSettingsServicesCard(){
           <label for="svc-dist-unit">${t('svc_set_dist')}</label>
           <select id="svc-dist-unit"><option value="km" ${distU()==='km'?'selected':''}>${t('svc_unit_km_long')}</option><option value="mi" ${distU()==='mi'?'selected':''}>${t('svc_unit_mi_long')}</option></select>
         </div>` : ''}
+        ${/* Cotizaciones (app-17): defaults que cada cotización nueva trae puestos. */''}
+        <div class="field-row" style="margin-top:12px;">
+          <div class="field" style="margin:0;"><label for="svc-tax-pct">${t('qt_set_tax')}</label><input id="svc-tax-pct" type="number" min="0" max="100" step="0.01" inputmode="decimal" value="${bizProfile.taxPct ? escapeHtml(String(bizProfile.taxPct)) : ''}" placeholder="0"></div>
+          <div class="field" style="margin:0;"><label for="svc-quote-valid">${t('qt_set_valid')}</label><select id="svc-quote-valid">${[7,15,30,60].map(n=>`<option value="${n}" ${(bizProfile.quoteValidDays||15)===n?'selected':''}>${t('qt_days').replace('{n}', String(n))}</option>`).join('')}</select></div>
+        </div>
+        <div class="field" style="margin:12px 0 0;"><label for="svc-quote-terms">${t('qt_set_terms')}</label><input id="svc-quote-terms" type="text" maxlength="200" value="${escapeHtml(bizProfile.quoteTerms||'')}" placeholder="${t('qt_set_terms_ph')}"></div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
           <button class="btn btn-ghost btn-sm" id="btn-svc-catalog">${t('svc_set_catalog')}</button>
+          <button class="btn btn-ghost btn-sm" id="btn-svc-clients">${t('cl_set_btn')}</button>
           <button class="btn btn-ghost btn-sm" id="btn-svc-categories">${t('svc_set_categories')}</button>
         </div>
       </div>`;
@@ -1229,6 +1242,13 @@ function attachServicesEvents(){
   if(odo) odo.onchange = ()=>{ bizProfile.useOdometer = !!odo.checked; saveState(); render(); };
   const du = g('svc-dist-unit');
   if(du) du.onchange = ()=>{ bizProfile.distUnit = du.value==='mi' ? 'mi' : 'km'; saveState(); render(); };
+  // Defaults de cotización (app-17): se guardan al confirmar el campo, sin Guardar.
+  const taxI = g('svc-tax-pct');
+  if(taxI) taxI.onchange = ()=>{ const n = parseFloat(taxI.value); bizProfile.taxPct = (Number.isFinite(n) && n>=0 && n<=100) ? Math.round(n*100)/100 : 0; saveState(); render(); };
+  const qv = g('svc-quote-valid');
+  if(qv) qv.onchange = ()=>{ bizProfile.quoteValidDays = parseInt(qv.value,10)||15; saveState(); };
+  const qterms = g('svc-quote-terms');
+  if(qterms) qterms.onchange = ()=>{ bizProfile.quoteTerms = qterms.value.trim().slice(0,200); saveState(); };
   on('btn-svc-catalog', ()=>svcShow(()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showServicesSheet = true; }));
   on('btn-svc-categories', ()=>svcShow(()=>{ settingsReturnPending = true; showAlertSettingsModal = false; showExpenseCatsSheet = true; }));
   /* Categorías de gasto */

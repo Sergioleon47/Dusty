@@ -1304,7 +1304,7 @@ let recapCompare=false, recapComparePick=[];
 function recapDefaultBaseMode(){
   const months = new Set();
   receipts.forEach(r=>{ const k=monthKey(r.date); if(k) months.add(k); });
-  outflows.forEach(o=>{ const k=monthKey(o.date); if(k) months.add(k); });
+  outflows.forEach(o=>{ if(o && o.type==='quote') return; const k=monthKey(o.date); if(k) months.add(k); });
   for(const k of months){ if(months.has((Number(k.slice(0,4))-1)+k.slice(4))) return 'yoy'; }
   return 'prev';
 }
@@ -1390,7 +1390,7 @@ function monthRecapModal(){
     if(demo){ recapDemoKeys('month').forEach(addK); }
     else{
       receipts.forEach(r=>addK(monthKey(r.date)));
-      outflows.forEach(o=>addK(monthKey(o.date)));
+      outflows.forEach(o=>{ if(o && o.type==='quote') return; addK(monthKey(o.date)); });
     }
     const nowKey = recapMode==='year' ? localMonthStr().slice(0,4) : localMonthStr();
     const focusKey = demo ? nowKey : (recapMode==='year' ? (monthRecapKey||nowKey).slice(0,4) : (monthRecapKey||nowKey));

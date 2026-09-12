@@ -2857,6 +2857,18 @@
   .svc-exp-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
   .svc-exp-form select, .svc-exp-form .btn{grid-column:span 1;}
   .svc-x{padding:0 0 0 8px;color:var(--ink-soft);font-size:calc(12px * var(--fs, 1));}
+  /* Cotizaciones (app-17, 2026-09-11): editor de líneas en grilla (descripción ·
+     cantidad · precio · quitar), datos del cliente bajo el campo, y fila de
+     acciones de envío. Misma familia visual que el modal de trabajo. */
+  .qt-lines{display:flex;flex-direction:column;gap:6px;}
+  .qt-line{display:grid;grid-template-columns:1fr 62px 84px 26px;gap:6px;align-items:center;}
+  .qt-line input{min-width:0;width:100%;}
+  .qt-line-head{font-size:calc(10.5px * var(--fs, 1));font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);padding:0 2px;}
+  .qt-line-head span:nth-child(2), .qt-line-head span:nth-child(3){text-align:right;}
+  .qt-client-meta{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:6px;font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);}
+  .qt-client-meta .link-btn{padding:2px 0;font-size:calc(12px * var(--fs, 1));}
+  .qt-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0;}
+  .qt-actions .btn{flex:1 1 30%;}
   .svc-biz-rows .pulse-row:first-child{margin-top:0;padding-top:0;border-top:0;}
 
   /* --- calendario inteligente (app-15, 3.ª tanda) --- */

@@ -36,7 +36,9 @@ let showAgentCam = false;
 
 const AGENT_WRITE_TOOLS = ['add_expense','add_job','mark_paid','add_category','log_maintenance','add_asset','add_service','add_item','add_note','set_budget',
   // Corregir / ajustar / borrar (2026-09-11): mismas confirmaciones que el resto.
-  'adjust_stock','update_item','delete_item','update_expense','delete_expense','update_job','delete_job','update_asset','add_maintenance_plan','update_service','delete_service','rename_category','delete_category','delete_note'];
+  'adjust_stock','update_item','delete_item','update_expense','delete_expense','update_job','delete_job','update_asset','add_maintenance_plan','update_service','delete_service','rename_category','delete_category','delete_note',
+  // Cotizaciones y clientes (app-17, 2026-09-11): crear/mandar/aceptar cotizaciones y guardar datos de clientes.
+  'create_quote','quote_action','add_client','update_client'];
 const AGENT_MAX_HOPS = 6;
 
 function agentAvailable(){ return agentEnabled; }
@@ -62,6 +64,8 @@ function agentContext(){
     lines.push(`Servicios con precio: ${(bizProfile.catalog||[]).map(c=>`${c.name}${c.price>0?' '+svcServicePrice(c):''}`).join('; ') || '(ninguno)'}`);
     const cs = collectStats();
     lines.push(`Por cobrar: ${money(cs.pending)} (${cs.list.length} trabajos, ${cs.overdueCount} vencidos).`);
+    // Cotizaciones y clientes guardados (app-17).
+    if(typeof quotesAgentContext==='function') quotesAgentContext().forEach(l=>lines.push(l));
   }
   try{
     const p = budgetPace(localMonthStr());
@@ -102,6 +106,10 @@ function agentDescribe(name, inp){
     case 'log_maintenance': { const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); return `${es?'Mantenimiento':'Maintenance'}: ${inp.what} · ${a ? a.name : inp.asset}${agentNum(inp.cost) ? ' · '+money(agentNum(inp.cost)) : ''}${agentNum(inp.km)!==null ? ' · '+svcFmtNum(agentNum(inp.km))+' '+distU() : ''}`; }
     case 'add_asset': return `${es?'Activo nuevo':'New asset'}: ${inp.name}${inp.model ? ' · '+inp.model : ''}${agentNum(inp.purchase_price) ? ' · '+money(agentNum(inp.purchase_price)) : ''}`;
     case 'add_service': return `${es?'Servicio nuevo':'New service'}: ${inp.name}${agentNum(inp.price) ? ' · '+money(agentNum(inp.price)) : ''}`;
+    // Cotizaciones y clientes (app-17).
+    case 'create_quote': return typeof quoteDescribeForAgent==='function' ? quoteDescribeForAgent(inp) : `${es?'Cotización':'Quote'}: ${inp.client||'?'}`;
+    case 'quote_action': { const act = {send_whatsapp: es?'Mandar por WhatsApp':'Send by WhatsApp', send_pdf: es?'Compartir el PDF':'Share the PDF', send_email: es?'Mandar por correo':'Send by email', accept: es?'Aceptada → crear el trabajo':'Accepted → create the job', reject: es?'Marcar rechazada':'Mark rejected', delete: es?'Eliminar':'Delete'}[inp.action] || inp.action; const q = typeof agentPickQuote==='function' ? agentPickQuote(inp) : null; return `${es?'Cotización':'Quote'}${q ? ' #'+quoteNum(q)+' · '+q.client+' · '+money(quoteTotals(q).total) : (inp.client ? ' · '+inp.client : '')}: ${act}`; }
+    case 'add_client': case 'update_client': return `${name==='add_client' ? (es?'Cliente nuevo':'New client') : (es?'Cliente':'Client')}: ${inp.new_name||inp.name||'?'}${inp.phone ? ' · 📞 '+inp.phone : ''}${inp.email ? ' · ✉️ '+inp.email : ''}${inp.notes ? ' · '+String(inp.notes).slice(0,40) : ''}`;
     case 'add_item': return `${es?'Producto nuevo':'New item'}: ${inp.name}${agentNum(inp.qty)!==null ? ' · '+inp.qty+' '+(inp.unit||'unidad') : ''}${agentNum(inp.cost_per_unit) ? ' · '+money(agentNum(inp.cost_per_unit)) : ''}`;
     case 'add_note': return `${es?'Nota':'Note'}: "${inp.text}"${inp.date ? ' · '+inp.date : ''}`;
     case 'set_budget': return `${es?'Presupuesto mensual':'Monthly budget'}: ${money(agentNum(inp.amount)||0)}`;
@@ -227,6 +235,15 @@ function agentExec(name, inp){
       bizProfile.assets.push(a); saveState(); logActivity('asset_saved', a.name); render();
       return ok({asset_id: a.id});
     }
+    /* ---- Cotizaciones y clientes (app-17): la app arma y guarda; acá solo se
+       traduce el resultado. missing_price → el asistente pregunta UNA cosa. ---- */
+    case 'create_quote': {
+      if(!usesServices() && !sellsProducts()) return fail('nothing to quote');
+      const r = quoteCreateFromAgent(inp);
+      return JSON.stringify(r);
+    }
+    case 'quote_action': return JSON.stringify(quoteAgentAction(inp));
+    case 'add_client': case 'update_client': return JSON.stringify(clientFromAgent(inp));
     case 'add_service': {
       const nm = String(inp.name||'').trim().slice(0,60); if(!nm) return fail('name required');
       bizProfile.catalog.push({id: uid('sv'), name: nm, desc: String(inp.description||'').trim().slice(0,80), price: agentNum(inp.price), unit: ['fixed','km','day','hour'].indexOf(inp.unit)>=0 ? inp.unit : 'fixed'});
@@ -431,6 +448,7 @@ function agentExec(name, inp){
     case 'print': {
       if(inp.what==='month_report'){ downloadMonthReport(/^\d{4}-\d{2}$/.test(inp.month||'') ? inp.month : localMonthStr()); return ok(); }
       if(inp.what==='job_invoice'){ const j = agentPickJob({client: inp.client}) || svcJobs().filter(j=>agentNorm(j.client).includes(agentNorm(inp.client||''))).sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]; if(!j) return fail('job not found'); downloadJobPdf(j); return ok({client: j.client}); }
+      if(inp.what==='quote'){ const q = agentPickQuote(inp); if(!q) return fail('quote not found'); showAgentSheet = false; render(); downloadQuotePdf(q); return ok({quote_id: q.id, client: q.client}); }
       if(inp.what==='asset_sheet'){ const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); if(!a) return fail('asset not found'); downloadAssetPdf(a); return ok({asset: a.name}); }
       return fail('unknown');
     }
@@ -444,6 +462,8 @@ function agentQuery(inp){
   const inRange = d => d>=from && d<=to;
   const q = agentNorm(inp.text||'');
   switch(inp.topic){
+    case 'quotes': return JSON.stringify(quotesForAgentQuery(inp.text));
+    case 'clients': return JSON.stringify(clientsForAgentQuery(inp.text));
     case 'collect': { const cs = collectStats(); return JSON.stringify({pending: cs.pending, overdue: cs.overdue, overdue_count: cs.overdueCount, paid_this_month: cs.paidMonth,
       jobs: cs.list.filter(j=>!q || agentNorm(j.client).includes(q)).slice(0,25).map(j=>({job_id:j.id, client:j.client, service:j.serviceName, date:j.date, due:j.dueDate, amount:j.price, overdue: jobIsOverdue(j)}))}); }
     case 'budget': { const p = budgetPace(localMonthStr()); return JSON.stringify(p ? {budget:p.budget, spent:p.expense, left:p.left, pct:Math.round(p.pct), status:p.status, projected:p.projected} : {budget:null, spent: spendSplitForMonth(localMonthStr()).expense}); }
@@ -485,6 +505,10 @@ function agentOpen(screen, text){
     case 'recap': closeAgent(); monthRecapKey = localMonthStr(); recapMode = 'month'; showMonthRecap = true; break;
     case 'settings': closeAgent(); showAlertSettingsModal = true; break;
     case 'services': closeAgent(); showServicesSheet = true; break;
+    // Cotizaciones y clientes (app-17).
+    case 'quotes': closeAgent(); showQuotesSheet = true; break;
+    case 'quote': { const q = agentPickQuote({client: text, number: text}); if(!q) return JSON.stringify({ok:false, error:'quote not found'}); closeAgent(); render(); openQuoteModal(q.id); return JSON.stringify({ok:true, client: q.client, number: quoteNum(q)}); }
+    case 'clients': closeAgent(); showClientsSheet = true; break;
     case 'scan': closeAgent(); render(); openScanModal(); return JSON.stringify({ok:true});
     default: return JSON.stringify({ok:false, error:'unknown screen'});
   }

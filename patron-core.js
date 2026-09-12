@@ -81,6 +81,14 @@ function normalizeBizProfile(p){
     id: String(c.id), name: str(c.name, 60), desc: str(c.desc, 80),
     price: num(c.price, 0), unit: ['fixed','km','day','hour'].indexOf(c.unit)>=0 ? c.unit : 'fixed'
   }));
+  // Clientes (app-17): nombre obligatorio; el correo se guarda en minúsculas y
+  // solo si tiene forma de correo (si no, vacío — nunca se manda a una dirección rota).
+  const emailOk = (v)=> /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim());
+  const clients = (Array.isArray(src.clients) ? src.clients : []).filter(c=>c && c.id && typeof c.name==='string' && c.name.trim()).map(c=>({
+    id: String(c.id), name: str(c.name, 60).trim(), phone: str(c.phone, 30).trim(),
+    email: emailOk(c.email) ? String(c.email).trim().toLowerCase() : '',
+    notes: str(c.notes, 200), createdAt: str(c.createdAt, 40) || null
+  }));
   return {
     sells: src.sells!==false,
     services: src.services===true,
@@ -90,8 +98,29 @@ function normalizeBizProfile(p){
     useOdometer: src.useOdometer!==false,
     catsSeeded: src.catsSeeded===true,
     remindDays: (Number.isFinite(Number(src.remindDays)) && [0,1,3,7].indexOf(Number(src.remindDays))>=0) ? Number(src.remindDays) : 3,
-    assets, catalog
+    // Cotizaciones (2026-09-11): impuesto por defecto (0-100 %), validez por
+    // defecto en días y condiciones que se imprimen al pie de cada cotización.
+    taxPct: (()=>{ const n = Number(src.taxPct); return (Number.isFinite(n) && n>=0 && n<=100) ? Math.round(n*100)/100 : 0; })(),
+    quoteValidDays: (Number.isFinite(Number(src.quoteValidDays)) && [7,15,30,60].indexOf(Number(src.quoteValidDays))>=0) ? Number(src.quoteValidDays) : 15,
+    quoteTerms: str(src.quoteTerms, 200),
+    assets, catalog, clients
   };
+}
+/* Totales de UNA cotización (app-17): líneas {qty, price}, descuento en dinero y
+   impuesto en %. Todo redondeado a centavos en cada paso, como el resto del P&L.
+   Devuelve {subtotal, discount, tax, total}; con basura devuelve ceros. */
+function quoteTotals(q){
+  const r2 = (n)=> Math.round((Number(n)||0)*100)/100;
+  const lines = (q && Array.isArray(q.lines)) ? q.lines : [];
+  const subtotal = r2(lines.reduce((s,l)=>{
+    const qty = Number(l && l.qty), price = Number(l && l.price);
+    if(!Number.isFinite(qty) || !Number.isFinite(price) || qty<=0 || price<0) return s;
+    return s + qty*price;
+  }, 0));
+  const discount = Math.min(subtotal, Math.max(0, r2(q && q.discount)));
+  const taxPct = (()=>{ const n = Number(q && q.taxPct); return (Number.isFinite(n) && n>=0 && n<=100) ? n : 0; })();
+  const tax = r2((subtotal - discount) * taxPct / 100);
+  return { subtotal, discount, tax, total: r2(subtotal - discount + tax) };
 }
 /* Estado de UN mantenimiento programado: por km (odómetro del activo) y/o por
    meses, gana el más urgente. Sin "último hecho" no hay de dónde contar: 'none'.
@@ -499,7 +528,7 @@ if(typeof module!=='undefined' && module.exports){
   module.exports = {
     money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
-    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON, hash53, valueHash,
+    profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON, hash53, valueHash, quoteTotals,
     roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,

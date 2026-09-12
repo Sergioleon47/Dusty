@@ -795,6 +795,28 @@ const I18N = {
     svc_wa_msg:'Hola {client}, te recuerdo el pago pendiente por {service} ({date}): {amount}. ¡Gracias!',
     svc_jobs_title:'Trabajos', svc_jobs_sub:'Cada trabajo con su precio, su equipo y sus gastos.', svc_jobs_empty:'Todavía no hay trabajos. El primero te lleva un minuto.',
     svc_search_job:'Buscar cliente o servicio', svc_new_job_btn:'+ Nuevo trabajo',
+    // Cotizaciones para clientes + registro de clientes (app-17, 2026-09-11)
+    qt_title:'Cotizaciones', qt_sub:'Armá el precio, mandala, y cuando el cliente diga que sí se vuelve trabajo.', qt_new_btn:'+ Nueva cotización',
+    qt_empty:'Todavía no hay cotizaciones. La primera te lleva un minuto — o pedísela al asistente.', qt_search:'Buscar cliente o servicio', qt_open_hint:'{n} abiertas. Al aceptar una, pasa a Trabajos y a Por cobrar.',
+    qt_tile:'Cotizaciones', qt_tile_open_badge:'Abiertas', qt_tile_sub:'{amount} en juego', qt_tile_none:'Ninguna abierta', qt_st_expiring:'Por vencer',
+    qt_edit:'Cotización', qt_new:'Nueva cotización', qt_modal_sub:'Líneas con cantidad y precio; el total se arma solo.', qt_by_agent_sub:'Armada por el asistente',
+    qt_client:'Cliente', qt_client_ph:'Nombre del cliente', qt_valid:'Válida por', qt_days:'{n} días', qt_valid_until:'Válida hasta {d}',
+    qt_lines:'Líneas', qt_line_desc:'Descripción', qt_line_desc_ph:'Servicio o producto', qt_line_qty:'Cant.', qt_line_price:'Precio', qt_add_line:'+ Agregar línea', qt_quick:'De tu lista, con su precio',
+    qt_discount:'Descuento', qt_tax:'Impuesto %', qt_notes:'Notas para el cliente', qt_notes_ph:'Ej.: incluye materiales y traslado', qt_subtotal:'Subtotal', qt_total:'Total',
+    qt_save:'Guardar cotización', qt_err:'Ponele cliente y al menos una línea con precio.', qt_saved:'Cotización guardada', qt_deleted:'Cotización eliminada', qt_delete:'Eliminar', qt_delete_confirm:'¿Eliminar esta cotización?',
+    qt_send_pdf:'PDF', qt_send_wa:'WhatsApp', qt_send_email:'Correo', qt_accept:'Aceptada → trabajo', qt_reject:'Rechazada', qt_open_job:'Ver el trabajo',
+    qt_accept_confirm:'{client} aceptó por {total}. Se crea el trabajo con cobro pendiente a 15 días.', qt_accepted_toast:'Ya es un trabajo de {client}', qt_accepted_note:'Aceptada: ya es un trabajo con cobro pendiente.', qt_rejected_toast:'Cotización marcada como rechazada',
+    qt_st_draft:'Borrador', qt_st_sent:'Enviada', qt_st_accepted:'Aceptada', qt_st_rejected:'Rechazada', qt_st_expired:'Vencida',
+    qt_pdf_title:'Cotización', qt_pdf_thanks:'Gracias por consultarnos.', qt_terms_label:'Condiciones', qt_job_name:'Cotización #{num}',
+    qt_wa_msg:'Hola {client}, te paso la cotización #{num}:\n{lines}\nTotal: {total}\nVálida hasta el {until}.', qt_no_phone_hint:'Sin teléfono guardado: elegí el contacto en WhatsApp.',
+    qt_email_subject:'Cotización #{num} de {biz}', qt_email_body:'Hola {client}, te adjunto la cotización #{num} por {total}, válida hasta el {until}. Cualquier duda, respondé este correo.',
+    qt_email_sending:'Enviando el correo…', qt_email_sent:'Correo enviado a {to}', qt_email_needs:'Este cliente no tiene correo guardado.', qt_email_fallback:'No se pudo enviar desde Dusty: se abre tu app de correo (adjuntá el PDF desde el botón PDF).',
+    qt_set_tax:'Impuesto por defecto (%)', qt_set_valid:'Validez por defecto', qt_set_terms:'Condiciones al pie de la cotización', qt_set_terms_ph:'Ej.: 50% de anticipo, el resto al entregar.',
+    cl_title:'Clientes', cl_sub:'Nombre, teléfono y correo: para cotizar, cobrar y enviar sin tipear.', cl_new_btn:'+ Nuevo cliente', cl_empty:'Todavía no hay clientes guardados. Se agregan acá o desde una cotización.',
+    cl_new:'Nuevo cliente', cl_edit:'Cliente', cl_name:'Nombre', cl_phone:'Teléfono (WhatsApp, con código de país)', cl_email:'Correo', cl_notes:'Notas', cl_notes_ph:'Dirección, horario, cómo le gusta que le cotices',
+    cl_save:'Guardar cliente', cl_saved:'Cliente guardado', cl_err:'Ponele un nombre.', cl_email_err:'Ese correo no parece válido.', cl_delete:'Eliminar cliente', cl_delete_confirm:'¿Eliminar a {name}? Sus cotizaciones y trabajos quedan.',
+    cl_set_btn:'Clientes', cl_save_link:'Guardar teléfono y correo del cliente', cl_edit_link:'Editar cliente', cl_no_contact:'Sin teléfono ni correo',
+    activity_quote_saved:'guardó la cotización de', activity_quote_sent:'envió la cotización a', activity_quote_accepted:'convirtió en trabajo la cotización de', activity_quote_deleted:'eliminó la cotización de',
     svc_catalog_title:'Mis servicios', svc_catalog_sub:'Lo que hacés y lo que cobrás. Al cargar un trabajo, el precio se completa solo.',
     svc_catalog_empty:'Todavía no cargaste servicios.', svc_add_service_btn:'+ Servicio', svc_service_new:'Nuevo servicio',
     svc_service_name:'Nombre', svc_service_name_ph:'Viaje refrigerado local', svc_service_desc:'Detalle (opcional)', svc_service_desc_ph:'Hasta 80 km · carga hasta 3 t',
@@ -1533,6 +1555,28 @@ const I18N = {
     svc_wa_msg:'Hi {client}, a reminder of the pending payment for {service} ({date}): {amount}. Thanks!',
     svc_jobs_title:'Jobs', svc_jobs_sub:'Every job with its price, its equipment and its expenses.', svc_jobs_empty:'No jobs yet. The first one takes a minute.',
     svc_search_job:'Search client or service', svc_new_job_btn:'+ New job',
+    // Client quotes + client book (app-17, 2026-09-11)
+    qt_title:'Quotes', qt_sub:'Build the price, send it, and when the client says yes it becomes a job.', qt_new_btn:'+ New quote',
+    qt_empty:'No quotes yet. The first one takes a minute — or ask the assistant.', qt_search:'Search client or service', qt_open_hint:'{n} open. Accepting one moves it to Jobs and To collect.',
+    qt_tile:'Quotes', qt_tile_open_badge:'Open', qt_tile_sub:'{amount} on the table', qt_tile_none:'None open', qt_st_expiring:'Expiring',
+    qt_edit:'Quote', qt_new:'New quote', qt_modal_sub:'Lines with quantity and price; the total builds itself.', qt_by_agent_sub:'Built by the assistant',
+    qt_client:'Client', qt_client_ph:'Client name', qt_valid:'Valid for', qt_days:'{n} days', qt_valid_until:'Valid until {d}',
+    qt_lines:'Lines', qt_line_desc:'Description', qt_line_desc_ph:'Service or product', qt_line_qty:'Qty', qt_line_price:'Price', qt_add_line:'+ Add line', qt_quick:'From your list, with its price',
+    qt_discount:'Discount', qt_tax:'Tax %', qt_notes:'Notes for the client', qt_notes_ph:'E.g. includes materials and travel', qt_subtotal:'Subtotal', qt_total:'Total',
+    qt_save:'Save quote', qt_err:'Add a client and at least one line with a price.', qt_saved:'Quote saved', qt_deleted:'Quote deleted', qt_delete:'Delete', qt_delete_confirm:'Delete this quote?',
+    qt_send_pdf:'PDF', qt_send_wa:'WhatsApp', qt_send_email:'Email', qt_accept:'Accepted → job', qt_reject:'Rejected', qt_open_job:'See the job',
+    qt_accept_confirm:'{client} accepted for {total}. A job is created with payment due in 15 days.', qt_accepted_toast:'Now a job for {client}', qt_accepted_note:'Accepted: it is now a job with payment pending.', qt_rejected_toast:'Quote marked as rejected',
+    qt_st_draft:'Draft', qt_st_sent:'Sent', qt_st_accepted:'Accepted', qt_st_rejected:'Rejected', qt_st_expired:'Expired',
+    qt_pdf_title:'Quote', qt_pdf_thanks:'Thank you for asking us.', qt_terms_label:'Terms', qt_job_name:'Quote #{num}',
+    qt_wa_msg:'Hi {client}, here is quote #{num}:\n{lines}\nTotal: {total}\nValid until {until}.', qt_no_phone_hint:'No phone saved: pick the contact in WhatsApp.',
+    qt_email_subject:'Quote #{num} from {biz}', qt_email_body:'Hi {client}, attached is quote #{num} for {total}, valid until {until}. Reply to this email with any questions.',
+    qt_email_sending:'Sending the email…', qt_email_sent:'Email sent to {to}', qt_email_needs:'This client has no email saved.', qt_email_fallback:'Could not send from Dusty: opening your mail app (attach the PDF from the PDF button).',
+    qt_set_tax:'Default tax (%)', qt_set_valid:'Default validity', qt_set_terms:'Terms at the bottom of the quote', qt_set_terms_ph:'E.g. 50% upfront, the rest on delivery.',
+    cl_title:'Clients', cl_sub:'Name, phone and email: to quote, collect and send without typing.', cl_new_btn:'+ New client', cl_empty:'No clients saved yet. Add them here or from a quote.',
+    cl_new:'New client', cl_edit:'Client', cl_name:'Name', cl_phone:'Phone (WhatsApp, with country code)', cl_email:'Email', cl_notes:'Notes', cl_notes_ph:'Address, hours, how they like to be quoted',
+    cl_save:'Save client', cl_saved:'Client saved', cl_err:'Add a name.', cl_email_err:'That email does not look valid.', cl_delete:'Delete client', cl_delete_confirm:'Delete {name}? Their quotes and jobs stay.',
+    cl_set_btn:'Clients', cl_save_link:'Save the client\'s phone and email', cl_edit_link:'Edit client', cl_no_contact:'No phone or email',
+    activity_quote_saved:'saved the quote for', activity_quote_sent:'sent the quote to', activity_quote_accepted:'turned into a job the quote for', activity_quote_deleted:'deleted the quote for',
     svc_catalog_title:'My services', svc_catalog_sub:'What you do and what you charge. When you add a job, the price fills in by itself.',
     svc_catalog_empty:'No services yet.', svc_add_service_btn:'+ Service', svc_service_new:'New service',
     svc_service_name:'Name', svc_service_name_ph:'Local refrigerated trip', svc_service_desc:'Detail (optional)', svc_service_desc_ph:'Up to 80 km · loads up to 3 t',
@@ -2410,6 +2454,9 @@ function outflowPL(o){
     const p = Number(o.price)||0;
     return p>0 ? {revenue: p, cogs: 0} : null;
   }
+  /* COTIZACIÓN (app-17): una promesa, no una venta. No aporta ingreso ni costo
+     hasta que el cliente acepta y se convierte en trabajo (ahí ES un trabajo). */
+  if(o.type==='quote') return null;
   const cache = finCache();
   if(o.type==='production'){
     /* PRODUCIR ES UN TRASPASO, NO UNA VENTA (revisión contable 2026-09-10).

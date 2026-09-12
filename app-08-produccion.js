@@ -1122,7 +1122,7 @@ function outflowsModal(){
       <h3 class="navy">${t('outflows_title')}</h3>
       <div class="sub">${t('outflows_sub')}</div>
       ${outflows.length===0 ? `<div class="helper-note" style="margin:0 0 8px;">${t('outflows_empty')}</div>` :
-      outflows.filter(o=>!(o.type==='service' && o.deleted)).map(o=>`
+      outflows.filter(o=>o.type!=='quote' && !(o.type==='service' && o.deleted)).map(o=>`
         <div class="matched-item" style="cursor:default;">
           <div class="mi-top">
             <span class="mi-icon" style="background:${o.type==='production'?'var(--basil)':'var(--sky)'};">${lineIcon(o.type==='production'?'tag':'camera',12)}</span>
