@@ -1614,7 +1614,13 @@ function receiptsSheet(){
 
 function recibosView(){
   const query = receiptSearchQuery.trim().toLowerCase();
+  // Filtro por activo (app-15): "Ver todos" de la ficha de un camión/máquina abre
+  // ESTA lista con solo sus gastos (los del activo y los de sus trabajos) y un chip
+  // arriba para salir. Antes abría la lista general sin ninguna marca.
+  const fa = (typeof receiptsAssetFilter!=='undefined' && receiptsAssetFilter && typeof assetById==='function') ? assetById(receiptsAssetFilter) : null;
+  const faIds = fa ? new Set(assetReceipts(fa.id).map(r=>r.id)) : null;
   const filtered = receipts.filter(r=>{
+    if(faIds && !faIds.has(r.id)) return false;
     if(!query) return true;
     const supplierMatch = (r.supplier||'').toLowerCase().includes(query);
     const itemMatch = (r.appliedItems||[]).some(it=>(it.rawName||'').toLowerCase().includes(query));
@@ -1655,6 +1661,7 @@ function recibosView(){
        dejaba a un usuario nuevo sin poder anotar un recordatorio tocando un día.
        Solo el buscador por monto (arriba) espera al primer recibo. */''}
   ${receiptCalendarWidget()}
+  ${fa ? svcAssetFilterChip(fa, 'svc_receipts_of_asset', sorted.length, 'btn-clear-receipts-asset') : ''}
   ${/* Buscador + REPORTES (pedido del usuario 2026-09-11): el constructor por
        rango mezcla días y meses en un PDF con la información extraída. */''}
   ${receipts.length>0 ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="field" style="flex:1;min-width:180px;max-width:340px;margin:0;"><input id="receipt-search" type="text" value="${escapeHtml(receiptSearchQuery)}" placeholder="${t('rec_search_placeholder')}"></div><button type="button" class="btn btn-ghost btn-sm" id="btn-report-builder" title="${t('rb_sub')}">${t('rb_btn')}</button></div>` : ''}

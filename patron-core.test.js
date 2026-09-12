@@ -553,3 +553,60 @@ test('normalizeBizProfile: cotizaciones (impuesto, validez, condiciones) y clien
   assert.equal(normalizeBizProfile({taxPct: -3}).taxPct, 0);
   assert.equal(normalizeBizProfile({quoteValidDays: 45}).quoteValidDays, 15);
 });
+
+test('capOutflows: al pasar el tope se evictan las más viejas, pero nunca un trabajo sin cobrar, un contrato ni una cotización abierta', () => {
+  const { capOutflows, outflowIsOpen } = require('./patron-core.js');
+  // Orden como en el arreglo real: índice 0 = lo más nuevo (recordOutflow hace unshift).
+  const list = [
+    {id:'n1', type:'adjust'},
+    {id:'n2', type:'service', paid:true},
+    {id:'n3', type:'production'},
+    {id:'unpaid', type:'service', paid:false},          // abierto: plata que falta entrar
+    {id:'tpl', type:'service', paid:true, repeat:'weekly'}, // abierto: plantilla del contrato
+    {id:'quote', type:'quote', status:'sent'},           // abierta: sin resolver
+    {id:'old1', type:'adjust'},
+    {id:'old2', type:'service', paid:true},
+    {id:'gone', type:'service', paid:false, deleted:true, deletedAt:'2026-01-01T00:00:00Z'} // lápida vieja (>30 días): ya no protege
+  ];
+  const now = new Date('2026-09-12T00:00:00Z').getTime();
+  const r = capOutflows(list, 5, now);
+  assert.deepEqual(r.kept.map(o=>o.id), ['n1','n2','unpaid','tpl','quote']);
+  assert.deepEqual(r.evicted.map(o=>o.id), ['n3','old1','old2','gone']);
+  // Una lápida reciente (borrado de hace días) se queda hasta que la nube la vea.
+  const fresh = {id:'gone2', type:'service', paid:true, deleted:true, deletedAt:'2026-09-10T00:00:00Z'};
+  assert.equal(outflowIsOpen(fresh, now), true);
+  assert.equal(outflowIsOpen({id:'x', type:'adjust', deleted:true, deletedAt:'2026-09-10T00:00:00Z'}, now), false, 'solo trabajos y cotizaciones tienen lápida');
+  // Si TODO lo que queda está abierto, el arreglo se pasa del tope antes que perder plata.
+  const open = [{id:'a', type:'service', paid:false}, {id:'b', type:'quote', status:'draft'}, {id:'c', type:'service', paid:false}];
+  assert.equal(capOutflows(open, 2).kept.length, 3);
+  assert.equal(capOutflows(open, 2).evicted.length, 0);
+  // Sin pasarse del tope no se toca nada; basura y sin id se filtran.
+  assert.deepEqual(capOutflows([{id:'x', type:'adjust'}, null, {type:'adjust'}], 10).kept.map(o=>o.id), ['x']);
+  assert.deepEqual(capOutflows(null, 10), {kept: [], evicted: []});
+  assert.equal(outflowIsOpen({type:'service', paid:false, parentId:'p'}), true);
+  assert.equal(outflowIsOpen({type:'service', paid:true, repeat:'monthly', parentId:'p'}), false, 'una ocurrencia cobrada no es plantilla');
+  assert.equal(outflowIsOpen({type:'quote', status:'accepted'}), false);
+  assert.equal(outflowIsOpen({type:'quote', status:'rejected'}), false);
+});
+
+test('formatInt: miles con el mismo separador que el dinero', () => {
+  const { formatInt } = require('./patron-core.js');
+  assert.equal(formatInt(85000, 'latam'), '85.000');
+  assert.equal(formatInt(85000, 'us'), '85,000');
+  assert.equal(formatInt(85000, 'plain'), '85,000');
+  assert.equal(formatInt(999.6, 'us'), '1,000');
+  assert.equal(formatInt('abc', 'us'), '0');
+  assert.equal(formatInt(-1234567, 'latam'), '1.234.567');
+});
+test('normalizeBizProfile: conserva el historial de mantenimientos hechos y tira lo roto', () => {
+  const p = normalizeBizProfile({services:true, assets:[{id:'a1', name:'Retro 2', maintLog:[
+    {id:'l1', date:'2026-09-10', planId:'m1', desc:'', km:'12000', cost:'150.5', receiptId:'r9'},
+    {id:'l2', date:'2026-09-01', planId:null, desc:'Cambio de correa (garantía)', km:null, cost:0},
+    {id:'l3', date:'no-es-fecha', desc:'x'}, {date:'2026-01-01'}, null
+  ]}]});
+  const log = p.assets[0].maintLog;
+  assert.equal(log.length, 2);
+  assert.deepEqual(log[0], {id:'l1', date:'2026-09-10', planId:'m1', desc:'', km:12000, cost:150.5, receiptId:'r9'});
+  assert.deepEqual(log[1], {id:'l2', date:'2026-09-01', planId:null, desc:'Cambio de correa (garantía)', km:null, cost:0, receiptId:null});
+  assert.deepEqual(normalizeBizProfile({assets:[{id:'a', name:'x'}]}).assets[0].maintLog, [], 'sin historial: arreglo vacío, no undefined');
+});

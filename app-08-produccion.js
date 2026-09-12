@@ -118,19 +118,30 @@ function syncFinishedItem(recipe){
 }
 function recordOutflow(entry){
   outflows.unshift(entry);
-  if(outflows.length > OUTFLOWS_MAX){
-    // Antes de descartar, el aporte financiero de cada salida evictada se
-    // consolida en el archivo mensual — la historia del P&L no se achica.
-    outflows.slice(OUTFLOWS_MAX).forEach(o=>{
-      const pl = outflowPL(o);
-      const k = o && monthKey(o.date);
-      if(!pl || !k) return;
-      const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
-      a.revenue = roundQty(a.revenue + pl.revenue);
-      a.cogs = roundQty(a.cogs + pl.cogs);
-    });
-    outflows.length = OUTFLOWS_MAX;
-  }
+  trimOutflows();
+}
+/* Aplica el tope al historial. Qué se evicta lo decide capOutflows (patron-core,
+   con pruebas): las más viejas que ya están cerradas — NUNCA un trabajo de
+   servicios sin cobrar, la plantilla de un contrato ni una cotización abierta
+   (auditoría de Servicios 2026-09-12: un cobro pendiente de enero desaparecía de
+   Por cobrar al pasar las 400 salidas, y su precio quedaba archivado como si se
+   hubiera cobrado). Antes de descartar, el aporte financiero de cada salida
+   evictada se consolida en el archivo mensual — la historia del P&L no se achica. */
+function trimOutflows(){
+  if(outflows.length <= OUTFLOWS_MAX) return false;
+  const cut = capOutflows(outflows, OUTFLOWS_MAX);
+  cut.evicted.forEach(o=>{
+    const pl = outflowPL(o);
+    const k = o && monthKey(o.date);
+    if(!pl || !k) return;
+    const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
+    a.revenue = roundQty(a.revenue + pl.revenue);
+    a.cogs = roundQty(a.cogs + pl.cogs);
+  });
+  if(!cut.evicted.length) return false;
+  outflows.length = 0;
+  cut.kept.forEach(o=>outflows.push(o));
+  return true;
 }
 
 /* ---------- LLAMADA AL MODO STOCK (leer cantidades de una foto) ---------- */

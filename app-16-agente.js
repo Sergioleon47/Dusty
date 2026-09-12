@@ -160,14 +160,22 @@ function agentPickNote(inp){
   return agentFind(list, inp.text, n=>n.text);
 }
 function agentPickJob(inp){
-  if(inp.job_id){ const j = jobById(inp.job_id); if(j) return j; }
+  if(inp.job_id){ const j = jobById(inp.job_id); if(j && !j.deleted) return j; }
   // any: también los cobrados (para corregir o borrar); sin any, solo pendientes (cobrar).
   let list = inp.any ? svcJobs().slice() : svcJobs().filter(j=>!j.paid);
   if(inp.client){ const c = agentNorm(inp.client); const byC = list.filter(j=>agentNorm(j.client).includes(c) || c.includes(agentNorm(j.client))); if(byC.length) list = byC; }
   if(agentNum(inp.amount)!==null){ const byA = list.filter(j=>Math.abs((j.price||0)-agentNum(inp.amount))<0.01); if(byA.length) list = byA; }
   if(inp.date){ const byD = list.filter(j=>j.date===inp.date); if(byD.length) list = byD; }
-  // Pendientes: el más viejo primero (es el que se cobra). Con any: el más reciente.
-  list.sort((a,b)=> inp.any ? String(b.date).localeCompare(String(a.date)) : String(a.date).localeCompare(String(b.date)));
+  // Pendientes: el más viejo primero (es el que se cobra). Con any: el más reciente
+  // de los YA HECHOS (fecha <= hoy); las ocurrencias futuras que Dusty generó solas
+  // van al final — "el trabajo de Pérez" es el de esta semana, no el de dentro de 14 días.
+  const today = localDateStr();
+  list.sort((a,b)=>{
+    if(!inp.any) return String(a.date).localeCompare(String(b.date));
+    const fa = a.date>today ? 1 : 0, fb = b.date>today ? 1 : 0;
+    if(fa!==fb) return fa-fb;
+    return String(b.date).localeCompare(String(a.date));
+  });
   return list[0] || null;
 }
 
@@ -192,17 +200,26 @@ function agentExec(name, inp){
       if(!usesServices()) return fail('services mode is off');
       const price = agentNum(inp.price); if(!(price>=0) || !inp.client) return fail('client and price required');
       const asset = inp.asset ? agentFind(bizProfile.assets||[], inp.asset, x=>x.name) : null;
+      // Equipo que no existe o fecha mal escrita: se avisa, no se guarda "algo parecido"
+      // en silencio (un trabajo sin equipo y fechado hoy).
+      if(inp.asset && !asset) return fail('asset not found: '+(bizProfile.assets||[]).map(x=>x.name).join(', '));
+      if(inp.date && !/^\d{4}-\d{2}-\d{2}$/.test(inp.date)) return fail('date must be YYYY-MM-DD');
       const svc = inp.service ? agentFind(bizProfile.catalog||[], inp.service, x=>x.name) : null;
       const date = agentDate(inp.date), dueDays = Math.max(1, parseInt(inp.due_days,10)||15);
-      const job = { id: uid('job'), type:'service', date, client: String(inp.client).trim().slice(0,60), serviceName: (svc ? svc.name : String(inp.service||'').trim()).slice(0,60), serviceId: svc ? svc.id : null,
+      const endDate = (inp.end_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.end_date) && inp.end_date>date) ? inp.end_date : null;
+      const clash = asset ? svcClash({id:null, assetId: asset.id, date, endDate}) : null;
+      const job = { id: uid('job'), type:'service', date, endDate, client: String(inp.client).trim().slice(0,60), serviceName: (svc ? svc.name : String(inp.service||'').trim()).slice(0,60), serviceId: svc ? svc.id : null,
         assetId: asset ? asset.id : null, price: Math.round(price*100)/100, paid: !!inp.paid, dueDate: inp.paid ? null : addDaysStr(date, dueDays), dueDays, paidDate: inp.paid ? localDateStr() : null,
         repeat: ['weekly','biweekly','monthly'].indexOf(inp.repeat)>=0 ? inp.repeat : null, items: [], createdAt: new Date().toISOString(), byAgent: true };
       recordOutflow(job); saveState(); logActivity('job_saved', job.client, job.serviceName); render();
-      return ok({job_id: job.id, asset: asset ? asset.name : null, due_date: job.dueDate});
+      return ok(Object.assign({job_id: job.id, asset: asset ? asset.name : null, due_date: job.dueDate}, clash ? {asset_clash: {client: clash.client, date: clash.date}} : {}));
     }
     case 'mark_paid': {
       const j = agentPickJob(inp); if(!j) return fail('job not found');
-      j.paid = true; j.paidDate = localDateStr(); j.dueDate = null; saveState(); logActivity('job_paid', j.client, money(j.price||0)); render();
+      // Ya cobrado: no se pisa la fecha de cobro (el modelo elegía un job_id cobrado
+      // de una consulta anterior y "re-cobraba" un trabajo de agosto hoy).
+      if(j.paid) return fail('already paid on '+(j.paidDate||j.date));
+      markJobPaid(j); saveState(); logActivity('job_paid', j.client, money(j.price||0)); render();
       return ok({job_id: j.id, client: j.client, amount: j.price});
     }
     case 'add_category': {
@@ -243,7 +260,7 @@ function agentExec(name, inp){
       return JSON.stringify(r);
     }
     case 'quote_action': return JSON.stringify(quoteAgentAction(inp));
-    case 'add_client': case 'update_client': return JSON.stringify(clientFromAgent(inp));
+    case 'add_client': case 'update_client': return JSON.stringify(clientFromAgent(inp, name==='update_client'));
     case 'add_service': {
       const nm = String(inp.name||'').trim().slice(0,60); if(!nm) return fail('name required');
       bizProfile.catalog.push({id: uid('sv'), name: nm, desc: String(inp.description||'').trim().slice(0,80), price: agentNum(inp.price), unit: ['fixed','km','day','hour'].indexOf(inp.unit)>=0 ? inp.unit : 'fixed'});
@@ -349,21 +366,33 @@ function agentExec(name, inp){
       if(inp.new_asset && !newAsset) return fail('asset not found');
       const ch = {};
       if(agentNum(inp.new_price)!==null && agentNum(inp.new_price)>=0){ j.price = Math.round(agentNum(inp.new_price)*100)/100; ch.price = j.price; }
-      if(inp.new_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.new_date)){ j.date = inp.new_date; ch.date = j.date; }
+      if(inp.new_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.new_date)){
+        j.date = inp.new_date; ch.date = j.date;
+        // El vencimiento acompaña a la fecha (antes quedaba anclado a la vieja y un
+        // trabajo movido a octubre aparecía "vencido" en septiembre).
+        if(!j.paid){ j.dueDate = addDaysStr(j.date, j.dueDays||15); ch.due_date = j.dueDate; }
+        if(j.endDate && j.endDate<=j.date) j.endDate = null;
+      }
+      if(inp.new_end_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.new_end_date)){ j.endDate = inp.new_end_date>j.date ? inp.new_end_date : null; ch.end_date = j.endDate; }
       if(inp.new_client){ j.client = String(inp.new_client).trim().slice(0,60); ch.client = j.client; }
       if(inp.new_service){ const svc = agentFind(bizProfile.catalog||[], inp.new_service, x=>x.name); j.serviceName = (svc ? svc.name : String(inp.new_service).trim()).slice(0,60); j.serviceId = svc ? svc.id : null; ch.service = j.serviceName; }
-      if(newAsset){ j.assetId = newAsset.id; ch.asset = newAsset.name; }
+      if(newAsset && j.assetId!==newAsset.id){ j.assetId = newAsset.id; ch.asset = newAsset.name; receipts.forEach(r=>{ if(r && r.jobId===j.id) r.assetId = j.assetId; }); }
       if(inp.paid===true && !j.paid){ j.paid = true; j.paidDate = localDateStr(); j.dueDate = null; ch.paid = true; }
       if(inp.paid===false && j.paid){ j.paid = false; j.paidDate = null; j.dueDate = addDaysStr(j.date, j.dueDays||15); ch.paid = false; }
       if(inp.due_days){ j.dueDays = Math.max(1, parseInt(inp.due_days,10)||15); if(!j.paid){ j.dueDate = addDaysStr(j.date, j.dueDays); ch.due_date = j.dueDate; } }
       if(!Object.keys(ch).length) return fail('nothing to change');
+      j.lastEditedAt = new Date().toISOString();
+      // Plantilla de un contrato: misma regla que el modal (cambio de fecha =
+      // regla nueva, retira las próximas sin tocar; otros cambios se propagan).
+      const pruned = svcAfterJobEdit(j, !!ch.date);
       saveState(); logActivity('job_saved', j.client, j.serviceName); render();
-      return ok({job_id: j.id, changed: ch});
+      return ok(Object.assign({job_id: j.id, changed: ch}, pruned>0 ? {upcoming_removed: pruned} : {}));
     }
     case 'delete_job': {
       const j = agentPickJob(Object.assign({}, inp, {any:true})); if(!j) return fail('job not found — query jobs first');
-      j.deleted = true; j.deletedAt = new Date().toISOString(); saveState(); logActivity('job_deleted', j.client); render();
-      return ok({deleted: j.client, amount: j.price, date: j.date});
+      const pruned = deleteJob(j);
+      saveState(); logActivity('job_deleted', j.client); render();
+      return ok(Object.assign({deleted: j.client, amount: j.price, date: j.date}, pruned>0 ? {upcoming_removed: pruned} : {}));
     }
     case 'update_asset': {
       const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); if(!a) return fail('asset not found');
@@ -495,7 +524,9 @@ function agentOpen(screen, text){
     // Fichas concretas: el producto, el trabajo o el equipo que nombró el usuario.
     case 'item': { const it = agentPickItem(text); if(!it) return JSON.stringify({ok:false, error:'item not found'}); closeAgent(); render(); openItemModal(it); return JSON.stringify({ok:true, item: it.name}); }
     case 'job': { const j = agentPickJob({client: text, any:true}); if(!j) return JSON.stringify({ok:false, error:'job not found'}); closeAgent(); render(); openJobModal(j.id); return JSON.stringify({ok:true, client: j.client}); }
-    case 'asset': { const a = agentFind(bizProfile.assets||[], text, x=>x.name); if(!a) return JSON.stringify({ok:false, error:'asset not found'}); closeAgent(); render(); openAssetModal(a.id); return JSON.stringify({ok:true, asset: a.name}); }
+    // "Abrí el camión 1" = su FICHA (mantenimientos, gastos, trabajos), no el
+    // formulario de edición con el botón de eliminar a un toque.
+    case 'asset': { const a = agentFind(bizProfile.assets||[], text, x=>x.name); if(!a) return JSON.stringify({ok:false, error:'asset not found'}); closeAgent(); assetSheetMonth = null; assetSheetShowAllMaint = false; showAssetSheet = a.id; render(); return JSON.stringify({ok:true, asset: a.name}); }
     case 'collect': closeAgent(); showCollectSheet = true; break;
     case 'jobs': closeAgent(); showJobsSheet = true; break;
     case 'equipment': closeAgent(); if(TAB_ORDER[1]==='equipo') activeTab = 'equipo'; else showEquipoSheet = true; break;

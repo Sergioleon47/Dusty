@@ -767,6 +767,19 @@ const I18N = {
     svc_collected_with:'Cobrado con este activo', svc_jobs_month_n:'{n} trabajos este mes', svc_expenses_month:'Gastos del mes', svc_leaves_month:'Deja este mes',
     svc_maints:'Mantenimientos', svc_add:'+ Agregar', svc_every_km:'cada {n} {u}', svc_every_months:'cada {n} meses',
     svc_last_expenses:'Últimos gastos', svc_see_all:'Ver todos ›', svc_no_expenses:'Sin gastos todavía', svc_log_maint:'Registrar mantenimiento',
+    /* Auditoría de Servicios 2026-09-12 */
+    svc_billed_with:'Facturado con este activo', svc_paid_of_short:'cobrado {amount}', svc_since_purchase:'Desde siempre', svc_since_purchase_sub:'{n} trabajos · facturado {billed} · gastos {spent}',
+    svc_n_of_total:' ({n} de {t})', svc_see_less:'Ver menos', svc_prev_month:'Mes anterior', svc_next_month:'Mes siguiente',
+    svc_maint_history:'Mantenimientos hechos', svc_maint_history_empty:'Todavía no registraste ninguno.', svc_jobs_with_asset:'Trabajos con este activo', svc_no_jobs_asset:'Sin trabajos todavía',
+    svc_jobs_of_asset:'Trabajos con {name}', svc_receipts_of_asset:'Gastos de {name}', svc_jobs_showing_n:'Mostrando {shown} de {total} trabajos',
+    svc_asset_delete_orphans:'Quedan {j} trabajos y {r} recibos sin activo.', svc_maint_err_months:'Ponele nombre y cada cuántos meses.',
+    svc_asset_name_ph_gen:'Máquina 1', svc_asset_model_ph:'Isuzu NPR', svc_asset_model_ph_gen:'Marca / modelo', svc_service_name_ph_gen:'Limpieza de oficina', svc_service_desc_ph_gen:'Hasta 100 m²',
+    svc_end_date:'Hasta (opcional)', svc_end_err:'La fecha "hasta" no puede ser antes del inicio.', svc_date_err:'Ponele una fecha válida.', svc_until:'hasta {d}', svc_note_end:'Termina {client}',
+    svc_qty_label:'Cantidad ({u})', svc_qty_hint:'poné la cantidad y el precio se calcula solo', svc_paid_date:'Cobrado el',
+    svc_pdf_paid_of:'Cobrado de estos trabajos', svc_pdf_pending_of:'Pendiente de estos trabajos', svc_pdf_period_total:'Total del período', svc_children_pruned:'Se quitaron {n} fechas futuras del contrato.',
+    svc_discard_confirm:'Agregaste {n} gasto(s) a mano que todavía no se guardaron. ¿Descartarlos?', svc_maint_delete_confirm:'¿Quitar este mantenimiento programado de la lista?',
+    svc_skipped_notice:'Contrato {client}: se saltaron {n} fechas de más de 14 días atrás. Si esos trabajos se hicieron, cargalos a mano.',
+    rd_asset_label:'Activo', rd_job_label:'Trabajo',
     svc_asset_new:'Nuevo activo', svc_asset_sub:'Lo que usás para trabajar y hay que mantener.', svc_asset_icon:'Ícono', svc_asset_name:'Nombre', svc_asset_name_ph:'Camión 2',
     svc_asset_model:'Marca / modelo', svc_purchase_date:'Fecha de compra', svc_purchase_price:'Precio de compra',
     svc_km:'Odómetro ({u})', svc_km_helper:'Si tiene odómetro. Se actualiza solo cuando registrás un mantenimiento con los km del día.',
@@ -820,7 +833,7 @@ const I18N = {
     svc_catalog_title:'Mis servicios', svc_catalog_sub:'Lo que hacés y lo que cobrás. Al cargar un trabajo, el precio se completa solo.',
     svc_catalog_empty:'Todavía no cargaste servicios.', svc_add_service_btn:'+ Servicio', svc_service_new:'Nuevo servicio',
     svc_service_name:'Nombre', svc_service_name_ph:'Viaje refrigerado local', svc_service_desc:'Detalle (opcional)', svc_service_desc_ph:'Hasta 80 km · carga hasta 3 t',
-    svc_service_price:'Precio', svc_unit:'Se cobra', svc_unit_fixed:'Por trabajo', svc_unit_km:'Por km', svc_unit_day:'Por día', svc_unit_hour:'Por hora', svc_unit_day_short:'día',
+    svc_service_price:'Precio', svc_unit:'Se cobra', svc_unit_fixed:'Por trabajo', svc_unit_km:'Por {u}', svc_unit_day:'Por día', svc_unit_hour:'Por hora', svc_unit_day_short:'día',
     svc_from:'desde {p}', svc_delete_service:'Eliminar', svc_delete_confirm:'¿Eliminar este servicio?', svc_service_err:'Ponele un nombre.',
     recap_revenue_jobs:'Ingresos por trabajos', recap_est_note_svc:'Ingresos según los trabajos que cargaste (cobrados o pendientes) menos los gastos de tus recibos.', recap_jobs_n:'{n} trabajos en el período', recap_by_asset:'Por activo', recap_bycat:'Gastos por categoría',
     outflow_service:'Trabajo',
@@ -1527,6 +1540,19 @@ const I18N = {
     svc_collected_with:'Earned with this asset', svc_jobs_month_n:'{n} jobs this month', svc_expenses_month:'This month\'s expenses', svc_leaves_month:'Leaves this month',
     svc_maints:'Maintenance', svc_add:'+ Add', svc_every_km:'every {n} {u}', svc_every_months:'every {n} months',
     svc_last_expenses:'Latest expenses', svc_see_all:'See all ›', svc_no_expenses:'No expenses yet', svc_log_maint:'Log maintenance',
+    /* Services audit 2026-09-12 */
+    svc_billed_with:'Billed with this asset', svc_paid_of_short:'paid {amount}', svc_since_purchase:'All time', svc_since_purchase_sub:'{n} jobs · billed {billed} · spent {spent}',
+    svc_n_of_total:' ({n} of {t})', svc_see_less:'See less', svc_prev_month:'Previous month', svc_next_month:'Next month',
+    svc_maint_history:'Maintenance done', svc_maint_history_empty:'None logged yet.', svc_jobs_with_asset:'Jobs with this asset', svc_no_jobs_asset:'No jobs yet',
+    svc_jobs_of_asset:'Jobs with {name}', svc_receipts_of_asset:'Expenses of {name}', svc_jobs_showing_n:'Showing {shown} of {total} jobs',
+    svc_asset_delete_orphans:'{j} jobs and {r} receipts will be left without an asset.', svc_maint_err_months:'Give it a name and every how many months.',
+    svc_asset_name_ph_gen:'Machine 1', svc_asset_model_ph:'Isuzu NPR', svc_asset_model_ph_gen:'Make / model', svc_service_name_ph_gen:'Office cleaning', svc_service_desc_ph_gen:'Up to 100 m²',
+    svc_end_date:'Until (optional)', svc_end_err:'The end date can\'t be before the start.', svc_date_err:'Enter a valid date.', svc_until:'until {d}', svc_note_end:'Ends {client}',
+    svc_qty_label:'Quantity ({u})', svc_qty_hint:'enter the quantity and the price fills in by itself', svc_paid_date:'Paid on',
+    svc_pdf_paid_of:'Paid of these jobs', svc_pdf_pending_of:'Pending of these jobs', svc_pdf_period_total:'Period total', svc_children_pruned:'{n} upcoming dates of the contract were removed.',
+    svc_discard_confirm:'You added {n} manual expense(s) that aren\'t saved yet. Discard them?', svc_maint_delete_confirm:'Remove this scheduled maintenance from the list?',
+    svc_skipped_notice:'Contract {client}: {n} dates older than 14 days were skipped. If those jobs happened, add them by hand.',
+    rd_asset_label:'Asset', rd_job_label:'Job',
     svc_asset_new:'New asset', svc_asset_sub:'What you work with and have to maintain.', svc_asset_icon:'Icon', svc_asset_name:'Name', svc_asset_name_ph:'Truck 2',
     svc_asset_model:'Make / model', svc_purchase_date:'Purchase date', svc_purchase_price:'Purchase price',
     svc_km:'Odometer ({u})', svc_km_helper:'If it has an odometer. It updates itself when you log maintenance with that day\'s km.',
@@ -1580,7 +1606,7 @@ const I18N = {
     svc_catalog_title:'My services', svc_catalog_sub:'What you do and what you charge. When you add a job, the price fills in by itself.',
     svc_catalog_empty:'No services yet.', svc_add_service_btn:'+ Service', svc_service_new:'New service',
     svc_service_name:'Name', svc_service_name_ph:'Local refrigerated trip', svc_service_desc:'Detail (optional)', svc_service_desc_ph:'Up to 80 km · loads up to 3 t',
-    svc_service_price:'Price', svc_unit:'Charged', svc_unit_fixed:'Per job', svc_unit_km:'Per km', svc_unit_day:'Per day', svc_unit_hour:'Per hour', svc_unit_day_short:'day',
+    svc_service_price:'Price', svc_unit:'Charged', svc_unit_fixed:'Per job', svc_unit_km:'Per {u}', svc_unit_day:'Per day', svc_unit_hour:'Per hour', svc_unit_day_short:'day',
     svc_from:'from {p}', svc_delete_service:'Delete', svc_delete_confirm:'Delete this service?', svc_service_err:'Give it a name.',
     recap_revenue_jobs:'Income from jobs', recap_est_note_svc:'Income from the jobs you logged (paid or pending) minus the expenses on your receipts.', recap_jobs_n:'{n} jobs in the period', recap_by_asset:'By asset', recap_bycat:'Expenses by category',
     outflow_service:'Job',
@@ -1824,12 +1850,14 @@ let stateLoadFailed = false;
 function saveState(){
   // Modo Servicios (app-15): trabajos, cobros y mantenimientos como notas del
   // calendario, siempre al día con los datos. Idempotente.
-  if(typeof svcGenerateRecurring==='function') try{ svcGenerateRecurring(); }catch(e){}
-  if(typeof svcSyncCalendar==='function') try{ svcSyncCalendar(); }catch(e){}
+  if(typeof svcGenerateRecurring==='function') try{ svcGenerateRecurring(); }catch(e){ console.error('[Dusty] recurrencia:', e); }
+  if(typeof svcSyncCalendar==='function') try{ svcSyncCalendar(); }catch(e){ console.error('[Dusty] calendario de servicios:', e); }
   if(stateLoadFailed){
     // Un dato real nuevo (importar respaldo, un producto, un recibo) significa
     // que el usuario ya siguió adelante: se libera el freno y se guarda normal.
-    if(inventory.length || receipts.length || purchases.length) stateLoadFailed = false;
+    // Un negocio de solo servicios no carga productos ni recibos al principio:
+    // trabajos, activos o clientes también cuentan como "ya siguió adelante".
+    if(inventory.length || receipts.length || purchases.length || outflows.length || (bizProfile && ((bizProfile.assets||[]).length || (bizProfile.clients||[]).length))) stateLoadFailed = false;
     else return;
   }
   let localOk = true;
@@ -1929,7 +1957,9 @@ function applyStateData(data){
       return r;
     });
   }
-  if(Array.isArray(data.outflows)) outflows = data.outflows.filter(o=>o && o.id).slice(0, OUTFLOWS_MAX);
+  // Mismo tope y misma regla que recordOutflow (capOutflows, patron-core): lo
+  // abierto —trabajos sin cobrar, contratos, cotizaciones— nunca se recorta.
+  if(Array.isArray(data.outflows)) outflows = capOutflows(data.outflows, OUTFLOWS_MAX).kept;
   if(data.outflowArchive && typeof data.outflowArchive==='object' && !Array.isArray(data.outflowArchive)) outflowArchive = data.outflowArchive;
 }
 function loadState(){

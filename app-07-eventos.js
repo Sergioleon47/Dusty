@@ -224,10 +224,13 @@ function attachModalTabTrap(){
    vista del Inventario (invLayoutVtActive en app-04), no una animación nueva.
    Donde no hay View Transitions (Safari viejo, Firefox) el if de abajo cae al
    render de siempre: se abre igual, sin el agrandado. */
-function openReceiptsSheet(){
+function openReceiptsSheet(opts){
   /* Un solo destino mental —"tocá el calendario y vas a tus recibos"— por dos
      caminos: si Recibos todavía es pestaña (negocio que no fabrica), se cambia de
-     pestaña como siempre; si Producción le tomó el lugar, se abre la hoja. */
+     pestaña como siempre; si Producción le tomó el lugar, se abre la hoja.
+     El filtro por activo (app-15, "Ver todos" de la ficha) se limpia salvo que
+     quien abre lo pida: llegar por el calendario muestra todos los recibos. */
+  if(typeof receiptsAssetFilter!=='undefined' && !(opts && opts.keepAssetFilter)) receiptsAssetFilter = null;
   if(TAB_ORDER[2]==='recibos'){ switchToTab('recibos'); return; }
   // La tarjeta muestra el mes de HOY: el calendario grande abre en ese mismo mes,
   // no en el último que se hojeó. Lo que tocaste es lo que ves.
@@ -238,7 +241,7 @@ function openReceiptsSheet(){
   svcShow(()=>{ showReceiptsSheet = true; });
 }
 function closeReceiptsSheet(){
-  svcShow(()=>{ showReceiptsSheet = false; });
+  svcShow(()=>{ showReceiptsSheet = false; if(typeof receiptsAssetFilter!=='undefined') receiptsAssetFilter = null; });
 }
 function attachEvents(){
   /* Esta funcion tenia 1753 lineas y hacia TODO. Ahora es lo que deberia ser: lo
@@ -356,6 +359,11 @@ document.addEventListener('keydown', (e)=>{
   if(showRecipeModal){ closeRecipeModal(); return; }
   if(showOutflowsModal){ showOutflowsModal=false; render(); return; }
   if(showProductionHub){ showProductionHub=false; render(); return; }
+  // Hojas y modales de Servicios y Cotizaciones (app-15/17): mismo camino que el
+  // botón atrás de Android — la ✕ o Cancelar de la capa de más arriba (auditoría
+  // 2026-09-12: Escape cerraba el recibo abierto encima pero no la ficha de activo).
+  const ov = topOverlay();
+  if(ov){ closeOverlayLikeBackBtn(ov); }
 });
 
 // Si había una subida pendiente por fallo de red, no hace falta esperar a que venza

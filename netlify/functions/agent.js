@@ -44,6 +44,7 @@ const TOOLS = [
       price: { type: 'number' }, date: { type: 'string', description: 'YYYY-MM-DD, omití para hoy' },
       asset: { type: 'string', description: 'Nombre del equipo/activo usado (de la lista del usuario)' },
       paid: { type: 'boolean', description: 'true si ya cobró' }, due_days: { type: 'integer', description: 'Días para cobrar si está pendiente (default 15)' },
+      end_date: { type: 'string', description: 'YYYY-MM-DD, solo si el trabajo o alquiler dura varios días (último día)' },
       repeat: { type: 'string', enum: ['weekly', 'biweekly', 'monthly'], description: 'Solo si el usuario dice que se repite' }
     }, required: ['client', 'price'] } },
   { name: 'mark_paid', description: 'Marca como cobrado un trabajo pendiente. Identificalo por cliente (y monto o fecha si hay varios).',
@@ -83,7 +84,7 @@ const TOOLS = [
   { name: 'delete_expense', description: 'Borra un gasto cargado a mano o por el asistente (los escaneados con productos se borran desde el recibo). Identificalo por receipt_id o por descripción/monto/fecha.',
     input_schema: { type: 'object', properties: { receipt_id: { type: 'string' }, description: { type: 'string' }, amount: { type: 'number' }, date: { type: 'string' } }, required: [] } },
   { name: 'update_job', description: 'Corrige un trabajo: precio, fecha, cliente, servicio, equipo, vencimiento, o volverlo a pendiente (paid=false). Identificalo por job_id (de query jobs/collect) o por cliente/monto/fecha.',
-    input_schema: { type: 'object', properties: { job_id: { type: 'string' }, client: { type: 'string', description: 'Para encontrarlo' }, amount: { type: 'number', description: 'Para encontrarlo' }, date: { type: 'string', description: 'Para encontrarlo' }, new_price: { type: 'number' }, new_date: { type: 'string' }, new_client: { type: 'string' }, new_service: { type: 'string' }, new_asset: { type: 'string' }, paid: { type: 'boolean' }, due_days: { type: 'integer' } }, required: [] } },
+    input_schema: { type: 'object', properties: { job_id: { type: 'string' }, client: { type: 'string', description: 'Para encontrarlo' }, amount: { type: 'number', description: 'Para encontrarlo' }, date: { type: 'string', description: 'Para encontrarlo' }, new_price: { type: 'number' }, new_date: { type: 'string' }, new_client: { type: 'string' }, new_service: { type: 'string' }, new_asset: { type: 'string' }, new_end_date: { type: 'string', description: 'YYYY-MM-DD, último día si dura varios días' }, paid: { type: 'boolean' }, due_days: { type: 'integer' } }, required: [] } },
   { name: 'delete_job', description: 'Elimina un trabajo (sus gastos quedan como recibos). Identificalo por job_id o por cliente/monto/fecha.',
     input_schema: { type: 'object', properties: { job_id: { type: 'string' }, client: { type: 'string' }, amount: { type: 'number' }, date: { type: 'string' } }, required: [] } },
   { name: 'update_asset', description: 'Actualiza un equipo/activo: odómetro (km actual), nombre o modelo. "El camión está en 120000 km" → km.',

@@ -280,6 +280,9 @@ function receiptDetailModal(){
         ${kind ? `<span><b>${t('rd_kind_label')}</b>${kind}</span>` : ''}
         <span><b>${t('rd_id_label')}</b>${escapeHtml(String(r.id||'').slice(-6).toUpperCase())}</span>
         <span><b>${t('rd_ledger_title')}</b>${t('rd_lines_n').replace('{n}', lines.length)}</span>
+        ${/* Modo Servicios (app-15): a qué activo y a qué trabajo está colgado el gasto. */''}
+        ${r.assetId && typeof assetById==='function' && assetById(r.assetId) ? `<span><b>${t('rd_asset_label')}</b>${escapeHtml((assetById(r.assetId).emoji||'')+' '+assetById(r.assetId).name)}</span>` : ''}
+        ${r.jobId && typeof jobById==='function' && jobById(r.jobId) && !jobById(r.jobId).deleted ? `<span><b>${t('rd_job_label')}</b>${escapeHtml((jobById(r.jobId).client||'')+' · '+svcShortDate(jobById(r.jobId).date))}</span>` : ''}
       </div>
       <div class="rd-ledger">
         <div class="rd-row rd-head"><span>${t('rd_col_desc')}</span><span>${t('rd_col_qty')}</span><span>${t('rd_col_unit')}</span><span>${t('rd_col_total')}</span></div>
@@ -969,7 +972,7 @@ function applyJoinedTeam(ownerUid, ownerEmail){
   // recetas/salidas: al unirse a un equipo, las recetas personales quedaban en
   // pantalla dentro del contexto del equipo y la próxima edición las subía al
   // inventario del dueño (y al revés al salir).
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; deletedRecipeIds=[]; resetSyncedHashes();
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
   joinedOwnerUid = ownerUid; joinedOwnerEmail = ownerEmail;
   lastSyncedUid = ownerUid;
   saveState();
@@ -1312,7 +1315,7 @@ let recapCompare=false, recapComparePick=[];
 function recapDefaultBaseMode(){
   const months = new Set();
   receipts.forEach(r=>{ const k=monthKey(r.date); if(k) months.add(k); });
-  outflows.forEach(o=>{ if(o && o.type==='quote') return; const k=monthKey(o.date); if(k) months.add(k); });
+  outflows.forEach(o=>{ if(!o || o.type==='quote' || o.deleted) return; const k=monthKey(o.date); if(k) months.add(k); });
   for(const k of months){ if(months.has((Number(k.slice(0,4))-1)+k.slice(4))) return 'yoy'; }
   return 'prev';
 }
@@ -1322,7 +1325,9 @@ function recapKeyLabel(key){ return key.length===4 ? key : monthLabel(key, uiLan
 function recapPeriodKeys(mode){
   const set = new Set();
   receipts.forEach(r=>{ const k=monthKey(r.date); if(k) set.add(mode==='year'?k.slice(0,4):k); });
-  outflows.forEach(o=>{ const k=monthKey(o.date); if(k) set.add(mode==='year'?k.slice(0,4):k); });
+  // Un trabajo borrado o una cotización no son actividad del período (antes un
+  // trabajo creado con el año mal y borrado dejaba una columna vacía para siempre).
+  outflows.forEach(o=>{ if(!o || o.type==='quote' || o.deleted) return; const k=monthKey(o.date); if(k) set.add(mode==='year'?k.slice(0,4):k); });
   set.add(mode==='year' ? localMonthStr().slice(0,4) : localMonthStr());
   return [...set].sort().reverse().slice(0,24);
 }
@@ -1398,7 +1403,7 @@ function monthRecapModal(){
     if(demo){ recapDemoKeys('month').forEach(addK); }
     else{
       receipts.forEach(r=>addK(monthKey(r.date)));
-      outflows.forEach(o=>{ if(o && o.type==='quote') return; addK(monthKey(o.date)); });
+      outflows.forEach(o=>{ if(!o || o.type==='quote' || o.deleted) return; addK(monthKey(o.date)); });
     }
     const nowKey = recapMode==='year' ? localMonthStr().slice(0,4) : localMonthStr();
     const focusKey = demo ? nowKey : (recapMode==='year' ? (monthRecapKey||nowKey).slice(0,4) : (monthRecapKey||nowKey));
@@ -4013,7 +4018,8 @@ function applyScanResults(){
       jobId: receiptAttach ? (receiptAttach.jobId||null) : null,
       assetId: receiptAttach ? (receiptAttach.assetId||null) : null
     };
-    receiptAttach = null;
+    // El enganche dura toda la sesión del escáner (un lote de 3 recibos desde un
+    // trabajo cuelga los 3, no solo el primero); lo suelta closeScanModal.
     receipts.push(newReceipt);
     // Sin esperar ni bloquear: si hay sesión, sube las fotos a Storage en segundo
     // plano — si falla (sin red, etc.) el recibo ya quedó guardado igual, y la
@@ -4758,6 +4764,12 @@ function switchToTab(tab, initialVelocityPxPerSec, liveGesture){
        pagina de Inventario seguia dibujada con la lista filtrada y el chip
        encendido — volvias y seguias "adentro". Es el mismo mecanismo que usa un
        render pospuesto durante la animacion. */
+    renderPendingAfterGesture = true;
+  }
+  // Mismo criterio para el filtro por activo de Recibos (app-15, "Ver todos" de la
+  // ficha): irse de la pestaña es salir del filtro.
+  if(activeTab==='recibos' && tab!=='recibos' && typeof receiptsAssetFilter!=='undefined' && receiptsAssetFilter){
+    receiptsAssetFilter = null;
     renderPendingAfterGesture = true;
   }
   const track = document.querySelector('.view-track');

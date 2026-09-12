@@ -200,7 +200,7 @@ function quoteModal(){
         <button type="button" class="btn btn-ghost btn-sm" id="btn-qt-wa">💬 ${t('qt_send_wa')}</button>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-qt-email">✉️ ${t('qt_send_email')}</button>
       </div>
-      ${st==='accepted' ? `<div class="helper-note" style="margin:8px 0 0;">✅ ${t('qt_accepted_note')}${saved.jobId ? ` <button type="button" class="link-btn" id="btn-qt-open-job">${t('qt_open_job')}</button>` : ''}</div>` : `
+      ${st==='accepted' ? `<div class="helper-note" style="margin:8px 0 0;">✅ ${t('qt_accepted_note')}${saved.jobId && jobById(saved.jobId) ? ` <button type="button" class="link-btn" id="btn-qt-open-job">${t('qt_open_job')}</button>` : ''}</div>` : `
       <div class="qt-actions">
         <button type="button" class="btn btn-primary btn-sm" id="btn-qt-accept" style="background:var(--money-pos);">✅ ${t('qt_accept')}</button>
         ${st!=='rejected' ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-qt-reject">${t('qt_reject')}</button>` : ''}
@@ -277,7 +277,7 @@ function markQuoteSent(q){
   if(q.status!=='sent'){ q.status = 'sent'; q.sentAt = new Date().toISOString(); saveState(); logActivity('quote_sent', q.client, money(quoteTotals(q).total)); }
 }
 function rejectQuote(q){ if(!q) return; q.status = 'rejected'; q.lastEditedAt = new Date().toISOString(); saveState(); }
-function deleteQuote(q){ if(!q) return; q.deleted = true; q.deletedAt = new Date().toISOString(); saveState(); logActivity('quote_deleted', q.client); }
+function deleteQuote(q){ if(!q) return; q.deleted = true; q.deletedAt = q.lastEditedAt = new Date().toISOString(); saveState(); logActivity('quote_deleted', q.client); }
 // El cliente dijo que sí: la cotización se vuelve TRABAJO (pendiente de cobro) y
 // queda enlazada. Devuelve el trabajo.
 function acceptQuote(q, opts){
@@ -310,7 +310,9 @@ function buildQuotePdf(q){
   if(contact) pdf.line(contact, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
   pdf.line(`${t('lbl_date')}: ${q.date||''}   ·   ${t('qt_valid_until').replace('{d}', quoteValidUntil(q))}`, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
   pdf.gap(10);
-  const rows = (q.lines||[]).map(l=>({desc: l.desc, qty: quoteFmtQty(l.qty)+(l.unit && l.unit!=='fixed' ? ' '+l.unit : ''), unit: money(l.price||0), total: money(Math.round((Number(l.qty)||0)*(Number(l.price)||0)*100)/100)}));
+  // Unidad traducida ("3 h", "2 días", "20 unidades"), no el token interno ('hour', 'unidad').
+  const unitTxt = (u)=> !u || u==='fixed' ? '' : ' ' + (['hour','day','km'].indexOf(u)>=0 ? svcUnitShort(u) : unitLabel(u));
+  const rows = (q.lines||[]).map(l=>({desc: l.desc, qty: quoteFmtQty(l.qty)+unitTxt(l.unit), unit: money(l.price||0), total: money(Math.round((Number(l.qty)||0)*(Number(l.price)||0)*100)/100)}));
   rows.push({desc: t('qt_subtotal'), qty: '', unit: '', total: money(tt.subtotal), _muted: true});
   if(tt.discount>0) rows.push({desc: t('qt_discount'), qty: '', unit: '', total: '-'+money(tt.discount), _muted: true});
   if(tt.tax>0) rows.push({desc: `${t('qt_tax').replace('%','').trim()} ${q.taxPct}%`, qty: '', unit: '', total: money(tt.tax), _muted: true});
@@ -615,9 +617,12 @@ function clientsForAgentQuery(text){
   const qn = agentNorm(text||'');
   return { clients: svcClients().filter(c=>!qn || agentNorm(c.name).includes(qn)).slice(0, 40).map(c=>({client_id:c.id, name:c.name, phone:c.phone||null, email:c.email||null, notes:c.notes||null})) };
 }
-function clientFromAgent(inp){
+function clientFromAgent(inp, mustExist){
   const name = String((inp && inp.name)||'').trim(); if(!name) return {ok:false, error:'name required'};
   const existing = clientByName(name);
+  // update_client sobre un cliente que no está guardado: se avisa, no se crea uno
+  // nuevo en silencio (el asistente decía "actualizado" y aparecía un registro vacío).
+  if(mustExist && !existing) return {ok:false, error:'client not found — use add_client to save it first'};
   const email = inp.email!==undefined && inp.email!==null ? String(inp.email).trim() : undefined;
   if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return {ok:false, error:'invalid email'};
   const c = upsertClient({ id: existing ? existing.id : null, name: inp.new_name ? String(inp.new_name).trim() : name, phone: inp.phone!==undefined && inp.phone!==null ? String(inp.phone) : undefined, email, notes: inp.notes!==undefined && inp.notes!==null ? String(inp.notes) : undefined });

@@ -87,7 +87,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; resetSyncedHashes();
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
               saveState();
               applyingRemoteSnapshot = false;
             }
@@ -1086,8 +1086,19 @@ function applyRemoteMetaSnapshot(doc){
   incomingMeta.calNotes = remoteNotesIn.concat(calNotes.filter(n=>n && n.id && !remoteNoteIdsIn.has(n.id) && !noteTombs.has(n.id)));
   const remoteOutIn = (Array.isArray(incomingMeta.outflows) ? incomingMeta.outflows : []).filter(o=>o && o.id);
   const remoteOutIdsIn = new Set(remoteOutIn.map(o=>o.id));
-  incomingMeta.outflows = remoteOutIn.concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
-    .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+  /* Trabajos y cotizaciones (app-15/17) SÍ se editan (cobrar, borrar, cambiar
+     precio): en conflicto gana el lastEditedAt más nuevo, como las recetas; sin
+     sello gana la nube (las bajas de estante y producciones siguen inmutables).
+     Antes ganaba siempre la nube y un cobro marcado acá "volvía a pendiente" si
+     otro teléfono subía su copia vieja (auditoría 2026-09-12). Tope con la misma
+     regla que recordOutflow (capOutflows): un trabajo sin cobrar, un contrato o
+     una cotización abierta nunca se recortan. */
+  const localOutById = new Map(outflows.filter(o=>o && o.id).map(o=>[o.id, o]));
+  incomingMeta.outflows = capOutflows(remoteOutIn.map(remote=>{
+      const local = localOutById.get(remote.id);
+      return (local && String(local.lastEditedAt||'') > String(remote.lastEditedAt||'')) ? JSON.parse(JSON.stringify(local)) : remote;
+    }).concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
+    .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))), OUTFLOWS_MAX).kept;
   incomingMeta.outflowArchive = mergeOutflowArchives(incomingMeta.outflowArchive, outflowArchive);
   incomingMeta.aliasMap = Object.assign({}, aliasMap, incomingMeta.aliasMap || {});
   // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
@@ -1133,7 +1144,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; resetSyncedHashes();
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -1450,7 +1461,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; resetSyncedHashes();
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -1649,12 +1660,21 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const remoteRecipeIds = new Set(remoteRecipes.map(r=>r.id));
     const localOnlyRecipes = (localSnapshot.recipes||[]).filter(r=>r && r.id && !remoteRecipeIds.has(r.id) && !deletedRecipeSet.has(r.id));
     const mergedRecipes = remoteRecipes.concat(localOnlyRecipes);
-    const remoteOutflows = (Array.isArray(remoteMetaData.outflows) ? remoteMetaData.outflows : []).filter(o=>o && o.id);
-    const remoteOutflowIds = new Set(remoteOutflows.map(o=>o.id));
+    const remoteOutflowsRaw = (Array.isArray(remoteMetaData.outflows) ? remoteMetaData.outflows : []).filter(o=>o && o.id);
+    const remoteOutflowIds = new Set(remoteOutflowsRaw.map(o=>o.id));
+    const localOutSnap = new Map((localSnapshot.outflows||[]).filter(o=>o && o.id).map(o=>[o.id, o]));
+    // Misma regla que al aplicar un snapshot: por id gana el lastEditedAt más nuevo
+    // (un cobro marcado offline no lo pisa la copia vieja de la nube).
+    let localNewerOutflows = false;
+    const remoteOutflows = remoteOutflowsRaw.map(remote=>{
+      const local = localOutSnap.get(remote.id);
+      if(local && String(local.lastEditedAt||'') > String(remote.lastEditedAt||'')){ localNewerOutflows = true; return local; }
+      return remote;
+    });
     const localOnlyOutflows = (localSnapshot.outflows||[]).filter(o=>o && o.id && !remoteOutflowIds.has(o.id));
     // Historial más nuevo primero, con el mismo tope que recordOutflow() (app-08).
-    const mergedOutflows = remoteOutflows.concat(localOnlyOutflows)
-      .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, OUTFLOWS_MAX);
+    const mergedOutflows = capOutflows(remoteOutflows.concat(localOnlyOutflows)
+      .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))), OUTFLOWS_MAX).kept;
     // El archivo de salidas evictadas se fusiona por máximo por mes (ver
     // mergeOutflowArchives) — un reconcile jamás debe achicar el P&L histórico.
     const mergedOutflowArchive = mergeOutflowArchives(remoteMetaData.outflowArchive, localSnapshot.outflowArchive);
@@ -1671,7 +1691,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
       const rem = new Set(Array.isArray(remoteMetaData[k]) ? remoteMetaData[k] : []);
       return arr.some(id=>!rem.has(id));
     });
-    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0 || archiveChanged || localOnlyTombstones;
+    const needsMeta = !metaSnap.exists || Object.keys(idRemap).length>0 || deletedIdsChanged || localOnlyNotes.length>0 || localOnlyRecipes.length>0 || localOnlyOutflows.length>0 || localNewerOutflows || archiveChanged || localOnlyTombstones;
     if(newInv.length===0 && updInv.length===0 && missingPur.length===0 && updPur.length===0 && missingRec.length===0 && updRec.length===0 && remoteTombstonedIds.length===0 && remoteTombstonedRecIds.length===0 && remoteTombstonedPurIds.length===0 && !needsMeta) return null;
     // Mismo límite de 500 operaciones por batch que syncAllToFirestore() — un primer
     // sincronizado grande (por ejemplo, activar la nube con cientos de productos ya

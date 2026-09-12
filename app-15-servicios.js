@@ -38,6 +38,18 @@ let showMaintLogModal = false, maintLogAssetId = null, maintLogPlanId = '', main
 let showServiceModal = false, draftService = null, serviceModalError = '';
 let equipoSearch = '', jobsSearch = '';
 let showExpenseCatsSheet = false;
+/* Auditoría de Servicios 2026-09-12:
+   - assetSheetMonth: mes que muestra la ficha de activo (null = el actual); la
+     ficha y su PDF ya no están clavados al mes calendario de hoy.
+   - assetSheetShowAllMaint: el historial de mantenimientos hechos desplegado entero.
+   - jobsAssetFilter / receiptsAssetFilter: "Ver todos" desde la ficha abre la lista
+     de Trabajos o la de Recibos filtrada por ESE activo (antes abría la lista
+     general de todo el negocio, sin ninguna marca de cuáles eran del activo).
+   - jobsShownLimit: la lista de Trabajos se cortaba en 120 sin aviso; ahora es una
+     ventana con "Mostrar más", igual que la de Recibos. */
+let assetSheetMonth = null, assetSheetShowAllMaint = false, jobsAssetFilter = null, receiptsAssetFilter = null;
+const JOBS_WINDOW_STEP = 60;
+let jobsShownLimit = JOBS_WINDOW_STEP;
 
 const SVC_ASSET_EMOJIS = ['🚚','🚛','🚐','🚗','🏍️','❄️','🏗️','🔧','🧰','🖥️','🏠','⚙️'];
 const SVC_MAINT_EMOJIS = ['🛢️','🛞','📋','🔧','🧊','🔋','🧯','🧹','⚙️'];
@@ -71,7 +83,29 @@ function setBizFlags(sells, services){
 
 /* ---------- trabajos ---------- */
 function svcJobs(){ return outflows.filter(o=>o && o.type==='service' && !o.deleted); }
-function jobById(id){ return outflows.find(o=>o && o.type==='service' && o.id===id) || null; }
+// Solo trabajos VIVOS: un borrado suave no se abre, no se cobra ni lo encuentra
+// el asistente (auditoría 2026-09-12: una cotización aceptada cuyo trabajo se
+// eliminó abría un fantasma). La regla de contratos mira outflows directo.
+function jobById(id){ return outflows.find(o=>o && o.type==='service' && o.id===id && !o.deleted) || null; }
+/* Un solo punto para cobrar y para eliminar (modal, Por cobrar y asistente
+   hacían cada uno su copia y ya divergían): sella lastEditedAt para el merge de la
+   nube; al eliminar, retira las próximas del contrato y suelta la cotización que
+   lo creó (vuelve a "enviada" para poder aceptarla de nuevo). */
+function markJobPaid(job, when){
+  if(!job || job.deleted) return false;
+  job.paid = true; job.paidDate = when || localDateStr(); job.dueDate = null; job.lastEditedAt = new Date().toISOString();
+  return true;
+}
+function deleteJob(job){
+  if(!job || job.deleted) return 0;
+  job.deleted = true; job.deletedAt = job.lastEditedAt = new Date().toISOString();
+  const pruned = svcAfterJobDelete(job);
+  if(job.quoteId && typeof quoteById==='function'){
+    const q = quoteById(job.quoteId);
+    if(q && q.jobId===job.id){ q.status = 'sent'; q.jobId = null; q.acceptedAt = null; q.lastEditedAt = new Date().toISOString(); }
+  }
+  return pruned;
+}
 function assetById(id){ return (bizProfile.assets||[]).find(a=>a.id===id) || null; }
 function serviceById(id){ return (bizProfile.catalog||[]).find(c=>c.id===id) || null; }
 function jobReceipts(jobId){ return receipts.filter(r=>r && r.jobId===jobId); }
@@ -108,17 +142,35 @@ function assetReceipts(assetId, key){
   const jobIds = new Set(svcJobs().filter(j=>j.assetId===assetId).map(j=>j.id));
   return receipts.filter(r=>r && (r.assetId===assetId || (r.jobId && jobIds.has(r.jobId))) && (!key || monthKey(r.date)===key));
 }
+// revenue = FACTURADO con el activo en el mes (trabajos por fecha, cobrados o no);
+// paid = lo que de esos trabajos ya se cobró. Antes la ficha llamaba "Cobrado" al
+// facturado y contradecía a Por cobrar (auditoría 2026-09-12).
 function assetMonthStats(asset, key){
   const jobs = jobsForMonth(key).filter(j=>j.assetId===asset.id);
   const revenue = jobs.reduce((s,j)=>s+(Number(j.price)||0),0);
+  const paid = jobs.filter(j=>j.paid).reduce((s,j)=>s+(Number(j.price)||0),0);
   const expense = assetReceipts(asset.id, key).reduce((s,r)=>s+(Number(r.total)||0),0);
-  return {revenue, jobs: jobs.length, expense, net: revenue-expense};
+  return {revenue, paid, jobs: jobs.length, expense, net: revenue-expense};
+}
+// Acumulado desde siempre (la ficha lo muestra como "Desde la compra").
+function assetAllTimeStats(asset){
+  const jobs = svcJobs().filter(j=>j.assetId===asset.id);
+  const revenue = jobs.reduce((s,j)=>s+(Number(j.price)||0),0);
+  const paid = jobs.filter(j=>j.paid).reduce((s,j)=>s+(Number(j.price)||0),0);
+  const expense = assetReceipts(asset.id).reduce((s,r)=>s+(Number(r.total)||0),0);
+  return {revenue, paid, jobs: jobs.length, expense, net: revenue-expense};
+}
+// Estado de un plan de mantenimiento. Con el odómetro apagado en Ajustes los km
+// del activo no cuentan (antes un plan "cada 5.000 km" seguía diciendo "en 3.000
+// km" para siempre en una carpa de eventos): solo rige el plazo en meses.
+function svcMaintStatus(m, a, today){
+  return maintStatus(m, useOdo() ? a : Object.assign({}, a, {km: null}), today || localDateStr(), bizProfile.maintDays);
 }
 const SVC_MAINT_RANK = {overdue:3, soon:2, ok:1, none:0};
 function assetMaintInfo(asset){
   const today = localDateStr(); let worst = null;
   (asset.maint||[]).forEach(m=>{
-    const st = maintStatus(m, asset, today, bizProfile.maintDays);
+    const st = svcMaintStatus(m, asset, today);
     const rank = SVC_MAINT_RANK[st.status];
     if(!worst || rank>worst.rank) worst = {rank, plan:m, st};
     else if(rank===worst.rank && rank>0 && svcMaintUrgency(st) < svcMaintUrgency(worst.st)) worst = {rank, plan:m, st};
@@ -137,7 +189,7 @@ function svcMaintTag(status){
   if(status==='soon') return {cls:'warn', label:t('svc_tag_soon')};
   return {cls:'ok', label:t('svc_tag_ok')};
 }
-function svcFmtNum(n){ return Math.round(Math.abs(n)).toLocaleString('en-US'); }
+function svcFmtNum(n){ return formatInt(n); }
 function svcMonthYear(dateStr){
   const k = monthKey(dateStr); if(!k) return '';
   return monthLabel(k, uiLang).toLowerCase();
@@ -214,8 +266,10 @@ function svcShortDate(dateStr){
 }
 function svcMoneyShort(v){ return money(v).replace(/([.,])00$/, ''); }
 function svcUnitSuffix(unit){
-  return unit==='km' ? '/km' : unit==='day' ? `/${t('svc_unit_day_short')}` : unit==='hour' ? '/h' : '';
+  return unit==='km' ? `/${distU()}` : unit==='day' ? `/${t('svc_unit_day_short')}` : unit==='hour' ? '/h' : '';
 }
+// Etiqueta corta de la unidad de cobro ("h", "día", "km"/"mi"); '' si es por trabajo.
+function svcUnitShort(unit){ return svcUnitSuffix(unit).replace(/^\//, ''); }
 function svcServicePrice(c){
   if(!(c.price>0)) return '—';
   return c.unit==='fixed' ? t('svc_from').replace('{p}', svcMoneyShort(c.price)) : svcMoneyShort(c.price)+svcUnitSuffix(c.unit);
@@ -228,7 +282,7 @@ function svcToolsHtml(scanSvg){
   return `
   <div class="inv-tools" style="margin:4px 0 16px;">
     <button type="button" class="inv-tool" id="btn-new-job" title="${t('svc_job_new')}">
-      <span class="inv-tool-ring tool-products">🚚</span>
+      <span class="inv-tool-ring tool-products">${svcBizEmoji()}</span>
       <span class="inv-tool-label">${t('svc_tool_job')}</span>
     </button>
     <div class="inv-tool" style="min-width:76px;">
@@ -246,13 +300,28 @@ function svcToolsHtml(scanSvg){
   </div>`;
 }
 // Baldosas "Hoy" del modo Servicios: Trabajos · Por cobrar · Mantenimiento.
+/* Ícono del negocio para "Trabajo", Equipo y las notas de trabajo del calendario:
+   un camión solo si el equipo lleva kilómetros (vehículos); si no, algo neutro
+   (una empresa de limpieza o de soporte técnico no tiene camiones). */
+function svcBizEmoji(){ return useOdo() ? '🚚' : '🧰'; }
+// Ícono de UN trabajo: el del equipo usado, si no el del servicio, si no el del negocio.
+function svcJobEmoji(j){
+  const a = j && j.assetId ? assetById(j.assetId) : null;
+  if(a && a.emoji) return a.emoji;
+  if(j && j.serviceName) return svcServiceEmoji(j.serviceName);
+  return svcBizEmoji();
+}
+// ¿El trabajo está en curso ese día? Un alquiler o evento de varios días tiene
+// endDate (auditoría 2026-09-12); sin endDate es de un solo día.
+function jobCoversDay(j, day){ return !!j && !!j.date && j.date<=day && (j.endDate||j.date)>=day; }
 function svcDashTilesHtml(){
   const today = localDateStr();
-  const jobsToday = svcJobs().filter(j=>j.date===today);
+  const jobsToday = svcJobs().filter(j=>jobCoversDay(j, today));
   const cs = collectStats();
   const mo = svcMaintOverview();
   const firstJob = jobsToday[0];
-  const collectBadge = cs.pending>0 ? {cls:'warn', label:t('svc_tag_pending')} : {cls:'ok', label:t('svc_tag_ok')};
+  // Con algo vencido la insignia dice Vencido (roja), como la de Mantenimiento.
+  const collectBadge = cs.overdueCount>0 ? {cls:'crit', label:t('svc_tag_overdue')} : cs.pending>0 ? {cls:'warn', label:t('svc_tag_pending')} : {cls:'ok', label:t('svc_tag_ok')};
   const maintBadge = mo.overdue.length ? {cls:'crit', label:t('svc_tag_overdue')} : mo.soon.length ? {cls:'warn', label:t('svc_tag_soon')} : {cls:'ok', label:t('svc_tag_ok')};
   const maintFirst = mo.overdue[0] || mo.soon[0];
   const maintNum = mo.overdue.length || mo.soon.length;
@@ -339,7 +408,7 @@ function equipoView(){
   </div>` : ''}
   <div class="inv-tools" style="margin:0 0 6px;">
     <button type="button" class="inv-tool" id="btn-new-asset" title="${t('svc_asset_new')}">
-      <span class="inv-tool-ring tool-products">🚚</span>
+      <span class="inv-tool-ring tool-products">${svcBizEmoji()}</span>
       <span class="inv-tool-label">${t('svc_tool_asset')}</span>
     </button>
     <div class="inv-tool" style="min-width:76px;">
@@ -393,28 +462,49 @@ function svcSheet(id, title, body, closeId){
 function equipoSheet(){ return svcSheet('equipo-sheet-overlay', t('svc_title_equipo'), equipoView(), 'btn-close-equipo-sheet'); }
 
 /* ---------- FICHA DE ACTIVO ---------- */
+/* La ficha (auditoría 2026-09-12): mes navegable (‹ ›) con "Desde siempre",
+   FACTURADO (no "cobrado") con lo cobrado al lado, mantenimientos programados,
+   historial de mantenimientos hechos, trabajos con el activo y gastos — cada lista
+   dice cuántos muestra de cuántos y "Ver todos" abre la lista filtrada por ESTE
+   activo. Gasto/escaneo directo del activo sin pasar por un trabajo. */
+function assetSheetKey(){ return assetSheetMonth || localMonthStr(); }
 function assetSheet(){
   const a = assetById(showAssetSheet);
   if(!a) return '';
-  const key = localMonthStr();
+  const key = assetSheetKey(), cur = localMonthStr();
   const st = assetMonthStats(a, key);
+  const all = assetAllTimeStats(a);
   const today = localDateStr();
-  const bought = [a.purchaseDate ? t('svc_bought').replace('{when}', svcMonthYear(a.purchaseDate)) : '', a.purchasePrice>0 ? money(a.purchasePrice) : '', a.km!==null && a.km!==undefined ? `${svcFmtNum(a.km)} ${distU()}` : ''].filter(Boolean).join(' · ');
-  const recs = assetReceipts(a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0,6);
-  const plans = (a.maint||[]).map(m=>({m, st: maintStatus(m, a, today, bizProfile.maintDays)}))
+  const fin = canSeeFinancials();
+  const showKm = useOdo() && a.km!==null && a.km!==undefined;
+  const bought = [a.purchaseDate ? t('svc_bought').replace('{when}', svcMonthYear(a.purchaseDate)) : '', a.purchasePrice>0 ? money(a.purchasePrice) : '', showKm ? `${svcFmtNum(a.km)} ${distU()}` : ''].filter(Boolean).join(' · ');
+  const recsAll = assetReceipts(a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+  const recs = recsAll.slice(0,6);
+  const jobsAll = svcJobs().filter(j=>j.assetId===a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+  const jobs = jobsAll.slice(0,6);
+  const logAll = (a.maintLog||[]).slice().sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+  const log = assetSheetShowAllMaint ? logAll : logAll.slice(0,5);
+  const plans = (a.maint||[]).map(m=>({m, st: svcMaintStatus(m, a, today)}))
     .sort((x,y)=> SVC_MAINT_RANK[y.st.status]-SVC_MAINT_RANK[x.st.status] || svcMaintUrgency(x.st)-svcMaintUrgency(y.st));
-  const every = (m)=>[m.everyKm>0 ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(uiLang==='en' ? ' or ' : ' o ');
+  const every = (m)=>[m.everyKm>0 && useOdo() ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(uiLang==='en' ? ' or ' : ' o ');
+  const nOf = (shown, total)=> total>shown ? t('svc_n_of_total').replace('{n}', String(shown)).replace('{t}', String(total)) : '';
+  const logName = (l)=>{ const plan = l.planId ? (a.maint||[]).find(m=>m.id===l.planId) : null; return plan ? `${plan.emoji||'🔧'} ${plan.name}` : `🔧 ${l.desc || t('svc_log_other')}`; };
   const body = `
     <h3 class="navy svc-sheet-title">${escapeHtml(a.emoji||'🚚')} ${escapeHtml(a.name)}${a.model ? ` · ${escapeHtml(a.model)}` : ''}
       <button type="button" class="stock-icon-btn edit svc-title-edit" id="btn-edit-asset" title="${t('svc_edit_asset')}" aria-label="${t('svc_edit_asset')}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
     </h3>
     <div class="sub svc-sub">${bought || t('svc_no_purchase_data')}</div>
-    ${canSeeFinancials() ? `
+    <div class="svc-month-nav">
+      <button type="button" class="link-btn" id="btn-asset-prev-month" aria-label="${t('svc_prev_month')}" title="${t('svc_prev_month')}">‹</button>
+      <b>${monthLabel(key, uiLang)}</b>
+      <button type="button" class="link-btn" id="btn-asset-next-month" aria-label="${t('svc_next_month')}" title="${t('svc_next_month')}" ${key>=cur?'disabled':''}>›</button>
+    </div>
+    ${fin ? `
     <div class="dash-grid" style="margin-top:4px;">
       <div class="dash-tile t3 static svc-mini-tile">
         <b class="dash-tile-num">${svcMoneyShort(st.revenue)}</b>
-        <span class="dash-tile-title">${t('svc_collected_with')}</span>
-        <span class="dash-tile-sub">${t('svc_jobs_month_n').replace('{n}', String(st.jobs))}</span>
+        <span class="dash-tile-title">${t('svc_billed_with')}</span>
+        <span class="dash-tile-sub">${t('svc_jobs_month_n').replace('{n}', String(st.jobs))} · ${t('svc_paid_of_short').replace('{amount}', svcMoneyShort(st.paid))}</span>
       </div>
       <div class="dash-tile twarn static svc-mini-tile">
         <b class="dash-tile-num">${svcMoneyShort(st.expense)}</b>
@@ -422,7 +512,8 @@ function assetSheet(){
         <span class="dash-tile-sub">${monthLabel(key, uiLang)}</span>
       </div>
     </div>
-    <div class="recap-row svc-line-big"><span class="recap-label">${t('svc_leaves_month')}</span><span class="recap-col-val"><strong style="color:${st.net>=0?'var(--money-pos)':'var(--money-neg)'};">${st.net<0?'−':''}${money(Math.abs(st.net))}</strong></span></div>` : ''}
+    <div class="recap-row svc-line-big"><span class="recap-label">${t('svc_leaves_month')}</span><span class="recap-col-val"><strong style="color:${st.net>=0?'var(--money-pos)':'var(--money-neg)'};">${st.net<0?'−':''}${money(Math.abs(st.net))}</strong></span></div>
+    <div class="recap-row"><span class="recap-label">${t('svc_since_purchase')}<small class="svc-plan-sub" style="display:block;">${t('svc_since_purchase_sub').replace('{n}', String(all.jobs)).replace('{billed}', svcMoneyShort(all.revenue)).replace('{spent}', svcMoneyShort(all.expense))}</small></span><span class="recap-col-val"><strong style="color:${all.net>=0?'var(--money-pos)':'var(--money-neg)'};">${all.net<0?'−':''}${money(Math.abs(all.net))}</strong></span></div>` : ''}
     <div class="settings-card svc-card">
       <div class="svc-card-head"><span>${t('svc_maints')}</span><button type="button" class="link-btn" id="btn-add-maint">${t('svc_add')}</button></div>
       ${plans.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_maint_no_plan')}</div>` : plans.map(({m, st})=>{
@@ -434,12 +525,32 @@ function assetSheet(){
       </div>`; }).join('')}
     </div>
     <div class="settings-card svc-card">
-      <div class="svc-card-head"><span>${t('svc_last_expenses')}</span>${recs.length ? `<button type="button" class="link-btn" id="btn-asset-all-receipts">${t('svc_see_all')}</button>` : ''}</div>
+      <div class="svc-card-head"><span>${t('svc_maint_history')}${nOf(log.length, logAll.length)}</span>${logAll.length>5 ? `<button type="button" class="link-btn" id="btn-asset-all-maint">${assetSheetShowAllMaint ? t('svc_see_less') : t('svc_see_all')}</button>` : ''}</div>
+      ${log.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_maint_history_empty')}</div>` : log.map(l=>`
+      <div class="recap-row svc-plan${l.receiptId ? '' : ' static'}" ${l.receiptId ? `data-view-receipt="${escapeHtml(l.receiptId)}" role="button" tabindex="0"` : ''}>
+        <span class="recap-label"><span>${escapeHtml(logName(l))}</span><small class="svc-plan-sub">${escapeHtml(svcShortDate(l.date))}${useOdo() && l.km!==null && l.km!==undefined ? ` · ${svcFmtNum(l.km)} ${distU()}` : ''}</small></span>
+        <span class="recap-col-val"><strong>${l.cost>0 ? money(l.cost) : '—'}</strong></span>
+      </div>`).join('')}
+    </div>
+    <div class="settings-card svc-card">
+      <div class="svc-card-head"><span>${t('svc_jobs_with_asset')}${nOf(jobs.length, jobsAll.length)}</span>${jobsAll.length ? `<button type="button" class="link-btn" id="btn-asset-all-jobs">${t('svc_see_all')}</button>` : ''}</div>
+      ${jobs.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_no_jobs_asset')}</div>` : jobs.map(j=>`
+      <div class="recap-row svc-plan" data-open-job="${escapeHtml(j.id)}" role="button" tabindex="0">
+        <span class="recap-label"><span>${escapeHtml(j.client||'')}</span><small class="svc-plan-sub">${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${j.endDate ? ` → ${escapeHtml(svcShortDate(j.endDate))}` : ''}</small></span>
+        <span class="recap-col-val"><span class="dash-tile-badge svc-tag ${j.paid?'ok':jobIsOverdue(j, today)?'crit':'warn'}" style="margin:0;">${jobStatusLabel(j)}</span>${fin ? `<strong>${money(j.price||0)}</strong>` : ''}</span>
+      </div>`).join('')}
+    </div>
+    <div class="settings-card svc-card">
+      <div class="svc-card-head"><span>${t('svc_last_expenses')}${nOf(recs.length, recsAll.length)}</span>${recsAll.length ? `<button type="button" class="link-btn" id="btn-asset-all-receipts">${t('svc_see_all')}</button>` : ''}</div>
       ${recs.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_no_expenses')}</div>` : recs.map(r=>`
       <div class="recap-row svc-plan" data-view-receipt="${escapeHtml(r.id)}" role="button" tabindex="0">
         <span class="recap-label">${svcReceiptLabel(r)} · ${escapeHtml(svcShortDate(r.date))}</span>
         <span class="recap-col-val"><strong>${money(r.total)}</strong></span>
       </div>`).join('')}
+      <div class="svc-row-actions" style="margin:8px 0 0;">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-asset-scan">${t('svc_scan_receipt_btn')}</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-asset-spend">${t('svc_spend_by_hand')}</button>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btn-asset-log-maint">${t('svc_log_maint')}</button>
@@ -499,15 +610,27 @@ function collectSheet(){
 }
 
 /* ---------- TRABAJOS (lista) ---------- */
+// Chip de filtro por activo ("Trabajos con Camión 1 · 40 ✕") para las listas de
+// Trabajos y Recibos cuando se llega desde "Ver todos" de la ficha.
+function svcAssetFilterChip(asset, labelKey, n, btnId){
+  return `<div class="svc-filter-chip"><span>${escapeHtml(asset.emoji||'')} ${t(labelKey).replace('{name}', escapeHtml(asset.name))} · ${n}</span><button type="button" class="stock-row-x-btn" id="${btnId}" title="${t('btn_close')}" aria-label="${t('btn_close')}">✕</button></div>`;
+}
 function jobsSheet(){
   const today = localDateStr();
   const q = jobsSearch.trim();
-  const list = svcJobs().filter(j=>!q || invMatches((j.client||'')+' '+(j.serviceName||''), q))
-    .sort((a,b)=>String(b.date).localeCompare(String(a.date)) || String(b.createdAt||'').localeCompare(String(a.createdAt||''))).slice(0, 120);
+  const fa = jobsAssetFilter ? assetById(jobsAssetFilter) : null;
+  // El buscador también encuentra por nombre del equipo ("Retro 2" listaba
+  // "Sin resultados" aunque hubiera 40 trabajos con esa máquina).
+  const all = svcJobs().filter(j=>(!fa || j.assetId===fa.id) && (!q || invMatches((j.client||'')+' '+(j.serviceName||'')+' '+(((j.assetId && assetById(j.assetId))||{}).name||''), q)))
+    .sort((a,b)=>String(b.date).localeCompare(String(a.date)) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  // Ventana con "Mostrar más" (antes se cortaba en 120 sin ningún aviso).
+  const list = all.slice(0, jobsShownLimit);
+  const hidden = all.length - list.length;
   let lastKey = '';
   const body = `
     <div class="sub svc-sub" style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span>${t('svc_jobs_sub')}</span>${reportButtonHtml(localMonthStr())}</div>
     <button class="btn btn-primary" id="btn-jobs-new" style="width:100%;margin-bottom:12px;">${t('svc_new_job_btn')}</button>
+    ${fa ? svcAssetFilterChip(fa, 'svc_jobs_of_asset', all.length, 'btn-clear-jobs-asset') : ''}
     ${svcJobs().length>5 ? `
     <div class="inv-search-wrap" style="width:100%;margin-bottom:10px;">
       <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -523,11 +646,16 @@ function jobsSheet(){
       <span class="svc-row-ic">${asset ? escapeHtml(asset.emoji||'🚚') : '🧾'}</span>
       <span class="svc-row-tx">
         <b>${j.repeat ? '🔁 ' : ''}${escapeHtml(j.client||'')}</b>
-        <small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${asset ? ` · ${escapeHtml(asset.name)}` : ''}${j.repeat ? ` · ${svcRepeatLabel(j.repeat).toLowerCase()}` : ''}${exp>0 ? ` · ${t('svc_expenses_short')} ${svcMoneyShort(exp)}` : ''}</small>
+        <small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${j.endDate ? ` → ${escapeHtml(svcShortDate(j.endDate))}` : ''}${asset ? ` · ${escapeHtml(asset.name)}` : ''}${j.repeat ? ` · ${svcRepeatLabel(j.repeat).toLowerCase()}` : ''}${exp>0 ? ` · ${t('svc_expenses_short')} ${svcMoneyShort(exp)}` : ''}</small>
         <span class="dash-tile-badge svc-tag ${j.paid?'ok':over?'crit':'warn'}">${j.paid ? t('svc_tag_paid') : over ? t('svc_tag_overdue') : t('svc_tag_pending')}</span>
       </span>
       <span class="svc-row-amt"><b style="color:${j.paid?'var(--money-pos)':over?'var(--money-neg)':'var(--ink)'};">${svcMoneyShort(j.price||0)}</b></span>
-    </div>`; }).join('')}`;
+    </div>`; }).join('')}
+    ${hidden>0 ? `
+    <div style="text-align:center;margin:14px 0 6px;">
+      <button type="button" class="btn btn-ghost" id="btn-jobs-show-more">${t('rec_show_more').replace('{n}', String(Math.min(hidden, JOBS_WINDOW_STEP)))}</button>
+      <div class="helper-note" style="margin-top:6px;">${t('svc_jobs_showing_n').replace('{shown}', String(list.length)).replace('{total}', String(all.length))}</div>
+    </div>` : ''}`;
   return svcSheet('jobs-sheet-overlay', t('svc_jobs_title'), body, 'btn-close-jobs-sheet');
 }
 
@@ -567,17 +695,28 @@ function expenseCatsSheet(){
 
 /* ---------- MODAL: NUEVO TRABAJO ---------- */
 function openJobModal(jobId, presetAssetId){
-  if(!requireWriteAccess()) return;
+  // Ver e imprimir un trabajo no necesita permiso de escritura (una cuenta en
+  // solo-lectura tiene que poder ver qué le debe un cliente); guardar, borrar y
+  // escanear sí lo piden en su botón. Crear uno nuevo sí lo pide de entrada.
+  if(!jobId && !requireWriteAccess()) return;
   const j = jobId ? jobById(jobId) : null;
+  if(jobId && !j) return;
   draftJob = j ? {
-    id:j.id, client:j.client||'', serviceName:j.serviceName||'', serviceId:j.serviceId||null, date:j.date||localDateStr(),
-    assetId:j.assetId||null, price:j.price||'', paid:!!j.paid, dueDays: j.dueDays || ((j.dueDate && j.date) ? Math.max(1, daysBetweenStr(j.date, j.dueDate)) : 15), pending:[],
+    id:j.id, client:j.client||'', serviceName:j.serviceName||'', serviceId:j.serviceId||null, date:j.date||localDateStr(), endDate: j.endDate||'',
+    // price 0 (visita de garantía) se muestra como 0, no como vacío: si no, el trabajo no se podía volver a guardar.
+    assetId:j.assetId||null, price:(j.price===null||j.price===undefined) ? '' : j.price, qty: j.qty||'', paid:!!j.paid, paidDate: j.paidDate||'', dueDays: j.dueDays || ((j.dueDate && j.date) ? Math.max(1, daysBetweenStr(j.date, j.dueDate)) : 15), pending:[],
     repeat: j.repeat||null, parentId: j.parentId||null
-  } : { id:null, client:'', serviceName:'', serviceId:null, date:localDateStr(), assetId:presetAssetId||null, price:'', paid:false, dueDays:15, pending:[], repeat:null, parentId:null };
+  } : { id:null, client:'', serviceName:'', serviceId:null, date:localDateStr(), endDate:'', assetId:presetAssetId||null, price:'', qty:'', paid:false, paidDate:'', dueDays:15, pending:[], repeat:null, parentId:null };
   showJobModal = true; jobExpenseFormOpen = false; jobModalError = '';
   render();
 }
 function closeJobModal(){ showJobModal = false; draftJob = null; jobExpenseFormOpen = false; render(); }
+// Cancelar / tocar afuera / atrás: si hay gastos a mano agregados y sin guardar
+// se pregunta (antes se perdían en silencio, auditoría 2026-09-12).
+function closeJobModalAsk(){
+  if(draftJob && draftJob.pending && draftJob.pending.length && !confirm(t('svc_discard_confirm').replace('{n}', String(draftJob.pending.length)))) return;
+  closeJobModal();
+}
 function jobDraftExpenses(){
   const saved = draftJob.id ? jobReceipts(draftJob.id).map(r=>({desc: r.supplier, amount: Number(r.total)||0, cat: receiptCatName(r), id:r.id})) : [];
   const pend = draftJob.pending.map((p,i)=>({desc:p.desc, amount:p.amount, cat: (expenseCategories.find(c=>c.id===p.categoryId)||{}).name||'', pendingIdx:i}));
@@ -612,6 +751,14 @@ function jobModal(){
         </div>
         <div class="field"><label for="job-date">${t('lbl_date')}</label><input id="job-date" type="date" value="${escapeHtml(d.date)}"></div>
       </div>
+      ${/* Alquileres y eventos de varios días: "Hasta" (opcional). Servicios que se
+           cobran por hora/día/km (lista de precios): cantidad y el precio se
+           calcula solo (auditoría 2026-09-12). */''}
+      ${(()=>{ const u = svcJobUnitService(d); return `
+      <div class="field-row">
+        <div class="field"><label for="job-end">${t('svc_end_date')}</label><input id="job-end" type="date" value="${escapeHtml(d.endDate||'')}" min="${escapeHtml(d.date||'')}"></div>
+        ${u ? `<div class="field"><label for="job-qty">${t('svc_qty_label').replace('{u}', escapeHtml(svcUnitShort(u.unit)))}</label><input id="job-qty" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(d.qty)}" placeholder="1"></div>` : ''}
+      </div>`; })()}
       ${assets.length ? `
       <div class="field"><label>${t('svc_asset_used')}</label>
         <div class="svc-seg">
@@ -621,6 +768,7 @@ function jobModal(){
       </div>` : ''}
       <div class="field"><label for="job-price">${t('svc_price')}</label>
         <input id="job-price" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(d.price)}" placeholder="0.00">
+        <div class="helper-note" id="svc-job-unit-hint" style="margin-top:4px;">${svcJobUnitHint(d)}</div>
         ${jobModalError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${jobModalError}</div>` : ''}
       </div>
       <div class="settings-card svc-card">
@@ -642,7 +790,7 @@ function jobModal(){
           <button type="button" class="btn btn-ghost btn-sm" id="btn-job-exp-open">${t('svc_spend_by_hand')}</button>
         </div>`}
       </div>
-      <div class="recap-row svc-line-big" style="margin-top:8px;"><span class="recap-label">${t('svc_job_profit')}</span><span class="recap-col-val" id="svc-job-profit">${jobProfitHtml()}</span></div>
+      ${canSeeFinancials() ? `<div class="recap-row svc-line-big" style="margin-top:8px;"><span class="recap-label">${t('svc_job_profit')}</span><span class="recap-col-val" id="svc-job-profit">${jobProfitHtml()}</span></div>` : ''}
       ${/* 3. Contrato recurrente: el trabajo se repite y Dusty crea los siguientes. */''}
       ${d.parentId ? `<div class="helper-note" style="margin:0 0 12px;">🔁 ${t('svc_rep_child')}</div>` : `
       <div class="field"><label>${t('svc_rep_label')}</label>
@@ -655,7 +803,11 @@ function jobModal(){
           <button type="button" class="exit-reason-chip ${d.paid?'on':''}" data-job-paid="1">${t('svc_paid')}</button>
           <button type="button" class="exit-reason-chip ${!d.paid?'on':''}" data-job-paid="0">${t('svc_pending_days').replace('{n}', String(d.dueDays))}</button>
         </div>
-        ${!d.paid ? `<div class="svc-due-row"><label for="job-due">${t('svc_due_days')}</label><select id="job-due">${[7,15,30,60].map(n=>`<option value="${n}" ${d.dueDays===n?'selected':''}>${n} ${t('svc_days_word')}</option>`).join('')}</select></div>` : ''}
+        ${/* El plazo actual entra en la lista aunque no sea uno de los cuatro (el
+             asistente acepta cualquier número de días): si no, el <select> caía en
+             "7" y al guardar cualquier otro cambio el vencimiento se movía solo. */''}
+        ${!d.paid ? `<div class="svc-due-row"><label for="job-due">${t('svc_due_days')}</label><select id="job-due">${[...new Set([7,15,30,60].concat(d.dueDays>0 ? [d.dueDays] : []))].sort((a,b)=>a-b).map(n=>`<option value="${n}" ${d.dueDays===n?'selected':''}>${n} ${t('svc_days_word')}</option>`).join('')}</select></div>`
+        : `<div class="svc-due-row"><label for="job-paid-date">${t('svc_paid_date')}</label><input id="job-paid-date" type="date" value="${escapeHtml(d.paidDate || (d.date && d.date<localDateStr() ? d.date : localDateStr()))}"></div>`}
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-job">${t('btn_cancel')}</button>
@@ -665,13 +817,29 @@ function jobModal(){
     </div>
   </div>`;
 }
+// Servicio de la lista que se cobra por hora/día/km y tiene precio: el trabajo
+// lleva cantidad. Por trabajo (fixed) o sin precio: null.
+function svcJobUnitService(d){
+  const c = (bizProfile.catalog||[]).find(x=>x.name.toLowerCase()===String((d && d.serviceName)||'').trim().toLowerCase());
+  return (c && c.unit && c.unit!=='fixed' && c.price>0) ? c : null;
+}
+function svcJobUnitHint(d){
+  const u = svcJobUnitService(d); if(!u) return '';
+  const q = parseFloat(d.qty);
+  return `${svcMoneyShort(u.price)}${svcUnitSuffix(u.unit)}${q>0 ? ` × ${escapeHtml(String(d.qty))} = ${money(Math.round(q*u.price*100)/100)}` : ` · ${t('svc_qty_hint')}`}`;
+}
 function readJobDraftFromDom(){
   const g = (id)=>document.getElementById(id);
   if(g('job-client')) draftJob.client = g('job-client').value.trim();
   if(g('job-service')) draftJob.serviceName = g('job-service').value.trim();
-  if(g('job-date') && g('job-date').value) draftJob.date = g('job-date').value;
+  // Fecha vacía o inválida: se lee tal cual y saveJobFromDraft la rechaza (antes se
+  // ignoraba en silencio y el trabajo se guardaba con la fecha vieja).
+  if(g('job-date')) draftJob.date = g('job-date').value;
+  if(g('job-end')) draftJob.endDate = g('job-end').value;
+  if(g('job-qty')) draftJob.qty = g('job-qty').value;
   if(g('job-price')) draftJob.price = g('job-price').value;
   if(g('job-due')) draftJob.dueDays = parseInt(g('job-due').value,10)||15;
+  if(g('job-paid-date')) draftJob.paidDate = g('job-paid-date').value;
   const c = (bizProfile.catalog||[]).find(x=>x.name.toLowerCase()===draftJob.serviceName.toLowerCase());
   draftJob.serviceId = c ? c.id : null;
 }
@@ -681,24 +849,41 @@ function saveJobFromDraft(){
   readJobDraftFromDom();
   const d = draftJob;
   const price = parseFloat(d.price);
+  const isDate = (v)=>/^\d{4}-\d{2}-\d{2}$/.test(v||'');
   if(!d.client || !(price>=0) || isNaN(price)){ jobModalError = t('svc_job_err'); render(); return null; }
+  if(!isDate(d.date)){ jobModalError = t('svc_date_err'); render(); return null; }
+  if(isDate(d.endDate) && d.endDate<d.date){ jobModalError = t('svc_end_err'); render(); return null; }
+  const endDate = (isDate(d.endDate) && d.endDate>d.date) ? d.endDate : null;
   // 4. Choque de equipo: se avisa y se deja decidir.
-  const clash = svcClash(d);
+  const clash = svcClash(Object.assign({}, d, {endDate}));
   if(clash && !confirm(t('svc_clash_confirm').replace('{asset}', (assetById(d.assetId)||{}).name||'').replace('{client}', clash.client||''))) return null;
   let job = d.id ? jobById(d.id) : null;
+  const today = localDateStr();
   const dueDate = d.paid ? null : addDaysStr(d.date, d.dueDays||15);
   const repeat = (!d.parentId && SVC_REPEATS.indexOf(d.repeat)>=0) ? d.repeat : null;
+  // Cobrado el: lo que diga el campo; si no, la fecha del trabajo (un trabajo de
+  // hace dos semanas cargado hoy como cobrado se cobró ese día, no hoy).
+  const paidDate = d.paid ? (isDate(d.paidDate) ? d.paidDate : (d.date<today ? d.date : today)) : null;
+  const usvc = svcJobUnitService(d);
+  const qty = usvc && parseFloat(d.qty)>0 ? Math.round(parseFloat(d.qty)*100)/100 : null;
+  const unitFields = usvc ? {unit: usvc.unit, unitPrice: usvc.price, qty} : {unit: null, unitPrice: null, qty: null};
   if(job){
-    const wasPaid = job.paid;
-    // Cambió la regla del contrato: las próximas salen desde la fecha nueva.
-    if(job.repeat!==repeat || job.date!==d.date) job.lastGenerated = null;
-    Object.assign(job, { client:d.client, serviceName:d.serviceName, serviceId:d.serviceId, date:d.date, assetId:d.assetId||null,
-      price: Math.round(price*100)/100, paid:d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate: d.paid ? (wasPaid ? (job.paidDate||localDateStr()) : localDateStr()) : null,
-      lastEditedAt: new Date().toISOString() });
+    const prevAsset = job.assetId||null;
+    // Cambió la regla del contrato (fecha o frecuencia): las próximas salen desde
+    // la fecha nueva y las que nacieron de la regla vieja se retiran; si solo
+    // cambió precio/cliente/equipo/plazo, las próximas sin tocar lo siguen.
+    const ruleChanged = job.repeat!==repeat || job.date!==d.date;
+    Object.assign(job, { client:d.client, serviceName:d.serviceName, serviceId:d.serviceId, date:d.date, endDate, assetId:d.assetId||null,
+      price: Math.round(price*100)/100, paid:d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate,
+      lastEditedAt: new Date().toISOString() }, unitFields);
+    // Los gastos del trabajo siguen al equipo: si se corrigió el camión, sus
+    // recibos ya no se cuentan en la ficha del camión viejo.
+    if(prevAsset!==(job.assetId||null)) receipts.forEach(r=>{ if(r && r.jobId===job.id) r.assetId = job.assetId||null; });
+    svcAfterJobEdit(job, ruleChanged);
   } else {
-    job = { id: uid('job'), type:'service', date:d.date, client:d.client, serviceName:d.serviceName, serviceId:d.serviceId, assetId:d.assetId||null,
-      price: Math.round(price*100)/100, paid:d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate: d.paid ? localDateStr() : null,
-      items: [], createdAt: new Date().toISOString(), byLabel: (typeof currentUserLabel==='function' && currentUser) ? currentUserLabel() : '' };
+    job = Object.assign({ id: uid('job'), type:'service', date:d.date, endDate, client:d.client, serviceName:d.serviceName, serviceId:d.serviceId, assetId:d.assetId||null,
+      price: Math.round(price*100)/100, paid:d.paid, dueDate, dueDays: d.dueDays||15, repeat, paidDate,
+      items: [], createdAt: new Date().toISOString(), byLabel: (typeof currentUserLabel==='function' && currentUser) ? currentUserLabel() : '' }, unitFields);
     recordOutflow(job);
   }
   d.pending.forEach(p=>{
@@ -732,10 +917,10 @@ function assetModal(){
         <div class="svc-seg">${SVC_ASSET_EMOJIS.map(e=>`<button type="button" class="exit-reason-chip svc-emoji ${d.emoji===e?'on':''}" data-asset-emoji="${e}">${e}</button>`).join('')}</div>
       </div>
       <div class="field"><label for="asset-name">${t('svc_asset_name')}</label>
-        <input id="asset-name" type="text" maxlength="60" value="${escapeHtml(d.name)}" placeholder="${t('svc_asset_name_ph')}">
+        <input id="asset-name" type="text" maxlength="60" value="${escapeHtml(d.name)}" placeholder="${useOdo() ? t('svc_asset_name_ph') : t('svc_asset_name_ph_gen')}">
         ${assetModalError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${assetModalError}</div>` : ''}
       </div>
-      <div class="field"><label for="asset-model">${t('svc_asset_model')}</label><input id="asset-model" type="text" maxlength="60" value="${escapeHtml(d.model)}" placeholder="Isuzu NPR"></div>
+      <div class="field"><label for="asset-model">${t('svc_asset_model')}</label><input id="asset-model" type="text" maxlength="60" value="${escapeHtml(d.model)}" placeholder="${useOdo() ? t('svc_asset_model_ph') : t('svc_asset_model_ph_gen')}"></div>
       <div class="field-row">
         <div class="field"><label for="asset-date">${t('svc_purchase_date')}</label><input id="asset-date" type="date" value="${escapeHtml(d.purchaseDate)}"></div>
         <div class="field"><label for="asset-price">${t('svc_purchase_price')}</label><input id="asset-price" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(d.purchasePrice)}" placeholder="0.00"></div>
@@ -796,12 +981,14 @@ function maintModal(){
         ${maintModalError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${maintModalError}</div>` : ''}
       </div>
       <div class="field-row">
-        ${useOdo(a) ? `<div class="field"><label for="maint-km">${tu('svc_every_km_label')}</label><input id="maint-km" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyKm)}" placeholder="5000"></div>` : ''}
+        ${/* useOdo() global, no por activo: un camión cargado sin odómetro también
+             puede tener su plan "cada 5.000 km" (los km del registro lo inician). */''}
+        ${useOdo() ? `<div class="field"><label for="maint-km">${tu('svc_every_km_label')}</label><input id="maint-km" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyKm)}" placeholder="5000"></div>` : ''}
         <div class="field"><label for="maint-months">${t('svc_every_months_label')}</label><input id="maint-months" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(d.everyMonths)}" placeholder="3"></div>
       </div>
       <div class="field-row">
         <div class="field"><label for="maint-last">${t('svc_last_done')}</label><input id="maint-last" type="date" value="${escapeHtml(d.lastDate)}"></div>
-        ${useOdo(a) ? `<div class="field"><label for="maint-lastkm">${tu('svc_last_km')}</label><input id="maint-lastkm" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.lastKm)}" placeholder="—"></div>` : ''}
+        ${useOdo() ? `<div class="field"><label for="maint-lastkm">${tu('svc_last_km')}</label><input id="maint-lastkm" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(d.lastKm)}" placeholder="—"></div>` : ''}
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="btn-cancel-maint">${t('btn_cancel')}</button>
@@ -818,7 +1005,7 @@ function saveMaintFromDraft(){
   const num = (v, min)=>{ const n = parseFloat(v); return (v!=='' && Number.isFinite(n) && n>=min) ? n : null; };
   // Campos de km ocultos (sin odómetro): se conserva lo que ya tenía el plan.
   const everyKm = g('maint-km') ? num(g('maint-km').value, 1) : num(d.everyKm, 1), everyMonths = num(g('maint-months').value, 1);
-  if(!d.name || (!everyKm && !everyMonths)){ maintModalError = t('svc_maint_err'); render(); return false; }
+  if(!d.name || (!everyKm && !everyMonths)){ maintModalError = useOdo() ? t('svc_maint_err') : t('svc_maint_err_months'); render(); return false; }
   let m = d.id ? (a.maint||[]).find(x=>x.id===d.id) : null;
   if(!m){ m = {id: uid('mt')}; a.maint = a.maint||[]; a.maint.push(m); }
   const lastDate = g('maint-last').value;
@@ -858,7 +1045,7 @@ function maintLogModal(){
       <div class="field" id="mlog-desc-wrap" ${maintLogPlanId?'hidden':''}><label for="mlog-desc">${t('svc_maint_name')}</label><input id="mlog-desc" type="text" maxlength="60" placeholder="${t('svc_log_desc_ph')}"></div>
       <div class="field-row">
         <div class="field"><label for="mlog-date">${t('lbl_date')}</label><input id="mlog-date" type="date" value="${localDateStr()}"></div>
-        ${useOdo(a) ? `<div class="field"><label for="mlog-km">${tu('svc_log_km')}</label><input id="mlog-km" type="number" min="0" step="1" inputmode="numeric" value="${(a.km===null||a.km===undefined)?'':escapeHtml(a.km)}" placeholder="—"></div>` : ''}
+        ${useOdo() ? `<div class="field"><label for="mlog-km">${tu('svc_log_km')}</label><input id="mlog-km" type="number" min="0" step="1" inputmode="numeric" value="${(a.km===null||a.km===undefined)?'':escapeHtml(a.km)}" placeholder="—"></div>` : ''}
       </div>
       <div class="field"><label for="mlog-cost">${t('svc_log_cost')}</label><input id="mlog-cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
         ${maintLogError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${maintLogError}</div>` : ''}
@@ -886,12 +1073,19 @@ function saveMaintLog(){
   if(costV!=='' && !(cost>=0)){ maintLogError = t('manual_spend_err'); render(); return false; }
   if(plan){ plan.lastDate = date; if(km!==null) plan.lastKm = km; }
   if(km!==null) a.km = km;
+  let receiptId = null;
   if(cost>0){
     const catM = expenseCategories.find(c=>/manten|mainten/i.test(c.name));
-    receipts.push({ id: uid('r'), images: [], supplier: `${plan ? plan.name : desc} · ${a.name}`, date, total: Math.round(cost*100)/100,
+    receiptId = uid('r');
+    receipts.push({ id: receiptId, images: [], supplier: `${plan ? plan.name : desc} · ${a.name}`, date, total: Math.round(cost*100)/100,
       itemCount: 0, appliedItems: [], createdAt: new Date().toISOString(), purchaseIds: [], manual: true, manualKind: 'expense',
       expenseCategoryId: catM ? catM.id : null, assetId: a.id });
   }
+  // Historial del activo (auditoría 2026-09-12): antes un mantenimiento sin costo
+  // —una correa en garantía— no dejaba rastro en ningún lado.
+  a.maintLog = a.maintLog || [];
+  a.maintLog.unshift({ id: uid('ml'), date, planId: plan ? plan.id : null, desc: plan ? '' : desc, km, cost: cost>0 ? Math.round(cost*100)/100 : 0, receiptId });
+  if(a.maintLog.length>300) a.maintLog.length = 300;
   saveState();
   logActivity('maint_logged', a.name, plan ? plan.name : desc);
   showToast(t('svc_logged'));
@@ -908,17 +1102,17 @@ function openServiceModal(serviceId){
 function closeServiceModal(){ showServiceModal = false; draftService = null; render(); }
 function serviceModal(){
   const d = draftService; if(!d) return '';
-  const units = [['fixed', t('svc_unit_fixed')],['km', t('svc_unit_km')],['day', t('svc_unit_day')],['hour', t('svc_unit_hour')]];
+  const units = [['fixed', t('svc_unit_fixed')],['km', tu('svc_unit_km')],['day', t('svc_unit_day')],['hour', t('svc_unit_hour')]];
   return `
   <div class="overlay" id="service-overlay">
     <div class="modal">
       <h3 class="navy">${d.id ? t('svc_service') : t('svc_service_new')}</h3>
       <div class="sub">${t('svc_catalog_sub')}</div>
       <div class="field"><label for="service-name">${t('svc_service_name')}</label>
-        <input id="service-name" type="text" maxlength="60" value="${escapeHtml(d.name)}" placeholder="${t('svc_service_name_ph')}">
+        <input id="service-name" type="text" maxlength="60" value="${escapeHtml(d.name)}" placeholder="${useOdo() ? t('svc_service_name_ph') : t('svc_service_name_ph_gen')}">
         ${serviceModalError ? `<div style="font-size:calc(12px * var(--fs, 1));color:var(--tomato);margin-top:4px;">${serviceModalError}</div>` : ''}
       </div>
-      <div class="field"><label for="service-desc">${t('svc_service_desc')}</label><input id="service-desc" type="text" maxlength="80" value="${escapeHtml(d.desc)}" placeholder="${t('svc_service_desc_ph')}"></div>
+      <div class="field"><label for="service-desc">${t('svc_service_desc')}</label><input id="service-desc" type="text" maxlength="80" value="${escapeHtml(d.desc)}" placeholder="${useOdo() ? t('svc_service_desc_ph') : t('svc_service_desc_ph_gen')}"></div>
       <div class="field-row">
         <div class="field"><label for="service-price">${t('svc_service_price')}</label><input id="service-price" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(d.price)}" placeholder="0.00"></div>
         <div class="field"><label for="service-unit">${t('svc_unit')}</label><select id="service-unit">${units.map(([v,l])=>`<option value="${v}" ${d.unit===v?'selected':''}>${l}</option>`).join('')}</select></div>
@@ -962,7 +1156,7 @@ function svcRecapRows(key, crow){
     return {a, net: rev-exp, any: rev>0 || exp>0};
   }).filter(x=>x.any);
   if(perAsset.length){
-    html += `<div class="recap-section-title">${t('recap_by_asset')}</div>` + perAsset.map(x=>crow(x.a.emoji||'🚚', escapeHtml(x.a.name), (x.net<0?'−':'+')+money(Math.abs(x.net)), x.net>=0?'var(--money-pos)':'var(--money-neg)')).join('');
+    html += `<div class="recap-section-title">${t('recap_by_asset')}</div>` + perAsset.map(x=>crow(escapeHtml(x.a.emoji||'🚚'), escapeHtml(x.a.name), (x.net<0?'−':'+')+money(Math.abs(x.net)), x.net>=0?'var(--money-pos)':'var(--money-neg)')).join('');
   }
   if(key.length===7){
     const cats = expenseByCategoryForMonth(key);
@@ -1098,7 +1292,8 @@ function attachServicesEvents(){
   const searchLive = (inp, set)=>{ inp.oninput = (e)=>{ const pos = e.target.selectionStart; set(e.target.value); scheduleSearchTriggeredRender(()=>{ const fresh = document.getElementById(inp.id); if(fresh){ fresh.focus(); try{ fresh.setSelectionRange(pos,pos); }catch(err){} } }); }; };
   const es = g('equipo-search');
   if(es) searchLive(es, v=>{ equipoSearch = v; });
-  document.querySelectorAll('[data-open-asset]').forEach(el=>{ el.onclick = ()=>svcShow(()=>{ showAssetSheet = el.dataset.openAsset; }); });
+  document.querySelectorAll('[data-open-asset]').forEach(el=>{ el.onclick = ()=>svcShow(()=>{ showAssetSheet = el.dataset.openAsset; assetSheetMonth = null; assetSheetShowAllMaint = false; }); });
+  on('btn-clear-receipts-asset', ()=>{ receiptsAssetFilter = null; render(); });
   const closeEquipo = ()=>svcShow(()=>{ showEquipoSheet = false; });
   overlayClose('equipo-sheet-overlay', closeEquipo);
   on('btn-close-equipo-sheet', closeEquipo);
@@ -1112,10 +1307,28 @@ function attachServicesEvents(){
   on('btn-asset-log-maint', ()=>openMaintLogModal(showAssetSheet));
   on('btn-asset-new-job', ()=>openJobModal(null, showAssetSheet));
   on('btn-print-asset', ()=>{ const a = assetById(showAssetSheet); if(a) downloadAssetPdf(a); });
-  // Se cierran las DOS hojas (activo y Equipo) y se redibuja ANTES de cambiar de
-  // pestaña: switchToTab solo anima el carrusel y no toca los overlays, así que
-  // sin el render() la ficha quedaba tapando Recibos (auditoría UX 2026-09-11).
-  on('btn-asset-all-receipts', ()=>{ showAssetSheet = null; showEquipoSheet = false; render(); openReceiptsSheet(); });
+  on('btn-asset-prev-month', ()=>{ assetSheetMonth = shiftMonthStr(assetSheetKey(), -1); render(); });
+  on('btn-asset-next-month', ()=>{ const k = shiftMonthStr(assetSheetKey(), 1); assetSheetMonth = k>=localMonthStr() ? null : k; render(); });
+  on('btn-asset-all-maint', ()=>{ assetSheetShowAllMaint = !assetSheetShowAllMaint; render(); });
+  // Gasto directo del activo (seguro, patente, reparación) sin pasar por un trabajo:
+  // el próximo recibo que se cree queda colgado de ESTE activo (receiptAttach).
+  on('btn-asset-scan', ()=>{ if(!requireWriteAccess()) return; receiptAttach = {jobId: null, assetId: showAssetSheet}; openScanModal(); if(!showScanModal){ receiptAttach = null; } });
+  on('btn-asset-spend', ()=>{ if(!requireWriteAccess()) return; receiptAttach = {jobId: null, assetId: showAssetSheet}; openManualSpendModal(); if(!showManualSpendModal){ receiptAttach = null; } });
+  // "Ver todos": se cierran las DOS hojas (activo y Equipo) y se redibuja ANTES de
+  // cambiar de pestaña — switchToTab solo anima el carrusel y no toca los overlays,
+  // así que sin el render() la ficha quedaba tapando Recibos (auditoría UX
+  // 2026-09-11). Y el destino va FILTRADO por este activo (auditoría 2026-09-12:
+  // antes abría la lista general del negocio, sin marca de cuáles eran del activo).
+  on('btn-asset-all-receipts', ()=>{
+    receiptsAssetFilter = showAssetSheet; receiptSearchQuery = ''; receiptsShownLimit = RECEIPTS_WINDOW_STEP;
+    try{ localStorage.removeItem('patron_receipt_search'); }catch(e){}
+    showAssetSheet = null; showEquipoSheet = false; render(); openReceiptsSheet({keepAssetFilter: true});
+  });
+  on('btn-asset-all-jobs', ()=>{
+    jobsAssetFilter = showAssetSheet; jobsSearch = ''; jobsShownLimit = JOBS_WINDOW_STEP;
+    showAssetSheet = null; showEquipoSheet = false;
+    svcShow(()=>{ showJobsSheet = true; });
+  });
   document.querySelectorAll('[data-edit-maint]').forEach(el=>{ el.onclick = ()=>openMaintModal(showAssetSheet, el.dataset.editMaint); });
 
   /* Por cobrar */
@@ -1127,18 +1340,20 @@ function attachServicesEvents(){
     e.stopPropagation();
     if(!requireWriteAccess()) return;
     const j = jobById(b.dataset.paidJob); if(!j) return;
-    j.paid = true; j.paidDate = localDateStr(); j.dueDate = null;
+    markJobPaid(j);
     saveState(); logActivity('job_paid', j.client, money(j.price||0)); showToast(t('svc_marked_paid')); render();
   }; });
   document.querySelectorAll('[data-open-job]').forEach(el=>{ el.onclick = ()=>openJobModal(el.dataset.openJob); });
 
   /* Trabajos */
-  const closeJobs = ()=>svcShow(()=>{ showJobsSheet = false; });
+  const closeJobs = ()=>svcShow(()=>{ showJobsSheet = false; jobsAssetFilter = null; });
   overlayClose('jobs-sheet-overlay', closeJobs);
   on('btn-close-jobs-sheet', closeJobs);
   on('btn-jobs-new', ()=>openJobModal(null));
+  on('btn-jobs-show-more', ()=>{ jobsShownLimit += JOBS_WINDOW_STEP; render(); });
+  on('btn-clear-jobs-asset', ()=>{ jobsAssetFilter = null; jobsShownLimit = JOBS_WINDOW_STEP; render(); });
   const js = g('jobs-search');
-  if(js) searchLive(js, v=>{ jobsSearch = v; });
+  if(js) searchLive(js, v=>{ jobsSearch = v; jobsShownLimit = JOBS_WINDOW_STEP; });
 
   /* Mis servicios */
   const closeServices = ()=>svcShow(()=>{ showServicesSheet = false; reopenSettingsIfPending(); });
@@ -1156,15 +1371,19 @@ function attachServicesEvents(){
   });
 
   /* Modal de trabajo */
-  overlayClose('job-overlay', closeJobModal);
-  on('btn-cancel-job', closeJobModal);
-  on('btn-save-job', ()=>{ if(saveJobFromDraft()){ showToast(t('svc_job_saved')); closeJobModal(); } });
-  on('btn-print-job', ()=>{ const j = jobById(draftJob.id); if(j) downloadJobPdf(j); });
+  overlayClose('job-overlay', closeJobModalAsk);
+  on('btn-cancel-job', closeJobModalAsk);
+  on('btn-save-job', ()=>{ if(!requireWriteAccess()) return; if(saveJobFromDraft()){ showToast(svcLastPruned>0 ? t('svc_job_saved')+' · '+t('svc_children_pruned').replace('{n}', String(svcLastPruned)) : t('svc_job_saved')); closeJobModal(); } });
+  // Imprimir guarda primero: la cuenta sale con lo que el usuario ve en pantalla,
+  // no con la copia vieja (auditoría 2026-09-12).
+  on('btn-print-job', ()=>{ const j = requireWriteAccess() ? saveJobFromDraft() : jobById(draftJob.id); if(j) downloadJobPdf(j); });
   on('btn-delete-job', ()=>{
+    if(!requireWriteAccess()) return;
     if(!confirm(t('svc_job_delete_confirm'))) return;
     const j = jobById(draftJob.id);
-    if(j){ j.deleted = true; j.deletedAt = new Date().toISOString(); saveState(); logActivity('job_deleted', j.client); }
-    showToast(t('svc_job_deleted')); closeJobModal();
+    let pruned = 0;
+    if(j){ pruned = deleteJob(j); saveState(); logActivity('job_deleted', j.client); }
+    showToast(pruned>0 ? t('svc_job_deleted')+' · '+t('svc_children_pruned').replace('{n}', String(pruned)) : t('svc_job_deleted')); closeJobModal();
   });
   if(draftJob){
     const price = g('job-price');
@@ -1172,10 +1391,25 @@ function attachServicesEvents(){
     if(price) price.oninput = refresh;
     const svc = g('job-service');
     if(svc) svc.oninput = ()=>{
-      // Servicio de la lista: completa el precio si todavía está vacío.
+      // Servicio de la lista: por trabajo completa el precio si está vacío; por
+      // hora/día/km aparece el campo de cantidad (redibujo con el cursor donde estaba).
+      const before = svcJobUnitService(draftJob);
       const c = (bizProfile.catalog||[]).find(x=>x.name.toLowerCase()===svc.value.trim().toLowerCase());
-      if(c && c.price>0 && price && !price.value){ price.value = String(c.price); }
+      if(c && c.price>0 && (!c.unit || c.unit==='fixed') && price && !price.value){ price.value = String(c.price); }
       refresh();
+      const after = svcJobUnitService(draftJob);
+      if((before && before.id)!==(after && after.id)){
+        const pos = svc.selectionStart;
+        scheduleSearchTriggeredRender(()=>{ const fresh = document.getElementById('job-service'); if(fresh){ fresh.focus(); try{ fresh.setSelectionRange(pos,pos); }catch(err){} } });
+      }
+    };
+    const qtyI = g('job-qty');
+    if(qtyI) qtyI.oninput = ()=>{
+      readJobDraftFromDom();
+      const u = svcJobUnitService(draftJob); const q = parseFloat(draftJob.qty);
+      if(u && q>0 && price) price.value = String(Math.round(q*u.price*100)/100);
+      refresh();
+      const hint = g('svc-job-unit-hint'); if(hint) hint.innerHTML = svcJobUnitHint(draftJob);
     };
     document.querySelectorAll('[data-job-asset]').forEach(b=>{ b.onclick = ()=>{ readJobDraftFromDom(); draftJob.assetId = b.dataset.jobAsset || null; render(); }; });
     document.querySelectorAll('[data-job-paid]').forEach(b=>{ b.onclick = ()=>{ readJobDraftFromDom(); draftJob.paid = b.dataset.jobPaid==='1'; render(); }; });
@@ -1184,6 +1418,7 @@ function attachServicesEvents(){
     if(due) due.onchange = ()=>{ readJobDraftFromDom(); render(); };
     on('btn-job-exp-open', ()=>{ readJobDraftFromDom(); jobExpenseFormOpen = true; render(); });
     on('btn-job-exp-add', ()=>{
+      if(!requireWriteAccess()) return;
       readJobDraftFromDom();
       const amt = parseFloat((g('job-exp-amount')||{}).value);
       if(!(amt>0)){ showToast(t('manual_spend_err'), 'error'); return; }
@@ -1192,11 +1427,15 @@ function attachServicesEvents(){
     });
     document.querySelectorAll('[data-job-exp-del]').forEach(b=>{ b.onclick = ()=>{ readJobDraftFromDom(); draftJob.pending.splice(parseInt(b.dataset.jobExpDel,10), 1); render(); }; });
     on('btn-job-scan', ()=>{
+      if(!requireWriteAccess()) return;
       // El recibo escaneado se cuelga de ESTE trabajo: se guarda primero.
       const job = saveJobFromDraft(); if(!job) return;
       receiptAttach = {jobId: job.id, assetId: job.assetId||null};
       showJobModal = false; draftJob = null; jobExpenseFormOpen = false;
       openScanModal();
+      // Si el escáner no abrió (sesión vencida, cupo), el enganche no puede quedar
+      // esperando al próximo gasto que se cargue desde cualquier otro lado.
+      if(!showScanModal){ receiptAttach = null; render(); }
     });
   }
 
@@ -1206,7 +1445,10 @@ function attachServicesEvents(){
   on('btn-save-asset', ()=>{ if(saveAssetFromDraft()) closeAssetModal(); });
   on('btn-delete-asset', ()=>{
     const a = assetById(draftAsset.id); if(!a) return;
-    if(!confirm(t('svc_asset_delete_confirm').replace('{name}', a.name))) return;
+    // Cuántos trabajos y recibos quedan sin activo: el usuario decide sabiendo.
+    const nj = svcJobs().filter(j=>j.assetId===a.id).length, nr = assetReceipts(a.id).length;
+    const msg = t('svc_asset_delete_confirm').replace('{name}', a.name) + ((nj||nr) ? ' '+t('svc_asset_delete_orphans').replace('{j}', String(nj)).replace('{r}', String(nr)) : '');
+    if(!confirm(msg)) return;
     bizProfile.assets = bizProfile.assets.filter(x=>x.id!==a.id);
     if(showAssetSheet===a.id) showAssetSheet = null;
     saveState(); closeAssetModal();
@@ -1219,6 +1461,7 @@ function attachServicesEvents(){
   on('btn-save-maint', ()=>{ if(saveMaintFromDraft()) closeMaintModal(); });
   on('btn-delete-maint', ()=>{
     const a = assetById(draftMaint.assetId); if(!a) return;
+    if(!confirm(t('svc_maint_delete_confirm'))) return;
     a.maint = (a.maint||[]).filter(m=>m.id!==draftMaint.id);
     saveState(); closeMaintModal();
   });
@@ -1301,17 +1544,24 @@ function svcSyncCalendar(){
   const want = new Map();
   const today = localDateStr();
   svcJobs().forEach(j=>{
-    if(j.date) want.set(svcNoteId('job', j.id), {text: `${j.client||''}${j.serviceName ? ' · '+j.serviceName : ''}`, date: j.date, icon: '🚚', jobId: j.id, svcKind: 'job'});
+    // Ícono del equipo/servicio, no siempre un camión; un trabajo de varios días
+    // dice "hasta el 15" el día que empieza y tiene su nota el día que termina.
+    if(j.date) want.set(svcNoteId('job', j.id), {text: `${j.client||''}${j.serviceName ? ' · '+j.serviceName : ''}${j.endDate ? ' · '+t('svc_until').replace('{d}', svcShortDate(j.endDate)) : ''}`, date: j.date, icon: svcJobEmoji(j), jobId: j.id, svcKind: 'job'});
+    if(j.date && j.endDate && j.endDate>j.date) want.set(svcNoteId('end', j.id), {text: t('svc_note_end').replace('{client}', j.client||'')+(j.serviceName ? ' · '+j.serviceName : ''), date: j.endDate, icon: '🏁', jobId: j.id, svcKind: 'job'});
     if(!j.paid && j.dueDate) want.set(svcNoteId('due', j.id), {text: t('svc_note_due').replace('{client}', j.client||'').replace('{amount}', money(j.price||0)), date: j.dueDate, icon: '💵', jobId: j.id, svcKind: 'due'});
   });
   (bizProfile.assets||[]).forEach(a=>(a.maint||[]).forEach(m=>{
-    const st = maintStatus(m, a, today, bizProfile.maintDays);
+    const st = svcMaintStatus(m, a, today);
     if(st.dueDate) want.set(svcNoteId('mt', a.id, m.id), {text: `${m.name} · ${a.name}`, date: st.dueDate, icon: m.emoji||'🔧', assetId: a.id, planId: m.id, svcKind: 'maint'});
   }));
   let changed = false;
   calNotes = calNotes.filter(n=>{
     if(!n.svcKind || want.has(n.id)) return true;
-    if(!deletedCalNoteIds.includes(n.id)) deletedCalNoteIds.push(n.id);
+    /* Se retira SIN lápida: la quitó el dato (cobro hecho, trabajo borrado, plan
+       cumplido), no el usuario. Con lápida, des-cobrar un trabajo por error nunca
+       recuperaba su nota 💵 del calendario (auditoría 2026-09-12). Cada
+       dispositivo retira la misma nota al aplicar el mismo dato, así que la nube
+       converge igual; la lápida queda para lo que el usuario borra a mano. */
     changed = true;
     return false;
   });
@@ -1337,12 +1587,15 @@ function checkServiceAlerts(){
     const msgs = [];
     const cs = collectStats();
     const dueToday = cs.list.filter(j=>j.dueDate===today);
+    // Tres avisos independientes, cada uno una vez por día: antes eran un
+    // if/else if y, con un cobro vencido, los de "vencen en N días" y "vencen hoy"
+    // no salían nunca ese día (auditoría 2026-09-12).
     if(cs.overdueCount && map.due!==today){ msgs.push([t('svc_toast_overdue').replace('{n}', String(cs.overdueCount)).replace('{amount}', money(cs.overdue)), 'error']); map.due = today; }
-    else if(bizProfile.remindDays>0 && map.dueSoon!==today && cs.list.some(j=>j.dueDate && j.dueDate>today && j.dueDate<=addDaysStr(today, bizProfile.remindDays))){
+    if(bizProfile.remindDays>0 && map.dueSoon!==today && cs.list.some(j=>j.dueDate && j.dueDate>today && j.dueDate<=addDaysStr(today, bizProfile.remindDays))){
       const soon = cs.list.filter(j=>j.dueDate && j.dueDate>today && j.dueDate<=addDaysStr(today, bizProfile.remindDays));
       msgs.push([t('svc_toast_due_soon').replace('{n}', String(soon.length)).replace('{days}', String(bizProfile.remindDays)).replace('{amount}', money(soon.reduce((s,j)=>s+(Number(j.price)||0),0))), 'info']); map.dueSoon = today;
     }
-    else if(dueToday.length && map.dueToday!==today){ msgs.push([t('svc_toast_due_today').replace('{n}', String(dueToday.length)).replace('{amount}', money(dueToday.reduce((s,j)=>s+(Number(j.price)||0),0))), 'info']); map.dueToday = today; }
+    if(dueToday.length && map.dueToday!==today){ msgs.push([t('svc_toast_due_today').replace('{n}', String(dueToday.length)).replace('{amount}', money(dueToday.reduce((s,j)=>s+(Number(j.price)||0),0))), 'info']); map.dueToday = today; }
     const mo = svcMaintOverview();
     if(mo.overdue.length && map.maint!==today){ const f = mo.overdue[0]; msgs.push([t('svc_toast_maint_overdue').replace('{what}', `${f.plan.name} · ${f.asset.name}`).replace('{n}', String(mo.overdue.length)), 'error']); map.maint = today; }
     else if(mo.soon.length && map.maintSoon!==today){ const f = mo.soon[0]; msgs.push([t('svc_toast_maint_soon').replace('{what}', `${f.plan.name} · ${f.asset.name}`).replace('{when}', svcMaintWhen(f.st)), 'info']); map.maintSoon = today; }
@@ -1396,10 +1649,12 @@ function buildJobPdf(j){
   const name = svcPdfHeader(pdf, t('svc_invoice_title') + ' · ' + t('rd_id_label') + ' ' + String(j.id||'').slice(-6).toUpperCase());
   const asset = j.assetId ? assetById(j.assetId) : null;
   pdf.line(`${t('svc_client')}: ${j.client||''}`, {size: 11, bold: true, lh: 18});
-  pdf.line(`${t('lbl_date')}: ${j.date||''}${asset ? '   ·   '+t('svc_asset_used')+': '+asset.name : ''}`, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
+  pdf.line(`${t('lbl_date')}: ${j.date||''}${j.endDate ? ' → '+j.endDate : ''}${asset ? '   ·   '+t('svc_asset_used')+': '+asset.name : ''}`, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
   pdf.gap(10);
+  // Por hora/día/km: "3 h × $20" en la descripción y la cantidad en su columna.
+  const byUnit = j.qty>0 && j.unit && j.unitPrice>0;
   pdf.table([{key:'desc', label: t('rd_col_desc')}, {key:'qty', label: t('rd_col_qty'), w: 70, align:'right'}, {key:'total', label: t('rp_col_total'), w: 110, align:'right'}],
-    [{desc: j.serviceName || t('svc_job_edit'), qty: '1', total: money(j.price||0)}, {desc: t('rp_total'), qty: '', total: money(j.price||0), _bold: true}]);
+    [{desc: (j.serviceName || t('svc_job_edit')) + (byUnit ? ` · ${j.qty} ${svcUnitShort(j.unit)} × ${money(j.unitPrice)}` : ''), qty: byUnit ? String(j.qty) : '1', total: money(j.price||0)}, {desc: t('rp_total'), qty: '', total: money(j.price||0), _bold: true}]);
   pdf.gap(12);
   pdf.line(`${t('svc_collect_label')}: ${jobStatusLabel(j)}${!j.paid && j.dueDate ? '   ·   '+t('svc_invoice_due')+' '+j.dueDate : ''}${j.paid && j.paidDate ? '   ·   '+t('svc_paid_on').replace('{when}', j.paidDate) : ''}`, {size: 10, bold: true, lh: 16});
   pdf.gap(6);
@@ -1412,42 +1667,69 @@ function downloadJobPdf(j){
   svcSharePdf(bytes, `${j.date||'sin-fecha'}-${who}`, t('svc_invoice_title') + ' · ' + (j.client||''));
 }
 // Ficha de un activo: resultado del mes, mantenimientos con estado, gastos.
+// Ficha en PDF = lo mismo que la ficha en pantalla (auditoría 2026-09-12): el mes
+// que se está mirando, el acumulado, mantenimientos programados y hechos, los
+// trabajos y los gastos del mes COMPLETOS (el escritor pagina; antes cortaba en 60
+// y la fila "Total" sumaba solo lo impreso). Sin permiso financiero, sin
+// facturado/neto — igual que en pantalla.
 function buildAssetPdf(a){
   resetFinancialCache();
   const pdf = DustyPdf();
-  const key = localMonthStr(), today = localDateStr();
+  const key = assetSheetKey(), today = localDateStr();
+  const fin = canSeeFinancials();
   const name = svcPdfHeader(pdf, `${t('svc_tool_asset')} · ${a.name}${a.model ? ' · '+a.model : ''}`);
-  const st = assetMonthStats(a, key);
+  const st = assetMonthStats(a, key), all = assetAllTimeStats(a);
   const rows = [];
   if(a.purchaseDate || a.purchasePrice>0) rows.push({label: t('svc_purchase_date'), value: a.purchaseDate||'—', note: a.purchasePrice>0 ? money(a.purchasePrice) : ''});
-  if(a.km!==null && a.km!==undefined) rows.push({label: tu('svc_km'), value: svcFmtNum(a.km)+' '+distU(), note: ''});
-  rows.push({label: t('svc_collected_with'), value: money(st.revenue), note: t('svc_jobs_month_n').replace('{n}', String(st.jobs))});
+  if(useOdo() && a.km!==null && a.km!==undefined) rows.push({label: tu('svc_km'), value: svcFmtNum(a.km)+' '+distU(), note: ''});
+  if(fin){
+    rows.push({label: t('svc_billed_with'), value: money(st.revenue), note: t('svc_jobs_month_n').replace('{n}', String(st.jobs))});
+    rows.push({label: t('svc_pdf_paid_of'), value: money(st.paid), note: ''});
+  }
   rows.push({label: t('svc_expenses_month'), value: money(st.expense), note: monthLabel(key, uiLang)});
-  rows.push({label: t('svc_leaves_month'), value: (st.net<0?'-':'')+money(Math.abs(st.net)), note: '', _bold: true});
+  if(fin){
+    rows.push({label: t('svc_leaves_month'), value: (st.net<0?'-':'')+money(Math.abs(st.net)), note: '', _bold: true});
+    rows.push({label: t('svc_since_purchase'), value: (all.net<0?'-':'')+money(Math.abs(all.net)), note: t('svc_since_purchase_sub').replace('{n}', String(all.jobs)).replace('{billed}', money(all.revenue)).replace('{spent}', money(all.expense)), _bold: true});
+  }
   pdf.line(monthLabel(key, uiLang), {size: 12.5, bold: true, lh: 24});
-  pdf.table([{key:'label', label: t('rp_col_concept')}, {key:'value', label: t('rp_col_amount'), w: 120, align:'right'}, {key:'note', label:'', w: 150, align:'right'}], rows);
+  pdf.table([{key:'label', label: t('rp_col_concept')}, {key:'value', label: t('rp_col_amount'), w: 120, align:'right'}, {key:'note', label:'', w: 190, align:'right'}], rows);
   pdf.gap(14);
   pdf.line(t('svc_maints'), {size: 12.5, bold: true, lh: 24});
   const plans = (a.maint||[]);
   if(!plans.length) pdf.line(t('svc_maint_no_plan'), {size: 9.5, color: [0.5, 0.5, 0.55]});
   else pdf.table([{key:'name', label: t('svc_maint_name')}, {key:'every', label: t('svc_pdf_every'), w: 150}, {key:'last', label: t('svc_last_done'), w: 90}, {key:'status', label: t('svc_pdf_status'), w: 110, align:'right'}],
-    plans.map(m=>{ const s = maintStatus(m, a, today, bizProfile.maintDays); return {name: m.name, every: [m.everyKm>0 ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(' / '), last: m.lastDate || '—', status: s.status==='none' ? t('svc_maint_no_date') : (s.status==='overdue' ? t('svc_tag_overdue')+' · ' : '') + svcMaintWhen(s)}; }));
+    plans.map(m=>{ const s = svcMaintStatus(m, a, today); return {name: m.name, every: [m.everyKm>0 && useOdo() ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(' / '), last: m.lastDate || '—', status: s.status==='none' ? t('svc_maint_no_date') : (s.status==='overdue' ? t('svc_tag_overdue')+' · ' : '') + svcMaintWhen(s)}; }));
   pdf.gap(14);
-  pdf.line(t('svc_last_expenses'), {size: 12.5, bold: true, lh: 24});
-  const recs = assetReceipts(a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0, 60);
+  const log = (a.maintLog||[]).slice().sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0, 60);
+  if(log.length){
+    pdf.line(t('svc_maint_history'), {size: 12.5, bold: true, lh: 24});
+    pdf.table([{key:'date', label: t('rp_col_date'), w: 80}, {key:'what', label: t('svc_maint_name')}, {key:'km', label: useOdo() ? distU() : '', w: 80, align:'right'}, {key:'cost', label: t('rp_col_total'), w: 100, align:'right'}],
+      log.map(l=>{ const plan = l.planId ? plans.find(m=>m.id===l.planId) : null; return {date: l.date, what: plan ? plan.name : (l.desc || t('svc_log_other')), km: useOdo() && l.km!==null && l.km!==undefined ? svcFmtNum(l.km) : '', cost: l.cost>0 ? money(l.cost) : '—'}; }));
+    pdf.gap(14);
+  }
+  const jobs = jobsForMonth(key).filter(j=>j.assetId===a.id).sort((x,y)=>String(x.date).localeCompare(String(y.date)));
+  if(jobs.length){
+    pdf.line(t('svc_jobs_with_asset'), {size: 12.5, bold: true, lh: 24});
+    const jr = jobs.map(j=>({date: j.date + (j.endDate ? ' → '+j.endDate : ''), client: j.client||'', svc: j.serviceName||'', status: jobStatusLabel(j), total: fin ? money(j.price||0) : ''}));
+    if(fin) jr.push({date:'', client: t('rp_total'), svc:'', status:'', total: money(st.revenue), _bold: true});
+    pdf.table([{key:'date', label: t('rp_col_date'), w: 95}, {key:'client', label: t('svc_client'), w: 130}, {key:'svc', label: t('svc_service')}, {key:'status', label: t('svc_pdf_status'), w: 75}, {key:'total', label: t('rp_col_total'), w: 85, align:'right'}], jr);
+    pdf.gap(14);
+  }
+  pdf.line(`${t('svc_expenses_month')} · ${monthLabel(key, uiLang)}`, {size: 12.5, bold: true, lh: 24});
+  const recs = assetReceipts(a.id, key).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
   if(!recs.length) pdf.line(t('rp_none'), {size: 9.5, color: [0.5, 0.5, 0.55]});
   else {
     let sum = 0;
     const rr = recs.map(r=>{ sum += Number(r.total)||0; return {date: r.date||'', who: (r.supplier||'').trim() || t('no_supplier_name'), cat: receiptCatName(r), total: money(r.total||0)}; });
-    rr.push({date:'', who: t('rp_total'), cat:'', total: money(sum), _bold: true});
+    rr.push({date:'', who: t('svc_pdf_period_total'), cat:'', total: money(sum), _bold: true});
     pdf.table([{key:'date', label: t('rp_col_date'), w: 80}, {key:'who', label: t('rp_col_who')}, {key:'cat', label: t('rp_col_category'), w: 110}, {key:'total', label: t('rp_col_total'), w: 100, align:'right'}], rr);
   }
-  return pdf.build((n, total)=>({left: name + ' · ' + a.name, right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
+  return pdf.build((n, total)=>({left: name + ' · ' + a.name + ' · ' + monthLabel(key, uiLang), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
 }
 function downloadAssetPdf(a){
   let bytes; try{ bytes = buildAssetPdf(a); }catch(e){ console.error('[Dusty] ficha de activo:', e); showToast(t('rp_failed'), 'error'); return; }
   const who = a.name.replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'activo';
-  svcSharePdf(bytes, `${localMonthStr()}-${who}`, a.name);
+  svcSharePdf(bytes, `${assetSheetKey()}-${who}`, a.name);
 }
 // Sección de Servicios dentro del informe del mes/año (buildMonthReport, app-14):
 // trabajos con estado, totales facturado/cobrado/pendiente, resultado por activo.
@@ -1460,9 +1742,11 @@ function svcReportSection(pdf, key){
   else {
     let billed = 0, paid = 0;
     const rows = jobs.map(j=>{ billed += Number(j.price)||0; if(j.paid) paid += Number(j.price)||0; const a = j.assetId ? assetById(j.assetId) : null; return {date: j.date||'', client: j.client||'', svc: (j.serviceName||'') + (a ? ' · '+a.name : ''), status: jobStatusLabel(j), total: money(j.price||0)}; });
+    // "Cobrado de estos trabajos": lo cobrado ENTRE los trabajos del período (no lo
+    // cobrado en el mes por fecha de cobro, que es lo que dice Por cobrar).
     rows.push({date:'', client: t('svc_pdf_billed'), svc:'', status:'', total: money(billed), _bold: true});
-    rows.push({date:'', client: t('svc_stat_paid_month'), svc:'', status:'', total: money(paid), _bold: true});
-    rows.push({date:'', client: t('svc_stat_pending'), svc:'', status:'', total: money(billed-paid), _bold: true});
+    rows.push({date:'', client: t('svc_pdf_paid_of'), svc:'', status:'', total: money(paid), _bold: true});
+    rows.push({date:'', client: t('svc_pdf_pending_of'), svc:'', status:'', total: money(billed-paid), _bold: true});
     pdf.table([{key:'date', label: t('rp_col_date'), w: 70}, {key:'client', label: t('svc_client'), w: 130}, {key:'svc', label: t('svc_service')}, {key:'status', label: t('svc_pdf_status'), w: 75}, {key:'total', label: t('rp_col_total'), w: 85, align:'right'}], rows);
     pdf.gap(14);
   }
@@ -1528,11 +1812,16 @@ function svcAgendaHtml(){
 /* ---------- 3. contratos recurrentes ---------- */
 const SVC_REPEATS = ['weekly','biweekly','monthly'];
 function svcRepeatLabel(r){ return r==='weekly' ? t('svc_rep_weekly') : r==='biweekly' ? t('svc_rep_biweekly') : r==='monthly' ? t('svc_rep_monthly') : t('svc_rep_none'); }
-function svcNextDate(dateStr, repeat){
+/* Próxima fecha de una regla. anchorDay es el día del mes del contrato (1-31):
+   "cada mes" desde el 31 de enero cae el 28 de febrero, pero el 31 de marzo y
+   el 30 de abril — no el 28 para siempre. Encadenar desde la fecha anterior sin
+   ancla derivaba al 28 y ya no volvía (auditoría de Servicios 2026-09-12). */
+function svcNextDate(dateStr, repeat, anchorDay){
+  if(!dateStr) return null;
   if(repeat==='weekly') return addDaysStr(dateStr, 7);
   if(repeat==='biweekly') return addDaysStr(dateStr, 14);
   if(repeat==='monthly'){
-    const d = new Date(dateStr+'T00:00:00'); const day = d.getDate();
+    const d = new Date(dateStr+'T00:00:00'); const day = anchorDay>0 ? anchorDay : d.getDate();
     d.setDate(1); d.setMonth(d.getMonth()+1);
     const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
     d.setDate(Math.min(day, last));
@@ -1540,33 +1829,119 @@ function svcNextDate(dateStr, repeat){
   }
   return null;
 }
+function svcAnchorDay(tpl){ const m = /^\d{4}-\d{2}-(\d{2})$/.exec((tpl && tpl.date)||''); return m ? parseInt(m[1],10) : 0; }
+// Fecha PROGRAMADA de una ocurrencia. Si el usuario la movió (el camión fue el
+// martes en vez del lunes), occDate conserva la del calendario del contrato: así
+// la regla sabe que esa semana ya tiene su trabajo y no crea otro.
+function svcOccDate(o){ return (o && (o.occDate || o.date)) || ''; }
+// Id determinista por contrato + fecha: dos teléfonos sin conexión generan la
+// MISMA ocurrencia con el MISMO id, y el merge por id de la nube la deja una sola
+// vez (con uid() al azar quedaban dos cobros iguales después de sincronizar).
+function svcChildId(tplId, date){ return 'job-'+tplId+'-'+date; }
+// Un contrato de varios días (alquiler de lunes a miércoles) repite la misma duración.
+function svcChildEndDate(tpl, next){
+  if(!tpl.endDate || !tpl.date || tpl.endDate<=tpl.date) return null;
+  return addDaysStr(next, daysBetweenStr(tpl.date, tpl.endDate));
+}
+/* Sello de "lo tocó la regla, no el usuario". lastEditedAt es lo que decide el
+   merge de la nube (gana el más nuevo, ver app-02), así que la regla también
+   tiene que sellarlo para que su poda o su cambio de precio no lo pise la copia
+   vieja de otro teléfono; ruleAt guarda el MISMO instante para saber después que
+   ese sello fue de la regla y la ocurrencia sigue sin tocar. Una edición a mano
+   sella lastEditedAt sin ruleAt: desde ahí es del usuario. */
+function svcRuleStamp(o){ o.lastEditedAt = o.ruleAt = new Date().toISOString(); }
+function svcChildUntouched(o){ return !o.paid && (!o.lastEditedAt || o.lastEditedAt===o.ruleAt) && !jobReceipts(o.id).length; }
+/* Ocurrencias FUTURAS de un contrato que Dusty creó y nadie tocó: sin cobrar,
+   sin editar a mano, sin gastos colgados. Son las únicas que la regla puede
+   rehacer; las pasadas y las tocadas son historia del usuario y no se tocan. */
+function svcUntouchedFutureChildren(tpl, today){
+  today = today || localDateStr();
+  return svcJobs().filter(o=>o.parentId===tpl.id && o.date>today && svcChildUntouched(o));
+}
+// Cambió la regla (fecha o frecuencia) o se eliminó el contrato: las próximas
+// que nacieron de la regla vieja se retiran; con la nueva nacen las que toquen.
+// Quedan como borradas con prunedByRule para que el merge no las resucite y para
+// que, si la regla vuelve a pedir esa fecha, se reviva la misma en vez de crear
+// otra con el mismo id.
+function svcPruneChildren(tpl){
+  let n = 0;
+  svcUntouchedFutureChildren(tpl).forEach(o=>{ o.deleted = true; o.prunedByRule = true; o.deletedAt = new Date().toISOString(); svcRuleStamp(o); n++; });
+  return n;
+}
+// Cambió cliente, servicio, precio, equipo o plazo del contrato: las próximas sin
+// tocar lo siguen (si no, el precio nuevo recién regía en dos semanas y el
+// usuario veía cobros viejos que "no se actualizaban").
+function svcPropagateToChildren(tpl){
+  let n = 0;
+  svcUntouchedFutureChildren(tpl).forEach(o=>{
+    Object.assign(o, { client: tpl.client, serviceName: tpl.serviceName, serviceId: tpl.serviceId||null, assetId: tpl.assetId||null,
+      price: tpl.price, qty: tpl.qty||null, unit: tpl.unit||null, unitPrice: tpl.unitPrice||null, endDate: svcChildEndDate(tpl, o.date),
+      dueDays: tpl.dueDays||15, dueDate: addDaysStr(o.date, tpl.dueDays||15) });
+    svcRuleStamp(o);
+    n++;
+  });
+  return n;
+}
+// Un solo punto para "se editó un trabajo" (modal o asistente): si es la plantilla
+// de un contrato, sus ocurrencias futuras sin tocar siguen la regla nueva.
+let svcLastPruned = 0; // cuántas ocurrencias futuras retiró la última edición/borrado (para el aviso)
+function svcAfterJobEdit(job, ruleChanged){
+  svcLastPruned = 0;
+  if(!job || job.parentId) return 0;
+  if(ruleChanged){ job.lastGenerated = null; svcLastPruned = svcPruneChildren(job); return svcLastPruned; }
+  if(job.repeat) svcPropagateToChildren(job);
+  return 0;
+}
+function svcAfterJobDelete(job){ svcLastPruned = (job && job.repeat && !job.parentId) ? svcPruneChildren(job) : 0; return svcLastPruned; }
 // Genera las próximas ocurrencias de cada contrato hasta 14 días adelante. Cada
 // ocurrencia es un trabajo normal (se edita, se cobra, se imprime) colgado del
-// contrato por parentId; una ocurrencia borrada no se vuelve a crear. Corre al
-// principio de cada saveState, antes de sincronizar el calendario.
+// contrato por parentId; una ocurrencia borrada a mano no se vuelve a crear. Corre
+// al principio de cada saveState, antes de sincronizar el calendario.
 function svcGenerateRecurring(){
   if(!usesServices()) return false;
-  const horizon = addDaysStr(localDateStr(), 14);
-  let changed = false;
   const today = localDateStr();
-  svcJobs().filter(j=>j.repeat && SVC_REPEATS.indexOf(j.repeat)>=0 && !j.parentId).forEach(tpl=>{
+  const horizon = addDaysStr(today, 14);
+  let changed = false;
+  svcJobs().filter(j=>j.repeat && SVC_REPEATS.indexOf(j.repeat)>=0 && !j.parentId && j.date).forEach(tpl=>{
+    const anchor = svcAnchorDay(tpl);
     let last = tpl.lastGenerated || tpl.date, guard = 0;
     /* Solo hacia ADELANTE (auditoría UX 2026-09-11): activar "Se repite" sobre un
        trabajo de enero creaba al instante 37 trabajos pasados, todos como cobros
        vencidos. Sin lastGenerated (recién activado) se salta a la última
-       ocurrencia anterior a hoy sin crear nada; recién de ahí nacen las próximas. */
+       ocurrencia anterior a hoy sin crear nada; recién de ahí nacen las próximas.
+       El salto no tiene tope chico: con 400 se quedaba corto para un contrato
+       semanal de hace años y desde ahí nacían 60 trabajos pasados, todos vencidos. */
     if(!tpl.lastGenerated && last < today){
       let skip = 0;
-      while(skip++ < 400){ const n = svcNextDate(last, tpl.repeat); if(!n || n >= today) break; last = n; }
+      while(skip++ < 20000){ const n = svcNextDate(last, tpl.repeat, anchor); if(!n || n >= today) break; last = n; }
+      if(svcNextDate(last, tpl.repeat, anchor) < today) return; // fecha inválida o sin llegar: no se inventa nada
+    } else if(tpl.lastGenerated && last < addDaysStr(today, -14)){
+      /* La app estuvo cerrada semanas: se recuperan solo las fechas de los últimos
+         14 días (misma ventana que hacia adelante). Rellenar meses enteros creaba
+         cobros vencidos "que no deberían generarse" (pedido del usuario); lo que se
+         salta se avisa una vez para que, si esos trabajos sí se hicieron, se
+         carguen a mano. */
+      let skipped = 0, skip = 0;
+      const floor = addDaysStr(today, -14);
+      while(skip++ < 20000){ const n = svcNextDate(last, tpl.repeat, anchor); if(!n || n >= floor) break; last = n; skipped++; }
+      if(skipped>0 && typeof showToast==='function' && typeof t==='function') try{ showToast(t('svc_skipped_notice').replace('{n}', String(skipped)).replace('{client}', tpl.client||''), 'info'); }catch(e){}
     }
     while(guard++ < 60){
-      const next = svcNextDate(last, tpl.repeat);
+      const next = svcNextDate(last, tpl.repeat, anchor);
       if(!next || next>horizon) break;
-      const exists = outflows.some(o=>o && o.type==='service' && o.parentId===tpl.id && o.date===next);
-      if(!exists){
-        recordOutflow({ id: uid('job'), type:'service', date: next, client: tpl.client, serviceName: tpl.serviceName, serviceId: tpl.serviceId||null,
-          assetId: tpl.assetId||null, price: tpl.price, paid: false, dueDate: addDaysStr(next, tpl.dueDays||15), paidDate: null, dueDays: tpl.dueDays||15,
+      const existing = outflows.find(o=>o && o.type==='service' && o.parentId===tpl.id && svcOccDate(o)===next);
+      if(!existing){
+        recordOutflow({ id: svcChildId(tpl.id, next), type:'service', date: next, occDate: next, endDate: svcChildEndDate(tpl, next), client: tpl.client, serviceName: tpl.serviceName, serviceId: tpl.serviceId||null,
+          assetId: tpl.assetId||null, price: tpl.price, qty: tpl.qty||null, unit: tpl.unit||null, unitPrice: tpl.unitPrice||null, paid: false, dueDate: addDaysStr(next, tpl.dueDays||15), paidDate: null, dueDays: tpl.dueDays||15,
           parentId: tpl.id, items: [], createdAt: new Date().toISOString(), byLabel: tpl.byLabel||'' });
+        changed = true;
+      } else if(existing.deleted && existing.prunedByRule){
+        // La retiró una regla anterior y la regla de ahora la vuelve a pedir: revive
+        // la misma (mismo id) con los datos actuales del contrato.
+        delete existing.deleted; delete existing.deletedAt; delete existing.prunedByRule;
+        Object.assign(existing, { date: next, occDate: next, endDate: svcChildEndDate(tpl, next), client: tpl.client, serviceName: tpl.serviceName, serviceId: tpl.serviceId||null, assetId: tpl.assetId||null,
+          price: tpl.price, qty: tpl.qty||null, unit: tpl.unit||null, unitPrice: tpl.unitPrice||null, paid: false, paidDate: null, dueDays: tpl.dueDays||15, dueDate: addDaysStr(next, tpl.dueDays||15) });
+        svcRuleStamp(existing);
         changed = true;
       }
       last = next;
@@ -1581,5 +1956,31 @@ function svcGenerateRecurring(){
 // no se prohíbe: un camión puede hacer dos viajes cortos.
 function svcClash(d){
   if(!d.assetId || !d.date) return null;
-  return svcJobs().find(j=>j.id!==d.id && j.assetId===d.assetId && j.date===d.date) || null;
+  // Por rango: un alquiler del 10 al 15 choca con otro del mismo equipo el 12.
+  const from = d.date, to = d.endDate || d.date;
+  return svcJobs().find(j=>j.id!==d.id && j.assetId===d.assetId && j.date<=to && (j.endDate||j.date)>=from) || null;
+}
+
+/* ---------- tick diario ----------
+   Las ocurrencias de los contratos y sus notas del calendario nacían solo
+   dentro de saveState: abrir la app y MIRAR no creaba la semana siguiente hasta
+   que el usuario guardara algo (auditoría 2026-09-12). Corre al arrancar y cada
+   vez que la app vuelve al frente en un día distinto; si hubo cambios, guarda y
+   redibuja. */
+let svcTickDay = '';
+function svcDailyTick(){
+  if(typeof usesServices!=='function' || !usesServices()) return false;
+  const today = localDateStr();
+  if(svcTickDay===today) return false;
+  svcTickDay = today;
+  let changed = false;
+  try{ if(svcGenerateRecurring()) changed = true; }catch(e){}
+  try{ if(svcSyncCalendar()) changed = true; }catch(e){}
+  if(changed){ saveState(); render(); }
+  return changed;
+}
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') try{ svcDailyTick(); }catch(e){} });
+  // Después de que app-07 cargue el estado (corre sincrónico antes del timeout).
+  setTimeout(()=>{ try{ svcDailyTick(); }catch(e){} }, 0);
 }

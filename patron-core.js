@@ -33,6 +33,14 @@ function formatMoney(n, style){
   return (neg?'-':'')+'$'+grouped+(st==='latam' ? ',' : '.')+dec;
 }
 function money(n){ return formatMoney(n, moneyStyle); }
+// Entero con el MISMO separador de miles que el dinero (auditoría de Servicios
+// 2026-09-12): los km de un activo salían siempre "85,000" al lado de un
+// "$1.200.000,00" en estilo latam — dos convenciones en el mismo renglón.
+function formatInt(n, style){
+  const v = Math.round(Math.abs(Number(n)||0));
+  const st = style || moneyStyle;
+  return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, st==='latam' ? '.' : ',');
+}
 
 /* ===== PRESUPUESTO: lógica pura (auditoría 2026-09-07) =====
    Sin globales: reciben todo por parámetro para poder probarse con Node. */
@@ -74,6 +82,14 @@ function normalizeBizProfile(p){
       everyKm: num(m.everyKm, 1), everyMonths: num(m.everyMonths, 1),
       lastDate: isDate(m.lastDate) ? m.lastDate : null,
       lastKm: num(m.lastKm, 0)
+    })),
+    // Historial de mantenimientos HECHOS (auditoría de Servicios 2026-09-12):
+    // antes "Registrar mantenimiento" solo movía lastDate del plan y, sin costo,
+    // no dejaba rastro. Cada registro: qué, cuándo, con qué km, cuánto costó y el
+    // recibo que creó (si hubo costo). Los últimos 300 alcanzan para años.
+    maintLog: (Array.isArray(a.maintLog) ? a.maintLog : []).filter(l=>l && l.id && isDate(l.date)).slice(0, 300).map(l=>({
+      id: String(l.id), date: l.date, planId: l.planId ? String(l.planId) : null, desc: str(l.desc, 60),
+      km: num(l.km, 0), cost: num(l.cost, 0) || 0, receiptId: l.receiptId ? String(l.receiptId) : null
     })),
     createdAt: str(a.createdAt, 40) || null
   }));
@@ -305,6 +321,49 @@ function profitMarginPct(costPerUnit, salePrice){
 // encadenadas de floats (0.1+0.2...) vayan acumulando colas tipo 4.999999999.
 function roundQty(n){ return Math.round(n*100)/100; }
 
+/* ---------- Tope del historial de salidas (auditoría de Servicios 2026-09-12) ----------
+   El arreglo de salidas (outflows) tiene un tope (OUTFLOWS_MAX en app-08) y las
+   que sobran se evictan por POSICIÓN: recordOutflow hace unshift, así que el final
+   del arreglo es lo más viejo. Eso estaba bien cuando las salidas eran solo bajas
+   de estante y producciones (historia cerrada, cuyo aporte al P&L se consolida en
+   outflowArchive). Con el modo Servicios, en ese mismo arreglo viven cosas que
+   todavía están ABIERTAS: un trabajo sin cobrar (es plata que falta entrar), un
+   contrato que se repite (es la plantilla que genera los próximos) y una
+   cotización sin resolver. Al pasar el tope, un trabajo pendiente de enero
+   desaparecía de Por cobrar en silencio — y su precio quedaba archivado como
+   ingreso, como si se hubiera cobrado.
+   Regla: se evictan las más viejas que NO estén abiertas; las abiertas se quedan
+   aunque el arreglo supere el tope (perder plata es peor que pasarse de 400).
+   Devuelve {kept, evicted} en el mismo orden relativo del original. */
+const OUTFLOW_TOMB_DAYS = 30;
+function outflowIsOpen(o, nowMs){
+  if(!o) return false;
+  if(o.deleted){
+    // Un trabajo/cotización borrado es una lápida: si se evicta antes de que la
+    // nube la vea, la copia viva de otro teléfono lo resucita. Se protege 30 días.
+    if(o.type!=='service' && o.type!=='quote') return false;
+    const at = o.deletedAt ? new Date(o.deletedAt).getTime() : NaN;
+    const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+    return Number.isFinite(at) && (now - at) < OUTFLOW_TOMB_DAYS*24*60*60*1000;
+  }
+  if(o.type==='service') return !o.paid || (!!o.repeat && !o.parentId);
+  if(o.type==='quote') return o.status!=='accepted' && o.status!=='rejected';
+  return false;
+}
+function capOutflows(list, max, nowMs){
+  const arr = Array.isArray(list) ? list.filter(o=>o && o.id) : [];
+  if(!(max>0) || arr.length<=max) return {kept: arr, evicted: []};
+  let over = arr.length - max;
+  const kept = [], evicted = [];
+  for(let i=arr.length-1; i>=0; i--){
+    const o = arr[i];
+    if(over>0 && !outflowIsOpen(o, nowMs)){ evicted.push(o); over--; }
+    else kept.push(o);
+  }
+  kept.reverse(); evicted.reverse();
+  return {kept, evicted};
+}
+
 /* Costo de producir UNA pieza de una receta: suma de (cantidad × costo actual) de
    cada insumo. "missing" cuenta componentes cuyo producto ya no existe en el
    inventario (se borró después de armar la receta) O cuyo costo no es un número
@@ -533,6 +592,6 @@ if(typeof module!=='undefined' && module.exports){
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
     normalizeBizProfile, maintStatus,
-    mergeReceiptPages
+    mergeReceiptPages, outflowIsOpen, capOutflows, formatInt
   };
 }
