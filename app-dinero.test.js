@@ -104,6 +104,8 @@ function nuevaApp(){
     var currentUser = null;
     var priceAlertThreshold = 15, businessName = '', monthlyBudget = null;
     var budgetMeta = normalizeBudgetMeta(null);
+    // Modo Servicios (app-15, no se carga acá): lo que app-03/app-06 tocan de él.
+    var bizProfile = normalizeBizProfile(null), receiptAttach = null;
     var profitsVisibleToMembers = false, categories = null, expenseCategories = [];
     var cycleCountPct = 20, cycleCountIntervalDays = 3, cycleCountLastDate = null, cycleCountCursor = 0;
 
