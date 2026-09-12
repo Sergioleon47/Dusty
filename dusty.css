@@ -1989,6 +1989,14 @@
   html .shelf-scan-fab, html .inv-tool-ring.tool-products, html .inv-tool-ring.tool-manual{color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.35);}
   .inv-tool-ring.tool-order{background:var(--tool-order-bg);color:var(--tool-order-ink);}
   .inv-tool-ring.tool-count{background:var(--tool-count-bg);color:var(--tool-count-ink);}
+  /* Mantenimiento (Equipo, 2026-09-12): antes reusaba tool-count (el mismo lavanda
+     pálido del Conteo del Inventario, ademas ya compartido con A mano) y quedaba tan
+     poco saturado que se perdia contra un fondo claro ("esta no se distingue", captura
+     del usuario). Token propio en verde/teal (hue-3): mas contraste, y de paso
+     coincide con el color de la baldosa Mantenimiento del Dashboard (tambien tile-3
+     cuando esta al dia), asi el boton que la registra y la baldosa que la avisa
+     quedan del mismo color por primera vez. */
+  .inv-tool-ring.tool-maint{background:var(--tile-3);color:var(--tile-ink);}
   /* ===== Las OTRAS pestañas con el mismo estilo (pedido del usuario 2026-09-08:
      "que se vean similar a la primera sin romper funciones"; hoy en todos los
      temas, cada uno con su paleta). Solo CSS sobre las mismas clases: Inventario — Valor y Potencial como tarjetas verde y
@@ -2001,7 +2009,7 @@
   html .inv-stat:last-child{background:var(--tile-1);}
   html .inv-stat-label, html .inv-stat-note{color:rgba(255,255,255,.85);}
   html .inv-stat-value{color:#fff;}
-  html .inv-tool-ring.tool-order, html .inv-tool-ring.tool-count{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
+  html .inv-tool-ring.tool-order, html .inv-tool-ring.tool-count, html .inv-tool-ring.tool-maint{box-shadow:0 8px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35);}
   html .inv-tile{background:var(--panel);border-color:var(--line);border-radius:18px;box-shadow:var(--shadow);}
   html .dish-card{border-radius:18px;}
   /* ===== INVENTARIO reorganizado (maqueta aprobada 2026-09-07, "exactamente así") ===== */

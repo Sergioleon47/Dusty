@@ -449,7 +449,7 @@ function equipoView(){
       <span class="inv-tool-label" style="font-weight:800;">${t('dash_scan_receipt')}</span>
     </div>
     <button type="button" class="inv-tool" id="btn-log-maint" title="${t('svc_log_title')}" ${assets.length===0?'disabled':''}>
-      <span class="inv-tool-ring tool-count">🔧</span>
+      <span class="inv-tool-ring tool-maint">🔧</span>
       <span class="inv-tool-label">${t('svc_tool_maint')}</span>
     </button>
   </div>
