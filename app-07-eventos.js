@@ -274,7 +274,7 @@ function attachEvents(){
   });
   manageModalA11y();
   attachModalTabTrap();
-  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts, [data-open-asset], [data-open-job], [data-edit-maint], [data-edit-service]').forEach(makeKeyboardClickable);
+  document.querySelectorAll('#btn-scan-fab, [data-view-receipt], [data-cal-day], [data-photo-item], [data-open-item], [data-history-item], [data-cat-toggle], [data-assign-photo], #btn-critical-alerts, [data-open-asset], [data-open-job], [data-edit-maint], [data-edit-service], [data-open-quote], [data-edit-client], #btn-collect-alert, #btn-maint-alert').forEach(makeKeyboardClickable);
   attachViewSwipeHandlers();
   attachHardwareBackButton();
   attachCategoryChipDragHandlers();

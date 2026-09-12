@@ -88,6 +88,14 @@ function ensurePatronFirebaseReady(){
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
               inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
+              // Lo de la cuenta (no solo los datos): sin esto el nombre del negocio, el
+              // presupuesto, las categorías y "los miembros ven ganancias" de la cuenta
+              // anterior se filtraban a la nueva y el reconcile los subía como suyos
+              // (auditoría de la auditoría 2026-09-12). El asistente también arranca
+              // limpio: su historial lleva clientes y cifras del negocio anterior.
+              businessName=''; monthlyBudget=null; budgetMeta=normalizeBudgetMeta(null); categories=null; expenseCategories=[]; profitsVisibleToMembers=false;
+              priceAlertThreshold=15; cycleCountPct=20; cycleCountIntervalDays=3; cycleCountLastDate=null; cycleCountCursor=0;
+              if(typeof agentReset==='function') try{ agentReset(); }catch(e){}
               saveState();
               applyingRemoteSnapshot = false;
             }
@@ -170,6 +178,10 @@ function ensurePatronFirebaseReady(){
           // panel de Equipo vería el código de invitación de la cuenta ANTERIOR
           // mostrado como si fuera el suyo (invitando gente al inventario equivocado).
           teamInviteCode = '';
+          // La conversación del asistente no sobrevive al cierre de sesión (lleva
+          // nombres de clientes y cifras; y una confirmación pendiente no debe
+          // ejecutarse con otra cuenta).
+          if(typeof agentReset==='function') try{ agentReset(); }catch(e){}
           // Sin esto, un reintento de sync pendiente de la cuenta que se acaba de ir
           // (por ej. un guardado que había fallado sin red) podía disparase más tarde
           // — si para entonces ya había otra cuenta logueada en el mismo dispositivo,
@@ -334,6 +346,8 @@ function activityVerb(entry){
   if(entry.type==='recipe_created') return `${t('activity_recipe_created')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='recipe_edited') return `${t('activity_recipe_edited')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='recipe_deleted') return `${t('activity_recipe_deleted')} "${escapeHtml(entry.itemName)}"`;
+  // Gasto a mano o por el asistente (app-06 / app-16): antes la fila salía sin texto.
+  if(entry.type==='receipt_added') return `${t('activity_receipt_added')} "${escapeHtml(entry.itemName||'')}"${entry.detail ? ' · '+escapeHtml(entry.detail) : ''}`;
   // Modo Servicios (app-15) — itemName es el cliente o el activo.
   if(entry.type==='job_saved') return `${t('activity_job_saved')} "${escapeHtml(entry.itemName)}"`;
   if(entry.type==='job_paid') return `${t('activity_job_paid')} "${escapeHtml(entry.itemName)}" · ${escapeHtml(entry.detail||'')}`;
@@ -806,6 +820,10 @@ function syncAllToFirestore(){
       const FV = firebase.firestore.FieldValue;
       [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds]]
         .forEach(([k,arr])=>{ if(Array.isArray(arr) && arr.length>0) metaData[k] = FV.arrayUnion.apply(FV, arr); });
+      // "Los miembros ven ganancias" es un ajuste DEL DUEÑO: un miembro no lo
+      // manda (con merge:true el doc conserva el valor del dueño). Antes viajaba
+      // desde cualquier dispositivo del equipo y las reglas no lo protegen.
+      if(joinedOwnerUid) delete metaData.profitsVisibleToMembers;
       ops.push({ref:metaRef(uid), data: metaData, merge:true, metaHash});
     }
     // Des-entierro pendiente (restaurar backup): un segundo write sobre meta con

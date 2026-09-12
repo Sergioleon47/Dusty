@@ -111,7 +111,7 @@ function agentDescribe(name, inp){
     case 'create_quote': return typeof quoteDescribeForAgent==='function' ? quoteDescribeForAgent(inp) : `${es?'Cotización':'Quote'}: ${inp.client||'?'}`;
     case 'quote_action': { const act = {send_whatsapp: es?'Mandar por WhatsApp':'Send by WhatsApp', send_pdf: es?'Compartir el PDF':'Share the PDF', send_email: es?'Mandar por correo':'Send by email', accept: es?'Aceptada → crear el trabajo':'Accepted → create the job', reject: es?'Marcar rechazada':'Mark rejected', delete: es?'Eliminar':'Delete'}[inp.action] || inp.action; const q = typeof agentPickQuote==='function' ? agentPickQuote(inp) : null; return `${es?'Cotización':'Quote'}${q ? ' #'+quoteNum(q)+' · '+q.client+' · '+money(quoteTotals(q).total) : (inp.client ? ' · '+inp.client : '')}: ${act}`; }
     case 'add_client': case 'update_client': return `${name==='add_client' ? (es?'Cliente nuevo':'New client') : (es?'Cliente':'Client')}: ${inp.new_name||inp.name||'?'}${inp.phone ? ' · 📞 '+inp.phone : ''}${inp.email ? ' · ✉️ '+inp.email : ''}${inp.notes ? ' · '+String(inp.notes).slice(0,40) : ''}`;
-    case 'add_item': return `${es?'Producto nuevo':'New item'}: ${inp.name}${agentNum(inp.qty)!==null ? ' · '+inp.qty+' '+(inp.unit||'unidad') : ''}${agentNum(inp.cost_per_unit) ? ' · '+money(agentNum(inp.cost_per_unit)) : ''}`;
+    case 'add_item': return `${es?'Producto nuevo':'New item'}: ${inp.name}${agentNum(inp.qty)!==null ? ' · '+inp.qty+' '+(inp.unit||(es?'unidad':'unit')) : ''}${agentNum(inp.cost_per_unit) ? ' · '+money(agentNum(inp.cost_per_unit)) : ''}`;
     case 'add_note': return `${es?'Nota':'Note'}: "${inp.text}"${inp.date ? ' · '+inp.date : ''}`;
     case 'set_budget': return `${es?'Presupuesto mensual':'Monthly budget'}: ${money(agentNum(inp.amount)||0)}`;
     case 'adjust_stock': { const it = agentPickItem(inp.item); const nm = it ? it.name : (inp.item||'?'); const q = agentNum(inp.qty)||0; const u = it ? unitLabel(it.unit) : '';
@@ -377,6 +377,8 @@ function agentExec(name, inp){
       // modelo decía "listo, movido al 30 de febrero" y el trabajo seguía igual).
       if(inp.new_date && !isValidDateStr(inp.new_date)) return fail('new_date must be a real YYYY-MM-DD date');
       if(inp.new_date){
+        // Trabajo viejo sin dueDays: su plazo real es la distancia entre fecha y vencimiento.
+        if(!(j.dueDays>0) && j.dueDate && isValidDateStr(j.dueDate) && isValidDateStr(prevDate)){ const dd = daysBetweenStr(prevDate, j.dueDate); if(dd>0) j.dueDays = dd; }
         j.date = inp.new_date; ch.date = j.date;
         // El vencimiento acompaña a la fecha (antes quedaba anclado a la vieja y un
         // trabajo movido a octubre aparecía "vencido" en septiembre).

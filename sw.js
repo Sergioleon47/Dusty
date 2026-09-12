@@ -530,7 +530,13 @@
 // y fusión de duplicados, cotizaciones con productos descuentan y devuelven
 // stock, nota de cobro con id 'svc-cobro-*' (deja sin efecto lápidas viejas
 // 'svc-due-*'), escáneres con presupuesto de tiempo — app-02/03/08/15/16/17.
-const CACHE_NAME = 'patron-shell-v179';
+// v180: auditoría de la auditoría de Servicios 2026-09-12 — las notas derivadas
+// del calendario ya no viajan a la nube (ping-pong de escrituras entre idiomas),
+// archivo de salidas idempotente y por activo, una sola cuenta por trabajo/activo,
+// recurrencia (horizonte, hoy, guardar sin cambios), escáner en modo Servicios
+// como gasto, asistente (ids fijados en la tarjeta, mantenimientos), servidor
+// (send-quote cerrado, vueltas de herramientas con cupo) — app-02/03/06/07/08/14/15/16/17, core.
+const CACHE_NAME = 'patron-shell-v180';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

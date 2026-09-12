@@ -122,7 +122,10 @@ function quotesSheet(){
 
 /* ---------- MODAL: editor de cotización ---------- */
 function openQuoteModal(quoteId, preset){
-  if(!requireWriteAccess()) return;
+  // Ver una cotización existente no pide permiso de escritura (misma regla que
+  // los trabajos: una cuenta en solo lectura tiene que poder mirar); crear una
+  // nueva, guardar, aceptar, rechazar y eliminar sí lo piden.
+  if(!quoteId && !requireWriteAccess()) return;
   const q = quoteId ? quoteById(quoteId) : null;
   draftQuote = q ? {
     id: q.id, client: q.client||'', clientId: q.clientId||null, date: q.date||localDateStr(), validDays: q.validDays||bizProfile.quoteValidDays||15,
@@ -251,6 +254,7 @@ function cleanQuoteLines(lines){
 }
 // Guarda (nueva o editada). Devuelve la cotización o null si falta algo.
 function saveQuoteFromDraft(opts){
+  if(!requireWriteAccess()) return false;
   readQuoteDraftFromDom();
   const d = draftQuote;
   const lines = cleanQuoteLines(d.lines);
@@ -387,8 +391,8 @@ function buildQuotePdf(q){
   return pdf.build((n, total)=>({left: name + ' · ' + t('qt_pdf_title') + ' #' + quoteNum(q), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
 }
 function quoteFileName(q){
-  const who = (q.client||'cliente').replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'cliente';
-  return `cotizacion-${quoteNum(q)}-${who}`;
+  const who = svcFileSlug(q.client, t('svc_client'));
+  return `${svcFileSlug('', t('qt_title'))}-${quoteNum(q)}-${who}`;
 }
 function downloadQuotePdf(q){
   let bytes; try{ bytes = buildQuotePdf(q); }catch(e){ console.error('[Dusty] cotización PDF:', e); showToast(t('rp_failed'), 'error'); return; }
@@ -459,7 +463,7 @@ function clientsSheet(){
   return svcSheet('clients-sheet-overlay', t('cl_title'), body, 'btn-close-clients-sheet');
 }
 function openClientModal(clientId, presetName){
-  if(!requireWriteAccess()) return;
+  if(!clientId && !requireWriteAccess()) return;
   const c = clientId ? clientById(clientId) : (presetName ? clientByName(presetName) : null);
   draftClient = c ? {id:c.id, name:c.name||'', phone:c.phone||'', email:c.email||'', notes:c.notes||''} : {id:null, name:presetName||'', phone:'', email:'', notes:''};
   showClientModal = true; clientModalError = '';
@@ -489,6 +493,7 @@ function clientModal(){
   </div>`;
 }
 function saveClientFromDraft(){
+  if(!requireWriteAccess()) return false;
   const g = (id)=>document.getElementById(id);
   const d = draftClient;
   const name = g('cl-name') ? g('cl-name').value.trim() : '';
@@ -556,7 +561,8 @@ function attachQuotesEvents(){
     on('btn-qt-edit-client', ()=>{ readQuoteDraftFromDom(); const c = draftQuote.clientId ? clientById(draftQuote.clientId) : clientByName(draftQuote.client); openClientModal(c ? c.id : null, draftQuote.client); });
     const savedQ = draftQuote.id ? quoteById(draftQuote.id) : null;
     if(savedQ){
-      const persist = ()=>{ if(quoteState(savedQ)==='accepted') return savedQ; return saveQuoteFromDraft() ? quoteById(draftQuote.id) : null; };
+      // Solo lectura: se manda la copia guardada sin abrir el paywall (como Imprimir en un trabajo).
+      const persist = ()=>{ if(quoteState(savedQ)==='accepted' || (typeof accessLocked==='function' && accessLocked())) return savedQ; return saveQuoteFromDraft() ? quoteById(draftQuote.id) : null; };
       on('btn-qt-pdf', ()=>{ const q = persist(); if(q){ downloadQuotePdf(q); render(); } });
       on('btn-qt-wa', ()=>{ const q = persist(); if(q){ quoteWhatsapp(q); render(); } });
       on('btn-qt-email', ()=>{ const q = persist(); if(q) sendQuoteEmail(q); });
@@ -571,7 +577,7 @@ function attachQuotesEvents(){
         if(job) openJobModal(job.id);
       });
       on('btn-qt-reject', ()=>{ const q = persist(); if(!q) return; rejectQuote(q); showToast(t('qt_rejected_toast')); closeQuoteModal(); });
-      on('btn-qt-delete', ()=>{ if(!confirm(t('qt_delete_confirm'))) return; deleteQuote(savedQ); showToast(t('qt_deleted')); closeQuoteModal(); });
+      on('btn-qt-delete', ()=>{ if(!requireWriteAccess()) return; if(!confirm(t('qt_delete_confirm'))) return; deleteQuote(savedQ); showToast(t('qt_deleted')); closeQuoteModal(); });
       on('btn-qt-open-job', ()=>{ const j = savedQ.jobId ? jobById(savedQ.jobId) : null; closeQuoteModal(); if(j) openJobModal(j.id); });
     }
   }
@@ -585,7 +591,7 @@ function attachQuotesEvents(){
   overlayClose('client-overlay', closeClientModal);
   on('btn-cancel-client', closeClientModal);
   on('btn-save-client', ()=>{ if(saveClientFromDraft()){ showToast(t('cl_saved')); closeClientModal(); } });
-  on('btn-delete-client', ()=>{
+  on('btn-delete-client', ()=>{ if(!requireWriteAccess()) return;
     const c = clientById(draftClient.id); if(!c) return;
     if(!confirm(t('cl_delete_confirm').replace('{name}', c.name))) return;
     bizProfile.clients = svcClients().filter(x=>x.id!==c.id);

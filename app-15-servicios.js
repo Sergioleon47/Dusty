@@ -456,6 +456,7 @@ function svcAssetRowHtml(a, key){
 function equipoView(){
   const key = localMonthStr();
   const assets = (bizProfile.assets||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  if(assets.length<=3) equipoSearch = ''; // sin caja de búsqueda no hay filtro escondido
   const shown = assets.filter(a=>invMatches(a.name+' '+(a.model||''), equipoSearch));
   const value = assets.reduce((s,a)=>s+(a.purchasePrice||0),0);
   const monthSpend = spendSplitForMonth(key).expense;
@@ -597,7 +598,7 @@ function assetSheet(){
       </div>
     </div>
     <div class="recap-row svc-line-big"><span class="recap-label">${ml.net}</span><span class="recap-col-val"><strong style="color:${st.net>=0?'var(--money-pos)':'var(--money-neg)'};">${st.net<0?'−':''}${money(Math.abs(st.net))}</strong></span></div>
-    <div class="recap-row"><span class="recap-label">${t('svc_since_purchase')}<small class="svc-plan-sub" style="display:block;">${t('svc_since_purchase_sub').replace('{n}', String(all.jobs)).replace('{billed}', svcMoneyShort(all.revenue)).replace('{spent}', svcMoneyShort(all.expense))}</small></span><span class="recap-col-val"><strong style="color:${all.net>=0?'var(--money-pos)':'var(--money-neg)'};">${all.net<0?'−':''}${money(Math.abs(all.net))}</strong></span></div>` : ''}
+    <div class="recap-row"><span class="recap-label">${t('svc_since_purchase')}<small class="svc-plan-sub" style="display:block;">${t('svc_since_purchase_sub').replace('{jobs}', svcJobsCount(all.jobs)).replace('{billed}', svcMoneyShort(all.revenue)).replace('{spent}', svcMoneyShort(all.expense))}</small></span><span class="recap-col-val"><strong style="color:${all.net>=0?'var(--money-pos)':'var(--money-neg)'};">${all.net<0?'−':''}${money(Math.abs(all.net))}</strong></span></div>` : ''}
     <div class="settings-card svc-card">
       <div class="svc-card-head"><span>${t('svc_maints')}</span><button type="button" class="link-btn" id="btn-add-maint">${t('svc_add')}</button></div>
       ${plans.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_maint_no_plan')}</div>` : plans.map(({m, st})=>{
@@ -701,6 +702,9 @@ function svcAssetFilterChip(asset, labelKey, n, btnId){
 }
 function jobsSheet(){
   const today = localDateStr();
+  // Con 5 trabajos o menos la caja de búsqueda no se dibuja: un texto que quedó
+  // de antes (se borraron trabajos) no puede seguir filtrando a escondidas.
+  if(svcJobs().length<=5) jobsSearch = '';
   const q = jobsSearch.trim();
   const fa = jobsAssetFilter ? assetById(jobsAssetFilter) : null;
   // El buscador también encuentra por nombre del equipo ("Retro 2" listaba
@@ -908,7 +912,13 @@ function jobModal(){
 // lleva cantidad. Por trabajo (fixed) o sin precio: null.
 function svcJobUnitService(d){
   const c = (bizProfile.catalog||[]).find(x=>x.name.toLowerCase()===String((d && d.serviceName)||'').trim().toLowerCase());
-  return (c && c.unit && c.unit!=='fixed' && c.price>0) ? c : null;
+  if(c && c.unit && c.unit!=='fixed' && c.price>0) return c;
+  // El servicio de la lista se renombró, se borró o pasó a "por trabajo" después de
+  // guardar este trabajo: la cantidad y la unidad que ya tiene siguen valiendo
+  // (la cuenta impresa dice "3 h × $20"), con su precio unitario efectivo.
+  const j = d && d.id ? jobById(d.id) : null;
+  if(j && j.unit && j.unit!=='fixed' && (Number(j.qty)>0 || Number(j.unitPrice)>0) && String(j.serviceName||'').trim().toLowerCase()===String((d && d.serviceName)||'').trim().toLowerCase()) return {name: j.serviceName, unit: j.unit, price: Number(j.unitPrice)||0};
+  return null;
 }
 function svcJobUnitHint(d){
   const u = svcJobUnitService(d); if(!u) return '';
@@ -950,6 +960,9 @@ function saveJobFromDraft(){
   const clash = svcClash(Object.assign({}, d, {endDate}));
   if(clash && !confirm(t('svc_clash_confirm').replace('{asset}', (assetById(d.assetId)||{}).name||'').replace('{client}', clash.client||''))) return null;
   let job = d.id ? jobById(d.id) : null;
+  // El trabajo abierto ya no existe (lo eliminó otro teléfono y llegó por la
+  // nube): guardar o imprimir NO lo resucita como trabajo nuevo.
+  if(d.id && !job){ jobModalError = t('svc_job_gone'); render(); return null; }
   const today = localDateStr();
   const dueDate = d.paid ? null : addDaysStr(d.date, d.dueDays||15);
   const repeat = (!d.parentId && SVC_REPEATS.indexOf(d.repeat)>=0) ? d.repeat : null;
@@ -1273,7 +1286,7 @@ function svcRecapRows(key, crow){
   const assets = bizProfile.assets||[];
   let html = '';
   if(jobs.length){
-    html += `<div class="recap-note">${t('recap_jobs_n').replace('{n}', String(jobs.length))}</div>`;
+    html += `<div class="recap-note">${t('recap_jobs_n').replace('{jobs}', svcJobsCount(jobs.length))}</div>`;
   }
   // Misma cuenta que la ficha del activo (svcAssetStats): facturado − mercadería − recibos, archivo incluido.
   const perAsset = assets.map(a=>{
@@ -1366,7 +1379,11 @@ function svcSettingsServicesCard(){
 /* ---------- WhatsApp ---------- */
 function svcWhatsappReminder(j){
   const msg = t('svc_wa_msg').replace('{client}', j.client||'').replace('{service}', j.serviceName||t('svc_job_edit').toLowerCase()).replace('{date}', svcShortDate(j.date)).replace('{amount}', money(j.price||0));
-  const url = 'https://wa.me/?text='+encodeURIComponent(msg);
+  // Con el teléfono guardado del cliente (app-17) el chat abre directo, como la
+  // cotización; sin él, el selector de contactos de WhatsApp.
+  const cl = (typeof clientByName==='function') ? clientByName(j.client) : null;
+  const digits = (cl && typeof clientPhoneDigits==='function') ? clientPhoneDigits(cl) : '';
+  const url = 'https://wa.me/'+(digits||'')+'?text='+encodeURIComponent(msg);
   try{ window.open(url, '_blank', 'noopener'); }catch(e){ location.href = url; }
 }
 
@@ -1808,11 +1825,23 @@ function svcSharePdf(bytes, fileName, title){
   }
   downloadBlob(file, fn);
 }
+// "1 trabajo" / "N trabajos" — la misma pantalla decía "1 trabajos" (auditoría de la auditoría 2026-09-12).
+function svcJobsCount(n){ return n===1 ? t('svc_job_1') : t('svc_jobs_n').replace('{n}', String(n)); }
 function jobStatusLabel(j){ return j.paid ? t('svc_tag_paid') : (jobIsOverdue(j) ? t('svc_tag_overdue') : t('svc_tag_pending')); }
+/* N.º de la cuenta de cobro. Un trabajo suelto usa la cola de su id al azar; una
+   ocurrencia de contrato tiene id determinista "job-<contrato>-<fecha>" y la cola
+   era "-MM-DD", igual para todos los contratos (auditoría de la auditoría
+   2026-09-12): se arma con la cola del contrato y la fecha (P4K2-0406). */
+function svcInvoiceNum(j){
+  const id = String((j && j.id)||'');
+  const m = /^job-(.+)-(\d{4})-(\d{2})-(\d{2})$/.exec(id);
+  if(m) return m[1].slice(-4).toUpperCase() + '-' + m[3] + m[4];
+  return id.slice(-6).toUpperCase();
+}
 // Cuenta de cobro de UN trabajo, para el cliente: sin los gastos internos.
 function buildJobPdf(j){
   const pdf = DustyPdf();
-  const name = svcPdfHeader(pdf, t('svc_invoice_title') + ' · ' + t('rd_id_label') + ' ' + String(j.id||'').slice(-6).toUpperCase());
+  const name = svcPdfHeader(pdf, t('svc_invoice_title') + ' · ' + t('rd_id_label') + ' ' + svcInvoiceNum(j));
   const asset = j.assetId ? assetById(j.assetId) : null;
   pdf.line(`${t('svc_client')}: ${j.client||''}`, {size: 11, bold: true, lh: 18});
   // " - " y no "→": la fuente del PDF (WinAnsi) no tiene la flecha.
@@ -1830,8 +1859,14 @@ function buildJobPdf(j){
 }
 function downloadJobPdf(j){
   let bytes; try{ bytes = buildJobPdf(j); }catch(e){ console.error('[Dusty] cuenta de cobro:', e); showToast(t('rp_failed'), 'error'); return; }
-  const who = (j.client||'cliente').replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'cliente';
-  svcSharePdf(bytes, `${j.date||'sin-fecha'}-${who}`, t('svc_invoice_title') + ' · ' + (j.client||''));
+  const who = svcFileSlug(j.client, t('svc_client'));
+  svcSharePdf(bytes, `${j.date||svcFileSlug('', t('svc_maint_no_date'))}-${who}`, t('svc_invoice_title') + ' · ' + (j.client||''));
+}
+// Trozo de nombre de archivo: sin perder acentos ni ñ ('Pérez' → 'Perez', no
+// 'Prez'), sin espacios, con reserva traducida en vez de 'cliente'/'activo' fijos.
+function svcFileSlug(s, fallback){
+  const clean = v => String(v||'').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-');
+  return clean(s) || clean(fallback).toLowerCase();
 }
 // Ficha de un activo: resultado del mes, mantenimientos con estado, gastos.
 // Ficha en PDF = lo mismo que la ficha en pantalla (auditoría 2026-09-12): el mes
@@ -1858,7 +1893,7 @@ function buildAssetPdf(a){
   if(fin){
     rows.push({label: ml.net, value: (st.net<0?'-':'')+money(Math.abs(st.net)), note: '', _bold: true});
     // "Desde siempre" en tres filas: la nota de una sola línea se cortaba.
-    rows.push({label: `${t('svc_since_purchase')} · ${t('svc_pdf_billed')}`, value: money(all.revenue), note: t('svc_jobs_n').replace('{n}', String(all.jobs))});
+    rows.push({label: `${t('svc_since_purchase')} · ${t('svc_pdf_billed')}`, value: money(all.revenue), note: svcJobsCount(all.jobs)});
     rows.push({label: `${t('svc_since_purchase')} · ${t('spend_expenses')}`, value: money(all.expense), note: ''});
     rows.push({label: `${t('svc_since_purchase')} · ${t('recap_net')}`, value: (all.net<0?'-':'')+money(Math.abs(all.net)), note: '', _bold: true});
   }
@@ -1871,9 +1906,11 @@ function buildAssetPdf(a){
   else pdf.table([{key:'name', label: t('svc_maint_name')}, {key:'every', label: t('svc_pdf_every'), w: 150}, {key:'last', label: t('svc_last_done'), w: 90}, {key:'status', label: t('svc_pdf_status'), w: 110, align:'right'}],
     plans.map(m=>{ const s = svcMaintStatus(m, a, today); return {name: m.name, every: [m.everyKm>0 && useOdo() ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(' / '), last: m.lastDate || '—', status: s.status==='none' ? t('svc_maint_no_date') : (s.status==='overdue' ? t('svc_tag_overdue')+' · ' : '') + svcMaintWhen(s)}; }));
   pdf.gap(14);
-  const log = (a.maintLog||[]).slice().sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0, 60);
+  const logAllPdf = (a.maintLog||[]).slice().sort((x,y)=>String(y.date).localeCompare(String(x.date)));
+  const log = logAllPdf.slice(0, 60);
   if(log.length){
-    pdf.line(t('svc_maint_history'), {size: 12.5, bold: true, lh: 24});
+    // Si se recorta, se dice ("60 de 90"): un PDF que calla lo que omite parece completo.
+    pdf.line(t('svc_maint_history') + (logAllPdf.length>log.length ? t('svc_n_of_total').replace('{n}', String(log.length)).replace('{t}', String(logAllPdf.length)) : ''), {size: 12.5, bold: true, lh: 24});
     pdf.table([{key:'date', label: t('rp_col_date'), w: 80}, {key:'what', label: t('svc_maint_name')}, {key:'km', label: useOdo() ? distU() : '', w: 80, align:'right'}, {key:'cost', label: t('rp_col_total'), w: 100, align:'right'}],
       log.map(l=>{ const plan = l.planId ? plans.find(m=>m.id===l.planId) : null; return {date: l.date, what: plan ? plan.name : (l.desc || t('svc_log_other')), km: useOdo() && l.km!==null && l.km!==undefined ? svcFmtNum(l.km) : '', cost: l.cost>0 ? money(l.cost) : '—'}; }));
     pdf.gap(14);
@@ -1899,7 +1936,7 @@ function buildAssetPdf(a){
 }
 function downloadAssetPdf(a){
   let bytes; try{ bytes = buildAssetPdf(a); }catch(e){ console.error('[Dusty] ficha de activo:', e); showToast(t('rp_failed'), 'error'); return; }
-  const who = a.name.replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'activo';
+  const who = svcFileSlug(a.name, t('svc_tool_asset'));
   svcSharePdf(bytes, `${assetSheetKey()}-${who}`, a.name);
 }
 // Sección de Servicios dentro del informe del mes/año (buildMonthReport, app-14):
@@ -2161,7 +2198,11 @@ function svcClash(d){
   if(!d.assetId || !d.date) return null;
   // Por rango: un alquiler del 10 al 15 choca con otro del mismo equipo el 12.
   const from = d.date, to = d.endDate || d.date;
-  return svcJobs().find(j=>j.id!==d.id && j.assetId===d.assetId && j.date<=to && (j.endDate||j.date)>=from) || null;
+  // La propia familia del contrato no choca consigo misma: mover el contrato sobre
+  // la fecha de su próxima ocurrencia (la regla la retira), o un alquiler semanal
+  // de 7 días cuyas ocurrencias se tocan, pedía confirmar un "choque" falso.
+  const fam = new Set([d.id, d.parentId].filter(Boolean));
+  return svcJobs().find(j=>j.id!==d.id && j.assetId===d.assetId && !(fam.has(j.id) || fam.has(j.parentId)) && j.date<=to && (j.endDate||j.date)>=from) || null;
 }
 
 /* ---------- tick diario ----------
@@ -2175,11 +2216,16 @@ function svcDailyTick(){
   if(typeof usesServices!=='function' || !usesServices()) return false;
   const today = localDateStr();
   if(svcTickDay===today) return false;
+  const newDay = !!svcTickDay; // ya había corrido otro día: la app amaneció abierta
   svcTickDay = today;
   let changed = false;
   try{ if(svcGenerateRecurring()) changed = true; }catch(e){}
   try{ if(svcSyncCalendar()) changed = true; }catch(e){}
-  if(changed){ saveState(); render(); }
+  if(changed) saveState();
+  // Día nuevo sin datos nuevos igual se redibuja y avisa: "Hoy", la agenda y los
+  // vencidos son de la fecha, no de los datos (antes el Dashboard amanecía con el
+  // "Hoy" de ayer hasta que el usuario tocaba algo).
+  if(changed || newDay){ render(); if(newDay) try{ checkServiceAlerts(); }catch(e){} }
   return changed;
 }
 if(typeof document!=='undefined' && document.addEventListener){

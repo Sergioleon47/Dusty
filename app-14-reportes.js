@@ -183,7 +183,8 @@ function reportDelta(cur, prev){
   if(!(prev > 0)) return cur > 0 ? t('rp_new') : '—';
   const d = (cur - prev) / prev * 100;
   if(Math.abs(d) < 0.5) return '=';
-  return (d > 0 ? '+' : '−') + Math.abs(Math.round(d)) + '%';
+  // Guion ASCII: el escritor de PDF es WinAnsi y el signo menos tipográfico (U+2212) salía como '?'.
+  return (d > 0 ? '+' : '-') + Math.abs(Math.round(d)) + '%';
 }
 function buildMonthReport(key){
   resetFinancialCache();
