@@ -1977,7 +1977,10 @@ function applyStateData(data){
   // que sí se recorta se archiva (archiveEvictedOutflows, app-08), la historia
   // del P&L no se achica.
   if(Array.isArray(data.outflows)){
-    const cut = capOutflows(data.outflows.filter(o=>o && o.id), OUTFLOWS_MAX);
+    // Una salida que el archivo ya consolidó (ids, app-08) no vuelve viva desde un
+    // respaldo o un JSON viejo: contaría dos veces, viva y archivada.
+    const archived = outflowArchivedIds(outflowArchive);
+    const cut = capOutflows(data.outflows.filter(o=>o && o.id && !archived.has(o.id)), OUTFLOWS_MAX);
     archiveEvictedOutflows(cut.evicted);
     outflows = cut.kept;
   }

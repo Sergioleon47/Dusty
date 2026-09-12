@@ -179,9 +179,21 @@ function archiveEvictedOutflows(evicted){
     const k = o && monthKey(o.date);
     if(!pl || !k) return;
     const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
+    /* Idempotente por id (auditoría de la auditoría 2026-09-12): la misma salida
+       volvía a archivarse cuando un merge con la nube la traía de vuelta (otro
+       teléfono que aún la tenía, o este mismo si cerró la app antes de subir la
+       evicción) y el ingreso de un trabajo de $100 quedaba en $200 para siempre.
+       El mes recuerda qué ids ya consolidó; el merge (app-02) los une y descarta
+       de la lista viva cualquier salida ya archivada (outflowArchivedIds). */
+    if(!Array.isArray(a.ids)) a.ids = [];
+    if(o.id){
+      if(a.ids.indexOf(o.id)>=0) return;
+      a.ids.push(o.id);
+      if(a.ids.length>OUTFLOW_ARCHIVE_IDS_MAX) a.ids.splice(0, a.ids.length-OUTFLOW_ARCHIVE_IDS_MAX);
+    }
     a.revenue = roundQty(a.revenue + pl.revenue);
     a.cogs = roundQty(a.cogs + pl.cogs);
-      a.internalUse = roundQty((a.internalUse||0) + (pl.internalUse||0));
+    a.internalUse = roundQty((a.internalUse||0) + (pl.internalUse||0));
   });
 }
 function recordOutflow(entry){

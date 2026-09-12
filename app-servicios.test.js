@@ -364,3 +364,18 @@ test('registrar un mantenimiento: el historial conserva el nombre aunque se borr
   correr(`assetById('cam2').maint = [];`);
   assert.deepEqual(lista(`assetById('cam2').maintLog.map(l=>l.desc)`), ['Aceite', 'Aceite']);
 });
+
+test('archivo de salidas idempotente por id: evictar dos veces la misma salida no duplica el ingreso, y una copia archivada no vuelve viva al cargar', () => {
+  const { correr } = nuevaApp('2026-04-02');
+  correr(`recordOutflow({id:'jan1', type:'service', date:'2026-01-10', client:'A', serviceName:'S', price:100, paid:true, paidDate:'2026-01-10', items:[], createdAt:'2026-01-10T00:00:00Z'});
+    for(let i=0;i<450;i++) recordOutflow({id:'adj'+i, type:'adjust', date:'2026-03-01', items:[], createdAt:'2026-03-01T00:00:00Z'});`);
+  assert.equal(correr(`!!outflows.find(o=>o.id==='jan1')`), false, 'evictado');
+  assert.equal(correr(`outflowArchive['2026-01'].revenue`), 100);
+  assert.deepEqual(JSON.parse(correr(`JSON.stringify(outflowArchive['2026-01'].ids)`)), ['jan1']);
+  // Vuelve de la nube (o de un respaldo) la misma salida: ni se archiva de nuevo ni queda viva.
+  correr(`archiveEvictedOutflows([{id:'jan1', type:'service', date:'2026-01-10', price:100, paid:true, items:[]}]);`);
+  assert.equal(correr(`outflowArchive['2026-01'].revenue`), 100, 'sigue en 100');
+  correr(`applyStateData({outflows: outflows.concat([{id:'jan1', type:'service', date:'2026-01-10', client:'A', serviceName:'S', price:100, paid:true, items:[], createdAt:'2026-01-10T00:00:00Z'}]), outflowArchive});`);
+  assert.equal(correr(`!!outflows.find(o=>o.id==='jan1')`), false, 'no revive');
+  assert.equal(correr(`outflowArchive['2026-01'].revenue`), 100);
+});

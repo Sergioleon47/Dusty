@@ -311,6 +311,16 @@ function acceptQuote(q, opts){
     // de nuevo crea uno nuevo (antes devolvía el borrado y no pasaba nada).
     if(ya && !ya.deleted) return ya;
   }
+  /* Un trabajo VIVO que ya nació de esta cotización (la cotización volvió a
+     "enviada" al borrarlo en un teléfono, pero el trabajo revivió cobrado desde
+     otro): se re-enlaza en vez de crear un segundo trabajo por el mismo dinero
+     (auditoría de la auditoría 2026-09-12). */
+  const vivo = svcJobs().find(j=>j.quoteId===q.id);
+  if(vivo){
+    q.status = 'accepted'; q.acceptedAt = q.acceptedAt || new Date().toISOString(); q.jobId = vivo.id; q.lastEditedAt = new Date().toISOString();
+    saveState();
+    return vivo;
+  }
   const tt = quoteTotals(q);
   const date = (opts && opts.date) || localDateStr();
   const dueDays = 15;
@@ -658,8 +668,12 @@ function quoteAgentAction(inp){
     case 'accept': { const job = acceptQuote(q, {byAgent:true, date: inp.date ? agentDate(inp.date) : null}); render();
       return {ok:true, quote_id:q.id, job_id: job ? job.id : null, amount: quoteTotals(q).total, due_date: job ? job.dueDate : null,
         stock_out: (job && job.items||[]).filter(it=>it.qty>0).map(it=>({item: it.ingName, qty: it.qty, unit: it.unit, short: it.short||0}))}; }
-    case 'reject': { rejectQuote(q); render(); return {ok:true, quote_id:q.id}; }
-    case 'delete': { deleteQuote(q); render(); return {ok:true, quote_id:q.id}; }
+    // Aceptada y con su trabajo vivo: el modal no ofrece rechazar ni eliminar, y el
+    // asistente tampoco puede — dejaba el trabajo cobrable y la mercadería
+    // descontada sin cotización detrás. Primero se elimina el trabajo (devuelve el
+    // stock y reabre la cotización), después se decide.
+    case 'reject': { if(q.status==='accepted' && jobById(q.jobId)) return {ok:false, error:'quote already accepted and its job exists; delete the job first (delete_job job_id='+q.jobId+'), that returns the stock and reopens the quote'}; rejectQuote(q); render(); return {ok:true, quote_id:q.id}; }
+    case 'delete': { if(q.status==='accepted' && jobById(q.jobId)) return {ok:false, error:'quote already accepted and its job exists; delete the job first (delete_job job_id='+q.jobId+')'}; deleteQuote(q); render(); return {ok:true, quote_id:q.id}; }
     default: return {ok:false, error:'unknown action'};
   }
 }

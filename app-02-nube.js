@@ -623,16 +623,16 @@ function metaContentShape(m){
   };
 }
 /* Las notas DERIVADAS del modo Servicios (svcKind: trabajo 🚚, cobro 💵,
-   mantenimiento 🔧, cotización 📄) NO viajan a la nube: cada dispositivo las
-   regenera en svcSyncCalendar (app-15) desde los trabajos, activos y cotizaciones,
-   que sí viajan. Su texto lleva el idioma y el formato de moneda DEL DISPOSITIVO
-   (t() y money(), guardados en localStorage): con dos teléfonos en idiomas o
-   formatos distintos, cada uno "corregía" el texto del otro al aplicar el
-   snapshot, el hash de meta dejaba de coincidir y volvía a subir — un ping-pong
-   de escrituras a Firestore sin fin (auditoría de la auditoría 2026-09-12).
-   Las lápidas de las notas que el usuario borra a mano sí viajan (deletedCalNoteIds),
-   así que una nota derivada borrada en un teléfono no reaparece en el otro. */
-function calNotesForCloud(list){ return (Array.isArray(list) ? list : []).filter(n=>n && n.id && !n.svcKind); }
+   mantenimiento 🔧, cotización 📄) NO viajan a la nube (calNotesForCloud,
+   patron-core): cada dispositivo las regenera en svcSyncCalendar (app-15) desde
+   los trabajos, activos y cotizaciones, que sí viajan. Su texto lleva el idioma
+   y el formato de moneda DEL DISPOSITIVO (t() y money(), guardados en
+   localStorage): con dos teléfonos en idiomas o formatos distintos, cada uno
+   "corregía" el texto del otro al aplicar el snapshot, el hash de meta dejaba de
+   coincidir y volvía a subir — un ping-pong de escrituras a Firestore sin fin
+   (auditoría de la auditoría 2026-09-12). Las lápidas de las notas que el usuario
+   borra a mano sí viajan (deletedCalNoteIds), así que una nota derivada borrada
+   en un teléfono no reaparece en el otro. */
 function metaCloudContent(){
   return metaContentShape({
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
@@ -641,21 +641,10 @@ function metaCloudContent(){
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
   });
 }
-/* Merge del archivo financiero de salidas evictadas: por mes, gana el valor MAYOR
-   de cada campo — la evicción es determinística sobre los mismos docs, así que dos
-   dispositivos convergen al mismo total y el máximo nunca duplica ni pierde. */
-function mergeOutflowArchives(remote, local){
-  const out = Object.assign({}, remote || {});
-  Object.keys(local || {}).forEach(k=>{
-    const l = local[k];
-    if(!l) return;
-    const r = out[k];
-    out[k] = r
-      ? {revenue: Math.max(l.revenue||0, r.revenue||0), cogs: Math.max(l.cogs||0, r.cogs||0)}
-      : {revenue: l.revenue||0, cogs: l.cogs||0};
-  });
-  return out;
-}
+/* Merge del archivo financiero de salidas evictadas: mergeOutflowArchives vive en
+   patron-core (pura, con pruebas). Por mes gana el valor MAYOR de cada campo
+   (internalUse incluido: antes el merge lo tiraba) y los ids ya consolidados se
+   unen — la memoria que evita archivar dos veces la misma salida. */
 
 /* ETAPA A: sellar cada edición local con cuándo y quién. Se llama desde saveState()
    (app-03) ANTES de persistir: cualquier doc cuyo contenido cambió respecto del
@@ -1109,10 +1098,14 @@ function applyRemoteMetaSnapshot(doc){
      una cotización abierta nunca se recortan; lo que sí se recorta se archiva
      (auditoría de datos 2026-09-12) para que ese P&L no se pierda al converger. */
   const localOutById = new Map(outflows.filter(o=>o && o.id).map(o=>[o.id, o]));
+  const archivedIdsIn = outflowArchivedIds(mergeOutflowArchives(incomingMeta.outflowArchive, outflowArchive));
   const outCutIn = capOutflows(remoteOutIn.map(remote=>{
       const local = localOutById.get(remote.id);
       return (local && pickOutflow(local, remote)===local) ? JSON.parse(JSON.stringify(local)) : remote;
     }).concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
+    // Una salida que algún dispositivo ya consolidó en el archivo no vuelve a la
+    // lista viva (contaría dos veces) ni se vuelve a archivar (ids del archivo).
+    .filter(o=>!archivedIdsIn.has(o.id))
     .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))), OUTFLOWS_MAX);
   archiveEvictedOutflows(outCutIn.evicted);
   incomingMeta.outflows = outCutIn.kept;
@@ -1695,7 +1688,9 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // Historial más nuevo primero, con el mismo tope que recordOutflow() (app-08):
     // capOutflows protege trabajos por cobrar y cotizaciones abiertas; lo que sí
     // se recorta se archiva (archiveEvictedOutflows), la historia del P&L no se achica.
-    const outCutRec = capOutflows(remoteOutflows.concat(localOnlyOutflows)
+    // Las ya consolidadas en algún archivo (ids) no vuelven a la lista viva.
+    const archivedIdsRec = outflowArchivedIds(mergeOutflowArchives(remoteMetaData.outflowArchive, mergeOutflowArchives(localSnapshot.outflowArchive, outflowArchive)));
+    const outCutRec = capOutflows(remoteOutflows.concat(localOnlyOutflows).filter(o=>!archivedIdsRec.has(o.id))
       .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))), OUTFLOWS_MAX);
     archiveEvictedOutflows(outCutRec.evicted);
     const mergedOutflows = outCutRec.kept;

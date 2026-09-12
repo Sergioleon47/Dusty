@@ -561,7 +561,7 @@ test('capOutflows: al pasar el tope se evictan las más viejas, pero nunca un tr
     {id:'n1', type:'adjust'},
     {id:'n2', type:'service', paid:true},
     {id:'n3', type:'production'},
-    {id:'unpaid', type:'service', paid:false},          // abierto: plata que falta entrar
+    {id:'unpaid', type:'service', paid:false, price:100}, // abierto: plata que falta entrar
     {id:'tpl', type:'service', paid:true, repeat:'weekly'}, // abierto: plantilla del contrato
     {id:'quote', type:'quote', status:'sent'},           // abierta: sin resolver
     {id:'old1', type:'adjust'},
@@ -576,14 +576,17 @@ test('capOutflows: al pasar el tope se evictan las más viejas, pero nunca un tr
   const fresh = {id:'gone2', type:'service', paid:true, deleted:true, deletedAt:'2026-09-10T00:00:00Z'};
   assert.equal(outflowIsOpen(fresh, now), true);
   assert.equal(outflowIsOpen({id:'x', type:'adjust', deleted:true, deletedAt:'2026-09-10T00:00:00Z'}, now), false, 'solo trabajos y cotizaciones tienen lápida');
+  // Un trabajo sin cobrar de $0 (visita de garantía) no es un cobro pendiente: no se protege para siempre.
+  assert.equal(outflowIsOpen({id:'free', type:'service', paid:false, price:0}, now), false);
+  assert.equal(outflowIsOpen({id:'due', type:'service', paid:false, price:1}, now), true);
   // Si TODO lo que queda está abierto, el arreglo se pasa del tope antes que perder plata.
-  const open = [{id:'a', type:'service', paid:false}, {id:'b', type:'quote', status:'draft'}, {id:'c', type:'service', paid:false}];
+  const open = [{id:'a', type:'service', paid:false, price:50}, {id:'b', type:'quote', status:'draft'}, {id:'c', type:'service', paid:false, price:50}];
   assert.equal(capOutflows(open, 2).kept.length, 3);
   assert.equal(capOutflows(open, 2).evicted.length, 0);
   // Sin pasarse del tope no se toca nada; basura y sin id se filtran.
   assert.deepEqual(capOutflows([{id:'x', type:'adjust'}, null, {type:'adjust'}], 10).kept.map(o=>o.id), ['x']);
   assert.deepEqual(capOutflows(null, 10), {kept: [], evicted: []});
-  assert.equal(outflowIsOpen({type:'service', paid:false, parentId:'p'}), true);
+  assert.equal(outflowIsOpen({type:'service', paid:false, price:100, parentId:'p'}), true);
   assert.equal(outflowIsOpen({type:'service', paid:true, repeat:'monthly', parentId:'p'}), false, 'una ocurrencia cobrada no es plantilla');
   assert.equal(outflowIsOpen({type:'quote', status:'accepted'}), false);
   assert.equal(outflowIsOpen({type:'quote', status:'rejected'}), false);
@@ -631,4 +634,33 @@ test('pickOutflow: gana el sello más nuevo, sin sello gana la nube, y la regla 
   const now = new Date('2026-09-12T00:00:00Z').getTime();
   assert.equal(outflowIsOpen({id:'q', type:'quote', status:'sent', date:'2026-08-01'}, now), true);
   assert.equal(outflowIsOpen({id:'q', type:'quote', status:'sent', date:'2026-03-01'}, now), false);
+});
+
+/* ---- Auditoría de la auditoría (2026-09-12) ---- */
+test('mergeOutflowArchives: máximo por campo (internalUse incluido) y unión de ids consolidados', () => {
+  const { mergeOutflowArchives, outflowArchivedIds } = require('./patron-core.js');
+  const remote = {'2026-01': {revenue:100, cogs:0, ids:['a']}, '2026-03': {revenue:9, cogs:1, internalUse:2}};
+  const local = {'2026-01': {revenue:100, cogs:5, internalUse:3, ids:['a','b']}, '2026-02': {revenue:7, cogs:0}};
+  const m = mergeOutflowArchives(remote, local);
+  assert.deepEqual(m['2026-01'], {revenue:100, cogs:5, internalUse:3, ids:['a','b']});
+  assert.deepEqual(m['2026-02'], {revenue:7, cogs:0, internalUse:0});
+  assert.deepEqual(m['2026-03'], {revenue:9, cogs:1, internalUse:2}, 'un mes solo remoto queda tal cual');
+  assert.deepEqual([...outflowArchivedIds(m)].sort(), ['a','b']);
+  assert.deepEqual([...outflowArchivedIds(null)], []);
+});
+
+test('calNotesForCloud: las notas derivadas de Servicios (svcKind) no viajan; el resto sí', () => {
+  const { calNotesForCloud } = require('./patron-core.js');
+  const out = calNotesForCloud([{id:'n1', text:'Pagar alquiler'}, {id:'svc-job-1', svcKind:'job', text:'ACME'}, null, {text:'sin id'}, {id:'svc-cobro-1', svcKind:'due'}]);
+  assert.deepEqual(out.map(n=>n.id), ['n1']);
+  assert.deepEqual(calNotesForCloud(undefined), []);
+});
+
+test('pickOutflow: la bandera stockRestored (efecto ya aplicado) sobrevive al merge, gane quien gane', () => {
+  const { pickOutflow } = require('./patron-core.js');
+  const borrado = {id:'j', deleted:true, stockRestored:true, lastEditedAt:'2026-09-12T10:00:00Z'};
+  const cobrado = {id:'j', paid:true, lastEditedAt:'2026-09-12T11:00:00Z'};
+  const w = pickOutflow(borrado, cobrado);
+  assert.equal(w, cobrado, 'gana el sello más nuevo (el cobro)');
+  assert.equal(w.stockRestored, true, 'pero recuerda que el stock ya volvió al estante');
 });

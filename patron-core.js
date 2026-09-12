@@ -349,7 +349,10 @@ function outflowIsOpen(o, nowMs){
     const now = Number.isFinite(nowMs) ? nowMs : Date.now();
     return Number.isFinite(at) && (now - at) < OUTFLOW_TOMB_DAYS*24*60*60*1000;
   }
-  if(o.type==='service') return !o.paid || (!!o.repeat && !o.parentId);
+  // Un trabajo sin cobrar es un cobro pendiente y no se recorta; uno de $0 no
+  // tiene nada que cobrar (visita de garantía, cita) y es historia como cualquier
+  // otro: protegerlo para siempre hacía crecer el doc de meta sin tope.
+  if(o.type==='service') return (!o.paid && Number(o.price)>0) || (!!o.repeat && !o.parentId);
   if(o.type==='quote'){
     if(o.status==='accepted' || o.status==='rejected') return false;
     // Una cotización sin respuesta no queda "abierta" para siempre: pasados 120
@@ -372,8 +375,14 @@ function pickOutflow(local, remote){
   if(!remote) return local;
   const ls = String(local.lastEditedAt||''), rs = String(remote.lastEditedAt||'');
   const win = ls > rs ? local : remote, lose = win===local ? remote : local;
-  if(outflowRuleStamped(win) && outflowUserTouched(lose) && !outflowRuleStamped(lose)) return lose;
-  return win;
+  const out = (outflowRuleStamped(win) && outflowUserTouched(lose) && !outflowRuleStamped(lose)) ? lose : win;
+  // Un efecto ya aplicado no se "des-aplica" por perder el merge: si una copia
+  // devolvió al estante la mercadería de un trabajo borrado (stockRestored) y la
+  // otra lo revive cobrado, la bandera se conserva para que eliminarlo de nuevo
+  // no devuelva el stock por segunda vez.
+  if(out!==win && win.stockRestored) out.stockRestored = true;
+  if(out!==lose && lose.stockRestored) out.stockRestored = true;
+  return out;
 }
 function capOutflows(list, max, nowMs){
   const arr = Array.isArray(list) ? list.filter(o=>o && o.id) : [];
@@ -388,6 +397,40 @@ function capOutflows(list, max, nowMs){
   kept.reverse(); evicted.reverse();
   return {kept, evicted};
 }
+/* Archivo financiero de las salidas evictadas (outflowArchive, por mes): lo que
+   capOutflows descarta se consolida acá (archiveEvictedOutflows, app-08) para
+   que el P&L histórico no se achique. Cada mes recuerda los ids que ya
+   consolidó (idempotencia: la misma salida volvía a archivarse cuando un merge
+   con la nube la traía de vuelta y un trabajo de $100 quedaba en $200). */
+const OUTFLOW_ARCHIVE_IDS_MAX = 1000; // ids recordados por mes (~20 bytes cada uno)
+/* Merge de dos archivos: por mes, gana el valor MAYOR de cada campo — la
+   evicción es determinística sobre los mismos docs, así que dos dispositivos
+   convergen al mismo total y el máximo no duplica. Los ids se UNEN. */
+function mergeOutflowArchives(remote, local){
+  const out = Object.assign({}, remote || {});
+  Object.keys(local || {}).forEach(k=>{
+    const l = local[k];
+    if(!l) return;
+    const r = out[k];
+    const ids = Array.from(new Set([].concat(r && Array.isArray(r.ids) ? r.ids : [], Array.isArray(l.ids) ? l.ids : []))).slice(-OUTFLOW_ARCHIVE_IDS_MAX);
+    out[k] = r
+      ? {revenue: Math.max(l.revenue||0, r.revenue||0), cogs: Math.max(l.cogs||0, r.cogs||0), internalUse: Math.max(l.internalUse||0, r.internalUse||0)}
+      : {revenue: l.revenue||0, cogs: l.cogs||0, internalUse: l.internalUse||0};
+    if(ids.length) out[k].ids = ids;
+  });
+  return out;
+}
+// Ids de salidas ya consolidadas en el archivo: una copia viva que vuelva de la
+// nube (o de un respaldo) no se reincorpora — contaría dos veces, viva y archivada.
+function outflowArchivedIds(archive){
+  const s = new Set();
+  Object.keys(archive||{}).forEach(k=>{ const a = archive[k]; if(a && Array.isArray(a.ids)) a.ids.forEach(id=>s.add(id)); });
+  return s;
+}
+/* Notas del calendario que viajan a la nube: las DERIVADAS del modo Servicios
+   (svcKind) no — su texto lleva idioma y formato de moneda del dispositivo y cada
+   uno las regenera (ver el comentario en app-02 para el porqué). */
+function calNotesForCloud(list){ return (Array.isArray(list) ? list : []).filter(n=>n && n.id && !n.svcKind); }
 
 /* Costo de producir UNA pieza de una receta: suma de (cantidad × costo actual) de
    cada insumo. "missing" cuenta componentes cuyo producto ya no existe en el
@@ -622,6 +665,7 @@ if(typeof module!=='undefined' && module.exports){
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
     normalizeBizProfile, maintStatus,
-    mergeReceiptPages, outflowIsOpen, capOutflows, formatInt, pickOutflow, outflowUserTouched, outflowRuleStamped
+    mergeReceiptPages, outflowIsOpen, capOutflows, formatInt, pickOutflow, outflowUserTouched, outflowRuleStamped,
+    mergeOutflowArchives, outflowArchivedIds, calNotesForCloud, OUTFLOW_ARCHIVE_IDS_MAX
   };
 }
