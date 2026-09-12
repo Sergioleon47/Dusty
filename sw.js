@@ -540,7 +540,11 @@
 // como primer camino (navigator.share y <a download> no existen/no bajan nada en el
 // WebView de Capacitor); una cotización se marca "enviada" solo si el share resolvió
 // de verdad — app-03/14/15/17.
-const CACHE_NAME = 'patron-shell-v181';
+// v182: aviso en "Por cobrar" cuando los trabajos sin cobrar con precio > 0
+// (nunca se recortan del tope de 400, outflowIsOpen en core) pasan de 500 — sin
+// aviso, el doc de meta puede llegar a su límite de 1 MiB y las escrituras
+// empiezan a fallar en silencio — app-03/15.
+const CACHE_NAME = 'patron-shell-v182';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

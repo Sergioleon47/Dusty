@@ -151,18 +151,26 @@ function jobIsOverdue(j, today){ today = today||localDateStr(); return !j.paid &
 function jobsForMonth(key){ return svcJobs().filter(j=>monthKey(j.date)===key); }
 // Cobrado en el mes = trabajos marcados como cobrados, por la fecha en que se cobraron.
 function paidRevenueForMonth(key){ return svcJobs().filter(j=>j.paid && monthKey(j.paidDate||j.date)===key).reduce((s,j)=>s+(Number(j.price)||0),0); }
+// Un trabajo sin cobrar con precio > 0 nunca se recorta del tope de 400
+// (outflowIsOpen, patron-core.js) — es un cobro pendiente real, no historia
+// vieja. Si se acumulan miles, el doc de meta puede llegar al límite de 1 MiB
+// de Firestore y todas las escrituras empiezan a fallar EN SILENCIO. Con
+// SVC_COLLECT_WARN_AT avisamos en "Por cobrar" bastante antes de eso — nunca
+// se recortan solos, así que el aviso es la única red.
+const SVC_COLLECT_WARN_AT = 500;
 function collectStats(){
   const today = localDateStr();
-  let pending=0, overdue=0, overdueCount=0; const clients = new Set(); const list = [];
+  let pending=0, overdue=0, overdueCount=0, unpaidPriced=0; const clients = new Set(); const list = [];
   svcJobs().forEach(j=>{
     if(j.paid) return;
     pending += Number(j.price)||0;
     clients.add(String(j.client||'').trim().toLowerCase());
     list.push(j);
+    if(Number(j.price)>0) unpaidPriced++;
     if(jobIsOverdue(j, today)){ overdue += Number(j.price)||0; overdueCount++; }
   });
   list.sort((a,b)=>String(a.dueDate||a.date).localeCompare(String(b.dueDate||b.date)));
-  return {pending, overdue, overdueCount, clients: clients.size, list, paidMonth: paidRevenueForMonth(localMonthStr())};
+  return {pending, overdue, overdueCount, unpaidPriced, clients: clients.size, list, paidMonth: paidRevenueForMonth(localMonthStr())};
 }
 function svcClientNames(){
   const seen = new Map();
@@ -662,6 +670,7 @@ function collectSheet(){
   };
   const body = `
     <div class="sub svc-sub" style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span>${t('svc_collect_sub2')}</span>${reportButtonHtml(localMonthStr())}</div>
+    ${cs.unpaidPriced>SVC_COLLECT_WARN_AT ? `<div class="recap-demo-banner">${t('svc_collect_warn').replace('{n}', String(cs.unpaidPriced))}</div>` : ''}
     <div class="inv-stats">
       <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_pending')}</div><div class="inv-stat-value">${svcMoneyShort(cs.pending)}</div></div>
       <div class="inv-stat static svc-stat-overdue"><div class="inv-stat-label">${t('svc_stat_overdue')}</div><div class="inv-stat-value">${svcMoneyShort(cs.overdue)}</div></div>
