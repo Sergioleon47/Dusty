@@ -99,6 +99,15 @@
     --tile-4:linear-gradient(170deg, color-mix(in oklch, var(--hue-4), white var(--tile-lift)), color-mix(in oklch, var(--hue-4), black var(--tile-drop)));
     --tile-5:linear-gradient(170deg, color-mix(in oklch, var(--hue-5), white var(--tile-lift)), color-mix(in oklch, var(--hue-5), black var(--tile-drop)));
     --tile-6:linear-gradient(170deg, color-mix(in oklch, var(--hue-6), white var(--tile-lift)), color-mix(in oklch, var(--hue-6), black var(--tile-drop)));
+    /* Calendario (2026-09-12, pedido del usuario: "la azul" sobre una maqueta de 5
+       paletas — más profundidad que las baldosas del Dashboard, sin tocarlas: son
+       tokens propios, --cal-*, NO --tile-1/6, así el resto de la app no se mueve).
+       Misma fórmula que --tile-1/6 (hue + tile-lift/tile-drop de CADA tema, así
+       nunca queda un azul de la maqueta puesto sobre un tema rojo o verde) con un
+       poco más de negro abajo y de blanco arriba: el resultado es SIEMPRE el hue-1
+       (o hue-2, para el botón de Cierre) de ese tema mismo, solo que más rico. */
+    --cal-bg:linear-gradient(165deg, color-mix(in oklch, var(--hue-1), white calc(var(--tile-lift) / 2)), color-mix(in oklch, var(--hue-1), black calc(var(--tile-drop) + 12%)));
+    --cal-recap-bg:linear-gradient(170deg, color-mix(in oklch, var(--hue-2), white calc(var(--tile-lift) / 2)), color-mix(in oklch, var(--hue-2), black calc(var(--tile-drop) + 8%)));
     --tile-ok:linear-gradient(170deg, color-mix(in oklch, var(--money-pos), white var(--tile-lift)), color-mix(in oklch, var(--money-pos), black var(--tile-drop)));
     --tile-warn:linear-gradient(170deg, color-mix(in oklch, var(--money-warn), white var(--tile-lift)), color-mix(in oklch, var(--money-warn), black var(--tile-drop)));
     --tile-crit:linear-gradient(170deg, color-mix(in oklch, var(--money-neg), white var(--tile-lift)), color-mix(in oklch, var(--money-neg), black var(--tile-drop)));
@@ -1244,7 +1253,7 @@
      abajo, 2026-09-09). Los márgenes
      negativos cancelan el margen de la página (--page-pad-*, ver #app) y el
      padding superior lo repone por dentro, más la franja de estado. */
-  .cal-widget{background:var(--tile-1);border:0;border-radius:28px;box-shadow:0 12px 28px rgba(0,0,0,.20);
+  .cal-widget{background:var(--cal-bg);border:0;border-radius:28px;box-shadow:0 12px 28px rgba(0,0,0,.20);
     padding:calc(var(--page-pad-top) + 10px) 14px 16px;margin:calc(-1 * var(--page-pad-top)) calc(-1 * var(--page-pad-x)) 16px;color:var(--tile-ink);}
   .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   /* Antes era texto pelado sin fondo ni borde — nada avisaba que se podía tocar para
@@ -2233,7 +2242,7 @@
      el resumen del bloque, en la misma tinta suave de los nombres de los días. */
   .cal-month-count{margin:12px 2px 0;font-size:calc(12px * var(--fs, 1));font-weight:700;color:var(--tile-sub);text-align:center;}
   .cal-recap-btn{width:100%;margin-top:12px;padding:11px;border-radius:12px;border:0;
-    background:var(--tile-6);color:var(--tile-ink);font-weight:800;font-size:calc(13.5px * var(--fs, 1));cursor:pointer;font-family:inherit;
+    background:var(--cal-recap-bg);color:var(--tile-ink);font-weight:800;font-size:calc(13.5px * var(--fs, 1));cursor:pointer;font-family:inherit;
     box-shadow:0 6px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.30);}
   .cal-recap-btn:active{transform:scale(.98);}
   /* Cierre de mes a página completa: chips de modo (Mes/Año) arriba y un carril
