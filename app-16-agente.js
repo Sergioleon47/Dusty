@@ -417,7 +417,10 @@ function agentSheet(){
 // Botón del topbar (junto a Ajustes). Solo con el asistente prendido.
 function agentTopbarButtonHtml(){
   if(!agentAvailable()) return '';
-  return `<button class="lang-toggle ag-topbtn" id="btn-agent" title="${t('agent_title')}" aria-label="${t('agent_title')}">✨</button>`;
+  // Dice "AI" / "IA" en letras (pedido del usuario 2026-09-11), no un símbolo:
+  // la sigla se lee al instante en cualquier idioma y va como las pastillas
+  // EN/ES del mismo topbar.
+  return `<button class="lang-toggle ag-topbtn" id="btn-agent" title="${t('agent_title')}" aria-label="${t('agent_title')}">${t('agent_badge')}</button>`;
 }
 // Tarjeta de Ajustes: prender/apagar el asistente y la voz.
 function agentSettingsCard(){
