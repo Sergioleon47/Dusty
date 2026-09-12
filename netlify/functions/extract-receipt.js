@@ -29,6 +29,46 @@ const {
   withCors
 } = require('./lib/patron-admin');
 
+/* ---------- LECTURA EN DOS NIVELES (pedido del usuario 2026-09-11) ----------
+   Sonnet lee todos los recibos. Opus, que cuesta ~2,5x, entra SOLO cuando hace
+   falta: de entrada si el recibo tiene 3+ páginas, y después de leer si el
+   resultado se ve flojo (sin total, líneas sin precio, suma que no cierra con el
+   total impreso, confianza baja). En ese caso se relee con Opus y se devuelve la
+   mejor de las dos lecturas. Cuenta una sola unidad de cupo igual. */
+const SCAN_MODEL = process.env.SCAN_MODEL || 'claude-sonnet-5';
+const SCAN_MODEL_BIG = process.env.SCAN_MODEL_BIG || 'claude-opus-5';
+function num(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; }
+// Motivos por los que UNA lectura de recibo merece releerse con el modelo grande.
+function weakReasonsOne(r) {
+  const reasons = [];
+  if (!r || typeof r !== 'object') return ['no_json'];
+  const items = Array.isArray(r.items) ? r.items : [];
+  if (items.length === 0) return ['no_items'];
+  const total = num(r.invoice_total);
+  if (total === null) reasons.push('no_total');
+  const noPrice = items.filter(it => !(num(it && it.total_price) > 0)).length;
+  if (noPrice / items.length > 0.34) reasons.push('missing_prices');
+  const low = items.filter(it => it && it.confidence === 'baja').length;
+  if (low / items.length >= 0.3) reasons.push('low_confidence');
+  if (total !== null && total > 0 && items.length >= 2 && noPrice === 0) {
+    const sum = items.reduce((a, it) => a + (num(it.total_price) || 0), 0);
+    if (Math.abs(sum - total) / total > 0.15) reasons.push('sum_mismatch');
+  }
+  if (!r.supplier || !String(r.supplier).trim()) reasons.push('no_supplier');
+  // Sin proveedor solo, no alcanza para pagar una relectura.
+  return reasons.filter(x => x !== 'no_supplier' || reasons.length > 1);
+}
+function weakReasons(receiptData, multi) {
+  if (!multi) return weakReasonsOne(receiptData);
+  let list = Array.isArray(receiptData && receiptData.receipts) ? receiptData.receipts
+    : Array.isArray(receiptData) ? receiptData
+    : (receiptData && Array.isArray(receiptData.items)) ? [receiptData] : [];
+  if (list.length === 0) return ['no_receipts'];
+  const out = new Set();
+  list.forEach(r => weakReasonsOne(r).forEach(x => out.add(x)));
+  return [...out];
+}
+
 function buildPrompt(inventoryNames, caseTrackedNames, categoryNames, expenseCategoryNames, multi) {
   const hasInventory = Array.isArray(inventoryNames) && inventoryNames.length > 0;
   const hasCaseTracked = Array.isArray(caseTrackedNames) && caseTrackedNames.length > 0;
@@ -153,6 +193,7 @@ Formato de cada item:
 SOBRE "truncated": true si el recibo parece CORTADO en la foto — el total final no se ve completo, la última línea queda al borde, o el papel sigue fuera del cuadro. false si se ve entero. (Auditoría 2026-09-07: la app ofrece agregar otra página cuando es true.)`}`;
 }
 
+exports.weakReasons = weakReasons;
 exports.handler = withCors(async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
@@ -273,7 +314,10 @@ exports.handler = withCors(async (event) => {
     source: { type: 'base64', media_type: img.mediaType || 'image/jpeg', data: img.base64 }
   }));
 
-  try {
+  /* Una lectura con el modelo pedido. Devuelve {ok:true, receiptData, data} o
+     {ok:false, status, body, refund} con la respuesta de error ya armada. */
+  const readOnce = async (model) => {
+    const deep = model === SCAN_MODEL_BIG;
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -281,20 +325,21 @@ exports.handler = withCors(async (event) => {
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
+      body: JSON.stringify(Object.assign({
+        model,
         // Con varios recibos en una misma foto la respuesta puede ser bastante más larga
         // (cada recibo trae su propio encabezado y su propia lista), así que necesita más
-        // margen. La app manda una foto por pedido en ese modo, así que cada llamada sigue
-        // siendo de un tamaño parecido a la de siempre — no se acumula todo en una.
-        max_tokens: multi ? 10000 : 6000,
-        // Este modelo piensa "puertas adentro" antes de responder por defecto, y ese
-        // pensamiento le resta del mismo límite de tokens que la respuesta final. Con
-        // un recibo largo (30+ productos) el pensamiento solo puede agotar los 3000
-        // tokens que había antes, dejando la respuesta real vacía — confirmado con un
-        // recibo real que fallaba así. Se desactiva explícitamente porque esta tarea
-        // es lectura + extracción directa, no necesita razonamiento en varios pasos.
-        thinking: { type: 'disabled' },
+        // margen. El modelo grande además razona antes de responder y eso consume del
+        // mismo límite: se le da el doble.
+        max_tokens: deep ? (multi ? 16000 : 12000) : (multi ? 10000 : 6000),
+        // Sonnet: este modelo piensa "puertas adentro" antes de responder por defecto, y
+        // ese pensamiento le resta del mismo límite de tokens que la respuesta final. Con
+        // un recibo largo (30+ productos) el pensamiento solo podía agotar el límite —
+        // confirmado con un recibo real. Se desactiva: es lectura + extracción directa.
+        // Opus: pensar es justamente lo que se le pide (recibo difícil), con esfuerzo
+        // medio para que tarde segundos y no medio minuto; apagarlo en este modelo
+        // además puede filtrar etiquetas de razonamiento en la respuesta.
+        thinking: deep ? { type: 'adaptive' } : { type: 'disabled' },
         messages: [
           {
             role: 'user',
@@ -304,55 +349,68 @@ exports.handler = withCors(async (event) => {
             ]
           }
         ]
-      })
+      }, deep ? { output_config: { effort: 'medium' } } : {}))
     });
-
     const data = await response.json();
-
     if (data.error) {
       // Error a nivel de API (sobrecarga, rate limit, pedido rechazado): Anthropic
       // NO cobra estas llamadas, así que la unidad reservada se devuelve — sin
       // esto, durante un outage de la API cada reintento del usuario quemaba cupo.
       // Los 502 de más abajo (Claude SÍ contestó, pero mal) no refundan: esos
       // tokens sí se facturaron.
-      await refundScanUsage(ownerUid, 1, reservation.period);
-      return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del lector de recibos', code: 'upstream_error' }) };
+      return { ok: false, refund: true, status: 502, body: JSON.stringify({ error: data.error.message || 'Error del lector de recibos', code: 'upstream_error' }) };
     }
-
     const textBlock = (data.content || []).find(b => b.type === 'text');
     if (!textBlock || !textBlock.text) {
       // Si esto vuelve a pasar, "stop_reason" dice por qué: "max_tokens" significa
-      // que el recibo es tan largo que ni con el límite subido y el pensamiento
-      // desactivado alcanzó — en ese caso hay que subir max_tokens de nuevo.
-      return { statusCode: 502, body: JSON.stringify({
-        error: 'El lector de recibos no devolvió texto',
-        stopReason: data.stop_reason || null
-      }) };
+      // que el recibo es tan largo que ni con el límite subido alcanzó.
+      return { ok: false, status: 502, body: JSON.stringify({ error: 'El lector de recibos no devolvió texto', stopReason: data.stop_reason || null }) };
     }
-
     let receiptData;
     try {
       const clean = textBlock.text.replace(/```json|```/g, '').trim();
       receiptData = JSON.parse(clean);
     } catch (e) {
-      // Antes esto se rendía apenas el texto no era JSON puro. En la práctica, a veces
-      // el modelo agrega alguna palabra suelta antes o después del JSON (aunque se le
-      // pidió que no lo haga) — como segundo intento, se recorta todo lo que esté antes
-      // del primer "{" y después del último "}" y se prueba de nuevo antes de rendirse.
+      // A veces el modelo agrega alguna palabra suelta antes o después del JSON: se
+      // recorta todo lo que esté antes del primer "{" y después del último "}".
       try {
-        const start = textBlock.text.indexOf('{');
-        const end = textBlock.text.lastIndexOf('}');
-        if (start === -1 || end === -1 || end <= start) throw e;
-        receiptData = JSON.parse(textBlock.text.slice(start, end + 1));
+        const st = textBlock.text.indexOf('{');
+        const en = textBlock.text.lastIndexOf('}');
+        if (st === -1 || en === -1 || en <= st) throw e;
+        receiptData = JSON.parse(textBlock.text.slice(st, en + 1));
       } catch (e2) {
-        return { statusCode: 502, body: JSON.stringify({
-          error: 'No se pudo interpretar la respuesta del lector de recibos',
-          stopReason: data.stop_reason || null,
-          debugPreview: textBlock.text.slice(0, 300)
-        }) };
+        return { ok: false, status: 502, body: JSON.stringify({ error: 'No se pudo interpretar la respuesta del lector de recibos', stopReason: data.stop_reason || null, debugPreview: textBlock.text.slice(0, 300) }) };
       }
     }
+    return { ok: true, receiptData, data };
+  };
 
+  try {
+    // 3+ páginas: directo al modelo grande. Si no, Sonnet primero y Opus solo si
+    // la lectura salió floja (ver weakReasons). Cuenta UNA unidad de cupo igual.
+    let deep = images.length >= 3;
+    let first = await readOnce(deep ? SCAN_MODEL_BIG : SCAN_MODEL);
+    if (!first.ok) {
+      if (first.refund) await refundScanUsage(ownerUid, 1, reservation.period);
+      return { statusCode: first.status, body: first.body };
+    }
+    let receiptData = first.receiptData;
+    let reasons = deep ? [] : weakReasons(receiptData, multi);
+    let escalated = false;
+    if (reasons.length) {
+      console.log('[Dusty] recibo flojo con ' + SCAN_MODEL + ' (' + reasons.join(',') + '): releyendo con ' + SCAN_MODEL_BIG);
+      try {
+        const second = await readOnce(SCAN_MODEL_BIG);
+        if (second.ok) {
+          const r2 = weakReasons(second.receiptData, multi);
+          // Se queda la lectura con menos motivos de duda; en empate, la del modelo grande.
+          if (r2.length <= reasons.length) { receiptData = second.receiptData; reasons = r2; deep = true; escalated = true; }
+        }
+      } catch (e) {
+        console.error('[Dusty] relectura con el modelo grande falló, se devuelve la primera:', e);
+      }
+    }
+    const readerInfo = { reader: deep ? 'deep' : 'fast', escalated, doubts: reasons };
     /* En modo "varios recibos" se normaliza la respuesta antes de devolverla, para que el
        cliente reciba siempre un array "receipts" y no tenga que adivinar la forma. El
        modelo puede contestar de tres maneras razonables aunque se le pidió una sola:
@@ -368,19 +426,19 @@ exports.handler = withCors(async (event) => {
       if (list.length === 0) {
         return { statusCode: 502, body: JSON.stringify({
           error: 'El lector de recibos no encontró ningún recibo legible en esta foto',
-          stopReason: data.stop_reason || null
+          stopReason: null
         }) };
       }
       // La llamada ya reservó 1 al entrar; se cuenta 1 por cada recibo que realmente
       // salió de la foto (si no, subir varios recibos juntos sería gratis), así que
       // acá se suma solo lo que excede la reserva.
       if (list.length > 1) await recordScanUsage(ownerUid, list.length - 1, reservation.period);
-      return { statusCode: 200, body: JSON.stringify({ receipts: list, quota: scanQuotaInfo(reservation, list.length - 1) }) };
+      return { statusCode: 200, body: JSON.stringify({ receipts: list, quota: scanQuotaInfo(reservation, list.length - 1), reading: readerInfo }) };
     }
 
     // quota: {limit, used} para que la app le diga al trial cuántos escaneos
     // gratis le quedan (festejo del primer escaneo) en vez de dejarlo chocar el tope.
-    return { statusCode: 200, body: JSON.stringify(Object.assign({}, receiptData, { quota: scanQuotaInfo(reservation, 0) })) };
+    return { statusCode: 200, body: JSON.stringify(Object.assign({}, receiptData, { quota: scanQuotaInfo(reservation, 0), reading: readerInfo })) };
   } catch (err) {
     // Si el fetch a Claude reventó por red, lo más probable es que no se haya
     // cobrado nada — se devuelve la unidad reservada. Los 502 de más arriba
