@@ -394,10 +394,13 @@ function quoteFileName(q){
   const who = svcFileSlug(q.client, t('svc_client'));
   return `${svcFileSlug('', t('qt_title'))}-${quoteNum(q)}-${who}`;
 }
+// markQuoteSent solo cuando el PDF de verdad salió del teléfono (auditoría de
+// la auditoría 2026-09-12: antes se marcaba "enviada" aunque el share fallara
+// o ni se intentara — ver sharePdfBytes en app-14).
 function downloadQuotePdf(q){
   let bytes; try{ bytes = buildQuotePdf(q); }catch(e){ console.error('[Dusty] cotización PDF:', e); showToast(t('rp_failed'), 'error'); return; }
-  svcSharePdf(bytes, quoteFileName(q), t('qt_pdf_title') + ' #' + quoteNum(q) + ' · ' + (q.client||''));
-  markQuoteSent(q);
+  svcSharePdf(bytes, quoteFileName(q), t('qt_pdf_title') + ' #' + quoteNum(q) + ' · ' + (q.client||''))
+    .then(ok=>{ if(ok){ markQuoteSent(q); render(); } });
 }
 
 /* ---------- WhatsApp: al número guardado del cliente, o a elegir contacto ---------- */

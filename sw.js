@@ -536,7 +536,11 @@
 // recurrencia (horizonte, hoy, guardar sin cambios), escáner en modo Servicios
 // como gasto, asistente (ids fijados en la tarjeta, mantenimientos), servidor
 // (send-quote cerrado, vueltas de herramientas con cupo) — app-02/03/06/07/08/14/15/16/17, core.
-const CACHE_NAME = 'patron-shell-v180';
+// v181: compartir/descargar PDF en Android — @capacitor/share + @capacitor/filesystem
+// como primer camino (navigator.share y <a download> no existen/no bajan nada en el
+// WebView de Capacitor); una cotización se marca "enviada" solo si el share resolvió
+// de verdad — app-03/14/15/17.
+const CACHE_NAME = 'patron-shell-v181';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

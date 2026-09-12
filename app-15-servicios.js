@@ -1818,12 +1818,7 @@ function svcPdfHeader(pdf, subtitle){
 function svcSharePdf(bytes, fileName, title){
   const safe = ((businessName || 'dusty').trim() || 'dusty').replace(/[^\w\- ]+/g, '').trim().slice(0, 30).replace(/\s+/g, '-') || 'dusty';
   const fn = `${safe}-${fileName}.pdf`;
-  const file = new File([bytes], fn, {type: 'application/pdf'});
-  if(navigator.canShare && navigator.canShare({files: [file]})){
-    navigator.share({files: [file], title}).catch(e=>{ if(!e || e.name !== 'AbortError') downloadBlob(file, fn); });
-    return;
-  }
-  downloadBlob(file, fn);
+  return sharePdfBytes(bytes, fn, title);
 }
 // "1 trabajo" / "N trabajos" — la misma pantalla decía "1 trabajos" (auditoría de la auditoría 2026-09-12).
 function svcJobsCount(n){ return n===1 ? t('svc_job_1') : t('svc_jobs_n').replace('{n}', String(n)); }

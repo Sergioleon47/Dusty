@@ -284,22 +284,51 @@ function buildMonthReport(key){
   return pdf.build((n, total)=>({left: name + ' · ' + t('rp_title') + ' · ' + reportPeriodLabel(key), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
 }
 
-/* ---------- salida: compartir o descargar ---------- */
-// SIN await antes de navigator.share (iOS exige el gesto): el PDF se arma en
-// memoria de forma síncrona, así que la hoja abre dentro del mismo toque.
+/* ---------- salida: compartir o descargar ----------
+   Auditoría de la auditoría 2026-09-12: adentro de la app de Android (WebView
+   de Capacitor) no existe navigator.share y el <a download> no baja nada —
+   ningún PDF salía del teléfono, pero la app igual avisaba "descargado" (y,
+   peor, una cotización quedaba marcada "enviada"). Con
+   Capacitor.isNativePlatform() se prueba primero @capacitor/share +
+   @capacitor/filesystem (escribe el PDF en caché y abre la hoja nativa);
+   navigator.share/<a download> quedan para el navegador de escritorio o PWA,
+   donde sí funcionan. SIN await antes de compartir (iOS exige el gesto): el
+   PDF se arma en memoria de forma síncrona, así que la hoja abre dentro del
+   mismo toque. sharePdfBytes() nunca rechaza: la promesa se cumple con
+   true/false según si el archivo de verdad salió del teléfono — de eso
+   depende, por ejemplo, si una cotización se puede marcar "enviada"
+   (downloadQuotePdf, app-17). */
+function bytesToBase64(bytes){
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let s = ''; const chunk = 0x8000;
+  for(let i = 0; i < arr.length; i += chunk) s += String.fromCharCode.apply(null, arr.subarray(i, i + chunk));
+  return btoa(s);
+}
+function sharePdfBytes(bytes, fileName, title){
+  const cap = window.Capacitor;
+  const isNative = !!(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform());
+  const Share = isNative && cap.Plugins && cap.Plugins.Share;
+  const Filesystem = isNative && cap.Plugins && cap.Plugins.Filesystem;
+  if(Share && Filesystem){
+    return Filesystem.writeFile({path: fileName, data: bytesToBase64(bytes), directory: 'CACHE'})
+      .then(res => Share.share({title, url: res.uri, dialogTitle: title}))
+      .then(()=> true)
+      .catch(e=>{ console.error('[Dusty] no se pudo compartir el PDF:', e); showToast(t('rp_share_failed'), 'error'); return false; });
+  }
+  const file = new File([bytes], fileName, {type: 'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files: [file]})){
+    return navigator.share({files: [file], title}).then(()=> true)
+      .catch(e=>{ if(e && e.name === 'AbortError') return false; return downloadBlob(file, fileName); });
+  }
+  return Promise.resolve(downloadBlob(file, fileName));
+}
 function downloadMonthReport(key){
   let bytes;
   try{ bytes = buildMonthReport(key); }
   catch(e){ console.error('[Dusty] no se pudo armar el informe:', e); showToast(t('rp_failed'), 'error'); return; }
   const safeName = ((businessName || 'dusty').trim() || 'dusty').replace(/[^\w\- ]+/g, '').trim().slice(0, 30).replace(/\s+/g, '-') || 'dusty';
   const fileName = `${safeName}-${key}.pdf`;
-  const file = new File([bytes], fileName, {type: 'application/pdf'});
-  if(navigator.canShare && navigator.canShare({files: [file]})){
-    navigator.share({files: [file], title: t('rp_title') + ' · ' + reportPeriodLabel(key)})
-      .catch(e=>{ if(!e || e.name !== 'AbortError') downloadBlob(file, fileName); });
-    return;
-  }
-  downloadBlob(file, fileName);
+  sharePdfBytes(bytes, fileName, t('rp_title') + ' · ' + reportPeriodLabel(key));
 }
 function downloadBlob(blob, fileName){
   try{
@@ -309,8 +338,10 @@ function downloadBlob(blob, fileName){
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=> URL.revokeObjectURL(url), 4000);
     showToast(t('rp_downloaded'), 'success');
+    return true;
   }catch(e){
     showToast(t('rp_failed'), 'error');
+    return false;
   }
 }
 // Botón "Reports" (texto fijo: es el nombre que pidió el usuario en los dos
@@ -361,12 +392,7 @@ function downloadReceiptPdf(r){
   const safeName = ((businessName || 'dusty').trim() || 'dusty').replace(/[^\w\- ]+/g, '').trim().slice(0, 30).replace(/\s+/g, '-') || 'dusty';
   const who = ((r.supplier || '').trim() || 'recibo').replace(/[^\w\- ]+/g, '').trim().slice(0, 24).replace(/\s+/g, '-') || 'recibo';
   const fileName = `${safeName}-${r.date || 'sin-fecha'}-${who}.pdf`;
-  const file = new File([bytes], fileName, {type: 'application/pdf'});
-  if(navigator.canShare && navigator.canShare({files: [file]})){
-    navigator.share({files: [file], title: t('rd_pdf_title') + ' · ' + (r.date || '')}).catch(e=>{ if(!e || e.name !== 'AbortError') downloadBlob(file, fileName); });
-    return;
-  }
-  downloadBlob(file, fileName);
+  sharePdfBytes(bytes, fileName, t('rd_pdf_title') + ' · ' + (r.date || ''));
 }
 
 /* ---------- CONSTRUCTOR DE REPORTES por rango (mezclar días y meses) ----------
@@ -501,12 +527,7 @@ function downloadRangeReport(){
   catch(e){ console.error('[Dusty] no se pudo armar el reporte:', e); showToast(t('rp_failed'), 'error'); return; }
   const safeName = ((businessName || 'dusty').trim() || 'dusty').replace(/[^\w\- ]+/g, '').trim().slice(0, 30).replace(/\s+/g, '-') || 'dusty';
   const fileName = `${safeName}-reporte-${rbFrom}-${rbTo}.pdf`;
-  const file = new File([bytes], fileName, {type: 'application/pdf'});
-  if(navigator.canShare && navigator.canShare({files: [file]})){
-    navigator.share({files: [file], title: t('rb_pdf_title')}).catch(e=>{ if(!e || e.name !== 'AbortError') downloadBlob(file, fileName); });
-    return;
-  }
-  downloadBlob(file, fileName);
+  sharePdfBytes(bytes, fileName, t('rb_pdf_title'));
 }
 function attachReportEvents(){
   document.querySelectorAll('[data-report-key]').forEach(b=>{
