@@ -2851,7 +2851,14 @@
   .svc-plan:active{opacity:.6;transform:scale(.985);}
   /* Franja de números informativa (Equipo, Por cobrar): no es botón, no se hunde. */
   .inv-stat.static{cursor:default;pointer-events:none;}
-  .inv-tool[disabled]{opacity:.45;pointer-events:none;}
+  /* Sin activos, 'Mantenimiento' se deshabilita -- el unico .inv-tool que lo hace hoy
+     (btn-log-maint, app-15). Con solo opacity la baldoza quedaba un ambar lavado sin
+     forma ("el color se distorsiona", captura del usuario), un tono raro que ademas
+     podia leerse como un septimo color mas compitiendo con los demas. Gris parejo:
+     se lee "apagado" de un vistazo, en cualquier tema, y al ser acromatico nunca
+     choca con ningun otro anillo de la fila. */
+  .inv-tool[disabled]{opacity:.6;pointer-events:none;}
+  .inv-tool[disabled] .inv-tool-ring{filter:grayscale(1) contrast(.85);}
   .svc-row-crit{border-color:color-mix(in srgb, var(--money-neg) 45%, var(--line));}
   .svc-row-ic{flex-shrink:0;width:40px;height:40px;border-radius:12px;background:var(--inset);display:flex;align-items:center;justify-content:center;font-size:calc(20px * var(--fs, 1));}
   .svc-row-crit .svc-row-ic{background:var(--money-neg-soft);}
