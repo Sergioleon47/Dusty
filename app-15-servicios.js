@@ -871,7 +871,10 @@ function saveJobFromDraft(){
   svcLastPruned = 0; // un trabajo nuevo no hereda el aviso de poda del anterior
   const d = draftJob;
   const price = parseFloat(d.price);
-  const isDate = (v)=>/^\d{4}-\d{2}-\d{2}$/.test(v||'');
+  // Fecha REAL, no solo la forma: '2026-02-30' pasa la regex, y como contrato
+  // generaba ocurrencias de un día que no existe (el asistente o un JSON de otro
+  // teléfono pueden traerla; el <input type=date> nunca).
+  const isDate = (v)=>isValidDateStr(v||'');
   if(!d.client || !(price>=0) || isNaN(price)){ jobModalError = t('svc_job_err'); render(); return null; }
   if(!isDate(d.date)){ jobModalError = t('svc_date_err'); render(); return null; }
   if(isDate(d.endDate) && d.endDate<d.date){ jobModalError = t('svc_end_err'); render(); return null; }
@@ -1945,7 +1948,9 @@ function svcGenerateRecurring(){
   const today = localDateStr();
   const horizon = addDaysStr(today, 14);
   let changed = false;
-  svcJobs().filter(j=>j.repeat && SVC_REPEATS.indexOf(j.repeat)>=0 && !j.parentId && j.date).forEach(tpl=>{
+  // Un contrato con fecha que no existe (2026-02-30) no genera nada: JS la
+  // "arregla" al 2 de marzo y salían ocurrencias de un calendario inventado.
+  svcJobs().filter(j=>j.repeat && SVC_REPEATS.indexOf(j.repeat)>=0 && !j.parentId && isValidDateStr(j.date)).forEach(tpl=>{
     const anchor = svcAnchorDay(tpl);
     let last = tpl.lastGenerated || tpl.date, guard = 0;
     /* Solo hacia ADELANTE (auditoría UX 2026-09-11): activar "Se repite" sobre un

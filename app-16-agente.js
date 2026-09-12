@@ -91,7 +91,8 @@ function agentFind(list, name, getName){
   }
   return null;
 }
-function agentDate(v){ return (typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) ? v : localDateStr(); }
+// Fecha real (isValidDateStr): '2026-02-30' tiene la forma pero no existe.
+function agentDate(v){ return isValidDateStr(v) ? v : localDateStr(); }
 function agentNum(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
 
 /* ---------- descripción de una acción para la tarjeta de confirmación ---------- */
@@ -205,10 +206,10 @@ function agentExec(name, inp){
       // Equipo que no existe o fecha mal escrita: se avisa, no se guarda "algo parecido"
       // en silencio (un trabajo sin equipo y fechado hoy).
       if(inp.asset && !asset) return fail('asset not found: '+(bizProfile.assets||[]).map(x=>x.name).join(', '));
-      if(inp.date && !/^\d{4}-\d{2}-\d{2}$/.test(inp.date)) return fail('date must be YYYY-MM-DD');
+      if(inp.date && !isValidDateStr(inp.date)) return fail('date must be a real YYYY-MM-DD date');
       const svc = inp.service ? agentFind(bizProfile.catalog||[], inp.service, x=>x.name) : null;
       const date = agentDate(inp.date), dueDays = Math.max(1, parseInt(inp.due_days,10)||15);
-      const endDate = (inp.end_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.end_date) && inp.end_date>date) ? inp.end_date : null;
+      const endDate = (isValidDateStr(inp.end_date) && inp.end_date>date) ? inp.end_date : null;
       const clash = asset ? svcClash({id:null, assetId: asset.id, date, endDate}) : null;
       const job = { id: uid('job'), type:'service', date, endDate, client: String(inp.client).trim().slice(0,60), serviceName: (svc ? svc.name : String(inp.service||'').trim()).slice(0,60), serviceId: svc ? svc.id : null,
         assetId: asset ? asset.id : null, price: Math.round(price*100)/100, paid: !!inp.paid, dueDate: inp.paid ? null : addDaysStr(date, dueDays), dueDays, paidDate: inp.paid ? (date<localDateStr() ? date : localDateStr()) : null,
@@ -369,7 +370,10 @@ function agentExec(name, inp){
       if(inp.new_asset && !newAsset) return fail('asset not found');
       const ch = {};
       if(agentNum(inp.new_price)!==null && agentNum(inp.new_price)>=0){ j.price = Math.round(agentNum(inp.new_price)*100)/100; ch.price = j.price; }
-      if(inp.new_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.new_date)){
+      // Fecha mal formada o inexistente: se avisa, no se ignora en silencio (el
+      // modelo decía "listo, movido al 30 de febrero" y el trabajo seguía igual).
+      if(inp.new_date && !isValidDateStr(inp.new_date)) return fail('new_date must be a real YYYY-MM-DD date');
+      if(inp.new_date){
         j.date = inp.new_date; ch.date = j.date;
         // El vencimiento acompaña a la fecha (antes quedaba anclado a la vieja y un
         // trabajo movido a octubre aparecía "vencido" en septiembre).
@@ -378,7 +382,7 @@ function agentExec(name, inp){
       }
       if(inp.new_end_date!==undefined && inp.new_end_date!==null){
         if(inp.new_end_date===''){ if(j.endDate){ j.endDate = null; ch.end_date = null; } }
-        else if(/^\d{4}-\d{2}-\d{2}$/.test(inp.new_end_date) && inp.new_end_date>j.date){ j.endDate = inp.new_end_date; ch.end_date = j.endDate; }
+        else if(isValidDateStr(inp.new_end_date) && inp.new_end_date>j.date){ j.endDate = inp.new_end_date; ch.end_date = j.endDate; }
         else return fail('new_end_date must be YYYY-MM-DD and after the job date '+j.date);
       }
       if(inp.new_client){ j.client = String(inp.new_client).trim().slice(0,60); ch.client = j.client; }

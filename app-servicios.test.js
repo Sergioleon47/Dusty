@@ -280,3 +280,29 @@ test('reconciliación: una ocurrencia de la regla vieja que llega de otro teléf
   assert.deepEqual(lista(`hijos('tplR')`), ['2026-04-07', '2026-04-13', '2026-04-14'], 'la del 6 se retiró, la cobrada del 13 se queda');
   assert.equal(correr(`!!outflows.find(o=>o.id==='job-tplR-2026-04-06').prunedByRule`), true);
 });
+
+test('una fecha que no existe (2026-02-30) no pasa: ni al guardar el trabajo ni como contrato que genera ocurrencias', () => {
+  const { correr, lista } = nuevaApp('2026-04-20');
+  // Por la puerta de atrás (JSON de otro teléfono / versión vieja): el generador la ignora
+  // en vez de dejar que JS la "arregle" al 2 de marzo y nazcan ocurrencias inventadas.
+  correr(`contrato('bad', '2026-02-30', 'monthly'); saveState(); saveState();`);
+  assert.deepEqual(lista(`hijosTodos('bad')`), []);
+  // Por el modal: se rechaza con mensaje, igual que la fecha vacía.
+  correr(`draftJob = { id:null, client:'X', serviceName:'', serviceId:null, date:'2026-02-30', endDate:'', assetId:null, price:'0', qty:'', paid:false, paidDate:'', dueDays:15, pending:[], repeat:null, parentId:null };`);
+  assert.equal(correr(`saveJobFromDraft()`), null);
+  assert.equal(correr(`jobModalError.length>0`), true);
+  // Precio 0 con fecha real sí se guarda (visita de garantía).
+  correr(`draftJob.date = '2026-04-20';`);
+  assert.equal(correr(`!!saveJobFromDraft()`), true);
+});
+
+test('svcNextDate: cadena mensual del 31 durante un año entero, bisiesto, y semanas que cruzan el cambio de horario', () => {
+  const { correr } = nuevaApp('2026-04-20');
+  let d = '2026-01-31'; const seq = [];
+  for(let i=0;i<12;i++){ d = correr(`svcNextDate('${d}','monthly',31)`); seq.push(d); }
+  assert.deepEqual(seq, ['2026-02-28','2026-03-31','2026-04-30','2026-05-31','2026-06-30','2026-07-31','2026-08-31','2026-09-30','2026-10-31','2026-11-30','2026-12-31','2027-01-31']);
+  assert.equal(correr(`svcNextDate('2028-01-30','monthly',30)`), '2028-02-29');
+  assert.equal(correr(`svcNextDate('2028-02-29','monthly',30)`), '2028-03-30');
+  assert.equal(correr(`svcNextDate('2026-03-02','weekly')`), '2026-03-09');
+  assert.equal(correr(`svcNextDate('2026-10-26','biweekly')`), '2026-11-09');
+});
