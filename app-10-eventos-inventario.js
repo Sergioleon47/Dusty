@@ -482,9 +482,11 @@ function attachInventoryEvents(){
         render();
       };
       fiNewCatInp.onblur=commitNewCat;
+      // stopPropagation: sin él, Escape seguía hasta el listener global (app-07)
+      // que cerraba la ficha ENTERA y perdía lo editado (auditoría UX 2026-09-11).
       fiNewCatInp.onkeydown=(e)=>{
-        if(e.key==='Enter'){ e.preventDefault(); fiNewCatInp.blur(); }
-        else if(e.key==='Escape'){ fiNewCatInp.value=''; fiNewCatInp.blur(); }
+        if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); fiNewCatInp.blur(); }
+        else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); fiNewCatInp.value=''; fiNewCatInp.blur(); }
       };
     }
     // Espejo del creador de arriba pero para las categorías de GASTO (lista
@@ -518,8 +520,8 @@ function attachInventoryEvents(){
       };
       fiNewExpCatInp.onblur=commitNewExpCat;
       fiNewExpCatInp.onkeydown=(e)=>{
-        if(e.key==='Enter'){ e.preventDefault(); fiNewExpCatInp.blur(); }
-        else if(e.key==='Escape'){ fiNewExpCatInp.value=''; fiNewExpCatInp.blur(); }
+        if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); fiNewExpCatInp.blur(); }
+        else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); fiNewExpCatInp.value=''; fiNewExpCatInp.blur(); }
       };
     }
     document.getElementById('btn-save-item').onclick=()=>{

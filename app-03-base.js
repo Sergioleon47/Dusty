@@ -506,8 +506,8 @@ const I18N = {
     produce_missing_note:'Este insumo ya no existe en el inventario — no se descuenta.',
     produce_batch_cost:'Costo de esta producción',
     produce_price_label:'Precio de venta por pieza ($)',
-    produce_income_line:'Ingreso estimado: {amount}',
-    produce_no_price_note:'Sin precio de venta, esta producción no suma Ingresos en el Cierre de mes — puedes escribirlo acá solo por esta vez.',
+    produce_income_line:'Al venderlas: {amount}. El ingreso se registra cuando las vendas (Reducción).',
+    produce_no_price_note:'Sin precio de venta, las piezas no suman al Potencial de venta. El ingreso se registra cuando las vendas (Reducción).',
     produce_confirm_btn:'Confirmar producción',
     shelf_banner_title:'Reducción',
     shelf_banner_sub:'Foto de tu estante → stock al día, sin contar a mano',
@@ -556,7 +556,7 @@ const I18N = {
        en los dos idiomas (pedido del usuario 2026-09-11). */
     rp_btn:'Reports', rp_btn_hint:'Descargar o compartir el informe del período en PDF',
     rp_title:'Informe del mes', rp_generated:'Generado el {d} con Dusty',
-    rd_ledger_title:'Comprobante', rd_col_desc:'Descripción', rd_col_qty:'Cant.', rd_col_unit:'P. unit.', rd_col_total:'Total',
+    rd_ledger_title:'Comprobante', rd_col_desc:'Detalle', rd_col_qty:'Cant.', rd_col_unit:'P. unit.', rd_col_total:'Total',
     rd_photo_toggle:'Foto del recibo', rd_kind_label:'Tipo', rd_id_label:'N.º', rd_lines_n:'{n} líneas', rd_pdf_title:'Comprobante',
     rb_btn:'📄 Reportes', rb_title:'Reportes', rb_sub:'Elegí días o meses, mezclalos como quieras, y armá un PDF con la información extraída de cada recibo (sin fotos).',
     rb_quick_today:'Hoy', rb_quick_week:'Esta semana', rb_quick_month:'Este mes', rb_quick_last:'Mes pasado', rb_quick_year:'Este año', rb_quick_custom:'Personalizado',
@@ -1278,8 +1278,8 @@ const I18N = {
     produce_missing_note:'This supply no longer exists in inventory — nothing is deducted.',
     produce_batch_cost:'Cost of this run',
     produce_price_label:'Sale price per piece ($)',
-    produce_income_line:'Estimated income: {amount}',
-    produce_no_price_note:'Without a sale price, this run adds no Income to the month recap — you can type one here just for this time.',
+    produce_income_line:'When sold: {amount}. Income is recorded when you sell them (Reduction).',
+    produce_no_price_note:'Without a sale price, the pieces do not count toward Sales potential. Income is recorded when you sell them (Reduction).',
     produce_confirm_btn:'Confirm production',
     shelf_banner_title:'Reduction',
     shelf_banner_sub:'One photo of your shelf → stock up to date, no hand counting',
@@ -1325,7 +1325,7 @@ const I18N = {
     pw_cancelled:'Payment cancelled. You can pick it up whenever you like.',
     rp_btn:'Reports', rp_btn_hint:'Download or share this period’s report as a PDF',
     rp_title:'Monthly report', rp_generated:'Generated on {d} with Dusty',
-    rd_ledger_title:'Receipt record', rd_col_desc:'Description', rd_col_qty:'Qty', rd_col_unit:'Unit price', rd_col_total:'Total',
+    rd_ledger_title:'Receipt record', rd_col_desc:'Item', rd_col_qty:'Qty', rd_col_unit:'Unit', rd_col_total:'Total',
     rd_photo_toggle:'Receipt photo', rd_kind_label:'Type', rd_id_label:'No.', rd_lines_n:'{n} lines', rd_pdf_title:'Receipt record',
     rb_btn:'📄 Reports', rb_title:'Reports', rb_sub:'Pick days or months, mix them as you like, and build a PDF with the data extracted from each receipt (no photos).',
     rb_quick_today:'Today', rb_quick_week:'This week', rb_quick_month:'This month', rb_quick_last:'Last month', rb_quick_year:'This year', rb_quick_custom:'Custom',
@@ -2319,6 +2319,10 @@ function setBudgetAlertedLevel(key, level){
 function checkBudgetAlerts(){
   if(!budgetAlertsArmed) return;
   try{
+    // Corre desde saveState, ANTES del render que vacía la caché financiera: sin
+    // esto budgetPace veía el gasto del render anterior y el aviso de 80/100 %
+    // salía recién en el próximo guardado (auditoría UX 2026-09-11).
+    resetFinancialCache();
     const key = localMonthStr();
     const p = budgetPace(key);
     if(!p) return;

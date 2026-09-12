@@ -58,6 +58,9 @@ function ensureServiceCategories(){
 function setBizFlags(sells, services){
   // Al menos una de las dos prendida: sin ninguna el tablero no tendría nada que mostrar.
   if(!sells && !services) sells = true;
+  // Con Producción prendida el inventario no se puede apagar: es de donde salen
+  // los insumos de las recetas (misma regla que en la introducción, 2026-09-11).
+  if(!sells && typeof usesProduction==='function' && usesProduction()) sells = true;
   bizProfile.sells = !!sells;
   bizProfile.services = !!services;
   if(services && !bizProfile.catsSeeded){ ensureServiceCategories(); bizProfile.catsSeeded = true; }
@@ -1109,7 +1112,10 @@ function attachServicesEvents(){
   on('btn-asset-log-maint', ()=>openMaintLogModal(showAssetSheet));
   on('btn-asset-new-job', ()=>openJobModal(null, showAssetSheet));
   on('btn-print-asset', ()=>{ const a = assetById(showAssetSheet); if(a) downloadAssetPdf(a); });
-  on('btn-asset-all-receipts', ()=>{ showAssetSheet = null; openReceiptsSheet(); });
+  // Se cierran las DOS hojas (activo y Equipo) y se redibuja ANTES de cambiar de
+  // pestaña: switchToTab solo anima el carrusel y no toca los overlays, así que
+  // sin el render() la ficha quedaba tapando Recibos (auditoría UX 2026-09-11).
+  on('btn-asset-all-receipts', ()=>{ showAssetSheet = null; showEquipoSheet = false; render(); openReceiptsSheet(); });
   document.querySelectorAll('[data-edit-maint]').forEach(el=>{ el.onclick = ()=>openMaintModal(showAssetSheet, el.dataset.editMaint); });
 
   /* Por cobrar */
@@ -1542,8 +1548,17 @@ function svcGenerateRecurring(){
   if(!usesServices()) return false;
   const horizon = addDaysStr(localDateStr(), 14);
   let changed = false;
+  const today = localDateStr();
   svcJobs().filter(j=>j.repeat && SVC_REPEATS.indexOf(j.repeat)>=0 && !j.parentId).forEach(tpl=>{
     let last = tpl.lastGenerated || tpl.date, guard = 0;
+    /* Solo hacia ADELANTE (auditoría UX 2026-09-11): activar "Se repite" sobre un
+       trabajo de enero creaba al instante 37 trabajos pasados, todos como cobros
+       vencidos. Sin lastGenerated (recién activado) se salta a la última
+       ocurrencia anterior a hoy sin crear nada; recién de ahí nacen las próximas. */
+    if(!tpl.lastGenerated && last < today){
+      let skip = 0;
+      while(skip++ < 400){ const n = svcNextDate(last, tpl.repeat); if(!n || n >= today) break; last = n; }
+    }
     while(guard++ < 60){
       const next = svcNextDate(last, tpl.repeat);
       if(!next || next>horizon) break;

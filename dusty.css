@@ -1881,7 +1881,11 @@
   .dash-ring-center small{font-size:calc(10px * var(--fs, 1));color:var(--bs);margin-top:2px;}
   .dash-kv{flex:1;min-width:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;}
   .dash-kv span{display:block;font-size:calc(11px * var(--fs, 1));color:var(--bs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .dash-kv b{display:block;font-family:'Space Grotesk',sans-serif;font-size:calc(17px * var(--fs, 1));font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;overflow-wrap:anywhere;}
+  /* Un monto NUNCA se parte en dos líneas ("$987,929.3" / "2" se lee mal):
+     va en una sola línea y, si no entra, la letra baja hasta 12 px
+     (auditoría UX 2026-09-11). */
+  .dash-kv b{display:block;font-family:'Space Grotesk',sans-serif;font-size:clamp(12px, 4.4vw, calc(17px * var(--fs, 1)));font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:clip;}
+  .dash-kv b.long{font-size:clamp(11px, 3.6vw, calc(14px * var(--fs, 1)));letter-spacing:-.01em;}
   .dash-kv b.pos{color:var(--money-pos-ink);}
   .dash-kv b.neg{color:var(--money-neg-ink);}
   .dash-budget .budget-pace{color:var(--bs);margin-top:8px;}
@@ -2021,6 +2025,12 @@
   /* 3. Buscador + vista + orden, fijos arriba al scrollear. */
   .inv-sticky{position:sticky;top:0;z-index:6;background:var(--bg);padding:6px 0 8px;}
   .inv-sticky .inv-search-wrap{width:auto;flex:1 1 auto;}
+  /* Barra de Producción (un botón más que la de Inventario): arranca desde la
+     izquierda y el buscador cede ancho en vez de desbordar hacia afuera
+     (auditoría UX 2026-09-11: la lupa quedaba a -51 px en 375). */
+  .inv-sticky .prod-toolbar{justify-content:flex-start;}
+  .inv-sticky .prod-toolbar .inv-search-wrap{min-width:0;flex:1 1 60px;margin-right:0;}
+  .inv-sticky .prod-toolbar .inv-search-wrap input{padding-right:6px;}
   .inv-sort-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;width:29px;height:30px;border-radius:8px;color:var(--ink-soft);}
   .inv-sort-wrap.on{background:var(--raised-2);color:var(--ink);}
   .inv-sort-wrap select{position:absolute;inset:-7px 0;opacity:0;width:100%;height:auto;cursor:pointer;}
@@ -2259,8 +2269,10 @@
      derecha, notas chicas debajo del dato. */
   .recap-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);}
   .recap-row:last-child{border-bottom:none;}
-  .recap-label{font-size:calc(13px * var(--fs, 1));color:var(--ink-mid);font-weight:600;flex-shrink:0;}
-  .recap-row strong{font-size:calc(14.5px * var(--fs, 1));text-align:right;font-variant-numeric:tabular-nums;min-width:0;}
+  /* La ETIQUETA es la que envuelve; el monto nunca se parte ni se monta encima
+     (auditoría UX 2026-09-11: al 140 % "Potencial de venta" quedaba tapado). */
+  .recap-label{font-size:calc(13px * var(--fs, 1));color:var(--ink-mid);font-weight:600;flex:1 1 auto;min-width:0;}
+  .recap-row strong{font-size:calc(14.5px * var(--fs, 1));text-align:right;font-variant-numeric:tabular-nums;min-width:0;flex-shrink:0;white-space:nowrap;}
   .recap-note{font-size:calc(11px * var(--fs, 1));font-weight:600;color:var(--ink-soft);margin-top:2px;}
   /* Cascada contable: operador (−/=) pegado a la etiqueta, subtotal con raya
      simple arriba y el resultado final con raya doble — la convención de todo
@@ -2629,8 +2641,15 @@
   .rd-meta b{display:block;font-size:calc(10.5px * var(--fs, 1));font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);}
   .rd-meta span{color:var(--ink);font-weight:600;}
   .rd-ledger{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);}
-  .rd-row{display:grid;grid-template-columns:minmax(0,1fr) 68px 72px 78px;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);font-size:calc(12.5px * var(--fs, 1));}
+  /* Columnas RELATIVAS y celdas que envuelven (auditoría UX 2026-09-11): con
+     anchos fijos en px y nowrap, a 360 px o con letra al 140 % el encabezado y
+     "10 unidad" se montaban sobre el precio. */
+  .rd-row{display:grid;grid-template-columns:minmax(64px,1fr) minmax(min-content,max-content) auto auto;gap:5px;align-items:center;padding:8px 8px;border-bottom:1px solid var(--line);font-size:calc(12.5px * var(--fs, 1));}
+  /* Las columnas numéricas miden lo que ocupa su contenido (auto) y NUNCA
+     parten un monto; la descripción es la que envuelve (mínimo un tercio) y la
+     cantidad puede bajar la unidad a otra línea ("10" / "unidad"). */
   .rd-row > span:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .rd-row > span:nth-child(2){white-space:normal;}
   .rd-row.rd-head{background:var(--inset);font-size:calc(10.5px * var(--fs, 1));font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);}
   .rd-row.rd-total{border-bottom:none;background:var(--inset);font-weight:800;}
   .rd-row .rd-desc{display:block;font-weight:700;color:var(--ink);overflow-wrap:anywhere;}
@@ -2641,7 +2660,12 @@
   .rd-photo summary::-webkit-details-marker{display:none;}
   .rd-photo summary::after{content:'▾';margin-left:auto;color:var(--ink-soft);}
   .rd-photo[open] summary::after{content:'▴';}
-  @media (max-width:420px){ .rd-row{grid-template-columns:minmax(0,1fr) 56px 64px 70px;font-size:calc(12px * var(--fs, 1));padding:8px 8px;} }
+  @media (max-width:420px){ .rd-row{font-size:calc(12px * var(--fs, 1));padding:8px 8px;gap:5px;} }
+
+  /* Gráfico de historial de precios: los textos del SVG escalan con el tamaño
+     de letra (auditoría UX 2026-09-11; antes quedaban en 6 px fijos). */
+  .ph-chart text{font-size:calc(11px * var(--fs, 1));}
+  .ph-chart text.ph-end{font-size:calc(12.5px * var(--fs, 1));}
 
   /* ===== DESGLOSE de Valor / Potencial de venta (Inventario, 2026-09-11) =====
      Las dos tarjetas de arriba son botones (misma forma que antes + flecha) y

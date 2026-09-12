@@ -74,8 +74,16 @@ function attachScannerEvents(){
     document.querySelectorAll('[data-pb-selected]').forEach(cb=>{
       cb.onchange=()=>{ const it=pbItems[+cb.getAttribute('data-pb-selected')]; if(it){ it.selected=cb.checked; render(); } };
     });
+    // El botón "Agregar N al inventario" se actualiza SIN re-render al escribir el
+    // nombre de una fila a mano: antes seguía en "Agregar 0" (deshabilitado) hasta
+    // tocar el checkbox, y el usuario creía que no andaba (auditoría UX 2026-09-11).
+    const refreshPbApplyBtn=()=>{
+      const btn=document.getElementById('btn-apply-pb'); if(!btn) return;
+      const n=pbItems.filter(it=>it && it.selected && String(it.name||'').trim()).length;
+      btn.disabled=n===0; btn.textContent=t('pb_add_btn').replace('{n}', n);
+    };
     document.querySelectorAll('[data-pb-name]').forEach(inp=>{
-      inp.oninput=()=>{ const it=pbItems[+inp.getAttribute('data-pb-name')]; if(it) it.name=inp.value; };
+      inp.oninput=()=>{ const it=pbItems[+inp.getAttribute('data-pb-name')]; if(it) it.name=inp.value; refreshPbApplyBtn(); };
     });
     document.querySelectorAll('[data-pb-unit]').forEach(sel=>{
       sel.onchange=()=>{ const it=pbItems[+sel.getAttribute('data-pb-unit')]; if(it) it.unit=sel.value; };

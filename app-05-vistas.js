@@ -365,14 +365,18 @@ function dashboardView(){
         <svg viewBox="0 0 96 96"><circle class="dash-ring-track" cx="48" cy="48" r="40" stroke-width="10" fill="none"/><circle class="dash-ring-fill ${p.status}" cx="48" cy="48" r="40" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="${CIRC}" stroke-dashoffset="${dash}"/></svg>
         <div class="dash-ring-center"><b>${Math.round(p.pct)}%</b><small>${t('dash_ring_spent')}</small></div>
       </div>
+      ${/* kvb: un monto de 6+ cifras lleva la clase .long (letra más chica) para
+           que NUNCA se parta en dos líneas — ver .dash-kv b en dusty.css
+           (auditoría UX 2026-09-11). */''}
+      ${(()=>{ const kvb=(v,cls)=>{ const s=money(v); return `<b class="${cls||''}${s.length>9?' long':''}">${s}`; }; return `
       <div class="dash-kv">
-        <div><span>${t('dash_kv_expenses')}</span><b>${money(p.expense)}</b></div>
-        <div><span>${t('dash_kv_budget')}</span><b>${money(p.budget)}${pencil}</b></div>
-        ${servicesOnly() ? `<div><span>${t('dash_kv_collected')}</span><b class="pos">${money(paidRevenueForMonth(currentMonthKey))}</b></div>` : `<div><span>${t('dash_kv_invest')}</span><b class="pos">${money(sp.invested)}</b></div>`}
+        <div><span>${t('dash_kv_expenses')}</span>${kvb(p.expense)}</b></div>
+        <div><span>${t('dash_kv_budget')}</span>${kvb(p.budget)}${pencil}</b></div>
+        ${servicesOnly() ? `<div><span>${t('dash_kv_collected')}</span>${kvb(paidRevenueForMonth(currentMonthKey),'pos')}</b></div>` : `<div><span>${t('dash_kv_invest')}</span>${kvb(sp.invested,'pos')}</b></div>`}
         ${p.left>=0
-          ? `<div><span>${t('dash_kv_left')}</span><b class="pos">${money(p.left)}</b></div>`
-          : `<div><span>${t('dash_kv_over')}</span><b class="neg">${money(-p.left)}</b></div>`}
-      </div>
+          ? `<div><span>${t('dash_kv_left')}</span>${kvb(p.left,'pos')}</b></div>`
+          : `<div><span>${t('dash_kv_over')}</span>${kvb(-p.left,'neg')}</b></div>`}
+      </div>`; })()}
     </div>
     ${budgetNotesHtml(p)}${cogsRatioHtml(currentMonthKey)}
     ${seeAll}
@@ -1021,9 +1025,11 @@ function attachOrderCalcEvents(){
       if(!isNaN(v) && v>0) orderCalcQty[id] = Math.min(v, 999999); else delete orderCalcQty[id];
       orderCalcEditingId = null; orderCalcPersist(); render();
     };
+    // stopPropagation en Escape: solo cancela la edición de la cantidad; sin él
+    // el listener global cerraba la hoja entera (auditoría UX 2026-09-11).
     inp.onkeydown = (e)=>{
-      if(e.key==='Enter'){ e.preventDefault(); inp.blur(); }
-      else if(e.key==='Escape'){ orderCalcEditingId = null; render(); }
+      if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); inp.blur(); }
+      else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); orderCalcEditingId = null; render(); }
     };
   }
   const close = document.getElementById('oc-close');
@@ -1699,11 +1705,18 @@ function closePriceHistoryModal(){ showPriceHistoryModal = false; priceHistoryIn
 // a la vez (no pasa hoy, pero cuesta cero evitarlo de raíz).
 let __chartGradientSeq = 0;
 function priceHistoryChart(points){
-  const W = 560, H = 180, padL = 52, padR = 16, padT = 16, padB = 16;
-  const innerW = W - padL - padR, innerH = H - padT - padB;
+  /* viewBox de 340 (antes 560): en el teléfono el SVG se pinta a ~300 px, así
+     que con 560 los textos de 10 unidades quedaban de 6 px, ilegibles y sin
+     crecer con el tamaño de letra. Ahora 1 unidad ≈ 1 px, el margen izquierdo
+     sale del monto más largo (antes cortaba el "$"), arriba hay lugar para la
+     etiqueta final y abajo van las FECHAS (auditoría UX 2026-09-11). Los
+     tamaños de texto los pone .ph-chart en dusty.css, escalados por --fs. */
   const prices = points.map(p=>p.unitPrice);
   let min = Math.min(...prices), max = Math.max(...prices);
   if(min===max){ min = min*0.9; max = (max*1.1)||1; } // evita aplanar la gráfica si el precio nunca cambió
+  const W = 340, H = 190, padR = 14, padT = 30, padB = 26;
+  const padL = Math.min(120, Math.max(48, Math.max(money(max).length, money(min).length) * 7 + 12));
+  const innerW = W - padL - padR, innerH = H - padT - padB;
 
   const xFor = (i)=> padL + (points.length===1 ? innerW/2 : (i/(points.length-1))*innerW);
   const yFor = (v)=> padT + innerH - ((v-min)/(max-min))*innerH;
@@ -1716,7 +1729,13 @@ function priceHistoryChart(points){
     const y = padT + innerH*f;
     const val = max - (max-min)*f;
     return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
-      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(val)}</text>`;
+      <text x="${padL-8}" y="${(y+3).toFixed(1)}" text-anchor="end" fill="var(--ink-soft)" font-family="IBM Plex Mono">${money(val)}</text>`;
+  }).join('');
+  // Fechas bajo la línea base: primera, última y (con 3+ puntos) la del medio.
+  const dateIdx = points.length>=3 ? [0, Math.floor((points.length-1)/2), points.length-1] : points.map((_,i)=>i);
+  const dateLabels = [...new Set(dateIdx)].map(i=>{
+    const anchor = points.length===1 ? 'middle' : i===0 ? 'start' : i===points.length-1 ? 'end' : 'middle';
+    return `<text x="${xFor(i).toFixed(1)}" y="${(H-8).toFixed(1)}" text-anchor="${anchor}" fill="var(--ink-soft)" font-family="IBM Plex Mono">${escapeHtml(shortDateLabel(points[i].date))}</text>`;
   }).join('');
 
   const linePoints = points.map((p,i)=> `${xFor(i).toFixed(1)},${yFor(p.unitPrice).toFixed(1)}`).join(' ');
@@ -1729,7 +1748,7 @@ function priceHistoryChart(points){
   }).join('');
 
   const lastX = xFor(points.length-1), lastY = yFor(last);
-  const endLabel = `<text x="${lastX.toFixed(1)}" y="${(lastY-10).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(last)}</text>`;
+  const endLabel = `<text class="ph-end" x="${Math.min(lastX, W-padR).toFixed(1)}" y="${(lastY-10).toFixed(1)}" text-anchor="end" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono">${money(last)}</text>`;
 
   // Área bajo la línea con degradado hacia transparente — el mismo dato de siempre,
   // pero se lee de un vistazo como un gráfico "de verdad" en vez de una línea pelada.
@@ -1737,7 +1756,7 @@ function priceHistoryChart(points){
   const baseline = (padT+innerH).toFixed(1);
   const areaPoints = `${xFor(0).toFixed(1)},${baseline} ${linePoints} ${xFor(points.length-1).toFixed(1)},${baseline}`;
 
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+  return `<svg class="ph-chart" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
     <defs>
       <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${trendColor}" stop-opacity="0.22"/>
@@ -1749,7 +1768,14 @@ function priceHistoryChart(points){
     <polyline points="${linePoints}" fill="none" stroke="${trendColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     ${markers}
     ${endLabel}
+    ${dateLabels}
   </svg>`;
+}
+// "11 sep" / "Sep 11" para los ejes: corto, en el idioma de la app.
+function shortDateLabel(dateStr){
+  const d = new Date(String(dateStr).slice(0,10)+'T00:00:00');
+  if(isNaN(d)) return String(dateStr||'');
+  try{ return d.toLocaleDateString(uiLang==='es' ? 'es' : 'en', {day:'numeric', month:'short'}).replace('.', ''); }catch(e){ return String(dateStr); }
 }
 
 /* Agrupa las compras de un ingrediente por proveedor, para poder comparar quién

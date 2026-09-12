@@ -256,7 +256,12 @@ function produccionView(){
       </div>
     </div>` : `
     <div class="inv-sticky">
-      <div class="inv-toolbar" style="align-items:center;gap:8px;margin:0;">
+      ${/* prod-toolbar: esta barra lleva un botón más que la de Inventario
+           ("+ Agregar") y con min-width en el buscador desbordaba hacia la
+           IZQUIERDA (la lupa quedaba fuera de pantalla en 360-430 px). El
+           buscador cede ancho — ver .prod-toolbar en dusty.css (auditoría UX
+           2026-09-11). */''}
+      <div class="inv-toolbar prod-toolbar" style="align-items:center;gap:8px;margin:0;">
         <div class="inv-search-wrap">
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input id="prod-search" type="search" value="${escapeHtml(prodSearch)}" placeholder="${t('prod_search_ph')}" autocomplete="off">
@@ -1030,9 +1035,11 @@ function produceModal(){
       </div>
 
       ${(()=>{
-        // Precio de venta por pieza de ESTA corrida (editable): con precio, el
-        // ingreso estimado se ve en vivo (count × precio) — es lo que va a sumar
-        // el Cierre de mes; sin precio, aviso de que la corrida queda fuera.
+        // Precio de venta por pieza: queda en el producto terminado (es lo que
+        // usan Potencial de venta y la Reducción al vender). NO es un ingreso:
+        // producir no es vender (ver applyProduction), así que el texto muestra
+        // "al venderlas" y no un "ingreso estimado" que nunca se registraba
+        // (auditoría UX 2026-09-11).
         const pd = parseFloat(produceSalePrice);
         const unitSale = (Number.isFinite(pd) && pd>0) ? pd : 0;
         const count = Math.max(1, Math.round(Number(produceCount)||1));
@@ -1093,6 +1100,11 @@ function applyProduction(){
   // Entrada de stock: este nivel es el nuevo "lleno" de la barra, igual que una
   // compra en el inventario de siempre.
   terminado.stockFullRef = terminado.qtyOnHand;
+  // El precio escrito en el modal SÍ se usa (auditoría UX 2026-09-11: antes se
+  // pedía, se mostraba y se tiraba): queda como precio de venta del terminado,
+  // que es lo que ve Potencial de venta y lo que propone la Reducción al vender.
+  const precioPieza = parseFloat(produceSalePrice);
+  if(Number.isFinite(precioPieza) && precioPieza > 0) terminado.salePrice = roundQty(precioPieza);
   if(currentUser){ terminado.lastEditedBy = currentUserLabel(); terminado.lastEditedAt = new Date().toISOString(); }
   /* PRODUCIR NO ES VENDER, y desde que el terminado existe como stock, contarlo
      como ingreso sería contarlo DOS VECES (al fabricar y al vender). Por eso esta

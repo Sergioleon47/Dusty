@@ -526,7 +526,10 @@ function startOnboarding(){
   // pestaña Producción como lo hace el interruptor de Ajustes, y la bienvenida
   // se arma con lo marcado.
   root.querySelector('#ob-biz-cta').onclick = ()=>{
-    bizProfile.sells = pick('sells') || !pick('services');
+    // Quien FABRICA lleva stock de insumos: sin Inventario, Producción no tiene de
+    // dónde sacar la materia prima (auditoría UX 2026-09-11: Fabrica + Servicios
+    // sin Vende dejaba las recetas sin insumos posibles).
+    bizProfile.sells = pick('sells') || pick('makes') || !pick('services');
     bizProfile.services = pick('services');
     if(bizProfile.services && !bizProfile.catsSeeded){ ensureServiceCategories(); bizProfile.catsSeeded = true; }
     if(pick('makes')){ productionTabPref = 'on'; try{ localStorage.setItem('patron_production_tab','on'); }catch(e){} }
@@ -1196,10 +1199,15 @@ function teamModal(){
           ${/* flex:1+min-width:0 en el input: sin esto, su ancho mínimo nativo
                (~180px) + Compartir + Copiar desbordaban el modal en teléfonos —
                el código tiene 6 caracteres, puede ceder ancho tranquilo. */''}
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input id="team-code-display" type="text" value="${escapeHtml(teamInviteCode)}" readonly placeholder="${teamLoading?'…':''}" style="font-weight:700;letter-spacing:2px;text-align:center;flex:1 1 80px;min-width:0;">
-            ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-ghost" id="btn-share-invite-code" ${teamInviteCode?'':'disabled'}>${t('team_share_btn')}</button>` : ''}
-            <button type="button" class="btn btn-ghost" id="btn-copy-invite-code" ${teamInviteCode?'':'disabled'}>${t('team_copy_btn')}</button>
+          ${/* El código va en su PROPIA fila, a todo el ancho, y los botones
+               debajo: compartiendo fila con Compartir + Copiar quedaba en 49 px
+               en un Android de 360 ("ABC1") y en 20 px con letra grande
+               (auditoría UX 2026-09-11). El código es lo que el dueño tiene que
+               leer y dictar; no puede ceder ancho. */''}
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <input id="team-code-display" type="text" value="${escapeHtml(teamInviteCode)}" readonly placeholder="${teamLoading?'…':''}" style="font-weight:700;letter-spacing:2px;text-align:center;flex:1 1 100%;min-width:0;">
+            ${(typeof navigator!=='undefined' && navigator.share) ? `<button type="button" class="btn btn-ghost" id="btn-share-invite-code" ${teamInviteCode?'':'disabled'} style="flex:1 1 auto;white-space:nowrap;">${t('team_share_btn')}</button>` : ''}
+            <button type="button" class="btn btn-ghost" id="btn-copy-invite-code" ${teamInviteCode?'':'disabled'} style="flex:1 1 auto;white-space:nowrap;">${t('team_copy_btn')}</button>
           </div>
           <div class="helper-note" style="margin-bottom:0;">${t('team_your_code_hint')}</div>
         </div>
@@ -1494,11 +1502,15 @@ function monthRecapModal(){
           <div class="recap-col-period">${headLabel}</div>
           ${base ? `<div class="recap-col-vs">${t('recap_vs').replace('{p}', vsLabel)}</div>`
             : (emptyCol ? '' : `<div class="recap-col-vs muted">${t('recap_no_base').replace('{p}', vsLabel)}</div>`)}
-          ${isFocus && fin.hadOutflows ? `<div class="recap-verdict ${fin.net>=0?'pos':'neg'}">${fin.net>=0?'✅':'⚠️'} ${t(fin.net>=0?'recap_verdict_pos':'recap_verdict_neg')} · ${moneyAbs(fin.net)}</div>` : ''}
+          ${isFocus && fin.hadOutflows && (demo || canSeeFinancials()) ? `<div class="recap-verdict ${fin.net>=0?'pos':'neg'}">${fin.net>=0?'✅':'⚠️'} ${t(fin.net>=0?'recap_verdict_pos':'recap_verdict_neg')} · ${moneyAbs(fin.net)}</div>` : ''}
         </div>
         ${emptyCol ? `<div class="oc-empty" style="margin:14px 0;">${t('recap_empty')}</div>` : `
-        <div class="recap-section-title">${t('recap_pl_title')}</div>
-        ${fin.hadOutflows ? `
+        ${/* Ingresos, costo, ganancia y márgenes SOLO con permiso financiero: un
+             miembro con "ver ganancias" apagado veía acá todo lo que el
+             interruptor promete ocultar (auditoría UX 2026-09-11). */''}
+        ${(demo || canSeeFinancials()) ? `<div class="recap-section-title">${t('recap_pl_title')}</div>` : ''}
+        ${fin.hadOutflows && !(demo || canSeeFinancials()) ? crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false)) : ''}
+        ${fin.hadOutflows && (demo || canSeeFinancials()) ? `
         ${crow('💵', t(servicesOnly() ? 'recap_revenue_jobs' : 'recap_revenue'), money(fin.revenue), 'var(--money-pos-ink)', d(fin.revenue, base&&base.revenue, true))}
         ${/* Solo servicios y sin costo de mercadería: no hay nada que restar antes de los gastos (app-15). */''}
         ${(servicesOnly() && !(fin.cogs>0)) ? '' : `
@@ -1507,12 +1519,12 @@ function monthRecapModal(){
         ${crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false), '−')}
         ${crow('🏁', t('recap_net'), moneyAbs(fin.net), posNeg(fin.net), (d(fin.net, base&&base.net, true))+pctTxt(fin.netMarginPct, base&&base.netMarginPct), '=', 'rtotal')}
         ${isFocus && fin.revenue>0 ? wfSvg(fin) : ''}`
-        : `<div class="recap-note" style="padding:6px 2px;">${t('recap_no_outflows')}</div>`}
+        : (fin.hadOutflows ? '' : `<div class="recap-note" style="padding:6px 2px;">${t('recap_no_outflows')}</div>`)}
         ${svcRecapRows(pickKey, crow)}
         <div class="recap-section-title">${t('recap_cash_title')}</div>
         ${crow('📦', t('recap_cash_purchases'), money(fin.invested), 'var(--money-pos)', d(fin.invested, base&&base.invested, true))}
         ${fin.hadOutflows ? '' : crow('💸', t('spend_expenses'), money(fin.expense), 'var(--money-warn)', d(fin.expense, base&&base.expense, false))}
-        ${fin.hadOutflows ? crow('🪙', t('recap_cash_net'), moneyAbs(cashNet), posNeg(cashNet)) : ''}
+        ${fin.hadOutflows && (demo || canSeeFinancials()) ? crow('🪙', t('recap_cash_net'), moneyAbs(cashNet), posNeg(cashNet)) : ''}
         ${showBudget ? crow('🎯', t('recap_budget_used'), budgetPct+'%', budgetStatus(budgetPct)==='crit'?'var(--money-neg)':'var(--ink)',
           `<div class="recap-note">${budgetLeft>=0 ? t('recap_budget_left').replace('{amount}', money(budgetLeft)) : t('recap_budget_over').replace('{amount}', money(-budgetLeft))}${(budgetLeft>=0 && !isCur) ? ' '+t('recap_under_budget') : ''}</div>`) : ''}
         ${crow('🧾', t('recap_receipts'), String(fin.receiptsCount), null, d(fin.receiptsCount, base&&base.receiptsCount, true, dCnt))}
@@ -1646,14 +1658,14 @@ function monthRecapModal(){
     ${recapCompare && !cmp ? `<div class="recap-demo-banner">${t('recap_compare_hint')}</div>` : ''}
     ${cmp || spark}
     <div class="recap-cols" id="recap-cols">${cols}</div>
-    ${demo ? '' : `<div class="recap-note" style="padding:10px 2px 4px;">${t(servicesOnly() ? 'recap_est_note_svc' : 'recap_est_note')}</div>`}`;
+    ${(demo || !canSeeFinancials()) ? '' : `<div class="recap-note" style="padding:10px 2px 4px;">${t(servicesOnly() ? 'recap_est_note_svc' : 'recap_est_note')}</div>`}`;
   }
   return `
   <div class="oc-sheet ${showMonthRecap?'open':''}" id="recap-sheet" role="dialog" aria-modal="true" aria-label="${t('recap_title')}"${showMonthRecap?'':' aria-hidden="true"'}>
     <div class="oc-sheet-head">
       <span class="oc-title" style="flex:1;">${t('recap_title')}</span>
       ${/* "Reports": el informe del período enfocado en PDF (app-14). */''}
-      ${showMonthRecap && monthRecapKey && !recapDemo ? reportButtonHtml(monthRecapKey) : ''}
+      ${showMonthRecap && monthRecapKey && !recapDemo && canSeeFinancials() ? reportButtonHtml(monthRecapKey) : ''}
       <button type="button" class="oc-close" id="btn-close-month-recap" aria-label="${t('btn_close')}">✕</button>
     </div>
     ${body}

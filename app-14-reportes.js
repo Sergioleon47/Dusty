@@ -215,7 +215,8 @@ function buildMonthReport(key){
     kv(left >= 0 ? t('rp_left') : t('rp_over'), money(Math.abs(left)), '');
   }
   kv(t('rp_receipts'), String(fin.receiptsCount), '');
-  if(fin.hadOutflows){
+  // Ganancias solo con permiso financiero (mismo criterio que el cierre de mes en pantalla).
+  if(fin.hadOutflows && (typeof canSeeFinancials!=='function' || canSeeFinancials())){
     kv(t('recap_revenue'), money(fin.revenue), t('rp_vs_prev').replace('{d}', reportDelta(fin.revenue, prevFin.revenue)));
     kv(t('recap_cogs'), money(fin.cogs), '');
     kv(t('recap_gross'), money(fin.gross), fin.grossMarginPct != null ? Math.round(fin.grossMarginPct) + '% ' + t('recap_margin') : '');

@@ -113,10 +113,13 @@ function attachAccountEvents(){
       const email=document.getElementById('auth-email').value.trim();
       if(!email){ authError=t('auth_err_need_email'); render(); return; }
       authLoading=true; authError=''; render();
-      firebase.auth().sendPasswordResetEmail(email).then(()=>{
+      // Por ensurePatronFirebaseReady (como el botón de Google): si el SDK no
+      // cargó todavía, firebase.auth() reventaba en seco y el botón quedaba en
+      // "Un momento…" para siempre (auditoría UX 2026-09-11).
+      ensurePatronFirebaseReady().then(()=>firebase.auth().sendPasswordResetEmail(email)).then(()=>{
         authError=t('auth_reset_sent');
       }).catch(err=>{
-        authError=authErrorMessage(err.code);
+        authError=authErrorMessage(err && err.code);
       }).then(()=>{
         authLoading=false; render();
       });
@@ -137,11 +140,14 @@ function attachAccountEvents(){
       const password=document.getElementById('auth-password').value;
       if(!email || !password){ authError=t('auth_err_need_both'); render(); return; }
       authLoading=true; authError=''; render();
-      const action = authMode==='signup'
+      // Mismo motivo que "Olvidé mi contraseña": primero asegurar el SDK, y que
+      // una carga fallida caiga en el catch (mensaje) en vez de dejar el botón
+      // deshabilitado sin aviso (auditoría UX 2026-09-11).
+      ensurePatronFirebaseReady().then(()=> authMode==='signup'
         ? firebase.auth().createUserWithEmailAndPassword(email, password)
-        : firebase.auth().signInWithEmailAndPassword(email, password);
-      action.catch(err=>{
-        authError=authErrorMessage(err.code);
+        : firebase.auth().signInWithEmailAndPassword(email, password)
+      ).catch(err=>{
+        authError=authErrorMessage(err && err.code);
       }).then(()=>{
         authLoading=false; render();
       });

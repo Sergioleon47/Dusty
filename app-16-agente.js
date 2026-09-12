@@ -544,9 +544,11 @@ async function agentSend(text){
   agentMessages.push({role:'user', content: attach.map(a=>({type:'image', source:{type:'base64', media_type:a.mediaType, data:a.base64}})).concat([{type:'text', text}])});
   if(agentMessages.length>28) agentMessages = agentMessages.slice(-28);
   agentBusy = true; render(); agentScrollEnd();
+  const gen = agentGen; // si el usuario reinicia en el medio, este bucle se abandona
   try{
     for(let hop=0; hop<AGENT_MAX_HOPS; hop++){
       const res = await agentCall();
+      if(gen!==agentGen) return;
       const content = Array.isArray(res.content) ? res.content : [];
       agentMessages.push({role:'assistant', content});
       // La foto ya fue leída en este salto: las vueltas siguientes de la misma
@@ -562,6 +564,7 @@ async function agentSend(text){
         let result;
         if(AGENT_WRITE_TOOLS.indexOf(u.name)>=0){
           const yes = await agentWaitConfirm(u);
+          if(gen!==agentGen) return;
           result = yes ? agentExec(u.name, u.input) : JSON.stringify({ok:false, cancelled:true});
           if(yes){ const card = agentUi.find(c=>c.toolId===u.id); if(card) card.done = JSON.parse(result).ok ? 'ok' : 'fail'; }
         } else {
@@ -573,11 +576,13 @@ async function agentSend(text){
       render(); agentScrollEnd();
     }
   }catch(e){
+    if(gen!==agentGen) return; // reiniciado en el medio: la hoja ya está limpia
     agentError = (e && e.message) || t('agent_err_generic');
     agentPush('note', agentError);
     // El último turno quedó sin respuesta: se saca para que la conversación siga válida.
     if(agentMessages.length && agentMessages[agentMessages.length-1].role==='user') agentMessages.pop();
   }
+  if(gen!==agentGen) return;
   agentStripImages();
   agentBusy = false; agentPending = null; render(); agentScrollEnd();
 }
@@ -587,7 +592,18 @@ function agentStripImages(){
   agentMessages.forEach(m=>{ if(m.role==='user' && Array.isArray(m.content)) m.content = m.content.map(b=>b.type==='image' ? {type:'text', text:'[imagen enviada antes]'} : b); });
 }
 function agentScrollEnd(){ requestAnimationFrame(()=>{ const el = document.getElementById('agent-thread'); if(el) el.scrollTop = el.scrollHeight; }); }
-function agentReset(){ agentMessages = []; agentUi = []; agentPending = null; agentError = ''; }
+/* Reiniciar con una tarjeta de confirmación pendiente dejaba el asistente
+   trabado para siempre (auditoría UX 2026-09-11): agentSend seguía esperando la
+   promesa de la tarjeta y agentBusy nunca bajaba. Ahora la promesa se resuelve
+   como "cancelado", el bucle viejo se abandona por generación (agentGen) y la
+   hoja vuelve a la bienvenida lista para escribir. */
+let agentGen = 0;
+function agentReset(){
+  agentGen++;
+  if(agentPending){ const p = agentPending; agentPending = null; try{ p.resolve(false); }catch(e){} }
+  agentMessages = []; agentUi = []; agentPending = null; agentError = ''; agentBusy = false;
+  try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+}
 
 /* ---------- voz ---------- */
 function agentSpeak(text){
