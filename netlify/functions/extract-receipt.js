@@ -26,6 +26,7 @@ const {
   isAllowedOrigin, verifyCallerInfo,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
   checkIpRateLimit, getAccessState, subscriptionRequiredResponse,
+  upstreamSignal, isAbortError, upstreamTimeoutResponse,
   withCors
 } = require('./lib/patron-admin');
 
@@ -37,6 +38,15 @@ const {
    mejor de las dos lecturas. Cuenta una sola unidad de cupo igual. */
 const SCAN_MODEL = process.env.SCAN_MODEL || 'claude-sonnet-5';
 const SCAN_MODEL_BIG = process.env.SCAN_MODEL_BIG || 'claude-opus-5';
+/* La relectura con el modelo grande es la SEGUNDA llamada de la misma función:
+   si la primera ya tardó, la segunda se pasaba del tiempo que Netlify permite y
+   la función moría sin contestar — sin refund y tirando la lectura de Sonnet,
+   que era usable (auditoría de datos 2026-09-12). Solo se escala si la primera
+   volvió antes de este umbral; si no, se devuelve la lectura rápida con sus
+   dudas (reading.doubts) y el cliente sigue con lo que hay. Y la propia llamada
+   a Claude lleva señal de aborto con lo que queda del presupuesto (patron-admin). */
+const SCAN_ESCALATE_AFTER_MS = Math.max(1000, parseInt(process.env.DUSTY_SCAN_ESCALATE_AFTER_MS || '9000', 10) || 9000);
+function canEscalate(elapsedMs) { return Number.isFinite(elapsedMs) && elapsedMs < SCAN_ESCALATE_AFTER_MS; }
 function num(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; }
 // Motivos por los que UNA lectura de recibo merece releerse con el modelo grande.
 function weakReasonsOne(r) {
@@ -194,7 +204,9 @@ SOBRE "truncated": true si el recibo parece CORTADO en la foto — el total fina
 }
 
 exports.weakReasons = weakReasons;
+exports.canEscalate = canEscalate;
 exports.handler = withCors(async (event) => {
+  const startedAt = Date.now();
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
   }
@@ -318,13 +330,18 @@ exports.handler = withCors(async (event) => {
      {ok:false, status, body, refund} con la respuesta de error ya armada. */
   const readOnce = async (model) => {
     const deep = model === SCAN_MODEL_BIG;
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    let response, data;
+    try {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
+      // Se aborta con lo que queda del presupuesto de la función: mejor un
+      // upstream_timeout claro (con refund) que el corte mudo del gateway.
+      signal: upstreamSignal(startedAt),
       body: JSON.stringify(Object.assign({
         model,
         // Con varios recibos en una misma foto la respuesta puede ser bastante más larga
@@ -350,8 +367,14 @@ exports.handler = withCors(async (event) => {
           }
         ]
       }, deep ? { output_config: { effort: 'medium' } } : {}))
-    });
-    const data = await response.json();
+      });
+      data = await response.json();
+    } catch (e) {
+      if (!isAbortError(e)) throw e;
+      // Se abortó por tiempo: Anthropic no cobra una llamada que no terminó.
+      const r = upstreamTimeoutResponse();
+      return { ok: false, refund: true, status: r.statusCode, body: r.body };
+    }
     if (data.error) {
       // Error a nivel de API (sobrecarga, rate limit, pedido rechazado): Anthropic
       // NO cobra estas llamadas, así que la unidad reservada se devuelve — sin
@@ -397,7 +420,9 @@ exports.handler = withCors(async (event) => {
     let receiptData = first.receiptData;
     let reasons = deep ? [] : weakReasons(receiptData, multi);
     let escalated = false;
-    if (reasons.length) {
+    if (reasons.length && !canEscalate(Date.now() - startedAt)) {
+      console.log('[Dusty] recibo flojo con ' + SCAN_MODEL + ' (' + reasons.join(',') + ') pero sin tiempo para releer: se devuelve la lectura rápida');
+    } else if (reasons.length) {
       console.log('[Dusty] recibo flojo con ' + SCAN_MODEL + ' (' + reasons.join(',') + '): releyendo con ' + SCAN_MODEL_BIG);
       try {
         const second = await readOnce(SCAN_MODEL_BIG);

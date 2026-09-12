@@ -15,10 +15,13 @@
 /* ---------- ESTADO ---------- */
 let recipes = [];          // {id, name, photo:{base64,mediaType}|null, components:[{ingId, qty}], createdAt, lastEditedBy, lastEditedAt}
 let deletedRecipeIds = []; // lápidas — mismo mecanismo que deletedInventoryIds (ver app-01)
-/* Historial de salidas: producciones y ajustes de estante. Viaja dentro del doc
-   meta (como calNotes) — por eso se CAPA a las últimas OUTFLOWS_MAX entradas: el
-   registro financiero de verdad son las compras/recibos, esto es el "qué salió y
-   cuándo" informativo. Más nuevo primero. */
+/* Historial de salidas: producciones y ajustes de estante — y desde el modo
+   Servicios, también los TRABAJOS (type:'service') y las COTIZACIONES
+   (type:'quote'). Viaja dentro del doc meta (como calNotes) — por eso se CAPA a
+   OUTFLOWS_MAX entradas: el registro financiero de verdad son las compras/recibos,
+   esto es el "qué salió y cuándo" informativo. Más nuevo primero. El corte lo
+   hace capOutflows (patron-core), que nunca descarta un registro abierto (ver
+   outflowIsOpen). */
 let outflows = []; // {id, type:'production'|'adjust', recipeId, recipeName, count, items:[{ingId, ingName, qty, unit, costAt, priceAt}], date, createdAt, by, byLabel, reason?, saleTotal?, costTotal?}
 const OUTFLOWS_MAX = 400;
 /* Resumen financiero de las salidas que el cap evictó: {'YYYY-MM': {revenue, cogs}}.
@@ -84,6 +87,18 @@ function recipePhotoSrc(r){
 
    La receta sigue siendo la COMPOSICIÓN (qué lleva); el ítem es el STOCK (cuántas
    hay y a cuánto salieron). Se emparejan por recipeId. */
+/* ID DETERMINISTA del producto terminado (auditoría de datos 2026-09-12): sale
+   de la receta, no del azar. Dos teléfonos del mismo equipo que fabricaban la
+   misma pieza por primera vez sin señal creaban cada uno SU ítem terminado con
+   un id distinto; al sincronizar quedaban dos filas para la misma receta —
+   finishedItemFor solo veía la primera, la segunda quedaba huérfana (sumaba al
+   Valor del inventario pero no se podía producir sobre ella ni renombrar) y
+   hasta podía ofrecerse como insumo de su propia receta. Con el mismo id en los
+   dos lados, el sync por documento los funde en uno solo. Los terminados
+   creados antes conservan su id al azar: finishedItemFor empareja por recipeId,
+   no por el id, y dedupeFinishedItems funde cualquier duplicado que haya
+   quedado de aquella carrera. */
+function finishedItemId(recipe){ return 'fg-' + recipe.id; }
 function finishedItemFor(recipe){
   if(!recipe) return null;
   return inventory.find(i => i && i.finishedGood && i.recipeId === recipe.id) || null;
@@ -95,7 +110,7 @@ function ensureFinishedItem(recipe){
   let item = finishedItemFor(recipe);
   if(item) return item;
   item = {
-    id: uid('i'), name: recipe.name, unit: 'unidad',
+    id: finishedItemId(recipe), name: recipe.name, unit: 'unidad',
     costPerUnit: 0, qtyOnHand: 0, stockFullRef: null,
     salePrice: Number(recipe.salePrice)>0 ? recipe.salePrice : 0,
     photo: recipe.photo || null,
@@ -116,6 +131,58 @@ function syncFinishedItem(recipe){
   item.photo = recipe.photo || null;
   if(Number(recipe.salePrice) > 0) item.salePrice = recipe.salePrice;
 }
+/* Dos (o más) productos terminados para la MISMA receta se funden en uno: la
+   cantidad se suma y el costo queda como promedio ponderado de los dos stocks
+   (weightedAvgCost), así el Valor del inventario no cambia ni un centavo. Gana
+   el id determinista (finishedItemId) si existe; si no, el id menor — el mismo
+   criterio en todos los dispositivos, para que todos elijan el mismo ganador.
+   Los perdedores se borran con lápida (deletedInventoryIds), igual que un
+   borrado a mano, así la nube tampoco los devuelve. Corre al principio de cada
+   saveState (idempotente: sin duplicados no toca nada). Devuelve si cambió algo. */
+function dedupeFinishedItems(){
+  const byRecipe = new Map();
+  inventory.forEach(i=>{
+    if(!i || !i.finishedGood || !i.recipeId) return;
+    const arr = byRecipe.get(i.recipeId) || [];
+    arr.push(i);
+    byRecipe.set(i.recipeId, arr);
+  });
+  let changed = false;
+  byRecipe.forEach((list, recipeId)=>{
+    if(list.length < 2) return;
+    const detId = 'fg-' + recipeId;
+    list.sort((a,b)=> ((a.id===detId?0:1) - (b.id===detId?0:1)) || String(a.id).localeCompare(String(b.id)));
+    const keep = list[0];
+    list.slice(1).forEach(dup=>{
+      const q0 = Number(keep.qtyOnHand)||0, q1 = Number(dup.qtyOnHand)||0;
+      keep.costPerUnit = weightedAvgCost(q0, keep.costPerUnit, q1, q1*(Number(dup.costPerUnit)||0));
+      keep.qtyOnHand = roundQty(q0 + q1);
+      if(!(keep.stockFullRef>0) || keep.qtyOnHand > keep.stockFullRef) keep.stockFullRef = keep.qtyOnHand;
+      if(!(Number(keep.salePrice)>0) && Number(dup.salePrice)>0) keep.salePrice = dup.salePrice;
+      if(!keep.photo && dup.photo) keep.photo = dup.photo;
+      if(currentUser){ keep.lastEditedBy = currentUserLabel(); keep.lastEditedAt = new Date().toISOString(); }
+      inventory = inventory.filter(i=>i!==dup);
+      if(!deletedInventoryIds.includes(dup.id)) deletedInventoryIds.push(dup.id);
+      changed = true;
+    });
+  });
+  return changed;
+}
+/* Antes de descartar una salida, su aporte financiero se consolida en el archivo
+   mensual — la historia del P&L no se achica (revisión de contador 2026-09-04).
+   Comparten esto recordOutflow, la carga del estado (applyStateData, app-03) y
+   los dos merges con la nube (app-02): los cuatro cortan con la MISMA
+   capOutflows (patron-core, con pruebas) y archivan lo mismo que descartan. */
+function archiveEvictedOutflows(evicted){
+  (evicted||[]).forEach(o=>{
+    const pl = outflowPL(o);
+    const k = o && monthKey(o.date);
+    if(!pl || !k) return;
+    const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
+    a.revenue = roundQty(a.revenue + pl.revenue);
+    a.cogs = roundQty(a.cogs + pl.cogs);
+  });
+}
 function recordOutflow(entry){
   outflows.unshift(entry);
   trimOutflows();
@@ -125,19 +192,11 @@ function recordOutflow(entry){
    servicios sin cobrar, la plantilla de un contrato ni una cotización abierta
    (auditoría de Servicios 2026-09-12: un cobro pendiente de enero desaparecía de
    Por cobrar al pasar las 400 salidas, y su precio quedaba archivado como si se
-   hubiera cobrado). Antes de descartar, el aporte financiero de cada salida
-   evictada se consolida en el archivo mensual — la historia del P&L no se achica. */
+   hubiera cobrado). */
 function trimOutflows(){
   if(outflows.length <= OUTFLOWS_MAX) return false;
   const cut = capOutflows(outflows, OUTFLOWS_MAX);
-  cut.evicted.forEach(o=>{
-    const pl = outflowPL(o);
-    const k = o && monthKey(o.date);
-    if(!pl || !k) return;
-    const a = outflowArchive[k] || (outflowArchive[k] = {revenue:0, cogs:0});
-    a.revenue = roundQty(a.revenue + pl.revenue);
-    a.cogs = roundQty(a.cogs + pl.cogs);
-  });
+  archiveEvictedOutflows(cut.evicted);
   if(!cut.evicted.length) return false;
   outflows.length = 0;
   cut.kept.forEach(o=>outflows.push(o));
@@ -1073,6 +1132,10 @@ function produceModal(){
 }
 
 function applyProduction(){
+  // Mismo candado que al abrir el modal: si la cuenta se cerró mientras el
+  // modal estaba abierto (402 de otra llamada), Firestore rechazaría la escritura
+  // y el descuento quedaría solo en este teléfono, distinto de la nube.
+  if(!requireWriteAccess()) return;
   const rec = recipeById(produceRecipeId);
   if(!rec) return;
   const count = Math.max(1, Math.round(Number(produceCount)||1));

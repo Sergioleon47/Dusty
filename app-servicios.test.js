@@ -238,11 +238,11 @@ test('cobrar y eliminar pasan por un solo camino: sello para la nube, borrado su
   assert.equal(correr(`{ const j = outflows.find(o=>o.id==='j3'); JSON.stringify([j.paid, j.paidDate, j.dueDate, !!j.lastEditedAt]) }`), JSON.stringify([true, '2026-04-02', null, true]));
   assert.equal(correr(`markJobPaid(jobById('j3'))`), true, 'volver a cobrar no rompe');
   correr(`{ const j = jobById('j3'); j.paid = false; j.paidDate = null; j.dueDate = '2026-04-16'; }`);
-  assert.equal(correr(`deleteJob(jobById('j3'))`), 0, 'sin contrato no hay ocurrencias que retirar');
+  assert.equal(correr(`JSON.stringify(deleteJob(jobById('j3')))`), JSON.stringify({pruned: 0, restocked: 0}), 'sin contrato no hay ocurrencias que retirar ni stock que devolver');
   assert.equal(correr(`jobById('j3')`), null, 'un trabajo borrado ya no se encuentra por id');
   assert.equal(correr(`outflows.find(o=>o.id==='j3').deleted`), true, 'pero sigue en el arreglo como lápida');
   assert.equal(correr(`collectStats().pending`), 0);
-  assert.equal(correr(`deleteJob(outflows.find(o=>o.id==='j3'))`), 0, 'borrar dos veces no hace nada');
+  assert.equal(correr(`JSON.stringify(deleteJob(outflows.find(o=>o.id==='j3')))`), JSON.stringify({pruned: 0, restocked: 0}), 'borrar dos veces no hace nada');
 });
 
 test('la app estuvo cerrada semanas: solo se recuperan los últimos 14 días del contrato, el resto se avisa', () => {

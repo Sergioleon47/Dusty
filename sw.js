@@ -525,7 +525,12 @@
 // al cambiar de vista, no en redibujados de fondo — app-05 + css.
 // v155: temas CLAROS mas vivos (App Store, Crema, Pastel, Coral, Miel): menos
 // blanco arriba y mas cuerpo abajo en baldosas y botones; los oscuros igual -- css.
-const CACHE_NAME = 'patron-shell-v171';
+// v172: fusión de la auditoría de datos 2026-09-12 (rama en la nube) sobre la
+// auditoría de Servicios del mismo día: producto terminado con id determinista
+// y fusión de duplicados, cotizaciones con productos descuentan y devuelven
+// stock, nota de cobro con id 'svc-cobro-*' (deja sin efecto lápidas viejas
+// 'svc-due-*'), escáneres con presupuesto de tiempo — app-02/03/08/15/16/17.
+const CACHE_NAME = 'patron-shell-v172';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

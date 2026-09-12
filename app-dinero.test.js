@@ -31,7 +31,10 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-function nuevaApp(){
+/* opts.servicios: carga también app-15 (modo Servicios) y app-17 (cotizaciones),
+   para probar el cruce entre trabajos/cotizaciones y el inventario físico. */
+function nuevaApp(opts){
+  const servicios = !!(opts && opts.servicios);
   const guardado = {};
   const localStorage = {
     getItem: k => (k in guardado ? guardado[k] : null),
@@ -69,6 +72,7 @@ function nuevaApp(){
   cargar('app-03-base.js');
   cargar('app-06-modales.js');
   cargar('app-08-produccion.js');
+  if(servicios){ cargar('app-15-servicios.js'); cargar('app-17-cotizaciones.js'); }
 
   // Lo que vive en los módulos que no se cargan (nube, render, eventos, producción).
   correr(`
@@ -101,11 +105,14 @@ function nuevaApp(){
     function uploadRecipePhoto(){}
     function openUpgradeModal(){}
     function isTrialUser(){ return false; }
+    function openPaywall(){}
     var currentUser = null;
     var priceAlertThreshold = 15, businessName = '', monthlyBudget = null;
     var budgetMeta = normalizeBudgetMeta(null);
-    // Modo Servicios (app-15, no se carga acá): lo que app-03/app-06 tocan de él.
-    var bizProfile = normalizeBizProfile(null), receiptAttach = null;
+    // Modo Servicios (app-15): lo que app-03/app-06 tocan de él. receiptAttach lo
+    // declara app-15 cuando se carga (opts.servicios); si no, se declara acá.
+    var bizProfile = normalizeBizProfile(null);
+    ${servicios ? '' : 'var receiptAttach = null;'}
     var profitsVisibleToMembers = false, categories = null, expenseCategories = [];
     var cycleCountPct = 20, cycleCountIntervalDays = 3, cycleCountLastDate = null, cycleCountCursor = 0;
 
@@ -578,4 +585,205 @@ test('borrar un recibo del medio deja el promedio de los otros dos, no el ultimo
   // El ultimo precio habria dicho $20.
   correr(`borrar(receipts[1].id, true)`);
   assert.equal(correr(`producto('Clavo').costPerUnit`), 15);
+});
+
+
+/* ---------- AUDITORÍA DE DATOS 2026-09-12: cruces entre módulos ---------- */
+
+test('la misma foto no entra dos veces como página del recibo', () => {
+  const { correr } = nuevaApp();
+  correr(`scanImages = [{base64:'AAA', mediaType:'image/jpeg'}];`);
+  assert.equal(correr(`scanPageIsDuplicate('AAA')`), true, 'idéntica: se descarta');
+  assert.equal(correr(`scanPageIsDuplicate('BBB')`), false, 'otra foto: pasa');
+  assert.equal(correr(`scanPageIsDuplicate('')`), false);
+});
+
+test('dos productos terminados de la misma receta (carrera entre dispositivos) se funden en uno', () => {
+  const { correr } = nuevaApp();
+  correr(`
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:1}]});
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:100, salePrice:0});
+    inventory.push({id:'fg-rc1', name:'Tablero', unit:'unidad', costPerUnit:40, qtyOnHand:10, finishedGood:true, recipeId:'rc1', salePrice:100});
+    inventory.push({id:'iotro12', name:'Tablero', unit:'unidad', costPerUnit:60, qtyOnHand:5, finishedGood:true, recipeId:'rc1', salePrice:100});
+    var valorAntes = valorInventario();
+    saveState();
+  `);
+  assert.equal(correr(`inventory.filter(i=>i.finishedGood).length`), 1, 'queda una sola fila');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).id`), 'fg-rc1', 'gana el id determinista');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).qtyOnHand`), 15, 'las cantidades se suman');
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).costPerUnit`), 46.6667, 'costo = promedio ponderado de los dos stocks');
+  assert.ok(Math.abs(correr(`valorInventario() - valorAntes`)) < 0.01, 'el Valor del inventario no se mueve');
+  assert.ok(correr(`deletedInventoryIds.includes('iotro12')`), 'el perdedor queda con lápida para la nube');
+  // Producir sobre la receta sigue funcionando y usa el id determinista.
+  correr(`produceRecipeId='rc1'; produceCount=2; applyProduction();`);
+  assert.equal(correr(`inventory.filter(i=>i.finishedGood).length`), 1);
+  assert.equal(correr(`finishedItemFor(recipeById('rc1')).qtyOnHand`), 17);
+});
+
+test('un producto terminado nuevo nace con id determinista (el mismo en cualquier dispositivo)', () => {
+  const ids = [1,2].map(()=>{
+    const { correr } = nuevaApp();
+    correr(`
+      inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:100, salePrice:0});
+      recipes.push({id:'rc9', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:1}]});
+      produceRecipeId='rc9'; produceCount=1; applyProduction();
+    `);
+    return correr(`finishedItemFor(recipeById('rc9')).id`);
+  });
+  assert.equal(ids[0], ids[1]);
+  assert.equal(ids[0], 'fg-rc9');
+});
+
+test('con la cuenta cerrada (solo lectura) producir no toca el stock', () => {
+  const { correr } = nuevaApp();
+  correr(`
+    inventory.push({id:'i1', name:'Cable', unit:'unidad', costPerUnit:4, qtyOnHand:100, salePrice:0});
+    recipes.push({id:'rc1', name:'Tablero', salePrice:100, components:[{ingId:'i1', qty:10}]});
+    accessState = {locked:true};
+    produceRecipeId='rc1'; produceCount=3; applyProduction();
+  `);
+  assert.equal(correr(`inventory[0].qtyOnHand`), 100, 'no salió nada');
+  assert.equal(correr(`inventory.length`), 1, 'no nació ningún terminado');
+  assert.equal(correr(`outflows.length`), 0);
+});
+
+test('el tope de salidas no se lleva trabajos por cobrar ni cotizaciones abiertas', () => {
+  const { correr } = nuevaApp({servicios:true});
+  correr(`
+    bizProfile.services = true;
+    for(let k=0;k<3;k++) outflows.push({id:'jobv'+k, type:'service', date:'2025-01-1'+k, client:'C'+k, price:100, paid:false, dueDate:'2025-02-01', dueDays:15, createdAt:'2025-01-0'+(k+1)+'T00:00:00Z', items:[]});
+    outflows.push({id:'qopen', type:'quote', status:'sent', date: localDateStr(), validDays:30, client:'Q', lines:[{desc:'x', qty:1, price:50}], createdAt:'2025-01-05T00:00:00Z'});
+    outflows.push({id:'jpaid', type:'service', date:'2025-01-20', client:'P', price:70, paid:true, paidDate:'2025-01-25', createdAt:'2025-01-06T00:00:00Z', items:[]});
+    for(let k=0;k<400;k++) outflows.unshift({id:'o'+String(k).padStart(3,'0'), type:'production', producedItemId:'x', recipeId:'r', recipeName:'R', count:1, items:[], costTotal:0, date:'2025-03-01', createdAt:'2025-03-01T00:'+String(Math.floor(k/60)).padStart(2,'0')+':'+String(k%60).padStart(2,'0')+'Z'});
+    recordOutflow({id:'nuevo', type:'adjust', reason:'sale', items:[], date: localDateStr(), createdAt: new Date().toISOString()});
+  `);
+  assert.equal(correr(`outflows.length`), 400, 'se respeta el tope');
+  assert.equal(correr(`outflows.filter(o=>o.type==='service' && !o.paid).length`), 3, 'los cobros pendientes siguen');
+  assert.ok(correr(`!!outflows.find(o=>o.id==='qopen')`), 'la cotización abierta sigue');
+  assert.ok(correr(`!!outflows.find(o=>o.id==='nuevo')`), 'lo recién registrado entra');
+  assert.ok(correr(`!outflows.find(o=>o.id==='jpaid')`), 'el cobrado viejo sí se evicta (era el más viejo evictable)');
+  assert.equal(correr(`(outflowArchive['2025-01']||{}).revenue`), 70, 'y su ingreso quedó archivado en su mes');
+  assert.ok(correr(`!outflows.find(o=>o.id==='o000') && !!outflows.find(o=>o.id==='o399')`), 'de las producciones caen las más viejas');
+});
+
+test('aceptar una cotización con productos descuenta el stock y el Cierre lleva ingreso y costo de lo vendido', () => {
+  const { correr } = nuevaApp({servicios:true});
+  correr(`
+    bizProfile.services = true; bizProfile.sells = true;
+    bizProfile.catalog.push({id:'sv1', name:'Instalación', desc:'', price:200, unit:'fixed'});
+    inventory.push({id:'i1', name:'Breaker', unit:'unidad', costPerUnit:10, qtyOnHand:50, salePrice:25});
+    draftQuote = {id:null, client:'Ana', clientId:null, date: localDateStr(), validDays:15, notes:'', discount:0, taxPct:0,
+      lines:[{desc:'Instalación', qty:1, unit:'fixed', price:200}, {desc:'Breaker', qty:4, unit:'unidad', price:25}]};
+    var q = saveQuoteFromDraft(); draftQuote = null;
+    var valorAntes = valorInventario();
+    var job = acceptQuote(q); resetFinancialCache();
+  `);
+  assert.equal(correr(`q.lines[1].itemId`), 'i1', 'la línea de producto quedó enlazada al inventario');
+  assert.equal(correr(`producto('Breaker').qtyOnHand`), 46, 'salieron 4 breakers');
+  assert.equal(correr(`job.price`), 300, 'el trabajo vale el total de la cotización');
+  assert.equal(correr(`JSON.stringify(job.items.map(i=>[i.ingId, i.qty, i.costAt, i.priceAt, i.reason]))`), '[["i1",4,10,25,"sale"]]');
+  const fin = JSON.parse(correr(`JSON.stringify(periodFinancials(localMonthStr()))`));
+  assert.equal(fin.revenue, 300, 'ingreso = precio del trabajo (incluye los productos, no se cuenta dos veces)');
+  assert.equal(fin.cogs, 40, 'costo de lo vendido = 4 × $10');
+  assert.equal(fin.gross, 260);
+  assert.equal(correr(`valorAntes - valorInventario()`), 40, 'el Valor del inventario bajó exactamente el costo de lo que salió');
+  // Aceptar de nuevo es idempotente: mismo trabajo, sin volver a descontar.
+  assert.equal(correr(`acceptQuote(q).id`), correr(`job.id`));
+  assert.equal(correr(`producto('Breaker').qtyOnHand`), 46);
+  assert.equal(correr(`quoteState(q)`), 'accepted');
+});
+
+test('una cotización sin stock suficiente descuenta lo que hay y anota lo que faltó', () => {
+  const { correr } = nuevaApp({servicios:true});
+  correr(`
+    bizProfile.services = true; bizProfile.sells = true;
+    inventory.push({id:'i1', name:'Breaker', unit:'unidad', costPerUnit:10, qtyOnHand:3, salePrice:25});
+    draftQuote = {id:null, client:'Ana', clientId:null, date: localDateStr(), validDays:15, notes:'', discount:0, taxPct:0,
+      lines:[{desc:'Breaker', qty:5, unit:'unidad', price:25}]};
+    var q = saveQuoteFromDraft(); draftQuote = null;
+    var job = acceptQuote(q); resetFinancialCache();
+  `);
+  assert.equal(correr(`producto('Breaker').qtyOnHand`), 0, 'nunca queda negativo');
+  assert.equal(correr(`job.items[0].qty`), 3);
+  assert.equal(correr(`job.items[0].short`), 2);
+  const fin = JSON.parse(correr(`JSON.stringify(periodFinancials(localMonthStr()))`));
+  assert.equal(fin.revenue, 125, 'el ingreso es lo cotizado');
+  assert.equal(fin.cogs, 30, 'el costo, solo de lo que de verdad salió');
+});
+
+test('eliminar el trabajo de una cotización devuelve sus productos al inventario, una sola vez', () => {
+  const { correr } = nuevaApp({servicios:true});
+  correr(`
+    bizProfile.services = true; bizProfile.sells = true;
+    inventory.push({id:'i1', name:'Breaker', unit:'unidad', costPerUnit:10, qtyOnHand:50, salePrice:25});
+    draftQuote = {id:null, client:'Ana', clientId:null, date: localDateStr(), validDays:15, notes:'', discount:0, taxPct:0,
+      lines:[{desc:'Breaker', qty:4, unit:'unidad', price:25}]};
+    var q = saveQuoteFromDraft(); draftQuote = null;
+    var job = acceptQuote(q);
+    job.deleted = true; var n1 = restoreJobStock(job); var n2 = restoreJobStock(job); saveState(); resetFinancialCache();
+  `);
+  assert.equal(correr(`n1`), 1);
+  assert.equal(correr(`n2`), 0, 'la segunda vez no devuelve nada');
+  assert.equal(correr(`producto('Breaker').qtyOnHand`), 50);
+  const fin = JSON.parse(correr(`JSON.stringify(periodFinancials(localMonthStr()))`));
+  assert.equal(fin.revenue, 0, 'un trabajo borrado no aporta nada');
+  assert.equal(fin.cogs, 0);
+  // Aceptar de nuevo la cotización crea un trabajo NUEVO (el anterior está borrado).
+  correr(`var job2 = acceptQuote(q);`);
+  assert.notEqual(correr(`job2.id`), correr(`job.id`));
+  assert.equal(correr(`producto('Breaker').qtyOnHand`), 46);
+});
+
+test('despagar un trabajo devuelve su cobro al calendario; lo borrado a mano no vuelve', () => {
+  const { correr } = nuevaApp({servicios:true});
+  correr(`
+    bizProfile.services = true;
+    var j = {id:'jobA1', type:'service', date: localDateStr(), client:'Ana', price:100, paid:false, dueDate: addDaysStr(localDateStr(), 15), dueDays:15, createdAt:new Date().toISOString(), items:[]};
+    recordOutflow(j); saveState();
+  `);
+  const cobro = `calNotes.find(n=>n.svcKind==='due' && n.jobId==='jobA1')`;
+  assert.ok(correr(`!!${cobro}`), 'pendiente: el cobro está en el calendario');
+  correr(`j.paid = true; j.paidDate = localDateStr(); j.dueDate = null; saveState();`);
+  assert.ok(correr(`!${cobro}`), 'cobrado: el cobro se va');
+  assert.equal(correr(`deletedCalNoteIds.length`), 0, 'y no deja lápida: es una nota derivada');
+  correr(`j.paid = false; j.paidDate = null; j.dueDate = addDaysStr(localDateStr(), 15); saveState();`);
+  assert.ok(correr(`!!${cobro}`), 'despagado: el cobro VUELVE');
+  correr(`var id = ${cobro}.id; calNotes = calNotes.filter(n=>n.id!==id); deletedCalNoteIds.push(id); saveState();`);
+  assert.ok(correr(`!${cobro}`), 'borrado a mano por el usuario: no se vuelve a crear');
+  // Una cuenta con la lápida VIEJA ('svc-due-…', de antes de este cambio) no queda trabada.
+  correr(`deletedCalNoteIds = ['svc-due-jobB2']; var k = {id:'jobB2', type:'service', date: localDateStr(), client:'Bo', price:50, paid:false, dueDate: addDaysStr(localDateStr(), 7), dueDays:7, createdAt:new Date().toISOString(), items:[]}; recordOutflow(k); saveState();`);
+  assert.ok(correr(`!!calNotes.find(n=>n.svcKind==='due' && n.jobId==='jobB2')`), 'la lápida vieja ya no muerde');
+});
+
+test('una cotización abierta aparece en el calendario el día que vence y se va al aceptarla', () => {
+  const { correr } = nuevaApp({servicios:true});
+  correr(`
+    bizProfile.services = true;
+    bizProfile.catalog.push({id:'sv1', name:'Flete', desc:'', price:120, unit:'fixed'});
+    draftQuote = {id:null, client:'Ana', clientId:null, date: localDateStr(), validDays:7, notes:'', discount:0, taxPct:0, lines:[{desc:'Flete', qty:1, unit:'fixed', price:120}]};
+    var q = saveQuoteFromDraft(); draftQuote = null;
+  `);
+  const nota = `calNotes.find(n=>n.svcKind==='quote' && n.quoteId===q.id)`;
+  assert.ok(correr(`!!${nota}`), 'abierta: hay nota');
+  assert.equal(correr(`${nota}.date`), correr(`quoteValidUntil(q)`), 'el día que vence');
+  assert.match(correr(`${nota}.text`), /Ana/);
+  correr(`acceptQuote(q);`);
+  assert.ok(correr(`!${nota}`), 'aceptada: la nota se va');
+  assert.ok(correr(`!!calNotes.find(n=>n.svcKind==='due' && n.jobId===q.jobId)`), 'y aparece el cobro del trabajo');
+});
+
+test('las ocurrencias de un contrato tienen el mismo id en cualquier dispositivo', () => {
+  const ids = [1,2].map(()=>{
+    const { correr } = nuevaApp({servicios:true});
+    correr(`
+      bizProfile.services = true;
+      recordOutflow({id:'tpl1', type:'service', date: localDateStr(), client:'Ana', serviceName:'Limpieza', price:100, paid:false, dueDays:15, repeat:'weekly', createdAt:new Date().toISOString(), items:[]});
+      saveState();
+    `);
+    return correr(`JSON.stringify(svcJobs().filter(j=>j.parentId==='tpl1').map(j=>j.id+'@'+j.date))`);
+  });
+  assert.equal(ids[0], ids[1], 'mismo contrato, mismas fechas → mismos ids');
+  const lista = JSON.parse(ids[0]);
+  assert.ok(lista.length >= 1, 'generó ocurrencias dentro de los 14 días');
+  assert.ok(lista.every(s=>/^job-.+@\d{4}-\d{2}-\d{2}$/.test(s)), 'con forma de id de trabajo (job-<contrato>-<fecha>, svcChildId)');
 });

@@ -2907,20 +2907,23 @@
   .cal-dots i.svc-job{background:var(--money-pos);}
   .cal-dots i.svc-due{background:var(--money-warn);}
   .cal-dots i.svc-maint{background:var(--money-neg);}
+  .cal-dots i.svc-quote{background:var(--navy);}
   .mc-day.note.svc-job::before{background:var(--money-pos);}
   .mc-day.note.svc-due::before{background:var(--money-warn);}
   .mc-day.note.svc-maint::before{background:var(--money-neg);}
+  .mc-day.note.svc-quote::before{background:var(--navy);}
   /* Misma tinta que la línea "N recibos" de arriba: la leyenda vive dentro de la tarjeta azul del calendario. */
   .svc-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin:8px 0 2px;font-size:calc(11px * var(--fs, 1));font-weight:700;color:var(--tile-sub);}
   .svc-legend span{display:inline-flex;align-items:center;gap:5px;}
   .svc-legend i{width:7px;height:7px;border-radius:50%;background:var(--saffron);box-shadow:0 0 0 1.5px rgba(255,255,255,.6);}
-  .svc-legend i.svc-job{background:var(--money-pos);} .svc-legend i.svc-due{background:var(--money-warn);} .svc-legend i.svc-maint{background:var(--money-neg);}
+  .svc-legend i.svc-job{background:var(--money-pos);} .svc-legend i.svc-due{background:var(--money-warn);} .svc-legend i.svc-maint{background:var(--money-neg);} .svc-legend i.svc-quote{background:var(--navy);}
   /* 1. Agenda de 7 días en el Dashboard: una fila por nota, tocar abre el día. */
   .svc-agenda{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
   .svc-agenda-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);border-left-width:4px;cursor:pointer;transition:transform .2s var(--ease-soft), filter .2s var(--ease-soft);}
   .svc-agenda-row:active{transform:scale(.985);filter:brightness(.96);}
   .svc-agenda-row.k-job{border-left-color:var(--money-pos);} .svc-agenda-row.k-due{border-left-color:var(--money-warn);}
   .svc-agenda-row.k-maint{border-left-color:var(--money-neg);} .svc-agenda-row.k-note{border-left-color:var(--saffron);}
+  .svc-agenda-row.k-quote{border-left-color:var(--navy);}
   .svc-agenda-day{flex:0 0 58px;font-size:calc(11px * var(--fs, 1));font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);}
   .svc-agenda-ic{flex-shrink:0;font-size:calc(17px * var(--fs, 1));line-height:1;}
   .svc-agenda-tx{flex:1;min-width:0;font-size:calc(13px * var(--fs, 1));font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}

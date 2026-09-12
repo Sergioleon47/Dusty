@@ -457,6 +457,35 @@ async function getAccessState(ownerUid, caller) {
     subscription: sub ? { status: sub.status || null, plan: sub.plan || null, currentPeriodEnd: sub.currentPeriodEnd || null, cancelAtPeriodEnd: !!sub.cancelAtPeriodEnd } : null
   };
 }
+/* ===== PRESUPUESTO DE TIEMPO de una función (auditoría de datos 2026-09-12) =====
+   Netlify corta una función síncrona a los 26 s (10 s en el plan gratis) y no
+   avisa: el cliente recibe un 502/504 del gateway, el catch de la función nunca
+   corre y la unidad de cupo reservada NO se devuelve — el usuario pagaba un
+   escaneo por un error, y al reintentar pagaba otro. Con un tope propio, más
+   corto que el de Netlify, la llamada a Claude se aborta a tiempo, la función
+   contesta un JSON claro (upstream_timeout) y devuelve el cupo. Cada función
+   toma su startedAt al entrar y pide la señal con lo que le queda.
+   DUSTY_FUNCTION_BUDGET_MS lo ajusta por entorno (plan con 10 s: bajarlo a ~8000). */
+const FUNCTION_BUDGET_MS = Math.max(3000, parseInt(process.env.DUSTY_FUNCTION_BUDGET_MS || '24000', 10) || 24000);
+function remainingBudgetMs(startedAt, budgetMs, now) {
+  const total = Number.isFinite(budgetMs) ? budgetMs : FUNCTION_BUDGET_MS;
+  const t = Number.isFinite(now) ? now : Date.now();
+  const from = Number.isFinite(startedAt) ? startedAt : t;
+  return Math.max(0, total - (t - from));
+}
+// Señal de aborto para el fetch a Claude con lo que queda del presupuesto.
+// Sin AbortSignal.timeout (Node viejo) devuelve undefined y el fetch sigue como antes.
+function upstreamSignal(startedAt, budgetMs) {
+  const ms = remainingBudgetMs(startedAt, budgetMs);
+  return (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') ? AbortSignal.timeout(Math.max(1, ms)) : undefined;
+}
+// fetch abortado por la señal: Node lo reporta como AbortError o TimeoutError.
+function isAbortError(e) { return !!(e && (e.name === 'AbortError' || e.name === 'TimeoutError')); }
+// El cliente (callDustyAI) traduce el código a srv_upstream_timeout.
+function upstreamTimeoutResponse() {
+  return { statusCode: 504, body: JSON.stringify({ error: 'La IA tardó demasiado en responder — tu cupo no se descontó, prueba de nuevo', code: 'upstream_timeout' }) };
+}
+
 // Respuesta única para "vencido y sin suscripción": el cliente (callDustyAI)
 // reconoce subscriptionRequired y abre la página de suscripción.
 function subscriptionRequiredResponse() {
@@ -531,5 +560,6 @@ module.exports = {
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
   checkIpRateLimit,
   BILLING_ENABLED, TRIAL_DAYS, RETENTION_DAYS, DIA_MS, retentionKey, getAccessState, subscriptionRequiredResponse,
+  FUNCTION_BUDGET_MS, remainingBudgetMs, upstreamSignal, isAbortError, upstreamTimeoutResponse,
   stripeConfigured, stripeRequest, subscriptionRecord, saveSubscription
 };

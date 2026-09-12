@@ -97,14 +97,39 @@ function markJobPaid(job, when){
   return true;
 }
 function deleteJob(job){
-  if(!job || job.deleted) return 0;
+  if(!job || job.deleted) return {pruned: 0, restocked: 0};
   job.deleted = true; job.deletedAt = job.lastEditedAt = new Date().toISOString();
   const pruned = svcAfterJobDelete(job);
+  // Un trabajo nacido de una cotización con productos (acceptQuote, app-17)
+  // descontó esa mercadería del inventario al aceptarse: eliminarlo es decir "no
+  // pasó", así que la devuelve al estante una sola vez (auditoría de datos
+  // 2026-09-12; restoreJobStock es idempotente por job.stockRestored).
+  const restocked = restoreJobStock(job);
   if(job.quoteId && typeof quoteById==='function'){
     const q = quoteById(job.quoteId);
     if(q && q.jobId===job.id){ q.status = 'sent'; q.jobId = null; q.acceptedAt = null; q.lastEditedAt = new Date().toISOString(); }
   }
-  return pruned;
+  return {pruned, restocked};
+}
+/* Un trabajo nacido de una cotización con PRODUCTOS (acceptQuote, app-17) descontó
+   esa mercadería del inventario al aceptarse (job.items, con costAt y priceAt
+   congelados). Eliminar el trabajo es decir "no pasó": la mercadería vuelve al
+   estante, una sola vez (stockRestored). Devuelve cuántos productos volvieron.
+   El P&L ya no lo cuenta: outflowPL ignora los trabajos borrados. */
+function restoreJobStock(job){
+  if(!job || job.stockRestored || !Array.isArray(job.items) || !job.items.length) return 0;
+  let n = 0;
+  job.items.forEach(it=>{
+    const ing = inventory.find(i=>i && i.id===it.ingId);
+    const q = Math.abs(Number(it && it.qty)||0);
+    if(!ing || !(q>0)) return;
+    ing.qtyOnHand = roundQty((Number(ing.qtyOnHand)||0) + q);
+    if(!(ing.stockFullRef>0) || ing.qtyOnHand > ing.stockFullRef) ing.stockFullRef = ing.qtyOnHand;
+    if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
+    n++;
+  });
+  job.stockRestored = true;
+  return n;
 }
 function assetById(id){ return (bizProfile.assets||[]).find(a=>a.id===id) || null; }
 function serviceById(id){ return (bizProfile.catalog||[]).find(c=>c.id===id) || null; }
@@ -112,6 +137,26 @@ function jobReceipts(jobId){ return receipts.filter(r=>r && r.jobId===jobId); }
 function jobExpenseTotal(job){ return jobReceipts(job.id).reduce((s,r)=>s+(Number(r.total)||0),0); }
 function jobIsOverdue(j, today){ today = today||localDateStr(); return !j.paid && !!j.dueDate && j.dueDate<today; }
 function jobsForMonth(key){ return svcJobs().filter(j=>monthKey(j.date)===key); }
+/* Un trabajo nacido de una cotización con PRODUCTOS (acceptQuote, app-17)
+   descontó esa mercadería del inventario al aceptarse (job.items, con costAt y
+   priceAt congelados). Eliminar el trabajo es decir "no pasó": la mercadería
+   vuelve al estante, una sola vez (stockRestored). Devuelve cuántos productos
+   volvieron. El P&L ya no lo cuenta: outflowPL ignora los trabajos borrados. */
+function restoreJobStock(job){
+  if(!job || job.stockRestored || !Array.isArray(job.items) || !job.items.length) return 0;
+  let n = 0;
+  job.items.forEach(it=>{
+    const ing = inventory.find(i=>i && i.id===it.ingId);
+    const q = Math.abs(Number(it && it.qty)||0);
+    if(!ing || !(q>0)) return;
+    ing.qtyOnHand = roundQty((Number(ing.qtyOnHand)||0) + q);
+    if(!(ing.stockFullRef>0) || ing.qtyOnHand > ing.stockFullRef) ing.stockFullRef = ing.qtyOnHand;
+    if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
+    n++;
+  });
+  job.stockRestored = true;
+  return n;
+}
 // Cobrado en el mes = trabajos marcados como cobrados, por la fecha en que se cobraron.
 function paidRevenueForMonth(key){ return svcJobs().filter(j=>j.paid && monthKey(j.paidDate||j.date)===key).reduce((s,j)=>s+(Number(j.price)||0),0); }
 function collectStats(){
@@ -1416,9 +1461,11 @@ function attachServicesEvents(){
     if(!requireWriteAccess()) return;
     if(!confirm(t('svc_job_delete_confirm'))) return;
     const j = jobById(draftJob.id);
-    let pruned = 0;
-    if(j){ pruned = deleteJob(j); saveState(); logActivity('job_deleted', j.client); }
-    showToast(pruned>0 ? t('svc_job_deleted')+' · '+t('svc_children_pruned').replace('{n}', String(pruned)) : t('svc_job_deleted')); closeJobModal();
+    let pruned = 0, restocked = 0;
+    if(j){ ({pruned, restocked} = deleteJob(j)); saveState(); logActivity('job_deleted', j.client); }
+    let msg = restocked>0 ? t('svc_job_deleted_stock') : t('svc_job_deleted');
+    if(pruned>0) msg += ' · '+t('svc_children_pruned').replace('{n}', String(pruned));
+    showToast(msg); closeJobModal();
   });
   if(draftJob){
     const price = g('job-price');
@@ -1588,26 +1635,53 @@ function svcSyncCalendar(){
     // dice "hasta el 15" el día que empieza y tiene su nota el día que termina.
     if(j.date) want.set(svcNoteId('job', j.id), {text: `${j.client||''}${j.serviceName ? ' · '+j.serviceName : ''}${j.endDate ? ' · '+t('svc_until').replace('{d}', svcShortDate(j.endDate)) : ''}`, date: j.date, icon: svcJobEmoji(j), jobId: j.id, svcKind: 'job'});
     if(j.date && j.endDate && j.endDate>j.date) want.set(svcNoteId('end', j.id), {text: t('svc_note_end').replace('{client}', j.client||'')+(j.serviceName ? ' · '+j.serviceName : ''), date: j.endDate, icon: '🏁', jobId: j.id, svcKind: 'job'});
-    if(!j.paid && j.dueDate) want.set(svcNoteId('due', j.id), {text: t('svc_note_due').replace('{client}', j.client||'').replace('{amount}', money(j.price||0)), date: j.dueDate, icon: '💵', jobId: j.id, svcKind: 'due'});
+    /* 'cobro' y no 'due' (auditoría de datos 2026-09-12): la versión anterior de
+       esta función ENTERRABA la nota del cobro al marcar el trabajo cobrado, así
+       que las cuentas que ya usaban Servicios tienen lápidas 'svc-due-*'
+       guardadas de antes de esa corrección — y una lápida no se puede quitar
+       (viaja por unión). Cambiar el nombre del id deja esas lápidas viejas sin
+       efecto (las 'svc-due-*' que queden se retiran solas más abajo, como
+       cualquier nota derivada que ya no corresponde). */
+    if(!j.paid && j.dueDate) want.set(svcNoteId('cobro', j.id), {text: t('svc_note_due').replace('{client}', j.client||'').replace('{amount}', money(j.price||0)), date: j.dueDate, icon: '💵', jobId: j.id, svcKind: 'due'});
   });
   (bizProfile.assets||[]).forEach(a=>(a.maint||[]).forEach(m=>{
     const st = svcMaintStatus(m, a, today);
     if(st.dueDate) want.set(svcNoteId('mt', a.id, m.id), {text: `${m.name} · ${a.name}`, date: st.dueDate, icon: m.emoji||'🔧', assetId: a.id, planId: m.id, svcKind: 'maint'});
   }));
+  // Cotizaciones abiertas (app-17): el día que vencen (📄). La nota desaparece
+  // sola al aceptarla, rechazarla, borrarla o vencer — misma plomería que los cobros.
+  if(typeof svcQuotes==='function') svcQuotes().forEach(q=>{
+    if(!quoteIsOpen(q)) return;
+    want.set(svcNoteId('qt', q.id), {text: t('svc_note_quote').replace('{num}', quoteNum(q)).replace('{client}', q.client||''), date: quoteValidUntil(q), icon: '📄', quoteId: q.id, svcKind: 'quote'});
+  });
   let changed = false;
+  /* Las notas svc-* son DERIVADAS: se regeneran acá, desde los trabajos, activos
+     y cotizaciones, en cada guardado. Por eso, cuando una deja de corresponder
+     (el trabajo se cobró, la cotización se aceptó) se quita SIN lápida —
+     auditoría de datos 2026-09-12: antes se enterraba, y si el estado volvía
+     atrás ("no, todavía no me pagaron") el cobro no volvía nunca más al
+     calendario ni a la agenda: su id fijo ya estaba en deletedCalNoteIds, y una
+     lápida no se puede quitar. La lápida queda solo para lo que el usuario borra
+     a mano (app-09 / app-16): eso sí no se vuelve a crear. Un dispositivo
+     desactualizado que re-suba una nota vieja no la resucita de verdad: su propio
+     saveState la vuelve a quitar apenas aplica el snapshot, porque el trabajo
+     del que salía ya no la pide. */
+  const byId = new Map();
   calNotes = calNotes.filter(n=>{
-    if(!n.svcKind || want.has(n.id)) return true;
+    if(!n) return false;
     /* Se retira SIN lápida: la quitó el dato (cobro hecho, trabajo borrado, plan
        cumplido), no el usuario. Con lápida, des-cobrar un trabajo por error nunca
        recuperaba su nota 💵 del calendario (auditoría 2026-09-12). Cada
        dispositivo retira la misma nota al aplicar el mismo dato, así que la nube
        converge igual; la lápida queda para lo que el usuario borra a mano. */
+    if(!n.svcKind || want.has(n.id)){ if(n.id) byId.set(n.id, n); return true; }
     changed = true;
     return false;
   });
+  const tombs = new Set(deletedCalNoteIds);
   want.forEach((w, id)=>{
-    if(deletedCalNoteIds.includes(id)) return;
-    const ex = calNotes.find(n=>n.id===id);
+    if(tombs.has(id)) return;
+    const ex = byId.get(id);
     if(ex){
       if(ex.text!==w.text || ex.date!==w.date || ex.icon!==w.icon){ Object.assign(ex, w); changed = true; }
       return;
@@ -1942,7 +2016,10 @@ function svcAfterJobDelete(job){ svcLastPruned = (job && job.repeat && !job.pare
 // Genera las próximas ocurrencias de cada contrato hasta 14 días adelante. Cada
 // ocurrencia es un trabajo normal (se edita, se cobra, se imprime) colgado del
 // contrato por parentId; una ocurrencia borrada a mano no se vuelve a crear. Corre
-// al principio de cada saveState, antes de sincronizar el calendario.
+// al principio de cada saveState, antes de sincronizar el calendario. El id de
+// cada ocurrencia sale del contrato y la fecha (svcChildId), no del azar: dos
+// teléfonos sin señal generan la MISMA ocurrencia con el MISMO id, y la unión por
+// id de la nube no duplica el cobro.
 function svcGenerateRecurring(){
   if(!usesServices()) return false;
   const today = localDateStr();
