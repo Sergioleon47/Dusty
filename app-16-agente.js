@@ -100,7 +100,7 @@ function agentDescribe(name, inp){
   const cat = inp.category ? agentFind(expenseCategories, inp.category, c=>c.name) : null;
   switch(name){
     case 'add_expense': return `${inp.kind==='investment' ? (es?'Compra de mercadería':'Goods purchase') : (es?'Gasto':'Expense')} ${money(agentNum(inp.amount)||0)}${inp.description ? ' · '+inp.description : ''}${cat ? ' · '+cat.name : (inp.category ? ' · '+inp.category+(es?' (nueva)':' (new)') : '')} · ${agentDate(inp.date)===localDateStr() ? (es?'hoy':'today') : agentDate(inp.date)}`;
-    case 'add_job': { const a = inp.asset ? agentFind(bizProfile.assets||[], inp.asset, x=>x.name) : null; return `${es?'Trabajo':'Job'}: ${inp.client||'?'}${inp.service ? ' · '+inp.service : ''} · ${money(agentNum(inp.price)||0)}${a ? ' · '+a.name : ''} · ${inp.paid ? (es?'cobrado':'paid') : (es?'pendiente a ':'due in ')+(inp.due_days||15)+(es?' días':' days')}${inp.repeat ? ' · 🔁 '+svcRepeatLabel(inp.repeat).toLowerCase() : ''}`; }
+    case 'add_job': { const a = inp.asset ? agentFind(bizProfile.assets||[], inp.asset, x=>x.name) : null; return `${es?'Trabajo':'Job'}: ${inp.client||'?'}${inp.service ? ' · '+inp.service : ''} · ${money(agentNum(inp.price)||0)}${a ? ' · '+a.name : ''}${inp.end_date ? ' · '+(es?'hasta ':'until ')+inp.end_date : ''} · ${inp.paid ? (es?'cobrado':'paid') : (es?'pendiente a ':'due in ')+(inp.due_days||15)+(es?' días':' days')}${inp.repeat ? ' · 🔁 '+svcRepeatLabel(inp.repeat).toLowerCase() : ''}`; }
     case 'mark_paid': { const j = agentPickJob(inp); return j ? `${es?'Cobrar':'Mark paid'}: ${j.client} · ${money(j.price||0)} · ${svcShortDate(j.date)}` : (es?'Marcar cobrado (no encontré el trabajo)':'Mark paid (job not found)'); }
     case 'add_category': return `${es?'Categoría nueva':'New category'} "${inp.name}" (${inp.kind==='inventory' ? (es?'productos':'products') : (es?'gasto':'expense')})`;
     case 'log_maintenance': { const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); return `${es?'Mantenimiento':'Maintenance'}: ${inp.what} · ${a ? a.name : inp.asset}${agentNum(inp.cost) ? ' · '+money(agentNum(inp.cost)) : ''}${agentNum(inp.km)!==null ? ' · '+svcFmtNum(agentNum(inp.km))+' '+distU() : ''}`; }
@@ -125,7 +125,7 @@ function agentDescribe(name, inp){
     case 'update_expense': { const r = agentPickReceipt(inp); const ch = []; if(agentNum(inp.new_amount)!==null) ch.push(money(agentNum(inp.new_amount))); if(inp.new_description) ch.push(inp.new_description); if(inp.new_category) ch.push(inp.new_category); if(inp.new_date) ch.push(inp.new_date);
       return `${es?'Corregir gasto':'Fix expense'}: ${r ? r.supplier+' · '+money(r.total||0)+' · '+r.date : (es?'(no encontrado)':'(not found)')} → ${ch.join(' · ')||'—'}`; }
     case 'delete_expense': { const r = agentPickReceipt(inp); return `${es?'BORRAR gasto':'DELETE expense'}: ${r ? r.supplier+' · '+money(r.total||0)+' · '+r.date : (es?'(no encontrado)':'(not found)')}`; }
-    case 'update_job': { const j = agentPickJob(Object.assign({}, inp, {any:true})); const ch = []; if(agentNum(inp.new_price)!==null) ch.push(money(agentNum(inp.new_price))); if(inp.new_date) ch.push(inp.new_date); if(inp.new_client) ch.push(inp.new_client); if(inp.new_service) ch.push(inp.new_service); if(inp.new_asset) ch.push(inp.new_asset); if(inp.paid===false) ch.push(es?'vuelve a pendiente':'back to pending'); if(inp.paid===true) ch.push(es?'cobrado':'paid'); if(inp.due_days) ch.push((es?'vence en ':'due in ')+inp.due_days+(es?' días':' days'));
+    case 'update_job': { const j = agentPickJob(Object.assign({}, inp, {any:true})); const ch = []; if(agentNum(inp.new_price)!==null) ch.push(money(agentNum(inp.new_price))); if(inp.new_date) ch.push(inp.new_date); if(inp.new_client) ch.push(inp.new_client); if(inp.new_service) ch.push(inp.new_service); if(inp.new_asset) ch.push(inp.new_asset); if(inp.new_end_date) ch.push((es?'hasta ':'until ')+inp.new_end_date); if(inp.paid===false) ch.push(es?'vuelve a pendiente':'back to pending'); if(inp.paid===true) ch.push(es?'cobrado':'paid'); if(inp.due_days) ch.push((es?'vence en ':'due in ')+inp.due_days+(es?' días':' days'));
       return `${es?'Corregir trabajo':'Fix job'}: ${j ? j.client+' · '+money(j.price||0)+' · '+svcShortDate(j.date) : (es?'(no encontrado)':'(not found)')} → ${ch.join(' · ')||'—'}`; }
     case 'delete_job': { const j = agentPickJob(Object.assign({}, inp, {any:true})); return `${es?'ELIMINAR trabajo':'DELETE job'}: ${j ? j.client+' · '+money(j.price||0)+' · '+svcShortDate(j.date) : (es?'(no encontrado)':'(not found)')}`; }
     case 'update_asset': { const a = agentFind(bizProfile.assets||[], inp.asset, x=>x.name); const ch = []; if(agentNum(inp.km)!==null) ch.push(svcFmtNum(agentNum(inp.km))+' '+distU()); if(inp.name) ch.push(inp.name); if(inp.model) ch.push(inp.model);
@@ -160,7 +160,9 @@ function agentPickNote(inp){
   return agentFind(list, inp.text, n=>n.text);
 }
 function agentPickJob(inp){
-  if(inp.job_id){ const j = jobById(inp.job_id); if(j && !j.deleted) return j; }
+  // Con job_id la respuesta es ESE trabajo o nada: un id borrado o viejo no cae
+  // a "el más parecido" (el asistente cobraba otro trabajo del mismo cliente).
+  if(inp.job_id) return jobById(inp.job_id) || null;
   // any: también los cobrados (para corregir o borrar); sin any, solo pendientes (cobrar).
   let list = inp.any ? svcJobs().slice() : svcJobs().filter(j=>!j.paid);
   if(inp.client){ const c = agentNorm(inp.client); const byC = list.filter(j=>agentNorm(j.client).includes(c) || c.includes(agentNorm(j.client))); if(byC.length) list = byC; }
@@ -209,7 +211,7 @@ function agentExec(name, inp){
       const endDate = (inp.end_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.end_date) && inp.end_date>date) ? inp.end_date : null;
       const clash = asset ? svcClash({id:null, assetId: asset.id, date, endDate}) : null;
       const job = { id: uid('job'), type:'service', date, endDate, client: String(inp.client).trim().slice(0,60), serviceName: (svc ? svc.name : String(inp.service||'').trim()).slice(0,60), serviceId: svc ? svc.id : null,
-        assetId: asset ? asset.id : null, price: Math.round(price*100)/100, paid: !!inp.paid, dueDate: inp.paid ? null : addDaysStr(date, dueDays), dueDays, paidDate: inp.paid ? localDateStr() : null,
+        assetId: asset ? asset.id : null, price: Math.round(price*100)/100, paid: !!inp.paid, dueDate: inp.paid ? null : addDaysStr(date, dueDays), dueDays, paidDate: inp.paid ? (date<localDateStr() ? date : localDateStr()) : null,
         repeat: ['weekly','biweekly','monthly'].indexOf(inp.repeat)>=0 ? inp.repeat : null, items: [], createdAt: new Date().toISOString(), byAgent: true };
       recordOutflow(job); saveState(); logActivity('job_saved', job.client, job.serviceName); render();
       return ok(Object.assign({job_id: job.id, asset: asset ? asset.name : null, due_date: job.dueDate}, clash ? {asset_clash: {client: clash.client, date: clash.date}} : {}));
@@ -360,6 +362,7 @@ function agentExec(name, inp){
     case 'update_job': {
       if(!usesServices()) return fail('services mode is off');
       const j = agentPickJob(Object.assign({}, inp, {any:true})); if(!j) return fail('job not found — query jobs first');
+      const prevDate = j.date;
       // Se resuelve TODO antes de tocar el trabajo: si el equipo no existe, no
       // queda un cambio a medias sin guardar.
       const newAsset = inp.new_asset ? agentFind(bizProfile.assets||[], inp.new_asset, x=>x.name) : null;
@@ -373,7 +376,11 @@ function agentExec(name, inp){
         if(!j.paid){ j.dueDate = addDaysStr(j.date, j.dueDays||15); ch.due_date = j.dueDate; }
         if(j.endDate && j.endDate<=j.date) j.endDate = null;
       }
-      if(inp.new_end_date && /^\d{4}-\d{2}-\d{2}$/.test(inp.new_end_date)){ j.endDate = inp.new_end_date>j.date ? inp.new_end_date : null; ch.end_date = j.endDate; }
+      if(inp.new_end_date!==undefined && inp.new_end_date!==null){
+        if(inp.new_end_date===''){ if(j.endDate){ j.endDate = null; ch.end_date = null; } }
+        else if(/^\d{4}-\d{2}-\d{2}$/.test(inp.new_end_date) && inp.new_end_date>j.date){ j.endDate = inp.new_end_date; ch.end_date = j.endDate; }
+        else return fail('new_end_date must be YYYY-MM-DD and after the job date '+j.date);
+      }
       if(inp.new_client){ j.client = String(inp.new_client).trim().slice(0,60); ch.client = j.client; }
       if(inp.new_service){ const svc = agentFind(bizProfile.catalog||[], inp.new_service, x=>x.name); j.serviceName = (svc ? svc.name : String(inp.new_service).trim()).slice(0,60); j.serviceId = svc ? svc.id : null; ch.service = j.serviceName; }
       if(newAsset && j.assetId!==newAsset.id){ j.assetId = newAsset.id; ch.asset = newAsset.name; receipts.forEach(r=>{ if(r && r.jobId===j.id) r.assetId = j.assetId; }); }
@@ -384,7 +391,7 @@ function agentExec(name, inp){
       j.lastEditedAt = new Date().toISOString();
       // Plantilla de un contrato: misma regla que el modal (cambio de fecha =
       // regla nueva, retira las próximas sin tocar; otros cambios se propagan).
-      const pruned = svcAfterJobEdit(j, !!ch.date);
+      const pruned = svcAfterJobEdit(j, j.date!==prevDate);
       saveState(); logActivity('job_saved', j.client, j.serviceName); render();
       return ok(Object.assign({job_id: j.id, changed: ch}, pruned>0 ? {upcoming_removed: pruned} : {}));
     }
@@ -501,7 +508,7 @@ function agentQuery(inp){
       rows.forEach(r=>{ const s = receiptSplit(r, cache); const k = receiptCatName(r) || (s.invested>0 && !(s.expense>0) ? t('manual_kind_investment') : t('categories_uncategorized')); byCat[k] = (byCat[k]||0) + (r.total||0); total += r.total||0; });
       const filtered = inp.category ? rows.filter(r=>agentNorm(receiptCatName(r)).includes(agentNorm(inp.category))) : rows;
       return JSON.stringify({from, to, total, by_category: byCat, ...(inp.category ? {category_total: filtered.reduce((s,r)=>s+(r.total||0),0), items: filtered.slice(-20).map(r=>({date:r.date, description:r.supplier, amount:r.total}))} : {count: rows.length})}); }
-    case 'jobs': { const list = svcJobs().filter(j=>inRange(j.date) && (!q || agentNorm(j.client+' '+(j.serviceName||'')).includes(q))); return JSON.stringify({from, to, count: list.length, billed: list.reduce((s,j)=>s+(j.price||0),0), paid: list.filter(j=>j.paid).reduce((s,j)=>s+(j.price||0),0), jobs: list.slice(0,30).map(j=>({job_id:j.id, date:j.date, client:j.client, service:j.serviceName, amount:j.price, paid:j.paid, asset:(assetById(j.assetId)||{}).name||null}))}); }
+    case 'jobs': { const list = svcJobs().filter(j=>inRange(j.date) && (!q || agentNorm(j.client+' '+(j.serviceName||'')).includes(q))); return JSON.stringify({from, to, count: list.length, billed: list.reduce((s,j)=>s+(j.price||0),0), paid: list.filter(j=>j.paid).reduce((s,j)=>s+(j.price||0),0), jobs: list.slice(0,30).map(j=>({job_id:j.id, date:j.date, end_date: j.endDate||null, client:j.client, service:j.serviceName, amount:j.price, paid:j.paid, asset:(assetById(j.assetId)||{}).name||null, repeat: j.repeat||null, contract_id: j.parentId||null}))}); }
     case 'inventory': { const rows = stockRowsData(); const hit = q ? rows.filter(r=>agentNorm(r.ing.name).includes(q)) : rows; return JSON.stringify({total_items: inventory.length, critical: rows.filter(r=>r.status==='crit').map(r=>r.ing.name).slice(0,30), items: hit.slice(0,30).map(r=>({name:r.ing.name, qty:r.ing.qtyOnHand, unit:r.ing.unit, cost:r.ing.costPerUnit, sale_price:r.ing.salePrice, status:r.status}))}); }
     case 'month': { const key = (inp.from && /^\d{4}-\d{2}/.test(inp.from)) ? inp.from.slice(0,7) : localMonthStr(); const f = periodFinancials(key); return JSON.stringify({month:key, revenue:f.revenue, cogs:f.cogs, expenses:f.expense, invested:f.invested, net:f.net, receipts:f.receiptsCount, jobs: jobsForMonth(key).length}); }
     case 'assets': { const t0 = today; return JSON.stringify({assets: (bizProfile.assets||[]).map(a=>{ const st = assetMonthStats(a, localMonthStr()); return {name:a.name, model:a.model, km:a.km, month_revenue:st.revenue, month_expense:st.expense, maintenance:(a.maint||[]).map(m=>{ const s = maintStatus(m, a, t0, bizProfile.maintDays); return {name:m.name, status:s.status, when: svcMaintWhen(s)}; })}; })}); }

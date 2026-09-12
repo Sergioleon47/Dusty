@@ -610,3 +610,25 @@ test('normalizeBizProfile: conserva el historial de mantenimientos hechos y tira
   assert.deepEqual(log[1], {id:'l2', date:'2026-09-01', planId:null, desc:'Cambio de correa (garantía)', km:null, cost:0, receiptId:null});
   assert.deepEqual(normalizeBizProfile({assets:[{id:'a', name:'x'}]}).assets[0].maintLog, [], 'sin historial: arreglo vacío, no undefined');
 });
+
+test('pickOutflow: gana el sello más nuevo, sin sello gana la nube, y la regla del contrato nunca pisa un cobro', () => {
+  const { pickOutflow, outflowIsOpen } = require('./patron-core.js');
+  const a = {id:'x', lastEditedAt:'2026-09-12T10:00:00Z', price: 1};
+  const b = {id:'x', lastEditedAt:'2026-09-12T11:00:00Z', price: 2};
+  assert.equal(pickOutflow(a, b), b);
+  assert.equal(pickOutflow(b, a), b);
+  assert.equal(pickOutflow({id:'x'}, {id:'x', v:'nube'}).v, 'nube', 'sin sello gana la nube');
+  assert.equal(pickOutflow({id:'x', lastEditedAt:'2026-09-12T10:00:00Z'}, {id:'x'}).lastEditedAt, '2026-09-12T10:00:00Z');
+  // Poda por regla (sello = ruleAt) contra un cobro hecho un minuto antes en otro teléfono: gana el cobro.
+  const pruned = {id:'k', deleted:true, prunedByRule:true, lastEditedAt:'2026-09-12T10:05:00Z', ruleAt:'2026-09-12T10:05:00Z'};
+  const paid = {id:'k', paid:true, lastEditedAt:'2026-09-12T10:04:00Z'};
+  assert.equal(pickOutflow(pruned, paid), paid);
+  assert.equal(pickOutflow(paid, pruned), paid);
+  // Regla contra regla: el sello más nuevo, como siempre.
+  const prop = {id:'k', price: 150, lastEditedAt:'2026-09-12T10:06:00Z', ruleAt:'2026-09-12T10:06:00Z'};
+  assert.equal(pickOutflow(pruned, prop), prop);
+  // Una cotización sin respuesta de hace más de 120 días ya no cuenta como abierta.
+  const now = new Date('2026-09-12T00:00:00Z').getTime();
+  assert.equal(outflowIsOpen({id:'q', type:'quote', status:'sent', date:'2026-08-01'}, now), true);
+  assert.equal(outflowIsOpen({id:'q', type:'quote', status:'sent', date:'2026-03-01'}, now), false);
+});

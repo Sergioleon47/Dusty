@@ -253,3 +253,30 @@ test('la app estuvo cerrada semanas: solo se recuperan los últimos 14 días del
   assert.equal(correr(`__avisos.some(a=>/saltaron|skipped/.test(a))`), true, 'se avisa cuántas fechas quedaron afuera');
   assert.equal(correr(`svcJobs().filter(j=>j.parentId==='tplI' && j.date<'2026-03-19').length`), 0);
 });
+
+test('fechas saltadas: el marcador avanza (no se avisa en cada guardado) y no cuenta las que otro teléfono ya creó', () => {
+  const { correr, lista } = nuevaApp('2026-09-12');
+  // Contrato mensual del 27; último generado hace dos meses; la próxima (27 sep) cae fuera del horizonte de 14 días.
+  correr(`contrato('tplM', '2026-05-27', 'monthly', {lastGenerated:'2026-06-27'}); __avisos = []; saveState();`);
+  assert.equal(correr(`__avisos.filter(a=>/saltaron|skipped/.test(a)).length`), 1);
+  assert.equal(correr(`jobById('tplM').lastGenerated`), '2026-08-27', 'el marcador quedó en la última saltada');
+  correr(`__avisos = []; saveState(); saveState();`);
+  assert.equal(correr(`__avisos.filter(a=>/saltaron|skipped/.test(a)).length`), 0, 'no vuelve a avisar');
+  // Si la ocurrencia saltada ya existe (vino de otro teléfono), no se cuenta.
+  correr(`contrato('tplN', '2026-05-10', 'weekly', {lastGenerated:'2026-07-05'});
+    recordOutflow({id:'job-tplN-2026-07-12', type:'service', parentId:'tplN', occDate:'2026-07-12', date:'2026-07-12', client:'ACME', price:100, paid:true, items:[], createdAt:'2026-07-12T00:00:00Z'});
+    __avisos = []; saveState();`);
+  const aviso = correr(`__avisos.find(a=>/saltaron|skipped/.test(a))||''`);
+  assert.equal(/ 6 /.test(aviso), true, 'del 19 jul al 23 ago son 6 fechas sin crear: '+aviso);
+});
+
+test('reconciliación: una ocurrencia de la regla vieja que llega de otro teléfono se retira; las tocadas se quedan', () => {
+  const { correr, lista } = nuevaApp('2026-04-02');
+  correr(`contrato('tplR', '2026-03-31', 'weekly'); saveState();`); // martes: 04-07, 04-14
+  // Llega del otro teléfono (regla vieja del lunes) una ocurrencia sin tocar y otra ya cobrada.
+  correr(`recordOutflow({id:'job-tplR-2026-04-06', type:'service', parentId:'tplR', occDate:'2026-04-06', date:'2026-04-06', client:'ACME', price:100, paid:false, items:[], createdAt:'2026-04-01T00:00:00Z'});
+    recordOutflow({id:'job-tplR-2026-04-13', type:'service', parentId:'tplR', occDate:'2026-04-13', date:'2026-04-13', client:'ACME', price:100, paid:true, paidDate:'2026-04-01', lastEditedAt:'2026-04-01T09:00:00Z', items:[], createdAt:'2026-04-01T00:00:00Z'});
+    saveState();`);
+  assert.deepEqual(lista(`hijos('tplR')`), ['2026-04-07', '2026-04-13', '2026-04-14'], 'la del 6 se retiró, la cobrada del 13 se queda');
+  assert.equal(correr(`!!outflows.find(o=>o.id==='job-tplR-2026-04-06').prunedByRule`), true);
+});

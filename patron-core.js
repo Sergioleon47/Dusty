@@ -347,8 +347,30 @@ function outflowIsOpen(o, nowMs){
     return Number.isFinite(at) && (now - at) < OUTFLOW_TOMB_DAYS*24*60*60*1000;
   }
   if(o.type==='service') return !o.paid || (!!o.repeat && !o.parentId);
-  if(o.type==='quote') return o.status!=='accepted' && o.status!=='rejected';
+  if(o.type==='quote'){
+    if(o.status==='accepted' || o.status==='rejected') return false;
+    // Una cotización sin respuesta no queda "abierta" para siempre: pasados 120
+    // días desde su fecha es historia (si no, el doc de meta crecía sin tope).
+    const at = new Date(String(o.date||'')+'T00:00:00').getTime();
+    const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+    return !Number.isFinite(at) || (now - at) < 120*24*60*60*1000;
+  }
   return false;
+}
+/* Conflicto entre dos copias del mismo trabajo/cotización (merge de la nube):
+   gana el lastEditedAt más nuevo; sin sello gana la nube (remote). Salvedad: un
+   sello puesto por la REGLA del contrato (poda, propagación: ruleAt ===
+   lastEditedAt) no le gana a un cambio hecho por una persona en la otra copia
+   (un cobro, una edición a mano) — la regla nunca debe pisar un cobro. */
+function outflowRuleStamped(o){ return !!o && !!o.ruleAt && o.lastEditedAt===o.ruleAt; }
+function outflowUserTouched(o){ return !!o && (o.paid===true || (!!o.lastEditedAt && o.lastEditedAt!==o.ruleAt)); }
+function pickOutflow(local, remote){
+  if(!local) return remote || null;
+  if(!remote) return local;
+  const ls = String(local.lastEditedAt||''), rs = String(remote.lastEditedAt||'');
+  const win = ls > rs ? local : remote, lose = win===local ? remote : local;
+  if(outflowRuleStamped(win) && outflowUserTouched(lose) && !outflowRuleStamped(lose)) return lose;
+  return win;
 }
 function capOutflows(list, max, nowMs){
   const arr = Array.isArray(list) ? list.filter(o=>o && o.id) : [];
@@ -592,6 +614,6 @@ if(typeof module!=='undefined' && module.exports){
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
     normalizeBizProfile, maintStatus,
-    mergeReceiptPages, outflowIsOpen, capOutflows, formatInt
+    mergeReceiptPages, outflowIsOpen, capOutflows, formatInt, pickOutflow, outflowUserTouched, outflowRuleStamped
   };
 }

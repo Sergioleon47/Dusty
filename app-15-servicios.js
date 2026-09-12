@@ -468,6 +468,23 @@ function equipoSheet(){ return svcSheet('equipo-sheet-overlay', t('svc_title_equ
    dice cuántos muestra de cuántos y "Ver todos" abre la lista filtrada por ESTE
    activo. Gasto/escaneo directo del activo sin pasar por un trabajo. */
 function assetSheetKey(){ return assetSheetMonth || localMonthStr(); }
+// Etiquetas del mes que se mira: "este mes" solo si es el actual; para otro mes,
+// con su nombre ("Gastos de agosto"), no "Gastos del mes".
+function svcMonthLabels(key){
+  const cur = key===localMonthStr(), m = monthLabel(key, uiLang);
+  return {
+    jobs: (n)=> n===1 ? (cur ? t('svc_job_month_1') : t('svc_job_1')) : (cur ? t('svc_jobs_month_n') : t('svc_jobs_n')).replace('{n}', String(n)),
+    expenses: cur ? t('svc_expenses_month') : t('svc_expenses_of').replace('{m}', m),
+    net: cur ? t('svc_leaves_month') : t('svc_net_of').replace('{m}', m)
+  };
+}
+// Unidad con plural para una cantidad ("1 día", "3 días", "2 h", "40 km").
+function svcUnitQtyLabel(qty, unit){
+  if(unit==='hour') return 'h';
+  if(unit==='km') return distU();
+  if(unit==='day') return Number(qty)===1 ? t('svc_unit_day_short') : t('svc_unit_days_short');
+  return typeof unitLabel==='function' ? unitLabel(unit) : String(unit||'');
+}
 function assetSheet(){
   const a = assetById(showAssetSheet);
   if(!a) return '';
@@ -489,6 +506,9 @@ function assetSheet(){
   const every = (m)=>[m.everyKm>0 && useOdo() ? tu('svc_every_km').replace('{n}', svcFmtNum(m.everyKm)) : '', m.everyMonths>0 ? t('svc_every_months').replace('{n}', String(m.everyMonths)) : ''].filter(Boolean).join(uiLang==='en' ? ' or ' : ' o ');
   const nOf = (shown, total)=> total>shown ? t('svc_n_of_total').replace('{n}', String(shown)).replace('{t}', String(total)) : '';
   const logName = (l)=>{ const plan = l.planId ? (a.maint||[]).find(m=>m.id===l.planId) : null; return plan ? `${plan.emoji||'🔧'} ${plan.name}` : `🔧 ${l.desc || t('svc_log_other')}`; };
+  // El recibo del registro se abre solo si todavía existe (borrado: fila sin botón).
+  const logRid = (l)=> (l.receiptId && receipts.some(r=>r && r.id===l.receiptId)) ? l.receiptId : null;
+  const ml = svcMonthLabels(key);
   const body = `
     <h3 class="navy svc-sheet-title">${escapeHtml(a.emoji||'🚚')} ${escapeHtml(a.name)}${a.model ? ` · ${escapeHtml(a.model)}` : ''}
       <button type="button" class="stock-icon-btn edit svc-title-edit" id="btn-edit-asset" title="${t('svc_edit_asset')}" aria-label="${t('svc_edit_asset')}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
@@ -504,15 +524,15 @@ function assetSheet(){
       <div class="dash-tile t3 static svc-mini-tile">
         <b class="dash-tile-num">${svcMoneyShort(st.revenue)}</b>
         <span class="dash-tile-title">${t('svc_billed_with')}</span>
-        <span class="dash-tile-sub">${t('svc_jobs_month_n').replace('{n}', String(st.jobs))} · ${t('svc_paid_of_short').replace('{amount}', svcMoneyShort(st.paid))}</span>
+        <span class="dash-tile-sub">${ml.jobs(st.jobs)} · ${t('svc_paid_of_short').replace('{amount}', svcMoneyShort(st.paid))}</span>
       </div>
       <div class="dash-tile twarn static svc-mini-tile">
         <b class="dash-tile-num">${svcMoneyShort(st.expense)}</b>
-        <span class="dash-tile-title">${t('svc_expenses_month')}</span>
+        <span class="dash-tile-title">${ml.expenses}</span>
         <span class="dash-tile-sub">${monthLabel(key, uiLang)}</span>
       </div>
     </div>
-    <div class="recap-row svc-line-big"><span class="recap-label">${t('svc_leaves_month')}</span><span class="recap-col-val"><strong style="color:${st.net>=0?'var(--money-pos)':'var(--money-neg)'};">${st.net<0?'−':''}${money(Math.abs(st.net))}</strong></span></div>
+    <div class="recap-row svc-line-big"><span class="recap-label">${ml.net}</span><span class="recap-col-val"><strong style="color:${st.net>=0?'var(--money-pos)':'var(--money-neg)'};">${st.net<0?'−':''}${money(Math.abs(st.net))}</strong></span></div>
     <div class="recap-row"><span class="recap-label">${t('svc_since_purchase')}<small class="svc-plan-sub" style="display:block;">${t('svc_since_purchase_sub').replace('{n}', String(all.jobs)).replace('{billed}', svcMoneyShort(all.revenue)).replace('{spent}', svcMoneyShort(all.expense))}</small></span><span class="recap-col-val"><strong style="color:${all.net>=0?'var(--money-pos)':'var(--money-neg)'};">${all.net<0?'−':''}${money(Math.abs(all.net))}</strong></span></div>` : ''}
     <div class="settings-card svc-card">
       <div class="svc-card-head"><span>${t('svc_maints')}</span><button type="button" class="link-btn" id="btn-add-maint">${t('svc_add')}</button></div>
@@ -527,7 +547,7 @@ function assetSheet(){
     <div class="settings-card svc-card">
       <div class="svc-card-head"><span>${t('svc_maint_history')}${nOf(log.length, logAll.length)}</span>${logAll.length>5 ? `<button type="button" class="link-btn" id="btn-asset-all-maint">${assetSheetShowAllMaint ? t('svc_see_less') : t('svc_see_all')}</button>` : ''}</div>
       ${log.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_maint_history_empty')}</div>` : log.map(l=>`
-      <div class="recap-row svc-plan${l.receiptId ? '' : ' static'}" ${l.receiptId ? `data-view-receipt="${escapeHtml(l.receiptId)}" role="button" tabindex="0"` : ''}>
+      <div class="recap-row svc-plan${logRid(l) ? '' : ' static'}" ${logRid(l) ? `data-view-receipt="${escapeHtml(logRid(l))}" role="button" tabindex="0"` : ''}>
         <span class="recap-label"><span>${escapeHtml(logName(l))}</span><small class="svc-plan-sub">${escapeHtml(svcShortDate(l.date))}${useOdo() && l.km!==null && l.km!==undefined ? ` · ${svcFmtNum(l.km)} ${distU()}` : ''}</small></span>
         <span class="recap-col-val"><strong>${l.cost>0 ? money(l.cost) : '—'}</strong></span>
       </div>`).join('')}
@@ -839,7 +859,8 @@ function readJobDraftFromDom(){
   if(g('job-qty')) draftJob.qty = g('job-qty').value;
   if(g('job-price')) draftJob.price = g('job-price').value;
   if(g('job-due')) draftJob.dueDays = parseInt(g('job-due').value,10)||15;
-  if(g('job-paid-date')) draftJob.paidDate = g('job-paid-date').value;
+  // job-paid-date NO se lee acá: su valor por defecto lo pinta el render y solo
+  // cuenta si el usuario lo cambió (onchange); si no, al guardar rige la fecha del trabajo.
   const c = (bizProfile.catalog||[]).find(x=>x.name.toLowerCase()===draftJob.serviceName.toLowerCase());
   draftJob.serviceId = c ? c.id : null;
 }
@@ -847,6 +868,7 @@ function readJobDraftFromDom(){
 // trabajo guardado o null si faltan cliente/precio.
 function saveJobFromDraft(){
   readJobDraftFromDom();
+  svcLastPruned = 0; // un trabajo nuevo no hereda el aviso de poda del anterior
   const d = draftJob;
   const price = parseFloat(d.price);
   const isDate = (v)=>/^\d{4}-\d{2}-\d{2}$/.test(v||'');
@@ -866,7 +888,10 @@ function saveJobFromDraft(){
   const paidDate = d.paid ? (isDate(d.paidDate) ? d.paidDate : (d.date<today ? d.date : today)) : null;
   const usvc = svcJobUnitService(d);
   const qty = usvc && parseFloat(d.qty)>0 ? Math.round(parseFloat(d.qty)*100)/100 : null;
-  const unitFields = usvc ? {unit: usvc.unit, unitPrice: usvc.price, qty} : {unit: null, unitPrice: null, qty: null};
+  // El precio unitario que se imprime es el EFECTIVO (precio ÷ cantidad): si el
+  // usuario ajustó el total o la lista cambió después, la cuenta sigue cerrando
+  // ("3 h × $20 = $60"), no "3 h × $50 = $60".
+  const unitFields = usvc ? {unit: usvc.unit, unitPrice: qty>0 ? Math.round(price/qty*100)/100 : usvc.price, qty} : {unit: null, unitPrice: null, qty: null};
   if(job){
     const prevAsset = job.assetId||null;
     // Cambió la regla del contrato (fecha o frecuencia): las próximas salen desde
@@ -1376,7 +1401,14 @@ function attachServicesEvents(){
   on('btn-save-job', ()=>{ if(!requireWriteAccess()) return; if(saveJobFromDraft()){ showToast(svcLastPruned>0 ? t('svc_job_saved')+' · '+t('svc_children_pruned').replace('{n}', String(svcLastPruned)) : t('svc_job_saved')); closeJobModal(); } });
   // Imprimir guarda primero: la cuenta sale con lo que el usuario ve en pantalla,
   // no con la copia vieja (auditoría 2026-09-12).
-  on('btn-print-job', ()=>{ const j = requireWriteAccess() ? saveJobFromDraft() : jobById(draftJob.id); if(j) downloadJobPdf(j); });
+  on('btn-print-job', ()=>{
+    // Solo lectura: se imprime la copia guardada sin abrir el paywall. Con permiso
+    // se guarda primero (lo que se ve es lo que sale) y se redibuja el modal.
+    let j = null;
+    if(typeof accessLocked==='function' && accessLocked()) j = jobById(draftJob.id);
+    else { j = saveJobFromDraft(); if(j) render(); }
+    if(j) downloadJobPdf(j);
+  });
   on('btn-delete-job', ()=>{
     if(!requireWriteAccess()) return;
     if(!confirm(t('svc_job_delete_confirm'))) return;
@@ -1416,6 +1448,11 @@ function attachServicesEvents(){
     document.querySelectorAll('[data-job-repeat]').forEach(b=>{ b.onclick = ()=>{ readJobDraftFromDom(); draftJob.repeat = b.dataset.jobRepeat || null; render(); }; });
     const due = g('job-due');
     if(due) due.onchange = ()=>{ readJobDraftFromDom(); render(); };
+    const pd = g('job-paid-date');
+    if(pd) pd.onchange = ()=>{ draftJob.paidDate = pd.value; };
+    // Cambió la fecha: el "hasta" (min) y la fecha de cobro por defecto la siguen.
+    const dateI = g('job-date');
+    if(dateI) dateI.onchange = ()=>{ readJobDraftFromDom(); render(); };
     on('btn-job-exp-open', ()=>{ readJobDraftFromDom(); jobExpenseFormOpen = true; render(); });
     on('btn-job-exp-add', ()=>{
       if(!requireWriteAccess()) return;
@@ -1649,12 +1686,13 @@ function buildJobPdf(j){
   const name = svcPdfHeader(pdf, t('svc_invoice_title') + ' · ' + t('rd_id_label') + ' ' + String(j.id||'').slice(-6).toUpperCase());
   const asset = j.assetId ? assetById(j.assetId) : null;
   pdf.line(`${t('svc_client')}: ${j.client||''}`, {size: 11, bold: true, lh: 18});
-  pdf.line(`${t('lbl_date')}: ${j.date||''}${j.endDate ? ' → '+j.endDate : ''}${asset ? '   ·   '+t('svc_asset_used')+': '+asset.name : ''}`, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
+  // " - " y no "→": la fuente del PDF (WinAnsi) no tiene la flecha.
+  pdf.line(`${t('lbl_date')}: ${j.date||''}${j.endDate ? ' - '+j.endDate : ''}${asset ? '   ·   '+t('svc_asset_used')+': '+asset.name : ''}`, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
   pdf.gap(10);
   // Por hora/día/km: "3 h × $20" en la descripción y la cantidad en su columna.
   const byUnit = j.qty>0 && j.unit && j.unitPrice>0;
   pdf.table([{key:'desc', label: t('rd_col_desc')}, {key:'qty', label: t('rd_col_qty'), w: 70, align:'right'}, {key:'total', label: t('rp_col_total'), w: 110, align:'right'}],
-    [{desc: (j.serviceName || t('svc_job_edit')) + (byUnit ? ` · ${j.qty} ${svcUnitShort(j.unit)} × ${money(j.unitPrice)}` : ''), qty: byUnit ? String(j.qty) : '1', total: money(j.price||0)}, {desc: t('rp_total'), qty: '', total: money(j.price||0), _bold: true}]);
+    [{desc: (j.serviceName || t('svc_job_edit')) + (byUnit ? ` · ${j.qty} ${svcUnitQtyLabel(j.qty, j.unit)} × ${money(j.unitPrice)}` : ''), qty: byUnit ? String(j.qty) : '1', total: money(j.price||0)}, {desc: t('rp_total'), qty: '', total: money(j.price||0), _bold: true}]);
   pdf.gap(12);
   pdf.line(`${t('svc_collect_label')}: ${jobStatusLabel(j)}${!j.paid && j.dueDate ? '   ·   '+t('svc_invoice_due')+' '+j.dueDate : ''}${j.paid && j.paidDate ? '   ·   '+t('svc_paid_on').replace('{when}', j.paidDate) : ''}`, {size: 10, bold: true, lh: 16});
   pdf.gap(6);
@@ -1679,20 +1717,24 @@ function buildAssetPdf(a){
   const fin = canSeeFinancials();
   const name = svcPdfHeader(pdf, `${t('svc_tool_asset')} · ${a.name}${a.model ? ' · '+a.model : ''}`);
   const st = assetMonthStats(a, key), all = assetAllTimeStats(a);
+  const ml = svcMonthLabels(key);
   const rows = [];
   if(a.purchaseDate || a.purchasePrice>0) rows.push({label: t('svc_purchase_date'), value: a.purchaseDate||'—', note: a.purchasePrice>0 ? money(a.purchasePrice) : ''});
   if(useOdo() && a.km!==null && a.km!==undefined) rows.push({label: tu('svc_km'), value: svcFmtNum(a.km)+' '+distU(), note: ''});
   if(fin){
-    rows.push({label: t('svc_billed_with'), value: money(st.revenue), note: t('svc_jobs_month_n').replace('{n}', String(st.jobs))});
+    rows.push({label: t('svc_billed_with'), value: money(st.revenue), note: ml.jobs(st.jobs)});
     rows.push({label: t('svc_pdf_paid_of'), value: money(st.paid), note: ''});
   }
-  rows.push({label: t('svc_expenses_month'), value: money(st.expense), note: monthLabel(key, uiLang)});
+  rows.push({label: ml.expenses, value: money(st.expense), note: monthLabel(key, uiLang)});
   if(fin){
-    rows.push({label: t('svc_leaves_month'), value: (st.net<0?'-':'')+money(Math.abs(st.net)), note: '', _bold: true});
-    rows.push({label: t('svc_since_purchase'), value: (all.net<0?'-':'')+money(Math.abs(all.net)), note: t('svc_since_purchase_sub').replace('{n}', String(all.jobs)).replace('{billed}', money(all.revenue)).replace('{spent}', money(all.expense)), _bold: true});
+    rows.push({label: ml.net, value: (st.net<0?'-':'')+money(Math.abs(st.net)), note: '', _bold: true});
+    // "Desde siempre" en tres filas: la nota de una sola línea se cortaba.
+    rows.push({label: `${t('svc_since_purchase')} · ${t('svc_pdf_billed')}`, value: money(all.revenue), note: t('svc_jobs_n').replace('{n}', String(all.jobs))});
+    rows.push({label: `${t('svc_since_purchase')} · ${t('spend_expenses')}`, value: money(all.expense), note: ''});
+    rows.push({label: `${t('svc_since_purchase')} · ${t('recap_net')}`, value: (all.net<0?'-':'')+money(Math.abs(all.net)), note: '', _bold: true});
   }
   pdf.line(monthLabel(key, uiLang), {size: 12.5, bold: true, lh: 24});
-  pdf.table([{key:'label', label: t('rp_col_concept')}, {key:'value', label: t('rp_col_amount'), w: 120, align:'right'}, {key:'note', label:'', w: 190, align:'right'}], rows);
+  pdf.table([{key:'label', label: t('rp_col_concept')}, {key:'value', label: t('rp_col_amount'), w: 120, align:'right'}, {key:'note', label:'', w: 150, align:'right'}], rows);
   pdf.gap(14);
   pdf.line(t('svc_maints'), {size: 12.5, bold: true, lh: 24});
   const plans = (a.maint||[]);
@@ -1710,7 +1752,7 @@ function buildAssetPdf(a){
   const jobs = jobsForMonth(key).filter(j=>j.assetId===a.id).sort((x,y)=>String(x.date).localeCompare(String(y.date)));
   if(jobs.length){
     pdf.line(t('svc_jobs_with_asset'), {size: 12.5, bold: true, lh: 24});
-    const jr = jobs.map(j=>({date: j.date + (j.endDate ? ' → '+j.endDate : ''), client: j.client||'', svc: j.serviceName||'', status: jobStatusLabel(j), total: fin ? money(j.price||0) : ''}));
+    const jr = jobs.map(j=>({date: j.date + (j.endDate ? ' - '+j.endDate : ''), client: j.client||'', svc: j.serviceName||'', status: jobStatusLabel(j), total: fin ? money(j.price||0) : ''}));
     if(fin) jr.push({date:'', client: t('rp_total'), svc:'', status:'', total: money(st.revenue), _bold: true});
     pdf.table([{key:'date', label: t('rp_col_date'), w: 95}, {key:'client', label: t('svc_client'), w: 130}, {key:'svc', label: t('svc_service')}, {key:'status', label: t('svc_pdf_status'), w: 75}, {key:'total', label: t('rp_col_total'), w: 85, align:'right'}], jr);
     pdf.gap(14);
@@ -1744,9 +1786,10 @@ function svcReportSection(pdf, key){
     const rows = jobs.map(j=>{ billed += Number(j.price)||0; if(j.paid) paid += Number(j.price)||0; const a = j.assetId ? assetById(j.assetId) : null; return {date: j.date||'', client: j.client||'', svc: (j.serviceName||'') + (a ? ' · '+a.name : ''), status: jobStatusLabel(j), total: money(j.price||0)}; });
     // "Cobrado de estos trabajos": lo cobrado ENTRE los trabajos del período (no lo
     // cobrado en el mes por fecha de cobro, que es lo que dice Por cobrar).
-    rows.push({date:'', client: t('svc_pdf_billed'), svc:'', status:'', total: money(billed), _bold: true});
-    rows.push({date:'', client: t('svc_pdf_paid_of'), svc:'', status:'', total: money(paid), _bold: true});
-    rows.push({date:'', client: t('svc_pdf_pending_of'), svc:'', status:'', total: money(billed-paid), _bold: true});
+    // Las etiquetas van en la columna ancha (servicio): en la de cliente se cortaban.
+    rows.push({date:'', client:'', svc: t('svc_pdf_billed'), status:'', total: money(billed), _bold: true});
+    rows.push({date:'', client:'', svc: t('svc_pdf_paid_of'), status:'', total: money(paid), _bold: true});
+    rows.push({date:'', client:'', svc: t('svc_pdf_pending_of'), status:'', total: money(billed-paid), _bold: true});
     pdf.table([{key:'date', label: t('rp_col_date'), w: 70}, {key:'client', label: t('svc_client'), w: 130}, {key:'svc', label: t('svc_service')}, {key:'status', label: t('svc_pdf_status'), w: 75}, {key:'total', label: t('rp_col_total'), w: 85, align:'right'}], rows);
     pdf.gap(14);
   }
@@ -1923,9 +1966,25 @@ function svcGenerateRecurring(){
          carguen a mano. */
       let skipped = 0, skip = 0;
       const floor = addDaysStr(today, -14);
-      while(skip++ < 20000){ const n = svcNextDate(last, tpl.repeat, anchor); if(!n || n >= floor) break; last = n; skipped++; }
+      // Solo cuentan como saltadas las fechas que NADIE creó (otro teléfono pudo
+      // haberlas generado y ya venir por la nube).
+      while(skip++ < 20000){ const n = svcNextDate(last, tpl.repeat, anchor); if(!n || n >= floor) break; last = n; if(!outflows.some(o=>o && o.parentId===tpl.id && svcOccDate(o)===n)) skipped++; }
+      // El marcador avanza hasta lo saltado: si no, cada guardado volvía a saltar
+      // lo mismo y a avisar de nuevo mientras la próxima quedara fuera del horizonte.
+      if(tpl.lastGenerated!==last){ tpl.lastGenerated = last; changed = true; }
       if(skipped>0 && typeof showToast==='function' && typeof t==='function') try{ showToast(t('svc_skipped_notice').replace('{n}', String(skipped)).replace('{client}', tpl.client||''), 'info'); }catch(e){}
     }
+    /* Reconciliación: ocurrencias futuras sin tocar que ya no caen en la regla
+       (llegaron de otro teléfono que todavía tenía la regla vieja, o el contrato
+       se movió sobre una fecha que ya tenía ocurrencia) se retiran. Idempotente;
+       lo tocado por una persona no se toca. */
+    const expected = new Set();
+    { let d = tpl.date, g = 0; while(g++ < 20000){ d = svcNextDate(d, tpl.repeat, anchor); if(!d || d > horizon) break; if(d >= today) expected.add(d); } }
+    svcJobs().forEach(o=>{
+      if(o.parentId!==tpl.id || o.date<today || !svcChildUntouched(o)) return;
+      const od = svcOccDate(o);
+      if(od===tpl.date || (od>today && !expected.has(od))){ o.deleted = true; o.prunedByRule = true; o.deletedAt = new Date().toISOString(); svcRuleStamp(o); changed = true; }
+    });
     while(guard++ < 60){
       const next = svcNextDate(last, tpl.repeat, anchor);
       if(!next || next>horizon) break;

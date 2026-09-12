@@ -1096,7 +1096,7 @@ function applyRemoteMetaSnapshot(doc){
   const localOutById = new Map(outflows.filter(o=>o && o.id).map(o=>[o.id, o]));
   incomingMeta.outflows = capOutflows(remoteOutIn.map(remote=>{
       const local = localOutById.get(remote.id);
-      return (local && String(local.lastEditedAt||'') > String(remote.lastEditedAt||'')) ? JSON.parse(JSON.stringify(local)) : remote;
+      return (local && pickOutflow(local, remote)===local) ? JSON.parse(JSON.stringify(local)) : remote;
     }).concat(outflows.filter(o=>o && o.id && !remoteOutIdsIn.has(o.id)))
     .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))), OUTFLOWS_MAX).kept;
   incomingMeta.outflowArchive = mergeOutflowArchives(incomingMeta.outflowArchive, outflowArchive);
@@ -1668,7 +1668,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     let localNewerOutflows = false;
     const remoteOutflows = remoteOutflowsRaw.map(remote=>{
       const local = localOutSnap.get(remote.id);
-      if(local && String(local.lastEditedAt||'') > String(remote.lastEditedAt||'')){ localNewerOutflows = true; return local; }
+      if(local && pickOutflow(local, remote)===local){ localNewerOutflows = true; return local; }
       return remote;
     });
     const localOnlyOutflows = (localSnapshot.outflows||[]).filter(o=>o && o.id && !remoteOutflowIds.has(o.id));

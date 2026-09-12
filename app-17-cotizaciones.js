@@ -274,7 +274,7 @@ function saveQuoteFromDraft(opts){
 }
 function markQuoteSent(q){
   if(!q || q.status==='accepted' || q.status==='rejected') return;
-  if(q.status!=='sent'){ q.status = 'sent'; q.sentAt = new Date().toISOString(); saveState(); logActivity('quote_sent', q.client, money(quoteTotals(q).total)); }
+  if(q.status!=='sent'){ q.status = 'sent'; q.sentAt = q.lastEditedAt = new Date().toISOString(); saveState(); logActivity('quote_sent', q.client, money(quoteTotals(q).total)); }
 }
 function rejectQuote(q){ if(!q) return; q.status = 'rejected'; q.lastEditedAt = new Date().toISOString(); saveState(); }
 function deleteQuote(q){ if(!q) return; q.deleted = true; q.deletedAt = q.lastEditedAt = new Date().toISOString(); saveState(); logActivity('quote_deleted', q.client); }
@@ -311,8 +311,8 @@ function buildQuotePdf(q){
   pdf.line(`${t('lbl_date')}: ${q.date||''}   ·   ${t('qt_valid_until').replace('{d}', quoteValidUntil(q))}`, {size: 9.5, color: [0.35, 0.35, 0.4], lh: 15});
   pdf.gap(10);
   // Unidad traducida ("3 h", "2 días", "20 unidades"), no el token interno ('hour', 'unidad').
-  const unitTxt = (u)=> !u || u==='fixed' ? '' : ' ' + (['hour','day','km'].indexOf(u)>=0 ? svcUnitShort(u) : unitLabel(u));
-  const rows = (q.lines||[]).map(l=>({desc: l.desc, qty: quoteFmtQty(l.qty)+unitTxt(l.unit), unit: money(l.price||0), total: money(Math.round((Number(l.qty)||0)*(Number(l.price)||0)*100)/100)}));
+  const unitTxt = (qty, u)=> !u || u==='fixed' ? '' : ' ' + svcUnitQtyLabel(qty, u);
+  const rows = (q.lines||[]).map(l=>({desc: l.desc, qty: quoteFmtQty(l.qty)+unitTxt(l.qty, l.unit), unit: money(l.price||0), total: money(Math.round((Number(l.qty)||0)*(Number(l.price)||0)*100)/100)}));
   rows.push({desc: t('qt_subtotal'), qty: '', unit: '', total: money(tt.subtotal), _muted: true});
   if(tt.discount>0) rows.push({desc: t('qt_discount'), qty: '', unit: '', total: '-'+money(tt.discount), _muted: true});
   if(tt.tax>0) rows.push({desc: `${t('qt_tax').replace('%','').trim()} ${q.taxPct}%`, qty: '', unit: '', total: money(tt.tax), _muted: true});
