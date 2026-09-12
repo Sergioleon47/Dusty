@@ -137,26 +137,6 @@ function jobReceipts(jobId){ return receipts.filter(r=>r && r.jobId===jobId); }
 function jobExpenseTotal(job){ return jobReceipts(job.id).reduce((s,r)=>s+(Number(r.total)||0),0); }
 function jobIsOverdue(j, today){ today = today||localDateStr(); return !j.paid && !!j.dueDate && j.dueDate<today; }
 function jobsForMonth(key){ return svcJobs().filter(j=>monthKey(j.date)===key); }
-/* Un trabajo nacido de una cotización con PRODUCTOS (acceptQuote, app-17)
-   descontó esa mercadería del inventario al aceptarse (job.items, con costAt y
-   priceAt congelados). Eliminar el trabajo es decir "no pasó": la mercadería
-   vuelve al estante, una sola vez (stockRestored). Devuelve cuántos productos
-   volvieron. El P&L ya no lo cuenta: outflowPL ignora los trabajos borrados. */
-function restoreJobStock(job){
-  if(!job || job.stockRestored || !Array.isArray(job.items) || !job.items.length) return 0;
-  let n = 0;
-  job.items.forEach(it=>{
-    const ing = inventory.find(i=>i && i.id===it.ingId);
-    const q = Math.abs(Number(it && it.qty)||0);
-    if(!ing || !(q>0)) return;
-    ing.qtyOnHand = roundQty((Number(ing.qtyOnHand)||0) + q);
-    if(!(ing.stockFullRef>0) || ing.qtyOnHand > ing.stockFullRef) ing.stockFullRef = ing.qtyOnHand;
-    if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
-    n++;
-  });
-  job.stockRestored = true;
-  return n;
-}
 // Cobrado en el mes = trabajos marcados como cobrados, por la fecha en que se cobraron.
 function paidRevenueForMonth(key){ return svcJobs().filter(j=>j.paid && monthKey(j.paidDate||j.date)===key).reduce((s,j)=>s+(Number(j.price)||0),0); }
 function collectStats(){
