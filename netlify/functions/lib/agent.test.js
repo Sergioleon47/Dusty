@@ -1,16 +1,23 @@
-// netlify/functions/agent.test.js
+// netlify/functions/lib/agent.test.js
 //
 // Forma de una vuelta de herramientas del asistente (toolTurnProblem): la
 // auditoría de la auditoría (2026-09-12) encontró que un historial fabricado con
 // un tool_use inventado llegaba al modelo grande sin cupo ni freno. Se corre con
 // `node --test`; firebase-admin se simula igual que en lib/patron-admin.test.js.
+//
+// Vive en lib/ (no al lado de agent.js) a propósito: Netlify trata cada archivo
+// .js suelto en netlify/functions/ como una función propia, y el nombre que le
+// da es el del archivo sin ".js" — "agent.test.js" quedaba como función
+// "agent.test", con un punto, y Netlify rechaza el deploy entero por eso
+// ("Incorrect function names..."). Todo lo que cuelga de lib/ no se toma como
+// función (mismo motivo por el que patron-admin.js vive ahí y no suelto).
 const { test } = require('node:test');
 const assert = require('node:assert');
 const Module = require('module');
 const real = Module._load;
 const admin = { apps: [{}], auth: ()=>({}), firestore: ()=>({ doc: ()=>({}), runTransaction: async (fn)=>fn({}) }), credential:{cert:()=>({})}, initializeApp:()=>({}) };
 Module._load = function(req, ...rest){ return req==='firebase-admin' ? admin : real.call(this, req, ...rest); };
-const { toolTurnProblem } = require('./agent.js');
+const { toolTurnProblem } = require('../agent.js');
 
 const user = (text)=>({ role:'user', content:[{type:'text', text}] });
 const asst = (...uses)=>({ role:'assistant', content: uses.map((u,i)=>({type:'tool_use', id:'toolu_'+u+'_'+i, name:u, input:{}})) });
