@@ -544,7 +544,10 @@
 // (nunca se recortan del tope de 400, outflowIsOpen en core) pasan de 500 — sin
 // aviso, el doc de meta puede llegar a su límite de 1 MiB y las escrituras
 // empiezan a fallar en silencio — app-03/15.
-const CACHE_NAME = 'patron-shell-v182';
+// v183: el pie de la cuenta de cobro y de la cotización (páginas 2+) lleva el
+// nombre del cliente, no solo el negocio — un documento que se le ENTREGA a un
+// cliente tiene que poder identificarse si se separa de la página 1 — app-15/17.
+const CACHE_NAME = 'patron-shell-v183';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

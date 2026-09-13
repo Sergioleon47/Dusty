@@ -1859,7 +1859,10 @@ function buildJobPdf(j){
   pdf.line(`${t('svc_collect_label')}: ${jobStatusLabel(j)}${!j.paid && j.dueDate ? '   ·   '+t('svc_invoice_due')+' '+j.dueDate : ''}${j.paid && j.paidDate ? '   ·   '+t('svc_paid_on').replace('{when}', j.paidDate) : ''}`, {size: 10, bold: true, lh: 16});
   pdf.gap(6);
   pdf.line(t('svc_invoice_thanks'), {size: 9, color: [0.45, 0.45, 0.5], lh: 14});
-  return pdf.build((n, total)=>({left: name + ' · ' + t('svc_invoice_title') + ' · ' + (j.date||''), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
+  // El pie lleva el cliente (no solo el negocio): una cuenta de cobro se le
+  // ENTREGA a un cliente, y de una página 2 en adelante, sin esto, no hay forma
+  // de saber de quién es si se separa de la página 1 (auditoría 2026-09-12).
+  return pdf.build((n, total)=>({left: name + ' · ' + (j.client||'') + ' · ' + t('svc_invoice_title'), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
 }
 function downloadJobPdf(j){
   let bytes; try{ bytes = buildJobPdf(j); }catch(e){ console.error('[Dusty] cuenta de cobro:', e); showToast(t('rp_failed'), 'error'); return; }

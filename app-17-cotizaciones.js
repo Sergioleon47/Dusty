@@ -388,7 +388,10 @@ function buildQuotePdf(q){
   if(q.notes){ pdf.line(t('qt_notes'), {size: 10, bold: true, lh: 16}); String(q.notes).split(/\n+/).forEach(s=>pdf.line(s, {size: 9.5, lh: 14})); pdf.gap(6); }
   if(bizProfile.quoteTerms){ pdf.line(t('qt_terms_label'), {size: 10, bold: true, lh: 16}); String(bizProfile.quoteTerms).split(/\n+/).forEach(s=>pdf.line(s, {size: 9.5, lh: 14})); pdf.gap(6); }
   pdf.line(t('qt_pdf_thanks'), {size: 9, color: [0.45, 0.45, 0.5], lh: 14});
-  return pdf.build((n, total)=>({left: name + ' · ' + t('qt_pdf_title') + ' #' + quoteNum(q), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
+  // El pie lleva el cliente (no solo el negocio y el número): una cotización se
+  // le ENTREGA a un cliente, y de una página 2 en adelante, sin esto, no hay
+  // forma de saber de quién es si se separa de la página 1 (auditoría 2026-09-12).
+  return pdf.build((n, total)=>({left: name + ' · ' + (q.client||'') + ' · ' + t('qt_pdf_title') + ' #' + quoteNum(q), right: t('rp_page').replace('{n}', n).replace('{t}', total)}));
 }
 function quoteFileName(q){
   const who = svcFileSlug(q.client, t('svc_client'));
