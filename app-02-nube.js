@@ -87,7 +87,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; resetSyncedHashes();
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; deletedMaintLogIds=[]; pendingUnarchiveOutflowIds=[]; resetSyncedHashes();
               // Lo de la cuenta (no solo los datos): sin esto el nombre del negocio, el
               // presupuesto, las categorías y "los miembros ven ganancias" de la cuenta
               // anterior se filtraban a la nueva y el reconcile los subía como suyos
@@ -572,10 +572,10 @@ function persistSyncedHashes(){
    sync manda un arrayRemove por esos ids (se limpia al confirmar). Persistido para
    sobrevivir un cierre entre el import y la subida. */
 const PENDING_UNTOMBSTONE_KEY = 'patron_pending_untombstone_v1';
-let pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] };
+let pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[], deletedMaintLogIds:[] };
 try{
   const rawPU = localStorage.getItem(PENDING_UNTOMBSTONE_KEY);
-  if(rawPU) pendingUntombstone = Object.assign({ deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] }, JSON.parse(rawPU));
+  if(rawPU) pendingUntombstone = Object.assign({ deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[], deletedMaintLogIds:[] }, JSON.parse(rawPU));
 }catch(e){}
 function persistPendingUntombstone(){
   try{ localStorage.setItem(PENDING_UNTOMBSTONE_KEY, JSON.stringify(pendingUntombstone)); }catch(e){}
@@ -598,7 +598,7 @@ function resetSyncedHashes(){
   lastSyncedHashes = { inventory:{}, purchases:{}, receipts:{}, meta:null };
   lastSaveContentHashes = null;
   firedTombstoneDeletes.clear();
-  pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] };
+  pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[], deletedMaintLogIds:[] };
   persistPendingUntombstone();
   persistSyncedHashes();
 }
@@ -635,7 +635,8 @@ function metaContentShape(m){
     deletedPurchaseIds: m.deletedPurchaseIds || [], deletedCalNoteIds: m.deletedCalNoteIds || [],
     deletedRecipeIds: m.deletedRecipeIds || [],
     deletedAssetIds: m.deletedAssetIds || [], deletedMaintIds: m.deletedMaintIds || [],
-    deletedCatalogIds: m.deletedCatalogIds || [], deletedClientIds: m.deletedClientIds || []
+    deletedCatalogIds: m.deletedCatalogIds || [], deletedClientIds: m.deletedClientIds || [],
+    deletedMaintLogIds: m.deletedMaintLogIds || []
   };
 }
 /* Las notas DERIVADAS del modo Servicios (svcKind: trabajo 🚚, cobro 💵,
@@ -655,7 +656,7 @@ function metaCloudContent(){
     businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes,
     recipes: recipesForCloud(), outflows, outflowArchive,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds,
-    deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds
+    deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds
   });
 }
 /* Merge del archivo financiero de salidas evictadas: mergeOutflowArchives vive en
@@ -822,7 +823,7 @@ function syncAllToFirestore(){
       }));
       const FV = firebase.firestore.FieldValue;
       [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds],
-       ['deletedAssetIds',deletedAssetIds], ['deletedMaintIds',deletedMaintIds], ['deletedCatalogIds',deletedCatalogIds], ['deletedClientIds',deletedClientIds]]
+       ['deletedAssetIds',deletedAssetIds], ['deletedMaintIds',deletedMaintIds], ['deletedCatalogIds',deletedCatalogIds], ['deletedClientIds',deletedClientIds], ['deletedMaintLogIds',deletedMaintLogIds]]
         .forEach(([k,arr])=>{ if(Array.isArray(arr) && arr.length>0) metaData[k] = FV.arrayUnion.apply(FV, arr); });
       // "Los miembros ven ganancias" es un ajuste DEL DUEÑO: un miembro no lo
       // manda (con merge:true el doc conserva el valor del dueño). Antes viajaba
@@ -884,7 +885,7 @@ function syncAllToFirestore(){
       // los que nunca vieron la lápida; un dispositivo que aún la tenga local la
       // re-subirá por unión — deshacer eso del todo pediría lápidas versionadas.)
       if(ops.some(op=>op.untombstone)){
-        pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] };
+        pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[], deletedMaintLogIds:[] };
         persistPendingUntombstone();
       }
       persistSyncedHashes();
@@ -1082,7 +1083,7 @@ function applyRemoteMetaSnapshot(doc){
   // desaparecer por aplicar un snapshot. El orden de la unión (remotas primero,
   // extras locales al final) coincide con cómo arrayUnion las va a dejar en la
   // nube, así el sameJSON de abajo converge y deja de re-aplicar.
-  const localTombstones = { deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds };
+  const localTombstones = { deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds };
   Object.keys(localTombstones).forEach(k=>{
     // Las lápidas con des-entierro pendiente (restaurar backup) NO entran a la
     // unión — si no, la copia de la nube re-mataba el doc restaurado antes de que
@@ -1132,6 +1133,10 @@ function applyRemoteMetaSnapshot(doc){
      (auditoría de datos 2026-09-12) para que ese P&L no se pierda al converger. */
   const localOutById = new Map(outflows.filter(o=>o && o.id).map(o=>[o.id, o]));
   const archivedIdsIn = outflowArchivedIds(mergeOutflowArchives(incomingMeta.outflowArchive, outflowArchive));
+  // Un trabajo/cotización recién restaurado de un backup (importData) no debe
+  // volver a excluirse por creerlo "ya consolidado" — ver pendingUnarchiveOutflowIds
+  // y unarchiveOutflowIds (patron-core) más abajo, donde se limpia el archivo mismo.
+  pendingUnarchiveOutflowIds.forEach(id=>archivedIdsIn.delete(id));
   const outCutIn = capOutflows(remoteOutIn.map(remote=>{
       const local = localOutById.get(remote.id);
       return (local && pickOutflow(local, remote)===local) ? JSON.parse(JSON.stringify(local)) : remote;
@@ -1153,13 +1158,20 @@ function applyRemoteMetaSnapshot(doc){
      de los dos lados. */
   incomingMeta.bizProfile = normalizeBizProfile(mergeBizProfile(incomingMeta.bizProfile, bizProfile, {
     deletedAssetIds: incomingMeta.deletedAssetIds, deletedMaintIds: incomingMeta.deletedMaintIds,
-    deletedCatalogIds: incomingMeta.deletedCatalogIds, deletedClientIds: incomingMeta.deletedClientIds
+    deletedCatalogIds: incomingMeta.deletedCatalogIds, deletedClientIds: incomingMeta.deletedClientIds,
+    deletedMaintLogIds: incomingMeta.deletedMaintLogIds
   }));
+  // Trabajos/cotizaciones recién restaurados de un backup (app-03 importData): no
+  // deben quedar excluidos de la lista viva solo porque el archivo de la nube (o la
+  // unión de arriba) ya los daba por consolidados — ver unarchiveOutflowIds.
+  if(pendingUnarchiveOutflowIds.length){
+    incomingMeta.outflowArchive = unarchiveOutflowIds(incomingMeta.outflowArchive, pendingUnarchiveOutflowIds);
+  }
   // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes), deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes), deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1198,7 +1210,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; resetSyncedHashes();
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; deletedMaintLogIds=[]; pendingUnarchiveOutflowIds=[]; resetSyncedHashes();
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -1515,7 +1527,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; resetSyncedHashes();
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; deletedMaintLogIds=[]; pendingUnarchiveOutflowIds=[]; resetSyncedHashes();
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -1617,12 +1629,18 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     remoteDeletedCatalogIds.forEach(id=>{ if(isUntombstonePending('deletedCatalogIds', id)) return; if(!deletedCatalogIds.includes(id)){ deletedCatalogIds.push(id); deletedIdsChanged = true; } });
     const remoteDeletedClientIds = Array.isArray(remoteMetaData.deletedClientIds) ? remoteMetaData.deletedClientIds : [];
     remoteDeletedClientIds.forEach(id=>{ if(isUntombstonePending('deletedClientIds', id)) return; if(!deletedClientIds.includes(id)){ deletedClientIds.push(id); deletedIdsChanged = true; } });
+    const remoteDeletedMaintLogIds = Array.isArray(remoteMetaData.deletedMaintLogIds) ? remoteMetaData.deletedMaintLogIds : [];
+    remoteDeletedMaintLogIds.forEach(id=>{ if(isUntombstonePending('deletedMaintLogIds', id)) return; if(!deletedMaintLogIds.includes(id)){ deletedMaintLogIds.push(id); deletedIdsChanged = true; } });
     const deletedAssetSet = new Set(deletedAssetIds), deletedMaintSet = new Set(deletedMaintIds),
-          deletedCatalogSet = new Set(deletedCatalogIds), deletedClientSet = new Set(deletedClientIds);
-    if((bizProfile.assets||[]).some(a=>deletedAssetSet.has(a.id) || (a.maint||[]).some(m=>deletedMaintSet.has(m.id)))
+          deletedCatalogSet = new Set(deletedCatalogIds), deletedClientSet = new Set(deletedClientIds),
+          deletedMaintLogSet = new Set(deletedMaintLogIds);
+    if((bizProfile.assets||[]).some(a=>deletedAssetSet.has(a.id) || (a.maint||[]).some(m=>deletedMaintSet.has(m.id)) || (a.maintLog||[]).some(l=>deletedMaintLogSet.has(l.id)))
        || (bizProfile.catalog||[]).some(c=>deletedCatalogSet.has(c.id)) || (bizProfile.clients||[]).some(c=>deletedClientSet.has(c.id))){
       bizProfile = normalizeBizProfile(Object.assign({}, bizProfile, {
-        assets: (bizProfile.assets||[]).filter(a=>!deletedAssetSet.has(a.id)).map(a=>Object.assign({}, a, { maint: (a.maint||[]).filter(m=>!deletedMaintSet.has(m.id)) })),
+        assets: (bizProfile.assets||[]).filter(a=>!deletedAssetSet.has(a.id)).map(a=>Object.assign({}, a, {
+          maint: (a.maint||[]).filter(m=>!deletedMaintSet.has(m.id)),
+          maintLog: (a.maintLog||[]).filter(l=>!deletedMaintLogSet.has(l.id))
+        })),
         catalog: (bizProfile.catalog||[]).filter(c=>!deletedCatalogSet.has(c.id)),
         clients: (bizProfile.clients||[]).filter(c=>!deletedClientSet.has(c.id))
       }));
@@ -1757,6 +1775,9 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // se recorta se archiva (archiveEvictedOutflows), la historia del P&L no se achica.
     // Las ya consolidadas en algún archivo (ids) no vuelven a la lista viva.
     const archivedIdsRec = outflowArchivedIds(mergeOutflowArchives(remoteMetaData.outflowArchive, mergeOutflowArchives(localSnapshot.outflowArchive, outflowArchive)));
+    // Mismo desentierro que en applyRemoteMetaSnapshot: un trabajo/cotización recién
+    // restaurado de un backup no debe excluirse por creerlo ya consolidado.
+    pendingUnarchiveOutflowIds.forEach(id=>archivedIdsRec.delete(id));
     const outCutRec = capOutflows(remoteOutflows.concat(localOnlyOutflows).filter(o=>!archivedIdsRec.has(o.id))
       .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))), OUTFLOWS_MAX);
     archiveEvictedOutflows(outCutRec.evicted);
@@ -1764,8 +1785,11 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     // El archivo de salidas evictadas se fusiona por máximo por mes (ver
     // mergeOutflowArchives) — un reconcile jamás debe achicar el P&L histórico.
     // Se parte del archivo GLOBAL (no de la foto localSnapshot) para incluir lo
-    // que el corte de arriba acaba de consolidar.
-    const mergedOutflowArchive = mergeOutflowArchives(remoteMetaData.outflowArchive, mergeOutflowArchives(localSnapshot.outflowArchive, outflowArchive));
+    // que el corte de arriba acaba de consolidar. Los ids recién restaurados se
+    // sacan de nuevo (mergeOutflowArchives los podría haber vuelto a unir desde la
+    // copia de la nube) para que la próxima subida ya no los traiga de vuelta.
+    let mergedOutflowArchive = mergeOutflowArchives(remoteMetaData.outflowArchive, mergeOutflowArchives(localSnapshot.outflowArchive, outflowArchive));
+    if(pendingUnarchiveOutflowIds.length) mergedOutflowArchive = unarchiveOutflowIds(mergedOutflowArchive, pendingUnarchiveOutflowIds);
     const archiveChanged = !sameJSON(mergedOutflowArchive, remoteMetaData.outflowArchive || {});
     // Lápidas LOCALES que la nube todavía no conoce (borrados hechos offline)
     // también obligan a escribir meta — sin esto, el tombstone de un borrado
@@ -1776,7 +1800,8 @@ function reconcileLocalOnlyData(uid, localSnapshot){
       ['deletedPurchaseIds', deletedPurchaseIds], ['deletedCalNoteIds', deletedCalNoteIds],
       ['deletedRecipeIds', deletedRecipeIds],
       ['deletedAssetIds', deletedAssetIds], ['deletedMaintIds', deletedMaintIds],
-      ['deletedCatalogIds', deletedCatalogIds], ['deletedClientIds', deletedClientIds]
+      ['deletedCatalogIds', deletedCatalogIds], ['deletedClientIds', deletedClientIds],
+      ['deletedMaintLogIds', deletedMaintLogIds]
     ].some(([k, arr])=>{
       const rem = new Set(Array.isArray(remoteMetaData[k]) ? remoteMetaData[k] : []);
       return arr.some(id=>!rem.has(id));
@@ -1826,7 +1851,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         // un activo/servicio/cliente creado offline en OTRO dispositivo desaparecía
         // si este reconcile escribía meta antes de que ese dispositivo sincronizara.
         bizProfile: metaSnap.exists
-          ? normalizeBizProfile(mergeBizProfile(remoteMeta.bizProfile, localSnapshot.bizProfile, { deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds }))
+          ? normalizeBizProfile(mergeBizProfile(remoteMeta.bizProfile, localSnapshot.bizProfile, { deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds }))
           : normalizeBizProfile(localSnapshot.bizProfile),
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
         expenseCategories: metaSnap.exists ? (remoteMeta.expenseCategories || localSnapshot.expenseCategories || []) : (localSnapshot.expenseCategories || []),
@@ -1835,7 +1860,7 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         outflows: mergedOutflows,
         outflowArchive: mergedOutflowArchive,
         deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds,
-        deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds
+        deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds
       }))});
     }
     const CHUNK = 450;
@@ -1892,6 +1917,16 @@ let deletedAssetIds = [];
 let deletedMaintIds = [];
 let deletedCatalogIds = [];
 let deletedClientIds = [];
+// Lápida del historial de mantenimientos hechos (maintLog, ver mergeMaintLog en
+// patron-core): borrar el recibo que originó un registro borra ese registro entero
+// (app-06 deleteReceipt) — mismo mecanismo de arriba para que no reaparezca.
+let deletedMaintLogIds = [];
+// Ids de trabajos/cotizaciones (outflows) recién revividos por "Restaurar respaldo"
+// (app-03 importData): protege esos ids de la exclusión por outflowArchive mientras
+// llega el primer snapshot/reconcile post-restauración — ver unarchiveOutflowIds
+// (patron-core). No se persiste: solo cubre la ventana entre el import y el próximo
+// sync, que es donde se manifestaba el bug (alcance honesto, como pendingUntombstone).
+let pendingUnarchiveOutflowIds = [];
 // Presupuesto BASE de un mes: el congelado de ese mes si existe, si no el general.
 function budgetForMonth(key){
   const v = budgetMeta.byMonth[key];

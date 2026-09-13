@@ -972,7 +972,7 @@ function applyJoinedTeam(ownerUid, ownerEmail){
   // recetas/salidas: al unirse a un equipo, las recetas personales quedaban en
   // pantalla dentro del contexto del equipo y la próxima edición las subía al
   // inventario del dueño (y al revés al salir).
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; resetSyncedHashes();
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; deletedMaintLogIds=[]; pendingUnarchiveOutflowIds=[]; resetSyncedHashes();
   joinedOwnerUid = ownerUid; joinedOwnerEmail = ownerEmail;
   lastSyncedUid = ownerUid;
   saveState();
@@ -4261,6 +4261,24 @@ function deleteReceipt(receiptId){
   receipts = receipts.filter(x=>x.id!==receiptId);
   // Lápida del recibo borrado — mismo motivo: evita que reaparezca desde otro dispositivo.
   if(!deletedReceiptIds.includes(receiptId)) deletedReceiptIds.push(receiptId);
+  // Historial de Mantenimientos (app-15, reporte del usuario): borrar el recibo que
+  // originó un registro debe borrar la FILA entera, no solo dejarla sin botón —
+  // antes quedaba huérfana mostrando el costo cacheado (l.cost) para siempre. Se
+  // borra en TODOS los activos por si acaso, aunque en la práctica un recibo solo
+  // puede estar enganchado a uno (ver svcLogMaintenance, app-15).
+  if(bizProfile && Array.isArray(bizProfile.assets)){
+    let maintLogTouched = false;
+    bizProfile.assets = bizProfile.assets.map(a=>{
+      if(!Array.isArray(a.maintLog) || !a.maintLog.some(l=>l && l.receiptId===receiptId)) return a;
+      maintLogTouched = true;
+      return Object.assign({}, a, { maintLog: a.maintLog.filter(l=>{
+        if(!l || l.receiptId!==receiptId) return true;
+        if(!deletedMaintLogIds.includes(l.id)) deletedMaintLogIds.push(l.id);
+        return false;
+      }) });
+    });
+    if(maintLogTouched) bizProfile = normalizeBizProfile(bizProfile);
+  }
   // Borra las fotos de Storage si llegaron a subirse — best-effort: si falla (sin
   // red, sin sesión, lo que sea) no interrumpe ni avisa nada, el recibo ya se borró
   // igual de lo que importa (Firestore/localStorage). Un archivo huérfano en

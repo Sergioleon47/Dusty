@@ -658,6 +658,13 @@ test('mergeBizProfile: un plan de mantenimiento borrado no revive (lápida propi
   const m = mergeBizProfile(remote, local, { deletedMaintIds:['m1'] });
   assert.deepEqual(m.assets[0].maint.map(x=>x.id), ['m2']);
 });
+test('mergeBizProfile: un registro del historial de mantenimiento borrado (recibo eliminado) no revive', () => {
+  const { mergeBizProfile } = require('./patron-core.js');
+  const remote = { assets:[{id:'a1', name:'Camión 1', maintLog:[{id:'l1', date:'2026-09-01', cost:80, receiptId:'r1'}, {id:'l2', date:'2026-09-05', cost:0}]}] };
+  const local = { assets:[{id:'a1', name:'Camión 1', maintLog:[{id:'l2', date:'2026-09-05', cost:0}]}] }; // l1 ya se borró acá junto con el recibo
+  const m = mergeBizProfile(remote, local, { deletedMaintLogIds:['l1'] });
+  assert.deepEqual(m.assets[0].maintLog.map(x=>x.id), ['l2']);
+});
 
 test('pickOutflow: gana el sello más nuevo, sin sello gana la nube, y la regla del contrato nunca pisa un cobro', () => {
   const { pickOutflow, outflowIsOpen } = require('./patron-core.js');
@@ -692,6 +699,18 @@ test('mergeOutflowArchives: máximo por campo (internalUse incluido) y unión de
   assert.deepEqual(m['2026-03'], {revenue:9, cogs:1, internalUse:2}, 'un mes solo remoto queda tal cual');
   assert.deepEqual([...outflowArchivedIds(m)].sort(), ['a','b']);
   assert.deepEqual([...outflowArchivedIds(null)], []);
+});
+
+test('unarchiveOutflowIds: restaurar un respaldo saca esos ids del archivo (no double-cuentan ni bloquean la restauración)', () => {
+  const { unarchiveOutflowIds, outflowArchivedIds } = require('./patron-core.js');
+  const archive = {'2026-01': {revenue:100, cogs:0, ids:['a','b']}, '2026-02': {revenue:50, cogs:0, ids:['c']}};
+  const out = unarchiveOutflowIds(archive, ['b']);
+  assert.deepEqual(out['2026-01'].ids, ['a'], 'solo saca el id pedido, deja el resto del mes intacto');
+  assert.deepEqual(out['2026-02'].ids, ['c'], 'un mes sin ese id no se toca');
+  assert.equal(out['2026-01'].revenue, 100, 'los totales del mes no se recalculan, solo la lista de ids');
+  assert.ok(!outflowArchivedIds(out).has('b'));
+  assert.equal(unarchiveOutflowIds(archive, []), archive, 'sin ids que sacar, devuelve el mismo archivo');
+  assert.deepEqual(unarchiveOutflowIds(null, ['a']), {}, 'archivo vacío no explota');
 });
 
 test('calNotesForCloud: las notas derivadas de Servicios (svcKind) no viajan; el resto sí', () => {

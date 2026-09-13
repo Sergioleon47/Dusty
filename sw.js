@@ -547,7 +547,16 @@
 // v183: el pie de la cuenta de cobro y de la cotización (páginas 2+) lleva el
 // nombre del cliente, no solo el negocio — un documento que se le ENTREGA a un
 // cliente tiene que poder identificarse si se separa de la página 1 — app-15/17.
-const CACHE_NAME = 'patron-shell-v183';
+// v184: tres arreglos reportados por el usuario — (1) borrar el recibo que
+// originó un registro del Historial de Mantenimientos ahora borra la fila
+// entera (antes quedaba huérfana mostrando el costo cacheado) — app-06/15,
+// patron-core (lápida deletedMaintLogIds); (2) restaurar un respaldo ya no deja
+// que trabajos/cotizaciones existentes se re-marquen borrados ni queden
+// excluidos por el archivo financiero (outflowArchive) — app-02/03, patron-core
+// (unarchiveOutflowIds); (3) profitsVisibleToMembers ahora también oculta los
+// montos en las tarjetas de Trabajos, Por cobrar y Ficha del activo, no solo en
+// el P&L — app-15.
+const CACHE_NAME = 'patron-shell-v184';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

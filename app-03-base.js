@@ -1888,7 +1888,7 @@ function saveState(){
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
       businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
       recipes, outflows, outflowArchive, deletedRecipeIds,
-      deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds
+      deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds
     }));
   }catch(e){
     // El motivo más común es que el almacenamiento del navegador se llenó (las fotos
@@ -1956,6 +1956,7 @@ function applyStateData(data){
   if(Array.isArray(data.deletedMaintIds)) deletedMaintIds = data.deletedMaintIds;
   if(Array.isArray(data.deletedCatalogIds)) deletedCatalogIds = data.deletedCatalogIds;
   if(Array.isArray(data.deletedClientIds)) deletedClientIds = data.deletedClientIds;
+  if(Array.isArray(data.deletedMaintLogIds)) deletedMaintLogIds = data.deletedMaintLogIds;
   if(data.bizProfile && typeof data.bizProfile==='object') bizProfile = normalizeBizProfile(data.bizProfile);
   if(Array.isArray(data.categories)) categories = data.categories;
   if(Array.isArray(data.expenseCategories)) expenseCategories = data.expenseCategories;
@@ -2107,12 +2108,31 @@ function importData(file){
     const bp = (data.bizProfile && typeof data.bizProfile==='object') ? data.bizProfile : {};
     const restoredAssets = new Set((bp.assets||[]).map(a=>a && a.id).filter(Boolean));
     const restoredMaint = new Set((bp.assets||[]).reduce((ids,a)=>ids.concat((a && a.maint||[]).map(m=>m && m.id).filter(Boolean)), []));
+    const restoredMaintLog = new Set((bp.assets||[]).reduce((ids,a)=>ids.concat((a && a.maintLog||[]).map(l=>l && l.id).filter(Boolean)), []));
     const restoredCatalog = new Set((bp.catalog||[]).map(c=>c && c.id).filter(Boolean));
     const restoredClients = new Set((bp.clients||[]).map(c=>c && c.id).filter(Boolean));
     deletedAssetIds = deletedAssetIds.filter(id=>!restoredAssets.has(id));
     deletedMaintIds = deletedMaintIds.filter(id=>!restoredMaint.has(id));
+    deletedMaintLogIds = deletedMaintLogIds.filter(id=>!restoredMaintLog.has(id));
     deletedCatalogIds = deletedCatalogIds.filter(id=>!restoredCatalog.has(id));
     deletedClientIds = deletedClientIds.filter(id=>!restoredClients.has(id));
+    // Trabajos y cotizaciones (app-15/17, auditoría 2026-09-12): no tienen lápida por
+    // id como lo de arriba — se borran con o.deleted+lastEditedAt. Sin sellarlos de
+    // nuevo acá, un cobro/borrado más reciente en la nube (lastEditedAt más nuevo que
+    // el del backup) le ganaba el próximo merge y el trabajo restaurado "volvía a
+    // borrarse" solo. Y si en algún momento se evictaron del tope de 400 (capOutflows)
+    // y quedaron consolidados en outflowArchive, esa consolidación los seguía
+    // excluyendo de la lista viva aunque el backup los trajera de vuelta — se
+    // desarchivan acá y se anotan como pendientes para que la próxima unión con la
+    // nube (app-02) no los vuelva a excluir antes de que el archivo limpio suba.
+    const restoredOutflows = outflows.filter(o=>o && o.id && !o.deleted);
+    if(restoredOutflows.length){
+      const now = new Date().toISOString();
+      restoredOutflows.forEach(o=>{ o.lastEditedAt = now; });
+      const restoredOutflowIds = restoredOutflows.map(o=>o.id);
+      outflowArchive = unarchiveOutflowIds(outflowArchive, restoredOutflowIds);
+      pendingUnarchiveOutflowIds = Array.from(new Set(pendingUnarchiveOutflowIds.concat(restoredOutflowIds)));
+    }
     // Des-entierro en la NUBE (ver pendingUntombstone en app-02): quitar la lápida
     // local no alcanza con lápidas por unión — la copia de la nube la re-agregaba
     // y el doc restaurado se re-borraba solo en segundos. Se anotan TODOS los ids
@@ -2126,6 +2146,7 @@ function importData(file){
       deletedRecipeIds: Array.from(restoredRecipes),
       deletedAssetIds: Array.from(restoredAssets),
       deletedMaintIds: Array.from(restoredMaint),
+      deletedMaintLogIds: Array.from(restoredMaintLog),
       deletedCatalogIds: Array.from(restoredCatalog),
       deletedClientIds: Array.from(restoredClients)
     });

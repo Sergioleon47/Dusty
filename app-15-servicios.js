@@ -567,7 +567,7 @@ function assetSheet(){
   const today = localDateStr();
   const fin = canSeeFinancials();
   const showKm = useOdo() && a.km!==null && a.km!==undefined;
-  const bought = [a.purchaseDate ? t('svc_bought').replace('{when}', svcMonthYear(a.purchaseDate)) : '', a.purchasePrice>0 ? money(a.purchasePrice) : '', showKm ? `${svcFmtNum(a.km)} ${distU()}` : ''].filter(Boolean).join(' · ');
+  const bought = [a.purchaseDate ? t('svc_bought').replace('{when}', svcMonthYear(a.purchaseDate)) : '', (fin && a.purchasePrice>0) ? money(a.purchasePrice) : '', showKm ? `${svcFmtNum(a.km)} ${distU()}` : ''].filter(Boolean).join(' · ');
   const recsAll = assetReceipts(a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
   const recs = recsAll.slice(0,6);
   const jobsAll = svcJobs().filter(j=>j.assetId===a.id).sort((x,y)=>String(y.date).localeCompare(String(x.date)));
@@ -622,7 +622,7 @@ function assetSheet(){
       ${log.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_maint_history_empty')}</div>` : log.map(l=>`
       <div class="recap-row svc-plan${logRid(l) ? '' : ' static'}" ${logRid(l) ? `data-view-receipt="${escapeHtml(logRid(l))}" role="button" tabindex="0"` : ''}>
         <span class="recap-label"><span>${escapeHtml(logName(l))}</span><small class="svc-plan-sub">${escapeHtml(svcShortDate(l.date))}${useOdo() && l.km!==null && l.km!==undefined ? ` · ${svcFmtNum(l.km)} ${distU()}` : ''}</small></span>
-        <span class="recap-col-val"><strong>${l.cost>0 ? money(l.cost) : '—'}</strong></span>
+        ${fin ? `<span class="recap-col-val"><strong>${l.cost>0 ? money(l.cost) : '—'}</strong></span>` : ''}
       </div>`).join('')}
     </div>
     <div class="settings-card svc-card">
@@ -638,7 +638,7 @@ function assetSheet(){
       ${recs.length===0 ? `<div class="helper-note" style="margin:4px 0 2px;">${t('svc_no_expenses')}</div>` : recs.map(r=>`
       <div class="recap-row svc-plan" data-view-receipt="${escapeHtml(r.id)}" role="button" tabindex="0">
         <span class="recap-label">${svcReceiptLabel(r)} · ${escapeHtml(svcShortDate(r.date))}</span>
-        <span class="recap-col-val"><strong>${money(r.total)}</strong></span>
+        ${fin ? `<span class="recap-col-val"><strong>${money(r.total)}</strong></span>` : ''}
       </div>`).join('')}
       <div class="svc-row-actions" style="margin:8px 0 0;">
         <button type="button" class="btn btn-ghost btn-sm" id="btn-asset-scan">${t('svc_scan_receipt_btn')}</button>
@@ -656,6 +656,7 @@ function assetSheet(){
 /* ---------- POR COBRAR ---------- */
 function collectSheet(){
   const cs = collectStats();
+  const fin = canSeeFinancials();
   const today = localDateStr();
   const weekAgo = addDaysStr(today, -7);
   const paidWeek = svcJobs().filter(j=>j.paid && (j.paidDate||j.date)>=weekAgo).sort((a,b)=>String(b.paidDate||b.date).localeCompare(String(a.paidDate||a.date)));
@@ -671,11 +672,12 @@ function collectSheet(){
   const body = `
     <div class="sub svc-sub" style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span>${t('svc_collect_sub2')}</span>${reportButtonHtml(localMonthStr())}</div>
     ${cs.unpaidPriced>SVC_COLLECT_WARN_AT ? `<div class="recap-demo-banner">${t('svc_collect_warn').replace('{n}', String(cs.unpaidPriced))}</div>` : ''}
+    ${fin ? `
     <div class="inv-stats">
       <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_pending')}</div><div class="inv-stat-value">${svcMoneyShort(cs.pending)}</div></div>
       <div class="inv-stat static svc-stat-overdue"><div class="inv-stat-label">${t('svc_stat_overdue')}</div><div class="inv-stat-value">${svcMoneyShort(cs.overdue)}</div></div>
       <div class="inv-stat static"><div class="inv-stat-label">${t('svc_stat_paid_month')}</div><div class="inv-stat-value">${svcMoneyShort(cs.paidMonth)}</div></div>
-    </div>
+    </div>` : ''}
     ${cs.list.length===0 ? `<div class="oc-empty">${t('svc_collect_empty')}</div>` : cs.list.map(j=>{
       const over = jobIsOverdue(j, today);
       return `
@@ -686,7 +688,7 @@ function collectSheet(){
         <small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${j.dueDate ? ` · ${escapeHtml(dueTxt(j))}` : ''}</small>
         <span class="dash-tile-badge svc-tag ${over?'crit':'warn'}">${over ? t('svc_tag_overdue') : t('svc_tag_pending')}</span>
       </span>
-      <span class="svc-row-amt"><b style="color:${over?'var(--money-neg)':'var(--ink)'};">${svcMoneyShort(j.price||0)}</b></span>
+      ${fin ? `<span class="svc-row-amt"><b style="color:${over?'var(--money-neg)':'var(--ink)'};">${svcMoneyShort(j.price||0)}</b></span>` : ''}
     </div>
     <div class="svc-row-actions">
       <button type="button" class="btn btn-ghost btn-sm" data-wa-job="${escapeHtml(j.id)}">${t('svc_whatsapp')}</button>
@@ -698,7 +700,7 @@ function collectSheet(){
     <div class="matched-item svc-row" data-open-job="${escapeHtml(j.id)}" role="button" tabindex="0">
       <span class="svc-row-ic">✅</span>
       <span class="svc-row-tx"><b>${escapeHtml(j.client||'')}</b><small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))} · ${escapeHtml(paidTxt(j))}</small></span>
-      <span class="svc-row-amt"><b style="color:var(--money-pos);">${svcMoneyShort(j.price||0)}</b></span>
+      ${fin ? `<span class="svc-row-amt"><b style="color:var(--money-pos);">${svcMoneyShort(j.price||0)}</b></span>` : ''}
     </div>`).join('')}` : ''}`;
   return svcSheet('collect-sheet-overlay', t('svc_collect_title'), body, 'btn-close-collect-sheet');
 }
@@ -711,6 +713,7 @@ function svcAssetFilterChip(asset, labelKey, n, btnId){
 }
 function jobsSheet(){
   const today = localDateStr();
+  const fin = canSeeFinancials();
   // Con 5 trabajos o menos la caja de búsqueda no se dibuja: un texto que quedó
   // de antes (se borraron trabajos) no puede seguir filtrando a escondidas.
   if(svcJobs().length<=5) jobsSearch = '';
@@ -743,10 +746,10 @@ function jobsSheet(){
       <span class="svc-row-ic">${asset ? escapeHtml(asset.emoji||'🚚') : '🧾'}</span>
       <span class="svc-row-tx">
         <b>${j.repeat ? '🔁 ' : ''}${escapeHtml(j.client||'')}</b>
-        <small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${j.endDate ? ` → ${escapeHtml(svcShortDate(j.endDate))}` : ''}${asset ? ` · ${escapeHtml(asset.name)}` : ''}${j.repeat ? ` · ${svcRepeatLabel(j.repeat).toLowerCase()}` : ''}${exp>0 ? ` · ${t('svc_expenses_short')} ${svcMoneyShort(exp)}` : ''}</small>
+        <small>${escapeHtml(j.serviceName||'')}${j.serviceName?' · ':''}${escapeHtml(svcShortDate(j.date))}${j.endDate ? ` → ${escapeHtml(svcShortDate(j.endDate))}` : ''}${asset ? ` · ${escapeHtml(asset.name)}` : ''}${j.repeat ? ` · ${svcRepeatLabel(j.repeat).toLowerCase()}` : ''}${(fin && exp>0) ? ` · ${t('svc_expenses_short')} ${svcMoneyShort(exp)}` : ''}</small>
         <span class="dash-tile-badge svc-tag ${j.paid?'ok':over?'crit':'warn'}">${j.paid ? t('svc_tag_paid') : over ? t('svc_tag_overdue') : t('svc_tag_pending')}</span>
       </span>
-      <span class="svc-row-amt"><b style="color:${j.paid?'var(--money-pos)':over?'var(--money-neg)':'var(--ink)'};">${svcMoneyShort(j.price||0)}</b></span>
+      ${fin ? `<span class="svc-row-amt"><b style="color:${j.paid?'var(--money-pos)':over?'var(--money-neg)':'var(--ink)'};">${svcMoneyShort(j.price||0)}</b></span>` : ''}
     </div>`; }).join('')}
     ${hidden>0 ? `
     <div style="text-align:center;margin:14px 0 6px;">

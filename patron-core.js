@@ -143,13 +143,16 @@ function mergeListById(remoteArr, localArr, deletedIds){
   const localOnly = (Array.isArray(localArr) ? localArr : []).filter(x=>x && x.id && !remoteIds.has(x.id) && !del.has(x.id));
   return remote.concat(localOnly);
 }
-// El historial de mantenimientos hechos (maintLog) es solo-agregar (nunca se borra a
-// mano, ver app-15): se une por id, más nuevo por fecha primero, mismo tope de 300
-// que normalizeBizProfile.
-function mergeMaintLog(remoteLog, localLog){
+// El historial de mantenimientos hechos (maintLog) es CASI solo-agregar (ver app-15):
+// se une por id, más nuevo por fecha primero, mismo tope de 300 que normalizeBizProfile.
+// Única excepción (2026-09-12): borrar el RECIBO que originó un registro borra también
+// ese registro entero — con lápida, igual que assets/maint/catalog/clients, para que un
+// dispositivo con una copia vieja del log no lo resucite en la próxima unión.
+function mergeMaintLog(remoteLog, localLog, deletedIds){
+  const del = new Set(deletedIds || []);
   const byId = new Map();
-  (Array.isArray(remoteLog) ? remoteLog : []).forEach(l=>{ if(l && l.id) byId.set(l.id, l); });
-  (Array.isArray(localLog) ? localLog : []).forEach(l=>{ if(l && l.id && !byId.has(l.id)) byId.set(l.id, l); });
+  (Array.isArray(remoteLog) ? remoteLog : []).forEach(l=>{ if(l && l.id && !del.has(l.id)) byId.set(l.id, l); });
+  (Array.isArray(localLog) ? localLog : []).forEach(l=>{ if(l && l.id && !del.has(l.id) && !byId.has(l.id)) byId.set(l.id, l); });
   return Array.from(byId.values()).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0, 300);
 }
 function mergeBizProfile(remote, local, tombstones){
@@ -166,7 +169,7 @@ function mergeBizProfile(remote, local, tombstones){
     // agregado acá no debe desaparecer porque el otro dispositivo escribió después).
     return Object.assign({}, a, {
       maint: mergeListById(a.maint, la.maint, t.deletedMaintIds),
-      maintLog: mergeMaintLog(a.maintLog, la.maintLog)
+      maintLog: mergeMaintLog(a.maintLog, la.maintLog, t.deletedMaintLogIds)
     });
   });
   const knownAssetIds = new Set(remoteAssets.map(a=>a.id));
@@ -492,6 +495,21 @@ function outflowArchivedIds(archive){
   Object.keys(archive||{}).forEach(k=>{ const a = archive[k]; if(a && Array.isArray(a.ids)) a.ids.forEach(id=>s.add(id)); });
   return s;
 }
+// Inverso puntual de lo de arriba (restaurar un respaldo, 2026-09-12): un trabajo o
+// cotización que el backup trae VIVO puede haberse archivado DESPUÉS de esa foto (se
+// evictó del tope de 400 en otro dispositivo/en la nube) — sin sacarlo de acá,
+// outflowArchivedIds lo sigue viendo "ya consolidado" y la próxima unión de archivos
+// lo vuelve a excluir de la lista viva apenas llega, deshaciendo la restauración.
+function unarchiveOutflowIds(archive, ids){
+  const idSet = new Set(ids || []);
+  if(idSet.size===0) return archive || {};
+  const out = {};
+  Object.keys(archive||{}).forEach(k=>{
+    const a = archive[k];
+    out[k] = (a && Array.isArray(a.ids)) ? Object.assign({}, a, { ids: a.ids.filter(id=>!idSet.has(id)) }) : a;
+  });
+  return out;
+}
 /* Notas del calendario que viajan a la nube: las DERIVADAS del modo Servicios
    (svcKind) no — su texto lleva idioma y formato de moneda del dispositivo y cada
    uno las regenera (ver el comentario en app-02 para el porqué). */
@@ -729,8 +747,8 @@ if(typeof module!=='undefined' && module.exports){
     roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
-    normalizeBizProfile, maintStatus, mergeBizProfile, mergeListById,
+    normalizeBizProfile, maintStatus, mergeBizProfile, mergeListById, mergeMaintLog,
     mergeReceiptPages, outflowIsOpen, capOutflows, formatInt, pickOutflow, outflowUserTouched, outflowRuleStamped,
-    mergeOutflowArchives, outflowArchivedIds, calNotesForCloud, OUTFLOW_ARCHIVE_IDS_MAX
+    mergeOutflowArchives, outflowArchivedIds, unarchiveOutflowIds, calNotesForCloud, OUTFLOW_ARCHIVE_IDS_MAX
   };
 }
