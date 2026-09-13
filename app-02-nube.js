@@ -87,7 +87,7 @@ function ensurePatronFirebaseReady(){
             // cuenta anterior como si fuera de la cuenta nueva.
             if(lastSyncedUid && lastSyncedUid !== targetUid){
               applyingRemoteSnapshot = true;
-              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
+              inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; resetSyncedHashes();
               // Lo de la cuenta (no solo los datos): sin esto el nombre del negocio, el
               // presupuesto, las categorías y "los miembros ven ganancias" de la cuenta
               // anterior se filtraban a la nueva y el reconcile los subía como suyos
@@ -572,10 +572,10 @@ function persistSyncedHashes(){
    sync manda un arrayRemove por esos ids (se limpia al confirmar). Persistido para
    sobrevivir un cierre entre el import y la subida. */
 const PENDING_UNTOMBSTONE_KEY = 'patron_pending_untombstone_v1';
-let pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] };
+let pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] };
 try{
   const rawPU = localStorage.getItem(PENDING_UNTOMBSTONE_KEY);
-  if(rawPU) pendingUntombstone = Object.assign({ deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] }, JSON.parse(rawPU));
+  if(rawPU) pendingUntombstone = Object.assign({ deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] }, JSON.parse(rawPU));
 }catch(e){}
 function persistPendingUntombstone(){
   try{ localStorage.setItem(PENDING_UNTOMBSTONE_KEY, JSON.stringify(pendingUntombstone)); }catch(e){}
@@ -598,7 +598,7 @@ function resetSyncedHashes(){
   lastSyncedHashes = { inventory:{}, purchases:{}, receipts:{}, meta:null };
   lastSaveContentHashes = null;
   firedTombstoneDeletes.clear();
-  pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] };
+  pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] };
   persistPendingUntombstone();
   persistSyncedHashes();
 }
@@ -633,7 +633,9 @@ function metaContentShape(m){
     outflowArchive: m.outflowArchive || {},
     deletedInventoryIds: m.deletedInventoryIds || [], deletedReceiptIds: m.deletedReceiptIds || [],
     deletedPurchaseIds: m.deletedPurchaseIds || [], deletedCalNoteIds: m.deletedCalNoteIds || [],
-    deletedRecipeIds: m.deletedRecipeIds || []
+    deletedRecipeIds: m.deletedRecipeIds || [],
+    deletedAssetIds: m.deletedAssetIds || [], deletedMaintIds: m.deletedMaintIds || [],
+    deletedCatalogIds: m.deletedCatalogIds || [], deletedClientIds: m.deletedClientIds || []
   };
 }
 /* Las notas DERIVADAS del modo Servicios (svcKind: trabajo 🚚, cobro 💵,
@@ -652,7 +654,8 @@ function metaCloudContent(){
     aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes,
     recipes: recipesForCloud(), outflows, outflowArchive,
-    deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
+    deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds,
+    deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds
   });
 }
 /* Merge del archivo financiero de salidas evictadas: mergeOutflowArchives vive en
@@ -818,7 +821,8 @@ function syncAllToFirestore(){
         outflowArchive
       }));
       const FV = firebase.firestore.FieldValue;
-      [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds]]
+      [['deletedInventoryIds',deletedInventoryIds], ['deletedReceiptIds',deletedReceiptIds], ['deletedPurchaseIds',deletedPurchaseIds], ['deletedCalNoteIds',deletedCalNoteIds], ['deletedRecipeIds',deletedRecipeIds],
+       ['deletedAssetIds',deletedAssetIds], ['deletedMaintIds',deletedMaintIds], ['deletedCatalogIds',deletedCatalogIds], ['deletedClientIds',deletedClientIds]]
         .forEach(([k,arr])=>{ if(Array.isArray(arr) && arr.length>0) metaData[k] = FV.arrayUnion.apply(FV, arr); });
       // "Los miembros ven ganancias" es un ajuste DEL DUEÑO: un miembro no lo
       // manda (con merge:true el doc conserva el valor del dueño). Antes viajaba
@@ -880,7 +884,7 @@ function syncAllToFirestore(){
       // los que nunca vieron la lápida; un dispositivo que aún la tenga local la
       // re-subirá por unión — deshacer eso del todo pediría lápidas versionadas.)
       if(ops.some(op=>op.untombstone)){
-        pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[] };
+        pendingUntombstone = { deletedInventoryIds:[], deletedReceiptIds:[], deletedPurchaseIds:[], deletedCalNoteIds:[], deletedRecipeIds:[], deletedAssetIds:[], deletedMaintIds:[], deletedCatalogIds:[], deletedClientIds:[] };
         persistPendingUntombstone();
       }
       persistSyncedHashes();
@@ -1078,7 +1082,7 @@ function applyRemoteMetaSnapshot(doc){
   // desaparecer por aplicar un snapshot. El orden de la unión (remotas primero,
   // extras locales al final) coincide con cómo arrayUnion las va a dejar en la
   // nube, así el sameJSON de abajo converge y deja de re-aplicar.
-  const localTombstones = { deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds };
+  const localTombstones = { deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds };
   Object.keys(localTombstones).forEach(k=>{
     // Las lápidas con des-entierro pendiente (restaurar backup) NO entran a la
     // unión — si no, la copia de la nube re-mataba el doc restaurado antes de que
@@ -1140,11 +1144,22 @@ function applyRemoteMetaSnapshot(doc){
   incomingMeta.outflows = outCutIn.kept;
   incomingMeta.outflowArchive = mergeOutflowArchives(incomingMeta.outflowArchive, outflowArchive);
   incomingMeta.aliasMap = Object.assign({}, aliasMap, incomingMeta.aliasMap || {});
+  /* bizProfile (auditoría de la auditoría 2026-09-12): activos, catálogo y clientes
+     son listas colaborativas como recetas/notas — sin este merge, el doc remoto
+     pisaba TODO el perfil y un activo/servicio borrado acá revivía si otro
+     dispositivo con una copia vieja escribía después. mergeBizProfile (patron-core)
+     hace por id lo mismo que las recetas de arriba: la nube manda si ya conoce el
+     id, lo local agrega lo que falte, y las lápidas (ya unidas arriba) lo excluyen
+     de los dos lados. */
+  incomingMeta.bizProfile = normalizeBizProfile(mergeBizProfile(incomingMeta.bizProfile, bizProfile, {
+    deletedAssetIds: incomingMeta.deletedAssetIds, deletedMaintIds: incomingMeta.deletedMaintIds,
+    deletedCatalogIds: incomingMeta.deletedCatalogIds, deletedClientIds: incomingMeta.deletedClientIds
+  }));
   // Las recetas se comparan en su forma NORMALIZADA para la nube (fotos como
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes), deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes), deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1183,7 +1198,7 @@ function handleSyncPermissionDenied(err){
   stopPresenceHeartbeat();
   joinedRef(currentUser.uid).delete().catch(()=>{});
   applyingRemoteSnapshot = true;
-  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
+  inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; resetSyncedHashes();
   joinedOwnerUid = null; joinedOwnerEmail = '';
   lastSyncedUid = currentUser.uid;
   saveState();
@@ -1500,7 +1515,7 @@ function leaveTeam(){
       // Mismo resguardo que en joinTeam(): esta limpieza es una transición de árbol
       // de datos, no una edición real — no debe disparar una subida con estado vacío.
       applyingRemoteSnapshot = true;
-      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); resetSyncedHashes();
+      inventory=[]; purchases=[]; receipts=[]; deletedInventoryIds=[]; deletedReceiptIds=[]; deletedPurchaseIds=[]; aliasMap={}; calNotes=[]; deletedCalNoteIds=[]; recipes=[]; outflows=[]; outflowArchive={}; deletedRecipeIds=[]; bizProfile=normalizeBizProfile(null); deletedAssetIds=[]; deletedMaintIds=[]; deletedCatalogIds=[]; deletedClientIds=[]; resetSyncedHashes();
       joinedOwnerUid = null; joinedOwnerEmail = '';
       lastSyncedUid = currentUser.uid;
       saveState();
@@ -1588,6 +1603,29 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const deletedRecipeSet = new Set(deletedRecipeIds);
     if(recipes.some(r=>deletedRecipeSet.has(r.id))){
       recipes = recipes.filter(r=>!deletedRecipeSet.has(r.id));
+      saveState();
+    }
+    // Lápidas de bizProfile (auditoría de la auditoría 2026-09-12): mismo mecanismo
+    // que notas/recetas — sin esto, un activo/servicio/plan de mantenimiento borrado
+    // acá podía revivir si otro dispositivo con una copia vieja de meta volvía a
+    // escribir (bizProfile viajaba como un bloque, sin lápidas).
+    const remoteDeletedAssetIds = Array.isArray(remoteMetaData.deletedAssetIds) ? remoteMetaData.deletedAssetIds : [];
+    remoteDeletedAssetIds.forEach(id=>{ if(isUntombstonePending('deletedAssetIds', id)) return; if(!deletedAssetIds.includes(id)){ deletedAssetIds.push(id); deletedIdsChanged = true; } });
+    const remoteDeletedMaintIds = Array.isArray(remoteMetaData.deletedMaintIds) ? remoteMetaData.deletedMaintIds : [];
+    remoteDeletedMaintIds.forEach(id=>{ if(isUntombstonePending('deletedMaintIds', id)) return; if(!deletedMaintIds.includes(id)){ deletedMaintIds.push(id); deletedIdsChanged = true; } });
+    const remoteDeletedCatalogIds = Array.isArray(remoteMetaData.deletedCatalogIds) ? remoteMetaData.deletedCatalogIds : [];
+    remoteDeletedCatalogIds.forEach(id=>{ if(isUntombstonePending('deletedCatalogIds', id)) return; if(!deletedCatalogIds.includes(id)){ deletedCatalogIds.push(id); deletedIdsChanged = true; } });
+    const remoteDeletedClientIds = Array.isArray(remoteMetaData.deletedClientIds) ? remoteMetaData.deletedClientIds : [];
+    remoteDeletedClientIds.forEach(id=>{ if(isUntombstonePending('deletedClientIds', id)) return; if(!deletedClientIds.includes(id)){ deletedClientIds.push(id); deletedIdsChanged = true; } });
+    const deletedAssetSet = new Set(deletedAssetIds), deletedMaintSet = new Set(deletedMaintIds),
+          deletedCatalogSet = new Set(deletedCatalogIds), deletedClientSet = new Set(deletedClientIds);
+    if((bizProfile.assets||[]).some(a=>deletedAssetSet.has(a.id) || (a.maint||[]).some(m=>deletedMaintSet.has(m.id)))
+       || (bizProfile.catalog||[]).some(c=>deletedCatalogSet.has(c.id)) || (bizProfile.clients||[]).some(c=>deletedClientSet.has(c.id))){
+      bizProfile = normalizeBizProfile(Object.assign({}, bizProfile, {
+        assets: (bizProfile.assets||[]).filter(a=>!deletedAssetSet.has(a.id)).map(a=>Object.assign({}, a, { maint: (a.maint||[]).filter(m=>!deletedMaintSet.has(m.id)) })),
+        catalog: (bizProfile.catalog||[]).filter(c=>!deletedCatalogSet.has(c.id)),
+        clients: (bizProfile.clients||[]).filter(c=>!deletedClientSet.has(c.id))
+      }));
       saveState();
     }
     const deletedRecSet = new Set(deletedReceiptIds);
@@ -1736,7 +1774,9 @@ function reconcileLocalOnlyData(uid, localSnapshot){
     const localOnlyTombstones = [
       ['deletedInventoryIds', deletedInventoryIds], ['deletedReceiptIds', deletedReceiptIds],
       ['deletedPurchaseIds', deletedPurchaseIds], ['deletedCalNoteIds', deletedCalNoteIds],
-      ['deletedRecipeIds', deletedRecipeIds]
+      ['deletedRecipeIds', deletedRecipeIds],
+      ['deletedAssetIds', deletedAssetIds], ['deletedMaintIds', deletedMaintIds],
+      ['deletedCatalogIds', deletedCatalogIds], ['deletedClientIds', deletedClientIds]
     ].some(([k, arr])=>{
       const rem = new Set(Array.isArray(remoteMetaData[k]) ? remoteMetaData[k] : []);
       return arr.some(id=>!rem.has(id));
@@ -1781,14 +1821,21 @@ function reconcileLocalOnlyData(uid, localSnapshot){
         businessName: metaSnap.exists ? remoteMeta.businessName : localSnapshot.businessName,
         monthlyBudget: metaSnap.exists ? (remoteMeta.monthlyBudget===undefined ? null : remoteMeta.monthlyBudget) : localSnapshot.monthlyBudget,
         budgetMeta: normalizeBudgetMeta(metaSnap.exists ? (remoteMeta.budgetMeta || localSnapshot.budgetMeta) : localSnapshot.budgetMeta),
-        bizProfile: normalizeBizProfile(metaSnap.exists ? (remoteMeta.bizProfile || localSnapshot.bizProfile) : localSnapshot.bizProfile),
+        // bizProfile (auditoría de la auditoría 2026-09-12): merge por id igual que
+        // calNotes/recipes de arriba, no "la nube manda el bloque entero" — sin esto
+        // un activo/servicio/cliente creado offline en OTRO dispositivo desaparecía
+        // si este reconcile escribía meta antes de que ese dispositivo sincronizara.
+        bizProfile: metaSnap.exists
+          ? normalizeBizProfile(mergeBizProfile(remoteMeta.bizProfile, localSnapshot.bizProfile, { deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds }))
+          : normalizeBizProfile(localSnapshot.bizProfile),
         categories: metaSnap.exists ? (remoteMeta.categories || localSnapshot.categories) : localSnapshot.categories,
         expenseCategories: metaSnap.exists ? (remoteMeta.expenseCategories || localSnapshot.expenseCategories || []) : (localSnapshot.expenseCategories || []),
         calNotes: mergedCalNotes,
         recipes: mergedRecipes.map(stripRecipePhotoForCloud),
         outflows: mergedOutflows,
         outflowArchive: mergedOutflowArchive,
-        deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds
+        deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds,
+        deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds
       }))});
     }
     const CHUNK = 450;
@@ -1831,6 +1878,20 @@ let draftMonthlyBudget = monthlyBudget;
 let budgetMeta = normalizeBudgetMeta(null);
 // Perfil del negocio (modo Servicios, app-15): viaja en meta como budgetMeta.
 let bizProfile = normalizeBizProfile(null);
+/* Lápidas de las listas colaborativas de bizProfile (auditoría de la auditoría de
+   Servicios, 2026-09-12): activos, planes de mantenimiento y servicios del catálogo
+   se pueden borrar desde cualquier dispositivo — sin esto, un borrado hecho acá
+   revivía en cuanto otro dispositivo con una copia vieja volvía a escribir meta
+   (bizProfile viajaba como un bloque, sin merge por id ni lápidas, a diferencia de
+   inventario/recetas/notas). Mismo mecanismo que deletedRecipeIds: se fusionan en
+   applyRemoteMetaSnapshot/reconcileLocalOnlyData (mergeBizProfile, patron-core) y
+   viajan dentro de meta por arrayUnion, igual que las demás.
+   Clientes no tienen borrado desde la interfaz todavía, pero se deja la lápida
+   lista para cuando lo tenga (mismo criterio que las otras tres). */
+let deletedAssetIds = [];
+let deletedMaintIds = [];
+let deletedCatalogIds = [];
+let deletedClientIds = [];
 // Presupuesto BASE de un mes: el congelado de ese mes si existe, si no el general.
 function budgetForMonth(key){
   const v = budgetMeta.byMonth[key];

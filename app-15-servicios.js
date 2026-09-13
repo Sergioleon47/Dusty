@@ -1517,6 +1517,9 @@ function attachServicesEvents(){
   on('btn-save-service', ()=>{ if(saveServiceFromDraft()) closeServiceModal(); });
   on('btn-delete-service', ()=>{
     if(!confirm(t('svc_delete_confirm'))) return;
+    // Lápida (auditoría de la auditoría 2026-09-12): sin esto, un dispositivo que no
+    // se enteró de este borrado podía revivir el servicio con su copia vieja de meta.
+    deletedCatalogIds.push(draftService.id);
     bizProfile.catalog = bizProfile.catalog.filter(c=>c.id!==draftService.id);
     saveState(); closeServiceModal();
   });
@@ -1614,6 +1617,9 @@ function attachServicesEvents(){
     const nj = svcJobs().filter(j=>j.assetId===a.id).length, nr = assetReceipts(a.id).length;
     const msg = t('svc_asset_delete_confirm').replace('{name}', a.name) + ((nj||nr) ? ' '+t('svc_asset_delete_orphans').replace('{j}', String(nj)).replace('{r}', String(nr)) : '');
     if(!confirm(msg)) return;
+    // Lápida (auditoría de la auditoría 2026-09-12): sin esto, un dispositivo que no
+    // se enteró de este borrado podía revivir el activo con su copia vieja de meta.
+    deletedAssetIds.push(a.id);
     bizProfile.assets = bizProfile.assets.filter(x=>x.id!==a.id);
     if(showAssetSheet===a.id) showAssetSheet = null;
     saveState(); closeAssetModal();
@@ -1627,6 +1633,9 @@ function attachServicesEvents(){
   on('btn-delete-maint', ()=>{
     const a = assetById(draftMaint.assetId); if(!a) return;
     if(!confirm(t('svc_maint_delete_confirm'))) return;
+    // Lápida (auditoría de la auditoría 2026-09-12): mismo motivo que el borrado de
+    // activos — el id de plan es único entre activos, así que una lista global alcanza.
+    deletedMaintIds.push(draftMaint.id);
     a.maint = (a.maint||[]).filter(m=>m.id!==draftMaint.id);
     saveState(); closeMaintModal();
   });

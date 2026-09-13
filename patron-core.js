@@ -122,6 +122,61 @@ function normalizeBizProfile(p){
     assets, catalog, clients
   };
 }
+/* MERGE de bizProfile entre nube y local (auditoría de la auditoría de Servicios,
+   2026-09-12): assets, catalog y clients son listas colaborativas — se agregan,
+   editan y (assets/catalog) borran desde cualquier dispositivo — que viajaban
+   dentro de bizProfile como UN bloque. Sin este merge, el último dispositivo en
+   escribir meta pisaba TODO el perfil (un cliente agregado en un teléfono podía
+   desaparecer si el otro guardaba después con una copia vieja), y un activo o
+   servicio borrado revivía desde cualquier copia vieja porque no había lápida que
+   lo recordara — a diferencia de inventario/recetas/notas, que sí las tienen.
+   Mismo criterio que esas (notas: "inmutables por id"): por id, la nube manda si
+   ya conoce el id, lo local agrega lo que la nube todavía no tenía, y lo
+   tombstoneado no entra de ningún lado. No hay lastEditedAt por ítem acá (a
+   diferencia de los trabajos), así que dos ediciones concurrentes al MISMO ítem
+   no se desempatan por fecha — la nube gana, igual que ya pasaba con recetas
+   antes de tener sello. Es una mejora estricta sobre "pisar todo el bloque". */
+function mergeListById(remoteArr, localArr, deletedIds){
+  const del = new Set(deletedIds || []);
+  const remote = (Array.isArray(remoteArr) ? remoteArr : []).filter(x=>x && x.id && !del.has(x.id));
+  const remoteIds = new Set(remote.map(x=>x.id));
+  const localOnly = (Array.isArray(localArr) ? localArr : []).filter(x=>x && x.id && !remoteIds.has(x.id) && !del.has(x.id));
+  return remote.concat(localOnly);
+}
+// El historial de mantenimientos hechos (maintLog) es solo-agregar (nunca se borra a
+// mano, ver app-15): se une por id, más nuevo por fecha primero, mismo tope de 300
+// que normalizeBizProfile.
+function mergeMaintLog(remoteLog, localLog){
+  const byId = new Map();
+  (Array.isArray(remoteLog) ? remoteLog : []).forEach(l=>{ if(l && l.id) byId.set(l.id, l); });
+  (Array.isArray(localLog) ? localLog : []).forEach(l=>{ if(l && l.id && !byId.has(l.id)) byId.set(l.id, l); });
+  return Array.from(byId.values()).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0, 300);
+}
+function mergeBizProfile(remote, local, tombstones){
+  const t = tombstones || {};
+  const r = (remote && typeof remote==='object') ? remote : {};
+  const l = (local && typeof local==='object') ? local : {};
+  const localAssetById = new Map((Array.isArray(l.assets) ? l.assets : []).filter(a=>a && a.id).map(a=>[a.id, a]));
+  const remoteAssets = (Array.isArray(r.assets) ? r.assets : []).filter(a=>a && a.id && !(t.deletedAssetIds||[]).includes(a.id)).map(a=>{
+    const la = localAssetById.get(a.id);
+    if(!la) return a;
+    // El activo en sí (nombre, km, precio...) lo sigue mandando la nube, igual que
+    // antes — el merge fino es solo para sus listas anidadas, que es donde se
+    // perdía trabajo hecho offline en OTRO dispositivo (un plan de mantenimiento
+    // agregado acá no debe desaparecer porque el otro dispositivo escribió después).
+    return Object.assign({}, a, {
+      maint: mergeListById(a.maint, la.maint, t.deletedMaintIds),
+      maintLog: mergeMaintLog(a.maintLog, la.maintLog)
+    });
+  });
+  const knownAssetIds = new Set(remoteAssets.map(a=>a.id));
+  const localOnlyAssets = (Array.isArray(l.assets) ? l.assets : []).filter(a=>a && a.id && !knownAssetIds.has(a.id) && !(t.deletedAssetIds||[]).includes(a.id));
+  return Object.assign({}, r, {
+    assets: remoteAssets.concat(localOnlyAssets),
+    catalog: mergeListById(r.catalog, l.catalog, t.deletedCatalogIds),
+    clients: mergeListById(r.clients, l.clients, t.deletedClientIds)
+  });
+}
 /* Totales de UNA cotización (app-17): líneas {qty, price}, descuento en dinero y
    impuesto en %. Todo redondeado a centavos en cada paso, como el resto del P&L.
    Devuelve {subtotal, discount, tax, total}; con basura devuelve ceros. */
@@ -674,7 +729,7 @@ if(typeof module!=='undefined' && module.exports){
     roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
-    normalizeBizProfile, maintStatus,
+    normalizeBizProfile, maintStatus, mergeBizProfile, mergeListById,
     mergeReceiptPages, outflowIsOpen, capOutflows, formatInt, pickOutflow, outflowUserTouched, outflowRuleStamped,
     mergeOutflowArchives, outflowArchivedIds, calNotesForCloud, OUTFLOW_ARCHIVE_IDS_MAX
   };

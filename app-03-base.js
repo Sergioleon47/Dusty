@@ -1887,7 +1887,8 @@ function saveState(){
       cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
       businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
-      recipes, outflows, outflowArchive, deletedRecipeIds
+      recipes, outflows, outflowArchive, deletedRecipeIds,
+      deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds
     }));
   }catch(e){
     // El motivo más común es que el almacenamiento del navegador se llenó (las fotos
@@ -1947,6 +1948,14 @@ function applyStateData(data){
   if(typeof data.businessName==='string') businessName = data.businessName;
   if(data.monthlyBudget===null || typeof data.monthlyBudget==='number') monthlyBudget = data.monthlyBudget;
   if(data.budgetMeta && typeof data.budgetMeta==='object') budgetMeta = normalizeBudgetMeta(data.budgetMeta);
+  // Lápidas de bizProfile (auditoría de la auditoría 2026-09-12): igual que las de
+  // recetas arriba, ANTES del propio bizProfile — pero acá el filtrado por id ya
+  // vino hecho desde applyRemoteMetaSnapshot (mergeBizProfile), así que solo hace
+  // falta guardar los arrays para el próximo reconcile/subida.
+  if(Array.isArray(data.deletedAssetIds)) deletedAssetIds = data.deletedAssetIds;
+  if(Array.isArray(data.deletedMaintIds)) deletedMaintIds = data.deletedMaintIds;
+  if(Array.isArray(data.deletedCatalogIds)) deletedCatalogIds = data.deletedCatalogIds;
+  if(Array.isArray(data.deletedClientIds)) deletedClientIds = data.deletedClientIds;
   if(data.bizProfile && typeof data.bizProfile==='object') bizProfile = normalizeBizProfile(data.bizProfile);
   if(Array.isArray(data.categories)) categories = data.categories;
   if(Array.isArray(data.expenseCategories)) expenseCategories = data.expenseCategories;
@@ -2092,6 +2101,18 @@ function importData(file){
     deletedPurchaseIds = deletedPurchaseIds.filter(id=>!restoredPur.has(id));
     const restoredRecipes = new Set((data.recipes||[]).map(r=>r.id));
     deletedRecipeIds = deletedRecipeIds.filter(id=>!restoredRecipes.has(id));
+    // Mismo des-entierro para las listas de bizProfile (auditoría de la auditoría
+    // 2026-09-12): un activo/servicio borrado que el backup trae de vuelta no debe
+    // re-borrarse solo por la lápida vieja que quedó acá o en la nube.
+    const bp = (data.bizProfile && typeof data.bizProfile==='object') ? data.bizProfile : {};
+    const restoredAssets = new Set((bp.assets||[]).map(a=>a && a.id).filter(Boolean));
+    const restoredMaint = new Set((bp.assets||[]).reduce((ids,a)=>ids.concat((a && a.maint||[]).map(m=>m && m.id).filter(Boolean)), []));
+    const restoredCatalog = new Set((bp.catalog||[]).map(c=>c && c.id).filter(Boolean));
+    const restoredClients = new Set((bp.clients||[]).map(c=>c && c.id).filter(Boolean));
+    deletedAssetIds = deletedAssetIds.filter(id=>!restoredAssets.has(id));
+    deletedMaintIds = deletedMaintIds.filter(id=>!restoredMaint.has(id));
+    deletedCatalogIds = deletedCatalogIds.filter(id=>!restoredCatalog.has(id));
+    deletedClientIds = deletedClientIds.filter(id=>!restoredClients.has(id));
     // Des-entierro en la NUBE (ver pendingUntombstone en app-02): quitar la lápida
     // local no alcanza con lápidas por unión — la copia de la nube la re-agregaba
     // y el doc restaurado se re-borraba solo en segundos. Se anotan TODOS los ids
@@ -2102,7 +2123,11 @@ function importData(file){
       deletedReceiptIds: Array.from(restoredRec),
       deletedPurchaseIds: Array.from(restoredPur),
       deletedCalNoteIds: (data.calNotes||[]).map(n=>n && n.id).filter(Boolean),
-      deletedRecipeIds: Array.from(restoredRecipes)
+      deletedRecipeIds: Array.from(restoredRecipes),
+      deletedAssetIds: Array.from(restoredAssets),
+      deletedMaintIds: Array.from(restoredMaint),
+      deletedCatalogIds: Array.from(restoredCatalog),
+      deletedClientIds: Array.from(restoredClients)
     });
     saveState();
     render();

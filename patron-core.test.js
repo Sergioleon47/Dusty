@@ -614,6 +614,51 @@ test('normalizeBizProfile: conserva el historial de mantenimientos hechos y tira
   assert.deepEqual(normalizeBizProfile({assets:[{id:'a', name:'x'}]}).assets[0].maintLog, [], 'sin historial: arreglo vacío, no undefined');
 });
 
+/* ---- Auditoría de la auditoría (2026-09-12): bizProfile ya no viaja como bloque ---- */
+test('mergeBizProfile: un activo agregado offline en OTRO dispositivo no desaparece', () => {
+  const { mergeBizProfile } = require('./patron-core.js');
+  const remote = { sells:false, services:true, assets:[{id:'a1', name:'Camión 1'}], catalog:[], clients:[] };
+  const local = { assets:[{id:'a1', name:'Camión 1'}, {id:'a2', name:'Camión 2 (creado offline)'}], catalog:[], clients:[] };
+  const m = mergeBizProfile(remote, local, {});
+  assert.equal(m.assets.length, 2);
+  assert.ok(m.assets.some(a=>a.id==='a2'));
+});
+test('mergeBizProfile: un activo borrado NO revive desde una copia remota vieja (lápida)', () => {
+  const { mergeBizProfile } = require('./patron-core.js');
+  const remote = { assets:[{id:'a1', name:'Camión 1'}, {id:'a2', name:'Camión 2'}], catalog:[], clients:[] };
+  const local = { assets:[{id:'a2', name:'Camión 2'}], catalog:[], clients:[] }; // a1 ya se borró acá
+  const m = mergeBizProfile(remote, local, { deletedAssetIds:['a1'] });
+  assert.deepEqual(m.assets.map(a=>a.id), ['a2']);
+});
+test('mergeBizProfile: catálogo y clientes se fusionan por id con la misma regla, tumba incluida', () => {
+  const { mergeBizProfile } = require('./patron-core.js');
+  const remote = { catalog:[{id:'s1', name:'Corte'}], clients:[{id:'c1', name:'Ana'}] };
+  const local = {
+    catalog:[{id:'s1', name:'Corte'}, {id:'s2', name:'Tinte (creado acá)'}, {id:'s3', name:'ya borrado'}],
+    clients:[{id:'c1', name:'Ana'}, {id:'c2', name:'Beto (creado acá)'}]
+  };
+  const m = mergeBizProfile(remote, local, { deletedCatalogIds:['s3'] });
+  assert.deepEqual(m.catalog.map(c=>c.id).sort(), ['s1','s2']);
+  assert.deepEqual(m.clients.map(c=>c.id).sort(), ['c1','c2']);
+});
+test('mergeBizProfile: un plan de mantenimiento agregado offline no se pierde aunque la nube ya conozca el activo', () => {
+  const { mergeBizProfile } = require('./patron-core.js');
+  const remote = { assets:[{id:'a1', name:'Camión 1', km:5000, maint:[{id:'m1', name:'Aceite'}], maintLog:[]}] };
+  const local = { assets:[{id:'a1', name:'Camión 1', km:5200, maint:[{id:'m1', name:'Aceite'}, {id:'m2', name:'Frenos (agregado acá)'}], maintLog:[{id:'l1', date:'2026-09-01', desc:'Cambio de aceite', km:5100, cost:80}]}] };
+  const m = mergeBizProfile(remote, local, {});
+  const a1 = m.assets.find(a=>a.id==='a1');
+  assert.equal(a1.km, 5000, 'el activo en sí lo sigue mandando la nube');
+  assert.deepEqual(a1.maint.map(x=>x.id).sort(), ['m1','m2'], 'el plan agregado offline no desaparece');
+  assert.equal(a1.maintLog.length, 1, 'el registro de mantenimiento hecho offline se conserva');
+});
+test('mergeBizProfile: un plan de mantenimiento borrado no revive (lápida propia)', () => {
+  const { mergeBizProfile } = require('./patron-core.js');
+  const remote = { assets:[{id:'a1', name:'Camión 1', maint:[{id:'m1', name:'Aceite'}, {id:'m2', name:'Frenos'}]}] };
+  const local = { assets:[{id:'a1', name:'Camión 1', maint:[{id:'m2', name:'Frenos'}]}] }; // m1 ya se borró acá
+  const m = mergeBizProfile(remote, local, { deletedMaintIds:['m1'] });
+  assert.deepEqual(m.assets[0].maint.map(x=>x.id), ['m2']);
+});
+
 test('pickOutflow: gana el sello más nuevo, sin sello gana la nube, y la regla del contrato nunca pisa un cobro', () => {
   const { pickOutflow, outflowIsOpen } = require('./patron-core.js');
   const a = {id:'x', lastEditedAt:'2026-09-12T10:00:00Z', price: 1};
