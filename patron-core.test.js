@@ -171,6 +171,27 @@ test('lastPriceChangePct: ignora compras de otros productos', () => {
   assert.equal(lastPriceChangePct('i1', purchases), 25);
 });
 
+test('lastPriceChangePct: precio base cerca de cero -> diferencia en dólares, no % inflado', () => {
+  // Bug real: Butter/Red Onions a $0.01/unidad pasando a $0.05 "es" +400%, pero en
+  // dólares reales no es nada — con precio base bajo se devuelve {lowBase, diff}.
+  const purchases = [
+    {ingId:'i1', qty:1, unit:'unidad', totalPrice:0.01, date:'2026-07-01'},
+    {ingId:'i1', qty:1, unit:'unidad', totalPrice:0.05, date:'2026-08-01'}
+  ];
+  const result = lastPriceChangePct('i1', purchases);
+  assert.equal(typeof result, 'object');
+  assert.equal(result.lowBase, true);
+  assert.ok(Math.abs(result.diff - 0.04) < 0.0001);
+});
+
+test('lastPriceChangePct: precio base normal (>= umbral) sigue devolviendo %', () => {
+  const purchases = [
+    {ingId:'i1', qty:1, unit:'unidad', totalPrice:0.05, date:'2026-07-01'},
+    {ingId:'i1', qty:1, unit:'unidad', totalPrice:0.10, date:'2026-08-01'}
+  ];
+  assert.equal(lastPriceChangePct('i1', purchases), 100);
+});
+
 test('sameJSON: mismos datos en otro orden de propiedades -> igual, no "distinto"', () => {
   // Este es el bug real: Firestore no garantiza devolver los campos de un doc en el
   // mismo orden en que se guardaron (típicamente los reordena). Un recibo recién

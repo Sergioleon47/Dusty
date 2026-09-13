@@ -354,6 +354,10 @@ function shiftMonthStr(key, delta){
    Empate de fecha (dos compras el MISMO día — las fechas son solo YYYY-MM-DD):
    gana la que entró DESPUÉS a la lista. Sin este desempate, el sort estable dejaba
    primero la compra más vieja del día y el % de cambio salía con el signo al revés. */
+// Por debajo de este precio base, un salto de centavos infla el % sin sentido
+// (ej. Butter o Red Onions a $0.01/unidad: pasar a $0.05 "es" +400% pero en
+// dólares reales no es nada) — en vez del %, se devuelve la diferencia en dólares.
+const PRICE_LOW_BASE = 0.05;
 function lastPriceChangePct(ingId, purchases){
   const relevant = purchases
     .map((p,idx)=>({p, idx}))
@@ -365,6 +369,7 @@ function lastPriceChangePct(ingId, purchases){
   const latest = relevant[0].totalPrice/relevant[0].qty;
   const prev = relevant[1].totalPrice/relevant[1].qty;
   if(prev<=0) return null;
+  if(prev<PRICE_LOW_BASE) return {lowBase:true, diff: latest-prev};
   return ((latest-prev)/prev)*100;
 }
 

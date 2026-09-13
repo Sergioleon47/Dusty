@@ -451,6 +451,7 @@ const I18N = {
     budget_placeholder_suggested:'Ej. {n} — vienes gastando {s} al mes',
     price_unit_mismatch:'unidad distinta', price_unit_mismatch_hint:'Las últimas dos compras de este producto se registraron en unidades distintas (ej. libras vs. cajas), así que no se puede comparar el precio de forma confiable.',
     price_implausible:'revisar precio', price_implausible_hint:'Este cambio es demasiado grande para ser un precio real (probablemente una cantidad o un precio mal leído en algún recibo viejo) — abre el historial de precios de este producto para encontrar y corregir la compra con el dato raro.',
+    price_low_base_hint:'El precio anterior de este producto era tan bajo que un % de cambio no dice nada — se muestra la diferencia real en dólares.',
     ph_excluded_units:'{n} compra(s) en otra unidad no se incluyen acá, para no comparar precios que no son compatibles.',
     opt_add_new_ing:'+ Agregar como producto nuevo', ph_qty_short:'Cant.', ph_price_short:'Precio',
     scan_no_products_left:'No quedan productos por confirmar. El lector de texto no es perfecto — si no detectó algo, agrégalo a mano.',
@@ -1248,6 +1249,7 @@ const I18N = {
     budget_placeholder_suggested:'e.g. {n} — you spend about {s} a month',
     price_unit_mismatch:'unit changed', price_unit_mismatch_hint:"The last two purchases of this product were logged in different units (e.g. pounds vs. cases), so the price can't be compared reliably.",
     price_implausible:'check price', price_implausible_hint:"This change is too large to be a real price (probably a misread quantity or price on an old receipt) — open this product's price history to find and fix the purchase with the odd number.",
+    price_low_base_hint:"This product's previous price was so low that a % change is meaningless — the real dollar difference is shown instead.",
     ph_excluded_units:"{n} purchase(s) in a different unit aren't included here, to avoid comparing prices that aren't compatible.",
     opt_add_new_ing:'+ Add as new product', ph_qty_short:'Qty.', ph_price_short:'Price',
     scan_no_products_left:"No products left to confirm. The text reader isn't perfect — if it missed something, add it by hand.",
@@ -2162,6 +2164,16 @@ function importData(file){
 function priceChangeBadge(pct){
   if(pct===null) return '';
   if(pct==='unit-mismatch') return `<span style="color:var(--ink-soft);font-size:calc(11px * var(--fs, 1));font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_unit_mismatch_hint')}">⚠ ${t('price_unit_mismatch')}</span>`;
+  // Precio base cerca de cero (lastPriceChangePct): un % ahí es ruido — se muestra
+  // la diferencia real en dólares, con el mismo formato de flecha que el % normal.
+  if(pct && typeof pct==='object' && pct.lowBase){
+    const diff = pct.diff;
+    if(Math.abs(diff)<0.005) return '';
+    const up = diff>0.001, down = diff<-0.001;
+    const color = up?'var(--money-neg)':down?'var(--money-pos)':'var(--ink-soft)';
+    const arrow = up?'▲':down?'▼':'→';
+    return `<span style="color:${color};font-size:calc(11px * var(--fs, 1));font-weight:700;margin-left:6px;white-space:nowrap;" title="${t('price_low_base_hint')}">${arrow} ${money(Math.abs(diff))}</span>`;
+  }
   // Un precio de proveedor real casi nunca salta más de ~300% de una compra a la
   // siguiente — cuando lastPriceChangePct() da eso, es mucho más probable que sea
   // una cantidad o un precio mal leído en algún recibo viejo (una coma decimal
