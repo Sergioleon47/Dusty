@@ -101,14 +101,32 @@ function attachInventoryEvents(){
     cycleCountOverlay.onmousedown=(e)=>{ if(e.target===cycleCountOverlay) closeCycleCountModal(); };
     const cancelCcBtn=document.getElementById('btn-close-cycle-count');
     if(cancelCcBtn) cancelCcBtn.onclick=closeCycleCountModal;
+    // Onchange sin re-render: solo apaga/prende visualmente % e intervalo (no
+    // tiene sentido editarlos con el recordatorio apagado) — un render() acá
+    // pisaría lo que el usuario ya haya tipeado en esos mismos campos.
+    const ccEnabledInput=document.getElementById('cc-enabled-input');
+    if(ccEnabledInput) ccEnabledInput.onchange=()=>{
+      const on=ccEnabledInput.checked;
+      const row=document.getElementById('cc-pct-row');
+      const pctInp=document.getElementById('cc-pct-input'), intInp=document.getElementById('cc-interval-input');
+      if(row) row.style.opacity = on ? '' : '.5';
+      if(pctInp) pctInp.disabled = !on;
+      if(intInp) intInp.disabled = !on;
+    };
     const saveCcBtn=document.getElementById('btn-save-cycle-count');
     if(saveCcBtn) saveCcBtn.onclick=()=>{
+      // Capturado ANTES de tocar cycleCountEnabled: si justo ahora se está
+      // apagando el recordatorio pero el conteo de esta tanda ya estaba
+      // completado en pantalla, igual se aplica — apagar no debe tirar a la
+      // basura un conteo que el usuario ya hizo.
+      const wasDue=isCycleCountDue();
+      if(ccEnabledInput) cycleCountEnabled=ccEnabledInput.checked;
       const pct=parseFloat(document.getElementById('cc-pct-input').value);
       const interval=parseFloat(document.getElementById('cc-interval-input').value);
       if(pct>0 && pct<=100) cycleCountPct=pct;
       if(interval>0) cycleCountIntervalDays=interval;
 
-      if(isCycleCountDue()){
+      if(wasDue){
         const batch=cycleCountBatch();
         document.querySelectorAll('[data-cc-count]').forEach(inp=>{
           const val=parseFloat(inp.value);

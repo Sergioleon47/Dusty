@@ -114,7 +114,7 @@ function nuevaApp(opts){
     var bizProfile = normalizeBizProfile(null);
     ${servicios ? '' : 'var receiptAttach = null;'}
     var profitsVisibleToMembers = false, categories = null, expenseCategories = [];
-    var cycleCountPct = 20, cycleCountIntervalDays = 3, cycleCountLastDate = null, cycleCountCursor = 0;
+    var cycleCountEnabled = true, cycleCountPct = 20, cycleCountIntervalDays = 3, cycleCountLastDate = null, cycleCountCursor = 0;
 
     /* Ayudantes de las pruebas */
     function escanear(proveedor, fecha, lineas, totalImpreso){

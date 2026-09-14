@@ -94,7 +94,7 @@ function ensurePatronFirebaseReady(){
               // (auditoría de la auditoría 2026-09-12). El asistente también arranca
               // limpio: su historial lleva clientes y cifras del negocio anterior.
               businessName=''; monthlyBudget=null; budgetMeta=normalizeBudgetMeta(null); categories=null; expenseCategories=[]; profitsVisibleToMembers=false;
-              priceAlertThreshold=15; cycleCountPct=20; cycleCountIntervalDays=3; cycleCountLastDate=null; cycleCountCursor=0;
+              priceAlertThreshold=15; cycleCountEnabled=true; cycleCountPct=20; cycleCountIntervalDays=3; cycleCountLastDate=null; cycleCountCursor=0;
               if(typeof agentReset==='function') try{ agentReset(); }catch(e){}
               saveState();
               applyingRemoteSnapshot = false;
@@ -106,7 +106,7 @@ function ensurePatronFirebaseReady(){
             // sacar qué subir.
             const localSnapshot = {
               inventory: inventory.slice(), purchases: purchases.slice(), receipts: receipts.slice(),
-              aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountPct,
+              aliasMap: Object.assign({}, aliasMap), priceAlertThreshold, cycleCountEnabled, cycleCountPct,
               cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget,
               budgetMeta: JSON.parse(JSON.stringify(budgetMeta)),
               bizProfile: JSON.parse(JSON.stringify(bizProfile)),
@@ -621,7 +621,11 @@ function isDocDirty(kind, doc){
 function metaContentShape(m){
   return {
     aliasMap: m.aliasMap || {},
-    priceAlertThreshold: m.priceAlertThreshold, cycleCountPct: m.cycleCountPct,
+    priceAlertThreshold: m.priceAlertThreshold,
+    // Default true a propósito (opt-out): un doc viejo de la nube sin este campo
+    // todavía no tiene a nadie que lo haya apagado — solo un false explícito cuenta.
+    cycleCountEnabled: m.cycleCountEnabled !== false,
+    cycleCountPct: m.cycleCountPct,
     cycleCountIntervalDays: m.cycleCountIntervalDays, cycleCountLastDate: m.cycleCountLastDate,
     cycleCountCursor: m.cycleCountCursor, businessName: m.businessName, monthlyBudget: m.monthlyBudget,
     budgetMeta: normalizeBudgetMeta(m.budgetMeta),
@@ -652,7 +656,7 @@ function metaContentShape(m){
    en un teléfono no reaparece en el otro. */
 function metaCloudContent(){
   return metaContentShape({
-    aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+    aliasMap, priceAlertThreshold, cycleCountEnabled, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes,
     recipes: recipesForCloud(), outflows, outflowArchive,
     deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, deletedCalNoteIds, deletedRecipeIds,
@@ -814,7 +818,7 @@ function syncAllToFirestore(){
     const metaHash = valueHash(metaContent);
     if(lastSyncedHashes.meta !== metaHash){
       const metaData = JSON.parse(JSON.stringify({
-        aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes),
+        aliasMap, priceAlertThreshold, cycleCountEnabled, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes),
         recipes: recipesForCloud(), outflows,
         // outflowArchive viaja en el mismo set con {merge:true}: Firestore mergea
         // los mapas por clave, así dos dispositivos archivando meses distintos no
@@ -1171,7 +1175,7 @@ function applyRemoteMetaSnapshot(doc){
   // referencia, sin base64) — es lo que el doc remoto realmente contiene. Comparar
   // contra las locales con base64 haría que TODO snapshot pareciera distinto, y
   // cada reconexión re-aplicaría y redibujaría de más (el parpadeo ya arreglado).
-  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes), deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds};
+  const currentMeta = {aliasMap, priceAlertThreshold, cycleCountEnabled, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor, deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds, businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes: calNotesForCloud(calNotes), deletedCalNoteIds, recipes: recipesForCloud(), outflows, outflowArchive, deletedRecipeIds, deletedAssetIds, deletedMaintIds, deletedCatalogIds, deletedClientIds, deletedMaintLogIds};
   if(sameJSON(incomingMeta, currentMeta)){
     // Sin nada que aplicar, el espejo igual se actualiza al hash remoto: si local
     // y nube ya coinciden, esto lo deja "limpio" con la verdad de la nube.
@@ -1838,6 +1842,9 @@ function reconcileLocalOnlyData(uid, localSnapshot){
       ops.push({ref:metaRef(uid), data:JSON.parse(JSON.stringify({
         aliasMap: mergedAliasMap,
         priceAlertThreshold: metaSnap.exists ? remoteMeta.priceAlertThreshold : localSnapshot.priceAlertThreshold,
+        // !==false (no ===true): un doc viejo sin este campo todavía no tiene a
+        // nadie que lo haya apagado — mismo default opt-out que metaContentShape.
+        cycleCountEnabled: metaSnap.exists ? (remoteMeta.cycleCountEnabled !== false) : localSnapshot.cycleCountEnabled,
         cycleCountPct: metaSnap.exists ? remoteMeta.cycleCountPct : localSnapshot.cycleCountPct,
         cycleCountIntervalDays: metaSnap.exists ? remoteMeta.cycleCountIntervalDays : localSnapshot.cycleCountIntervalDays,
         cycleCountLastDate: metaSnap.exists ? remoteMeta.cycleCountLastDate : localSnapshot.cycleCountLastDate,
@@ -1987,12 +1994,24 @@ function defaultCategories(){
 }
 
 /* Conteo cíclico: cada X días, recuerda contar a mano un % del inventario, rotando
-   qué productos toca cada vez (cycleCountCursor) para no repetir siempre los mismos. */
+   qué productos toca cada vez (cycleCountCursor) para no repetir siempre los mismos.
+   cycleCountEnabled (pedido del usuario 2026-09-13): apagarlo entero, no solo
+   ajustar el %. Default true a propósito (opt-out, no opt-in) — una cuenta vieja
+   sin este campo en la nube sigue recibiendo el recordatorio exactamente como
+   antes; deja de pedirlo recién cuando alguien lo apaga a mano. Se probó primero
+   la idea de "0% = apagado" y se descartó: cycleCountBatch() tiene un piso de
+   mínimo 1 producto (Math.max(1,...), para que un inventario chico no se quede
+   sin conteo por redondeo hacia abajo) que igual habría disparado el aviso con
+   0%, y reusar un número como bandera de encendido/apagado es un valor mágico
+   que cualquier otro lector de cycleCountPct tendría que recordar para siempre.
+   Un booleano aparte es más claro y no cambia el significado de "%". */
+let cycleCountEnabled = true;
 let cycleCountPct = 20;
 let cycleCountIntervalDays = 3;
 let cycleCountLastDate = null; // fecha (YYYY-MM-DD) del último conteo completado, o null si nunca se hizo
 let cycleCountCursor = 0;
 let showCycleCountModal = false;
+let draftCycleCountEnabled = cycleCountEnabled;
 let draftCycleCountPct = cycleCountPct;
 let draftCycleCountInterval = cycleCountIntervalDays;
 

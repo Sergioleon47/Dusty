@@ -559,7 +559,7 @@
 // v185: lastPriceChangePct ya no infla un % cuando el precio base es casi cero
 // (ej. Butter/Red Onions a $0.01 pasando a $0.05 "eran" +400%) — por debajo de
 // $0.05 se muestra la diferencia real en dólares — patron-core, app-03.
-const CACHE_NAME = 'patron-shell-v185';
+const CACHE_NAME = 'patron-shell-v186';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

@@ -70,6 +70,7 @@ const I18N = {
     cc_current:'Tienes registrado', cc_counted_placeholder:'Cantidad contada', cc_save_btn:'Guardar conteo',
     cc_settings_title:'Configuración del conteo', cc_pct_label:'% del inventario', cc_interval_label:'Cada cuántos días',
     cc_settings_helper:'Por ejemplo, 20% cada 3 días — así en unas dos semanas ya pasaste por todo el inventario.',
+    cc_enabled_label:'Recordar conteo cíclico', cc_enabled_helper:'Apagado, Dusty deja de pedirte contar — el inventario sigue funcionando igual, solo que sin este recordatorio.',
     share_account_btn:'🔗 Compartir cuenta',
     dash_team_title:'Equipo', dash_team_sub:'Comparte con tu empleado',
     settings_inventory_title:'Inventario',
@@ -893,6 +894,7 @@ const I18N = {
     cc_current:'Currently on record', cc_counted_placeholder:'Counted quantity', cc_save_btn:'Save count',
     cc_settings_title:'Count settings', cc_pct_label:'% of inventory', cc_interval_label:'Every how many days',
     cc_settings_helper:"E.g. 20% every 3 days — that way you cycle through the whole inventory in about two weeks.",
+    cc_enabled_label:'Remind me to cycle count', cc_enabled_helper:"Turned off, Dusty stops asking you to count — inventory keeps working the same, just without the reminder.",
     share_account_btn:'🔗 Share account',
     dash_team_title:'Team', dash_team_sub:'Share with your staff',
     settings_inventory_title:'Inventory',
@@ -1743,6 +1745,7 @@ function uid(p){return p+Math.random().toString(36).slice(2,9);}
 // patron-core.js (cargado arriba con <script src>) — quedan disponibles igual como
 // funciones globales, solo que ahora se pueden probar solas con Node.
 function isCycleCountDue(){
+  if(!cycleCountEnabled) return false; // apagado a mano (pedido del usuario 2026-09-13)
   if(inventory.length===0) return false;
   if(!cycleCountLastDate) return true; // nunca se hizo un conteo -> toca ahora
   return daysBetweenStr(cycleCountLastDate, localDateStr()) >= cycleCountIntervalDays;
@@ -1886,7 +1889,7 @@ function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       inventory, purchases, receipts, aliasMap, priceAlertThreshold,
-      cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+      cycleCountEnabled, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
       deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
       businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
       recipes, outflows, outflowArchive, deletedRecipeIds,
@@ -1909,7 +1912,7 @@ function saveState(){
       if(freed){
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           inventory, purchases, receipts, aliasMap, priceAlertThreshold,
-          cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+          cycleCountEnabled, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
           deletedInventoryIds, deletedReceiptIds, deletedPurchaseIds,
           businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
           recipes, outflows, outflowArchive, deletedRecipeIds
@@ -1939,6 +1942,7 @@ function applyStateData(data){
   if(Array.isArray(data.receipts)) receipts = data.receipts;
   if(data.aliasMap && typeof data.aliasMap==='object') aliasMap = data.aliasMap;
   if(typeof data.priceAlertThreshold==='number') priceAlertThreshold = data.priceAlertThreshold;
+  if(typeof data.cycleCountEnabled==='boolean') cycleCountEnabled = data.cycleCountEnabled;
   if(typeof data.cycleCountPct==='number') cycleCountPct = data.cycleCountPct;
   if(typeof data.cycleCountIntervalDays==='number') cycleCountIntervalDays = data.cycleCountIntervalDays;
   if(typeof data.cycleCountLastDate==='string') cycleCountLastDate = data.cycleCountLastDate;
@@ -2048,7 +2052,7 @@ function exportData(){
 function exportDataNow(){
   const payload = {
     inventory, purchases, receipts, aliasMap, priceAlertThreshold,
-    cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
+    cycleCountEnabled, cycleCountPct, cycleCountIntervalDays, cycleCountLastDate, cycleCountCursor,
     businessName, monthlyBudget, budgetMeta, bizProfile, profitsVisibleToMembers, categories, expenseCategories, calNotes, deletedCalNoteIds,
     recipes, outflows, outflowArchive, deletedRecipeIds,
     exportedAt: new Date().toISOString()

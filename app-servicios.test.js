@@ -95,7 +95,7 @@ function nuevaApp(hoy){
     var budgetMeta = normalizeBudgetMeta(null);
     var bizProfile = normalizeBizProfile(null);
     var profitsVisibleToMembers = false, categories = null, expenseCategories = [];
-    var cycleCountPct = 20, cycleCountIntervalDays = 3, cycleCountLastDate = null, cycleCountCursor = 0;
+    var cycleCountEnabled = true, cycleCountPct = 20, cycleCountIntervalDays = 3, cycleCountLastDate = null, cycleCountCursor = 0;
   `);
   cargar('app-15-servicios.js');
   // "Hoy" congelado: new Date() sin argumentos devuelve el día pedido.

@@ -176,6 +176,7 @@ function suggestedOrderModal(){
 
 function openCycleCountModal(){
   if(!requireWriteAccess()) return;
+  draftCycleCountEnabled = cycleCountEnabled;
   draftCycleCountPct = cycleCountPct;
   draftCycleCountInterval = cycleCountIntervalDays;
   showCycleCountModal = true; render();
@@ -232,9 +233,17 @@ function cycleCountModal(){
 
       <div class="settings-card">
         ${settingsCardHeader('clock','var(--sky-soft)','var(--sky-ink)',t('cc_settings_title'))}
-        <div class="field-row">
-          <div class="field"><label>${t('cc_pct_label')}</label><input id="cc-pct-input" type="number" inputmode="numeric" min="1" max="100" step="1" value="${escapeHtml(draftCycleCountPct)}"></div>
-          <div class="field"><label>${t('cc_interval_label')}</label><input id="cc-interval-input" type="number" inputmode="numeric" min="1" max="90" step="1" value="${escapeHtml(draftCycleCountInterval)}"></div>
+        ${/* Apagado entero (pedido del usuario 2026-09-13): booleano aparte, no un
+             "0%" mágico — ver el comentario junto a cycleCountEnabled en app-02.
+             Reusa .pulse-switch/.budget-switch-row (ya existen para el rollover de
+             presupuesto): mismo componente visual, no uno nuevo por cada booleano. */''}
+        <label class="budget-switch-row">
+          <span class="txt"><b>${t('cc_enabled_label')}</b><small>${t('cc_enabled_helper')}</small></span>
+          <span class="pulse-switch"><input type="checkbox" id="cc-enabled-input" ${draftCycleCountEnabled?'checked':''}><i></i></span>
+        </label>
+        <div class="field-row" id="cc-pct-row" style="${draftCycleCountEnabled?'':'opacity:.5;'}">
+          <div class="field"><label>${t('cc_pct_label')}</label><input id="cc-pct-input" type="number" inputmode="numeric" min="1" max="100" step="1" value="${escapeHtml(draftCycleCountPct)}" ${draftCycleCountEnabled?'':'disabled'}></div>
+          <div class="field"><label>${t('cc_interval_label')}</label><input id="cc-interval-input" type="number" inputmode="numeric" min="1" max="90" step="1" value="${escapeHtml(draftCycleCountInterval)}" ${draftCycleCountEnabled?'':'disabled'}></div>
         </div>
         <div class="helper-note" style="margin-bottom:0;">${t('cc_settings_helper')}</div>
       </div>
