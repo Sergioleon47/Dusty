@@ -806,3 +806,68 @@ test('modo Servicios: un recibo escaneado desde un trabajo es GASTO línea por l
   assert.equal(correr(`valorInventario()`), 0);
   assert.equal(correr(`jobExpenseTotal(jobById('jf'))`), 340);
 });
+
+/* ===================================================================
+   AUDITORÍA 2026-09-16 — recibo → inventario → descuento de stock
+   =================================================================== */
+
+test('el stock que entra por un recibo se redondea, no arrastra el error de coma flotante', () => {
+  // 0.1 + 0.2 = 0.30000000000000004 en JavaScript. Ese número se guardaba tal
+  // cual en qtyOnHand, se sincronizaba y se arrastraba a cada cuenta que lo
+  // usara. Todos los demás caminos que tocan stock (producción, escáner de
+  // estante, cotizaciones, agente) ya redondeaban; la entrada por recibo no.
+  const { correr } = nuevaApp();
+  correr(`escanear('A','2026-09-01',[{rawName:'Harina',qty:0.1,unit:'kg',totalPrice:1,matchedIngId:'__new__'}],1)`);
+  correr(`escanear('A','2026-09-02',[{rawName:'Harina',qty:0.2,unit:'kg',totalPrice:2,matchedIngId:producto('Harina').id}],2)`);
+  assert.equal(correr(`producto('Harina').qtyOnHand`), 0.3);
+  assert.equal(correr(`producto('Harina').stockFullRef`), 0.3);
+  // Y la reversa tampoco deja residuos.
+  correr(`borrar(receipts[1].id, true)`);
+  assert.equal(correr(`producto('Harina').qtyOnHand`), 0.1);
+});
+
+test('una línea sin precio no entra al stock, pero el usuario se entera', () => {
+  // La muestra gratis, el renglón que la IA leyó con precio 0 o el que quedó a
+  // medio completar se caían del recibo sin dejar rastro: ni stock, ni línea, ni
+  // aviso. La pantalla se cerraba como si todo hubiera entrado.
+  const { correr } = nuevaApp();
+  correr(`__avisos = []`);
+  const r = correr(`escanear('A','2026-09-01',[
+    {rawName:'Azucar', qty:5, unit:'lb', totalPrice:50, matchedIngId:'__new__'},
+    {rawName:'Muestra gratis', qty:2, unit:'unidad', totalPrice:0, matchedIngId:'__new__'}
+  ],50)`);
+  assert.equal(r.itemCount, 1, 'la línea sin precio no entra al recibo');
+  assert.equal(correr(`inventory.length`), 1, 'ni al inventario');
+  assert.match(correr(`__avisos.join(' | ')`), /1/, 'pero el aviso dice cuántas quedaron fuera');
+});
+
+test('con la cuenta cerrada, confirmar el escaneo no toca ningún dato', () => {
+  // El escáner es el modal que más tiempo pasa abierto (fotos + IA + revisión),
+  // así que es donde más chance hay de que la suscripción venza en el medio.
+  // Sin candado, el recibo entraba en ESTE teléfono y Firestore rechazaba la
+  // escritura: inventario y gasto distintos de los del resto del equipo.
+  const { correr } = nuevaApp();
+  correr(`accessState = {locked:true}`);
+  correr(`escanear('A','2026-09-01',[{rawName:'Tomate',qty:10,unit:'lb',totalPrice:50,matchedIngId:'__new__'}],50)`);
+  assert.equal(correr(`receipts.length`), 0);
+  assert.equal(correr(`inventory.length`), 0);
+  assert.equal(correr(`purchases.length`), 0);
+  // Y con la cuenta al día, el mismo escaneo entra normal.
+  correr(`accessState = null`);
+  correr(`escanear('A','2026-09-01',[{rawName:'Tomate',qty:10,unit:'lb',totalPrice:50,matchedIngId:'__new__'}],50)`);
+  assert.equal(correr(`receipts.length`), 1);
+  assert.equal(correr(`producto('Tomate').qtyOnHand`), 10);
+});
+
+test('una receta con cantidad negativa no fabrica materia prima de la nada', () => {
+  // c.qty llega como la cadena cruda del input y el min="0" del HTML no valida
+  // nada: con "-3" el descuento era negativo, producir SUBÍA el stock del insumo
+  // y la salida quedaba con cantidad negativa (que outflowPL cobra como costo
+  // igual, por el Math.abs).
+  const { correr } = nuevaApp();
+  correr(`escanear('A','2026-09-01',[{rawName:'Harina',qty:10,unit:'lb',totalPrice:100,matchedIngId:'__new__'}],100)`);
+  correr(`recipes.push({id:'rec1', name:'Pan', components:[{ingId:producto('Harina').id, qty:'-3'}], createdAt:new Date().toISOString()})`);
+  correr(`produceRecipeId='rec1'; produceCount=2; produceSalePrice=''; applyProduction()`);
+  assert.equal(correr(`producto('Harina').qtyOnHand`), 10, 'el estante queda como estaba');
+  assert.equal(correr(`(outflows[0].items||[]).length`), 0, 'y la salida no lleva renglones fantasma');
+});

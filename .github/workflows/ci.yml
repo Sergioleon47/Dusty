@@ -31,5 +31,10 @@ jobs:
       - name: Pruebas unitarias
         run: npm test
 
+      # app-0*.js dejaba FUERA a app-10..app-17 desde que attachEvents() se partió
+      # en cinco archivos: los eventos de Inventario, Ajustes, Cuenta, escáneres,
+      # reportes, Servicios, agente y cotizaciones no los compilaba nadie, y un
+      # paréntesis de más en cualquiera de ellos pasaba el CI y rompía la app
+      # (auditoría 2026-09-16). app-*.js los cubre a todos, pruebas incluidas.
       - name: Sintaxis de los archivos del navegador
-        run: node --check patron-core.js && node --check nudgy-core.js && for f in app-0*.js sw.js; do node --check "$f" || exit 1; done
+        run: node --check patron-core.js && node --check nudgy-core.js && for f in app-*.js sw.js; do node --check "$f" || exit 1; done

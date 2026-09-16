@@ -342,6 +342,11 @@ function attachScannerEvents(){
     // dos veces. El render siguiente lo repinta habilitado si hiciera falta.
     if(applyBtn) applyBtn.onclick=()=>{
       if(applyBtn.disabled) return;
+      // El candado de suscripción va ANTES de deshabilitar: si la cuenta se
+      // cerró con el modal abierto, requireWriteAccess abre el paywall y esta
+      // pantalla queda igual que estaba — dejar el botón muerto sin que pase
+      // nada se leería como un cuelgue.
+      if(!requireWriteAccess()) return;
       applyBtn.disabled = true;
       applyScanResults();
     };

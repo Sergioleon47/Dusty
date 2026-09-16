@@ -1168,6 +1168,9 @@ function applyProduction(){
   const items = [];
   plan.forEach(p=>{
     if(p.missing) return;
+    // Componente sin cantidad usable (ver productionPlan): no descuenta nada, así
+    // que tampoco deja renglón en la salida ni sello de edición en el insumo.
+    if(!(p.deduct > 0)) return;
     const ing = inventory.find(i=>i.id===p.ingId);
     if(!ing) return;
     ing.qtyOnHand = p.after;
@@ -1555,6 +1558,9 @@ function shelfScanModal(){
 }
 
 function applyShelfAdjust(){
+  // Mismo candado que applyProduction/applyScanResults: abrir el escáner lo
+  // chequea, pero entre abrirlo y confirmar pasan fotos, IA y una revisión.
+  if(!requireWriteAccess()) return;
   const items = [];
   let touched = 0;
   let capSaved = false;
