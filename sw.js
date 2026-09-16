@@ -570,7 +570,10 @@
 // app-08; (4) el stock que entra por un recibo se redondea como todos los demás
 // caminos (0.1 + 0.2 dejaba 0.30000000000000004 guardado) — app-06; (5) las
 // líneas del escaneo sin cantidad o sin precio se avisan en vez de caerse en
-// silencio — app-03, app-06.
+// silencio — app-03, app-06; (6) producir más de lo que alcanza el insumo
+// pregunta antes y anota el faltante renglón por renglón (short) en la salida:
+// se podían fabricar 5 panes con harina para 2 y las 5 entraban valuadas a la
+// mitad, inflando el margen al venderlas — app-03, app-08.
 const CACHE_NAME = 'patron-shell-v187';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.

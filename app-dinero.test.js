@@ -871,3 +871,37 @@ test('una receta con cantidad negativa no fabrica materia prima de la nada', () 
   assert.equal(correr(`producto('Harina').qtyOnHand`), 10, 'el estante queda como estaba');
   assert.equal(correr(`(outflows[0].items||[]).length`), 0, 'y la salida no lleva renglones fantasma');
 });
+
+test('producir sin insumo suficiente pregunta antes, y deja anotado el faltante', () => {
+  // Con harina para 2 panes se podían fabricar 5: el descuento frena en 0 y las
+  // 5 piezas entran igual, valuadas a lo que de verdad salió del estante ($4 en
+  // vez de $10). Esos $30 no eran costo en ningún lado y el margen salía
+  // inflado al venderlas. No se bloquea (el conteo del estante suele estar
+  // atrasado), pero se pregunta y el agujero queda registrado.
+  const { correr } = nuevaApp();
+  correr(`escanear('A','2026-09-01',[{rawName:'Harina',qty:2,unit:'lb',totalPrice:20,matchedIngId:'__new__'}],20)`);
+  correr(`recipes.push({id:'rc1', name:'Pan', components:[{ingId:producto('Harina').id, qty:1}], createdAt:new Date().toISOString()})`);
+
+  // Que NO: no se fabrica nada y el estante queda intacto.
+  correr(`__confirms=[false]; produceRecipeId='rc1'; produceCount=5; produceSalePrice='10'; applyProduction()`);
+  assert.equal(correr(`outflows.length`), 0);
+  assert.equal(correr(`producto('Harina').qtyOnHand`), 2);
+
+  // Que SÍ: se descuenta lo que hay y el faltante viaja en la salida.
+  correr(`__confirms=[true]; produceRecipeId='rc1'; produceCount=5; produceSalePrice='10'; applyProduction()`);
+  assert.equal(correr(`producto('Harina').qtyOnHand`), 0);
+  assert.equal(correr(`outflows[0].items[0].qty`), 2, 'se descontó solo lo que había');
+  assert.equal(correr(`outflows[0].items[0].short`), 3, 'y quedan anotadas las 3 lb que faltaron');
+  assert.equal(correr(`producto('Pan').qtyOnHand`), 5);
+});
+
+test('producir con todo el stock disponible no pregunta nada', () => {
+  // El confirm es SOLO para el faltante: una producción normal no puede ganarse
+  // un diálogo de más (el arnés tira si se llama a confirm sin respuesta).
+  const { correr } = nuevaApp();
+  correr(`escanear('A','2026-09-01',[{rawName:'Harina',qty:10,unit:'lb',totalPrice:100,matchedIngId:'__new__'}],100)`);
+  correr(`recipes.push({id:'rc1', name:'Pan', components:[{ingId:producto('Harina').id, qty:1}], createdAt:new Date().toISOString()})`);
+  correr(`__confirms=[]; produceRecipeId='rc1'; produceCount=4; produceSalePrice='10'; applyProduction()`);
+  assert.equal(correr(`producto('Harina').qtyOnHand`), 6);
+  assert.equal(correr(`outflows[0].items[0].short`), 0);
+});
