@@ -574,7 +574,16 @@
 // pregunta antes y anota el faltante renglón por renglón (short) en la salida:
 // se podían fabricar 5 panes con harina para 2 y las 5 entraban valuadas a la
 // mitad, inflando el margen al venderlas — app-03, app-08.
-const CACHE_NAME = 'patron-shell-v187';
+// v188: el cupo del ASISTENTE pasa a depender del plan. El contador existía
+// desde siempre (agentUsed/agentPeriod), pero su tope era una constante plana en
+// agent.js —600 vueltas al mes para todos—, así que frenaba el abuso pero no
+// servía para separar un plan de otro. Ahora vive en patron-admin al lado de los
+// escaneos, con PLAN_AGENT_LIMITS (starter 100 · pro 300 · negocio 500 · equipo
+// 800), cupo reducido para email sin verificar (el mismo agujero que los
+// escaneos ya tenían tapado) y devolución de la vuelta si la llamada se cae por
+// red. Y el cliente por fin muestra cuánto queda cuando queda poco, en vez de
+// avisar recién al chocarse con el tope — app-03, app-16.
+const CACHE_NAME = 'patron-shell-v188';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
