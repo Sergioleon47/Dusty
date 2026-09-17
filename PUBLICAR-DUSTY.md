@@ -7,6 +7,47 @@ dónde vive cada cosa.
 
 ## 0. DÓNDE QUEDAMOS — leer esto primero en la próxima sesión
 
+### ⬆️ ACTUALIZACIÓN 17/09/2026 — leer ESTO antes que el bloque de abajo
+
+Lo que sigue a partir de "Ya se creó la cuenta de desarrollador" es el estado
+del **22-23/08/2026** y quedó congelado ahí: el proyecto `android/` y este
+archivo recién entraron a git el 11/09, de una sola vez, y nadie volvió a
+anotar qué pasó después. Esto pone al día lo que sí está confirmado.
+
+- **✅ APROBADO el requisito de los 12 testers × 14 días corridos** (confirmado
+  por el usuario, 17/09/2026). Era lo único que este documento marcaba como
+  bloqueante desde el 23/08 para poder promover a producción.
+- **⏳ EN ESPERA de la siguiente aprobación de Google** (confirmado por el
+  usuario, 17/09/2026). Sin fecha de respuesta todavía. **Cuando llegue,
+  anotar acá qué aprobación era y qué contestó Google** — es justo el dato que
+  se perdió entre el 23/08 y hoy.
+- **Versiones que pasaron sin registrarse.** El último versionCode anotado acá
+  es el **3** (23/08). El proyecto ya venía en **12** cuando entró a git
+  (11/09), pasó a **13 / 1.8.0** el 16/09 ("AAB con todo lo pendiente") y a
+  **14 / 1.8.1** el 17/09. Lo que Google dijo de la 12 y de la 13 no está
+  registrado en ningún lado: si alguna sigue en revisión, anotarlo acá.
+- **La 1.8.1 (versionCode 14) NO está compilada ni subida.** Está en `main`
+  desde el 17/09 (merge del PR #71) y lleva la auditoría del flujo recibo →
+  inventario → descuento de stock (seis arreglos, entre ellos la merma del
+  conteo cíclico que borraba plata del Cierre de mes sin dejar rastro) más el
+  cupo del asistente por plan. La web y las PWA ya lo tienen por `SW v188`;
+  **Android no, hasta que salga un AAB nuevo.**
+  - El AAB solo puede salir de la máquina del usuario: el keystore está fuera
+    de git a propósito (ver sección 1). Comandos: `npm run cap:sync` y después
+    `cd android && ./gradlew.bat bundleRelease`.
+  - **Antes de subirla, mirar si hay otra release en revisión en el mismo
+    track.** Subir una nueva al mismo track reemplaza a la anterior, así que
+    si la 1.8.0 todavía está en revisión conviene dejarla terminar. Confirmar
+    en Play Console antes de mandar.
+- **Desfase web/Android.** `PLAN-SYNC.md` avisa que mezclar clientes viejos y
+  nuevos puede pisar escrituras. Con la web en 1.8.1 y Android en 1.8.0 (o
+  menos), ese desfase está activo ahora mismo: cuanto antes salga el AAB,
+  mejor.
+
+---
+
+### Estado del 22-23/08/2026 (histórico, ya superado en los puntos de arriba)
+
 - Ya se creó la cuenta de desarrollador de Google Play ("Dusty Inventory"),
   y **ya se pasaron las 3 verificaciones obligatorias** (identidad, celular
   Android, teléfono de contacto) — esa parte está 100% resuelta, no hay que
@@ -96,10 +137,10 @@ dónde vive cada cosa.
     `robocopy <carpeta_vacía> <carpeta_build> /MIR` y reintentar
     (`Remove-Item` normal a veces no alcanza por los path largos de
     node_modules).
-- **Lo que falta ahora:**
-  1. **Esperar los 14 días corridos con los 12 testers** (arrancó el
+- **Lo que falta ahora:** *(superado — ver la actualización del 17/09 arriba)*
+  1. ~~**Esperar los 14 días corridos con los 12 testers** (arrancó el
      23/08/2026) — es el único requisito que falta para poder promover a
-     producción.
+     producción.~~ **✅ Aprobado** (confirmado el 17/09/2026).
 
 ---
 
