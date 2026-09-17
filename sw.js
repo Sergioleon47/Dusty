@@ -559,7 +559,31 @@
 // v185: lastPriceChangePct ya no infla un % cuando el precio base es casi cero
 // (ej. Butter/Red Onions a $0.01 pasando a $0.05 "eran" +400%) — por debajo de
 // $0.05 se muestra la diferencia real en dólares — patron-core, app-03.
-const CACHE_NAME = 'patron-shell-v186';
+// v187: auditoría del flujo recibo → inventario → descuento de stock
+// (2026-09-16). (1) el CONTEO CÍCLICO contado a la baja registra la diferencia
+// como merma (salida con motivo "pérdida" y costo del día): antes el Valor del
+// inventario caía sin una sola línea que explicara a dónde se fue la mercadería
+// — patron-core, app-10; (2) confirmar un escaneo, una salida de estante o un
+// conteo con la suscripción vencida ya no escribe local lo que Firestore va a
+// rechazar — app-06, app-08, app-10, app-13; (3) una receta con cantidad
+// negativa o ilegible ya no SUBE el stock del insumo al producir — patron-core,
+// app-08; (4) el stock que entra por un recibo se redondea como todos los demás
+// caminos (0.1 + 0.2 dejaba 0.30000000000000004 guardado) — app-06; (5) las
+// líneas del escaneo sin cantidad o sin precio se avisan en vez de caerse en
+// silencio — app-03, app-06; (6) producir más de lo que alcanza el insumo
+// pregunta antes y anota el faltante renglón por renglón (short) en la salida:
+// se podían fabricar 5 panes con harina para 2 y las 5 entraban valuadas a la
+// mitad, inflando el margen al venderlas — app-03, app-08.
+// v188: el cupo del ASISTENTE pasa a depender del plan. El contador existía
+// desde siempre (agentUsed/agentPeriod), pero su tope era una constante plana en
+// agent.js —600 vueltas al mes para todos—, así que frenaba el abuso pero no
+// servía para separar un plan de otro. Ahora vive en patron-admin al lado de los
+// escaneos, con PLAN_AGENT_LIMITS (starter 100 · pro 300 · negocio 500 · equipo
+// 800), cupo reducido para email sin verificar (el mismo agujero que los
+// escaneos ya tenían tapado) y devolución de la vuelta si la llamada se cae por
+// red. Y el cliente por fin muestra cuánto queda cuando queda poco, en vez de
+// avisar recién al chocarse con el tope — app-03, app-16.
+const CACHE_NAME = 'patron-shell-v188';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

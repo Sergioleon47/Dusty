@@ -554,7 +554,16 @@ function productionPlan(components, count, inventory){
   (components||[]).forEach(c=>{ const prev = merged.find(m=>m.ingId===c.ingId); if(prev) prev.qty = (Number(prev.qty)||0) + (Number(c.qty)||0); else merged.push(Object.assign({}, c)); });
   return merged.map(c=>{
     const ing = inventory.find(i=>i.id===c.ingId);
-    const qty = Number(c.qty)||0;
+    /* PRODUCIR SOLO PUEDE RESTAR (auditoría 2026-09-16). c.qty viene del input
+       tal cual lo tipeó el usuario (una cadena: ver el oninput de data-rcomp-qty
+       en app-08), y el min="0" del HTML es una sugerencia, no una validación —
+       un "-3" pegado a mano, o llegado por la nube desde un cliente viejo, daba
+       deduct negativo y producir SUBÍA el stock del insumo mientras el terminado
+       entraba igual: mercadería salida de la nada, y encima cobrada como costo
+       (outflowPL usa Math.abs sobre la cantidad de la salida). Una cantidad que
+       no sea un número positivo descuenta 0 y la fila sigue a la vista. */
+    const qtyRaw = Number(c.qty);
+    const qty = (Number.isFinite(qtyRaw) && qtyRaw > 0) ? qtyRaw : 0;
     const deduct = roundQty(qty*n);
     const current = ing ? (Number(ing.qtyOnHand)||0) : 0;
     return {
@@ -603,6 +612,37 @@ function bomRows(components, inventory, count){
 }
 function bomTotal(rows){
   return roundQty((rows||[]).reduce((s,r)=>s+(r.subtotal||0), 0));
+}
+
+/* CONTEO CÍCLICO: qué le pasa al estante cuando el usuario escribe lo que contó.
+   Entra lo contado ([{ingId, qty}], tal cual salió de los inputs) y el inventario;
+   sale una fila por producto con la cantidad ANTERIOR, la NUEVA y —solo cuando se
+   contó de MENOS— el renglón de salida que registra esa diferencia como merma
+   (motivo "pérdida", costo congelado del día, sin precio de venta: no hubo venta).
+   Contar de MÁS no deja renglón: es una entrada que nunca se registró, y lo único
+   honesto ahí es corregir el stock, nunca inventar un ingreso.
+   Los ítems de gasto (servicios, Eat out) nunca tuvieron stock: no producen merma.
+   Vive acá, y no en el manejador del modal, para que se pueda probar sin DOM. */
+function cycleCountChanges(counted, inventory, isExpense){
+  const out = [];
+  (counted||[]).forEach(c=>{
+    if(!c) return;
+    const val = Number(c.qty);
+    if(!Number.isFinite(val) || val < 0) return;
+    const ing = (inventory||[]).find(i=>i && i.id===c.ingId);
+    if(!ing) return;
+    const before = roundQty(Math.max(0, Number(ing.qtyOnHand)||0));
+    const after = roundQty(val);
+    const gasto = typeof isExpense==='function' ? !!isExpense(ing) : false;
+    out.push({
+      ing, ingId: ing.id, before, after,
+      loss: (after < before && !gasto)
+        ? {ingId: ing.id, ingName: ing.name, qty: roundQty(before - after), unit: ing.unit,
+           reason: 'loss', costAt: Number(ing.costPerUnit)||0, priceAt: 0}
+        : null
+    });
+  });
+  return out;
 }
 
 /* COSTO PROMEDIO PONDERADO al entrar stock nuevo:
@@ -749,7 +789,7 @@ if(typeof module!=='undefined' && module.exports){
     money, escapeHtml, isValidDateStr, localDateStr, localMonthStr, addDaysStr, daysBetweenStr,
     receiptImages, receiptImageSrc, monthKey, monthLabel, shiftMonthStr, lastPriceChangePct,
     profitMarginPct, MONTH_NAMES, WEEKDAY_NAMES, sameJSON, hash53, valueHash, quoteTotals,
-    roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading,
+    roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading, cycleCountChanges,
     bomRows, bomTotal, weightedAvgCost,
     formatMoney, setMoneyStyle, normalizeBudgetMeta, freezeBudgetHistory, carryFromPrevious, computeBudgetPace,
     normalizeBizProfile, maintStatus, mergeBizProfile, mergeListById, mergeMaintLog,

@@ -115,6 +115,9 @@ function attachInventoryEvents(){
     };
     const saveCcBtn=document.getElementById('btn-save-cycle-count');
     if(saveCcBtn) saveCcBtn.onclick=()=>{
+      // Guardar el conteo ESCRIBE stock: mismo candado de suscripción que el
+      // resto de las acciones que tocan el inventario.
+      if(!requireWriteAccess()) return;
       // Capturado ANTES de tocar cycleCountEnabled: si justo ahora se está
       // apagando el recordatorio pero el conteo de esta tanda ya estaba
       // completado en pantalla, igual se aplica — apagar no debe tirar a la
@@ -128,18 +131,43 @@ function attachInventoryEvents(){
 
       if(wasDue){
         const batch=cycleCountBatch();
+        /* CONTAR MENOS DE LO QUE DECÍAN LOS PAPELES ES MERMA, Y LA MERMA ES PLATA
+           (auditoría 2026-09-16). Hasta acá el conteo cíclico bajaba qtyOnHand y
+           nada más: el Valor del inventario caía sin una sola línea que dijera a
+           dónde se fue esa mercadería — 10 lb de harina contadas en 4 borraban
+           $60 del Cierre de mes en silencio, sin salida, sin motivo y sin
+           historial. Ahora una baja se registra como salida con motivo
+           "pérdida" y el costo congelado del día, exactamente lo que ya hace el
+           escáner de estante cuando algo bajó sin venta (applyShelfAdjust,
+           app-08): outflowPL la cuenta como costo sin ingreso, que es lo que
+           una merma es.
+           Contar de MÁS no genera salida: eso es una entrada que nunca se
+           registró (una compra sin recibo), y lo único que corresponde es subir
+           el nivel de "lleno" — inventar un ingreso ahí sería peor que el
+           agujero que esto cierra. */
+        const contado=[];
         document.querySelectorAll('[data-cc-count]').forEach(inp=>{
-          const val=parseFloat(inp.value);
-          if(!isNaN(val) && val>=0){
-            const ing=inventory.find(i=>i.id===inp.dataset.ccCount);
-            if(ing){
-              ing.qtyOnHand=val;
-              // Contar MÁS que el "lleno" conocido = había una entrada sin registrar:
-              // ese nivel pasa a ser el nuevo 100%. Contar menos es consumo — no toca.
-              if(val > (ing.stockFullRef||0)) ing.stockFullRef = val;
-            }
-          }
+          contado.push({ingId:inp.dataset.ccCount, qty:parseFloat(inp.value)});
         });
+        const mermas=[];
+        cycleCountChanges(contado, inventory, isExpenseItem).forEach(ch=>{
+          ch.ing.qtyOnHand = ch.after;
+          // Contar MÁS que el "lleno" conocido = había una entrada sin registrar:
+          // ese nivel pasa a ser el nuevo 100%. Contar menos es consumo — no toca.
+          if(ch.after > (ch.ing.stockFullRef||0)) ch.ing.stockFullRef = ch.after;
+          if(ch.after!==ch.before && typeof currentUser!=='undefined' && currentUser){
+            ch.ing.lastEditedBy=currentUserLabel(); ch.ing.lastEditedAt=new Date().toISOString();
+          }
+          if(ch.loss) mermas.push(ch.loss);
+        });
+        if(mermas.length>0){
+          recordOutflow({id:uid('o'), type:'adjust', recipeId:null, recipeName:'', count:null,
+            reason:'loss', items:mermas, byCount:true,
+            date:localDateStr(), createdAt:new Date().toISOString(),
+            by:(typeof currentUser!=='undefined' && currentUser) ? currentUser.uid : null,
+            byLabel:(typeof currentUser!=='undefined' && currentUser) ? currentUserLabel() : ''});
+          logActivity('stock_adjust', '', String(mermas.length));
+        }
         cycleCountLastDate=localDateStr();
         // El cursor rota sobre la lista CONTABLE (sin ítems de gasto) — mismo
         // universo que usa cycleCountBatch para armar cada tanda.

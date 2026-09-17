@@ -198,6 +198,129 @@ async function isUnlimitedAccount(ownerUid) {
   return !!(email && UNLIMITED_EMAILS.includes(email));
 }
 
+/* CUPO DEL AGENTE, POR PLAN (2026-09-16). El contador existía desde que el
+   agente existe (agentUsed/agentPeriod en el mismo doc de billing), pero su tope
+   era UNA constante plana en agent.js: 600 vueltas al mes para todo el mundo, sin
+   mirar el plan. O sea que el contador frenaba el abuso —para eso se escribió—
+   pero no servía para separar un plan de otro: el que paga el plan más caro y el
+   que no paga nada tenían el mismo cupo de agente.
+   Vive acá, al lado de PLAN_SCAN_LIMITS, porque los límites de un plan tienen que
+   leerse juntos: tenerlos en dos archivos es como se llega a que uno diga una cosa
+   y el otro, otra.
+   La UNIDAD es la VUELTA DE USUARIO (un mensaje escrito), no cada llamada a
+   Claude: un pedido que usa herramientas hace varias llamadas y sigue contando
+   como uno. Las vueltas de herramientas tienen su propio tope (ver más abajo) para
+   que un bucle de herramientas no se coma la API sin tocar este contador. */
+const PLAN_AGENT_LIMITS = { starter: 100, pro: 300, negocio: 500, equipo: 800 };
+/* Cuenta sin plan asignado. HOY sigue en 600 a propósito: es lo que tienen los
+   testers actuales y bajarlo de golpe les apagaría el agente a mitad de mes. Tiene
+   el mismo problema que DEFAULT_SCAN_LIMIT (ver PLAN-COBRO.md): es MÁS generoso
+   que el plan pago más barato, así que hay que bajarlo —sugerido: 30— en el mismo
+   momento en que se abra el cobro, no antes. Por eso sale de una variable de
+   entorno: se cambia en Netlify, sin desplegar código. */
+const DEFAULT_AGENT_LIMIT = Number(process.env.DUSTY_DEFAULT_AGENT_LIMIT) || 600;
+// Trial sin registro: tope de POR VIDA, igual que los 5 escaneos. Un pedido de
+// texto al modelo chico cuesta centavos, así que 60 alcanza para probar el agente
+// de verdad sin que una granja de cuentas anónimas sea negocio.
+const TRIAL_AGENT_LIMIT = 60;
+/* Email SIN verificar y sin plan: cupo reducido, exactamente por el mismo motivo
+   que UNVERIFIED_SCAN_LIMIT — una cuenta con un email inventado es gratis e
+   instantánea, y con el cupo completo "una cuenta nueva por mes" era la forma
+   barata de quemar la API. Los escaneos ya estaban tapados; el agente no, y era
+   el agujero más grande de los dos porque el tope era 10 veces más alto. */
+const UNVERIFIED_AGENT_LIMIT = 60;
+/* Vueltas de HERRAMIENTAS por vuelta de usuario. El tope de hops es este número
+   por el cupo de vueltas del plan: un pedido normal usa 1-2, y el múltiplo deja
+   margen para los pedidos que de verdad encadenan varias sin que un bucle quede
+   sin freno. */
+const AGENT_MAX_HOPS = 6;
+
+/* Qué cupo de agente le toca a esta cuenta. Mismo criterio que reserveScanQuota:
+   el plan manda; el cupo reducido por email sin verificar solo aplica cuando se
+   usa la PROPIA cuenta (un miembro de equipo gasta el cupo del dueño, con el plan
+   del dueño). */
+function agentLimitFor(data, caller, ownerUid) {
+  if (caller.isAnonymous) return TRIAL_AGENT_LIMIT;
+  const unverifiedSelf = !caller.emailVerified && caller.uid === ownerUid;
+  return (data.plan && PLAN_AGENT_LIMITS[data.plan]) || (unverifiedSelf ? UNVERIFIED_AGENT_LIMIT : DEFAULT_AGENT_LIMIT);
+}
+
+/* Reserva UNA vuelta de usuario: chequea y descuenta en la misma transacción,
+   antes de llamar a Claude — mismo motivo que reserveScanQuota (varios pedidos en
+   paralelo con una vuelta restante pasaban todos si el descuento llegaba después). */
+async function reserveAgentTurn(ownerUid, caller) {
+  if (isUnlimitedCaller(caller) || await isUnlimitedAccount(ownerUid)) {
+    return { allowed: true, limit: null, used: null, period: null, unlimited: true };
+  }
+  const db = admin.firestore();
+  const ref = db.doc(`users/${ownerUid}/meta/billing`);
+  const period = currentBillingPeriod();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    const limit = agentLimitFor(data, caller, ownerUid);
+    // Trial: de por vida (agentTotal). Cuenta real: por período.
+    const used = caller.isAnonymous ? (data.agentTotal || 0)
+      : (data.agentPeriod === period ? (data.agentUsed || 0) : 0);
+    if (used + 1 > limit) return { allowed: false, limit, used, period };
+    tx.set(ref, {
+      agentUsed: (data.agentPeriod === period ? (data.agentUsed || 0) : 0) + 1,
+      agentPeriod: period,
+      agentTotal: (data.agentTotal || 0) + 1
+    }, { merge: true });
+    return { allowed: true, limit, used: used + 1, period };
+  });
+}
+
+/* Reserva una vuelta de HERRAMIENTAS (el cliente devolvió resultados y el pedido
+   sigue). No consume cupo de usuario: su tope es el del plan multiplicado por
+   AGENT_MAX_HOPS, para que un bucle de herramientas tenga freno propio. */
+async function reserveAgentHop(ownerUid, caller) {
+  if (isUnlimitedCaller(caller) || await isUnlimitedAccount(ownerUid)) return true;
+  const db = admin.firestore();
+  const ref = db.doc(`users/${ownerUid}/meta/billing`);
+  const period = currentBillingPeriod();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    const limit = agentLimitFor(data, caller, ownerUid) * AGENT_MAX_HOPS;
+    const used = caller.isAnonymous ? (data.agentHopsTotal || 0)
+      : (data.agentHopsPeriod === period ? (data.agentHops || 0) : 0);
+    if (used + 1 > limit) return false;
+    tx.set(ref, {
+      agentHops: (data.agentHopsPeriod === period ? (data.agentHops || 0) : 0) + 1,
+      agentHopsPeriod: period,
+      agentHopsTotal: (data.agentHopsTotal || 0) + 1
+    }, { merge: true });
+    return true;
+  });
+}
+
+/* Devuelve la vuelta reservada cuando la llamada a Claude se cayó por red sin
+   llegar a cobrarse — el mismo trato que refundScanUsage le da a un escaneo, y por
+   el mismo motivo: cobrarle al usuario un pedido que nunca llegó a Claude es un
+   error de nuestro lado. Un 502 de "Claude contestó basura" NO se devuelve: esa
+   llamada sí costó plata. */
+async function refundAgentTurn(ownerUid, period) {
+  if (!period) return; // reserva del pase del dueño: no se descontó nada
+  try {
+    const db = admin.firestore();
+    const ref = db.doc(`users/${ownerUid}/meta/billing`);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const data = snap.data();
+      const update = { agentTotal: Math.max(0, (data.agentTotal || 0) - 1) };
+      // Igual que en los escaneos: si el mes rodó entre la reserva y el fallo, no
+      // se toca el contador del mes nuevo.
+      if (data.agentPeriod === period) update.agentUsed = Math.max(0, (data.agentUsed || 0) - 1);
+      tx.set(ref, update, { merge: true });
+    });
+  } catch (e) {
+    console.error('[Dusty] no se pudo devolver la vuelta del agente:', e);
+  }
+}
+
 function currentBillingPeriod() {
   const d = new Date();
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -563,6 +686,8 @@ module.exports = {
   admin, getFirebaseApp, isAllowedOrigin, corsHeaders, withCors, verifyCaller, verifyCallerInfo, ALLOWED_ORIGIN_PATTERNS,
   isUnlimitedAccount,
   currentBillingPeriod, callerCanUseAccount, reserveScanQuota, refundScanUsage, recordScanUsage,
+  PLAN_SCAN_LIMITS, PLAN_AGENT_LIMITS, AGENT_MAX_HOPS,
+  agentLimitFor, reserveAgentTurn, reserveAgentHop, refundAgentTurn,
   checkIpRateLimit,
   BILLING_ENABLED, TRIAL_DAYS, RETENTION_DAYS, DIA_MS, retentionKey, getAccessState, subscriptionRequiredResponse,
   FUNCTION_BUDGET_MS, remainingBudgetMs, upstreamSignal, isAbortError, upstreamTimeoutResponse,

@@ -30,6 +30,11 @@ let agentPending = null;  // {id, name, input, resolve} — herramienta esperand
 let agentDraft = '';
 let agentListening = false, agentRecognizer = null;
 let agentError = '';
+/* {limit, used} que devuelve el servidor con cada pedido (reserveAgentTurn) — el
+   contador siempre existió del lado del servidor, pero el cliente lo tiraba: el
+   usuario se enteraba de su cupo recién al chocarse con el tope, que es la peor
+   manera de enterarse y la que no vende ningún plan (2026-09-16). */
+let lastAgentQuota = null;
 let agentAttach = [];      // fotos listas para mandar: {file, base64, mediaType, thumb}
 let agentLastFiles = [];   // las de la última vuelta, por si el agente las deriva al escáner
 let showAgentCam = false;
@@ -587,7 +592,23 @@ async function agentCall(){
     notFoundKey: 'agent_err_generic', genericKey: 'agent_err_generic',
     onTrialQuota: ()=>{ if(typeof openUpgradeModal==='function') openUpgradeModal(); }
   });
+  // Solo las vueltas que CONSUMEN cupo traen quota; las de herramientas vienen sin
+  // él y no deben borrar el último número conocido.
+  if(parsed && parsed.quota && Number.isFinite(parsed.quota.limit)) lastAgentQuota = parsed.quota;
   return parsed;
+}
+/* El aviso aparece recién cuando queda poco (10 pedidos, o el 15% del cupo):
+   mostrar "te quedan 287" en cada respuesta sería ruido, y el que va holgado no
+   necesita pensar en su plan. El trial cuenta de por vida, no por mes — el texto
+   lo dice distinto para no mentirle. */
+function agentQuotaNote(){
+  if(!lastAgentQuota || !Number.isFinite(lastAgentQuota.limit)) return '';
+  const limit = lastAgentQuota.limit|0, left = Math.max(0, limit - (lastAgentQuota.used|0));
+  if(left > 10 && left > limit*0.15) return '';
+  const trial = !!(currentUser && currentUser.isAnonymous);
+  const key = left===1 ? (trial ? 'agent_quota_trial_last' : 'agent_quota_last')
+                       : (trial ? 'agent_quota_trial' : 'agent_quota_left');
+  return `<div class="ag-note">${t(key).replace('{n}', String(left))}</div>`;
 }
 /* El registro que describe la tarjeta se resuelve UNA vez y se fija por id en la
    entrada: antes la tarjeta mostraba "Pérez · $100 · 1 sep" y, al confirmar,
@@ -761,6 +782,7 @@ function agentSheet(){
         <div class="ag-chips">${agentSuggestions().map(s=>`<button type="button" class="category-chip" data-agent-say="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}</div>
       </div>` : bubbles}
       ${agentBusy && !agentPending ? `<div class="ag-msg ag-bot ag-typing"><i></i><i></i><i></i></div>` : ''}
+      ${agentQuotaNote()}
     </div>
     ${agentAttach.length ? `<div class="ag-attach">${agentAttach.map((a,i)=>`<span class="ag-attach-item"><img src="data:${escapeHtml(a.thumb.mediaType)};base64,${a.thumb.base64}" alt=""><button type="button" class="ag-attach-x" data-agent-attach-del="${i}" aria-label="${t('btn_delete')}">✕</button></span>`).join('')}<span class="ag-attach-hint">${t('agent_photo_hint')}</span></div>` : ''}
     <div class="ag-composer">

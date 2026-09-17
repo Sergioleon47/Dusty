@@ -3889,6 +3889,15 @@ function scanPayReminderHtml(){
 }
 
 function applyScanResults(){
+  /* EL MISMO CANDADO QUE applyProduction, y por el mismo motivo (auditoría
+     2026-09-16). El modal del escáner es el que más tiempo pasa abierto de toda
+     la app —sacar las fotos, esperar a la IA, revisar línea por línea— así que
+     es donde más chance hay de que la suscripción se cierre en el medio (el 402
+     de cualquier otra llamada actualiza accessState). Sin esto el recibo entraba
+     al inventario de ESTE teléfono, Firestore rechazaba la escritura y el stock
+     y el gasto quedaban distintos de los del resto del equipo, sin un solo
+     aviso. Abrir el escáner ya lo chequea; abrir no es aplicar. */
+  if(!requireWriteAccess()) return;
   if(scanDuplicateOf && !scanDuplicateConfirmed) return; // seguridad extra, el botón ya debería estar deshabilitado
   // La info de servicio se captura ANTES del forEach de abajo — después de guardar,
   // partes del estado del escaneo ya pueden haber rotado (modo lote).
@@ -3925,8 +3934,15 @@ function applyScanResults(){
   // con date:'' y desaparecía de TODOS los meses — gasto perdido en silencio
   // (auditoría 2026-09-04). Mismo fallback que ya usaba el gasto manual.
   const applyDate = isValidDateStr(scanDate) ? scanDate : localDateStr();
+  /* Las líneas que no pasan el filtro de abajo (sin cantidad, sin precio o sin
+     nombre) se caían del recibo EN SILENCIO: la muestra gratis, el renglón que
+     la IA leyó con precio 0 o el que quedó a medio completar no entraban ni al
+     stock ni al recibo, y no había forma de enterarse. Se cuentan para avisar al
+     final — aplicar 8 de 10 líneas y no decirlo es el peor tipo de falso
+     positivo: la pantalla se cierra como si todo hubiera entrado. */
+  let skippedLines = 0;
   scanExtracted.forEach(item=>{
-    if(item.qty<=0 || item.totalPrice<=0 || !item.rawName || !item.rawName.trim()) return;
+    if(item.qty<=0 || item.totalPrice<=0 || !item.rawName || !item.rawName.trim()){ skippedLines++; return; }
     let ingId = item.matchedIngId;
     /* El producto emparejado puede haber dejado de existir entre que se eligió y
        que se confirma: lo borró este mismo usuario (o el recibo que lo creó), o
@@ -3992,7 +4008,7 @@ function applyScanResults(){
          en el mismo Cierre de mes. Sin cantidad y marcado como gasto, igual que
          los consumos de Eat out de más arriba, que ya se creaban así. */
       const newIng = {id:uid('i'), name:item.newIngName||item.rawName, unit:item.unit||'unidad', costPerUnit:item.totalPrice/item.qty, updated:true,
-        qtyOnHand: isSvcLine ? 0 : item.qty, stockFullRef: isSvcLine ? null : item.qty, categoryId:isSvcLine?null:scanCatId};
+        qtyOnHand: isSvcLine ? 0 : roundQty(item.qty), stockFullRef: isSvcLine ? null : roundQty(item.qty), categoryId:isSvcLine?null:scanCatId};
       // Un servicio agrupa en el modal de Presupuesto por su categoría de GASTO.
       if(isSvcLine){ newIng.expenseOnly = true; if(scanCatId) newIng.expenseCategoryId = scanCatId; }
       if(currentUser){ newIng.lastEditedBy = currentUserLabel(); newIng.lastEditedAt = new Date().toISOString(); }
@@ -4040,7 +4056,13 @@ function applyScanResults(){
           ? item.totalPrice/item.qty
           : weightedAvgCost(ing.qtyOnHand, ing.costPerUnit, item.qty, item.totalPrice);
         ing.updated = true;
-        ing.qtyOnHand = unitChanged ? item.qty : (ing.qtyOnHand||0) + item.qty;
+        /* roundQty como en todo el resto de la app (producción, escáner de
+           estante, cotizaciones, agente): sin él, comprar 0.1 y después 0.2 de
+           lo mismo dejaba el stock en 0.30000000000000004 — el error de coma
+           flotante se guarda, se sincroniza y se arrastra a cada cuenta que use
+           esa cantidad (valor del inventario, costo promedio, comparaciones con
+           el mínimo). Auditoría 2026-09-16. */
+        ing.qtyOnHand = roundQty(unitChanged ? item.qty : (ing.qtyOnHand||0) + item.qty);
         // Entrada de stock → este nivel es el nuevo "lleno" de la barra (100%).
         ing.stockFullRef = ing.qtyOnHand;
         if(currentUser){ ing.lastEditedBy = currentUserLabel(); ing.lastEditedAt = new Date().toISOString(); }
@@ -4106,6 +4128,7 @@ function applyScanResults(){
     logActivity('note_created', label);
   }
   saveState();
+  if(skippedLines>0) showToast(t('scan_lines_skipped').replace('{n}', String(skippedLines)), 'error');
   if(appliedItems.length>0) logActivity('scan_applied', '', String(appliedItems.length));
   // Primer recibo de la vida: festejo (confeti + toast con el logro y los escaneos
   // gratis que quedan). Solo fuera del modo lote — ahí el resumen llega al final.
@@ -4192,8 +4215,8 @@ function deleteReceipt(receiptId){
     stockEntries.forEach(e=>{
       const ing = inventory.find(i=>i.id===e.ingId);
       if(!ing) return;
-      qtyRevertida += Math.min(ing.qtyOnHand||0, e.qty||0); // lo que se resta de verdad, ya con el tope en 0
-      ing.qtyOnHand = Math.max(0, (ing.qtyOnHand||0) - e.qty);
+      qtyRevertida += roundQty(Math.min(ing.qtyOnHand||0, e.qty||0)); // lo que se resta de verdad, ya con el tope en 0
+      ing.qtyOnHand = roundQty(Math.max(0, (ing.qtyOnHand||0) - e.qty));
       // Revertir el recibo deshace también la entrada que subió el "lleno":
       // sin esto, la barra quedaría comparando contra un nivel que nunca existió.
       // "nivel" y no "r": r es el recibo, y sombrearlo acá sería una trampa para

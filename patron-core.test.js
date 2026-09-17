@@ -214,7 +214,7 @@ test('sameJSON: detecta diferencias reales de contenido, sin importar el orden',
 });
 
 /* ---------- Producción (recetas que descuentan inventario) ---------- */
-const { roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading } = require('./patron-core.js');
+const { roundQty, recipeCostTotal, productionPlan, detectedQtyFromReading, cycleCountChanges } = require('./patron-core.js');
 
 test('recipeCostTotal: suma cantidad × costo actual de cada insumo', () => {
   const inv = [
@@ -270,6 +270,61 @@ test('productionPlan: cantidad inválida o cero devuelve plan vacío; insumo bor
   assert.equal(plan[0].missing, true);
   assert.equal(plan[0].name, null);
   assert.equal(plan[0].short, 0); // sin producto no hay faltante que reportar
+});
+
+/* Auditoría 2026-09-16: una cantidad de receta que no sea un número positivo no
+   puede terminar SUBIENDO el stock del insumo. c.qty llega como la cadena cruda
+   del input (el oninput de data-rcomp-qty guarda inp.value tal cual) y el min="0"
+   del HTML no valida nada: con "-3", deduct daba -6 y `after` = current + 6 —
+   producir creaba materia prima de la nada y encima la cobraba como costo. */
+test('productionPlan: un componente negativo o ilegible descuenta 0, nunca suma stock', () => {
+  const inv = [{id:'i1', name:'Harina', unit:'lb', qtyOnHand:10}];
+  const negativo = productionPlan([{ingId:'i1', qty:'-3'}], 2, inv);
+  assert.equal(negativo[0].deduct, 0);
+  assert.equal(negativo[0].after, 10);   // el estante queda como estaba
+  assert.equal(negativo[0].short, 0);
+  const vacio = productionPlan([{ingId:'i1', qty:''}], 2, inv);
+  assert.equal(vacio[0].deduct, 0);
+  assert.equal(vacio[0].after, 10);
+  const basura = productionPlan([{ingId:'i1', qty:'dos'}], 2, inv);
+  assert.equal(basura[0].deduct, 0);
+  assert.equal(basura[0].after, 10);
+  // La fila sigue a la vista: el modal tiene que poder mostrar el insumo igual.
+  assert.equal(negativo[0].name, 'Harina');
+});
+
+/* cycleCountChanges: la cuenta del conteo cíclico. Lo importante es que contar de
+   MENOS deje rastro (merma) y contar de MÁS no invente un ingreso. */
+test('cycleCountChanges: contar de menos deja merma con el costo del día', () => {
+  const inv = [{id:'i1', name:'Harina', unit:'lb', qtyOnHand:10, costPerUnit:10}];
+  const ch = cycleCountChanges([{ingId:'i1', qty:4}], inv);
+  assert.equal(ch.length, 1);
+  assert.equal(ch[0].before, 10);
+  assert.equal(ch[0].after, 4);
+  assert.deepEqual(ch[0].loss, {ingId:'i1', ingName:'Harina', qty:6, unit:'lb',
+    reason:'loss', costAt:10, priceAt:0});
+});
+
+test('cycleCountChanges: contar de más corrige el stock pero NO genera salida', () => {
+  const inv = [{id:'i1', name:'Harina', unit:'lb', qtyOnHand:4, costPerUnit:10}];
+  const ch = cycleCountChanges([{ingId:'i1', qty:9}], inv);
+  assert.equal(ch[0].after, 9);
+  assert.equal(ch[0].loss, null);
+});
+
+test('cycleCountChanges: ignora vacíos, negativos, ítems borrados y de gasto', () => {
+  const inv = [
+    {id:'i1', name:'Harina', unit:'lb', qtyOnHand:10, costPerUnit:10},
+    {id:'i2', name:'Luz', unit:'servicio', qtyOnHand:0, costPerUnit:600, expenseOnly:true}
+  ];
+  const esGasto = i => !!(i && (i.expenseOnly || i.unit==='servicio'));
+  // Input vacío (NaN), negativo, y un id que ya no existe: ninguno toca nada.
+  assert.deepEqual(cycleCountChanges([{ingId:'i1', qty:NaN}], inv, esGasto), []);
+  assert.deepEqual(cycleCountChanges([{ingId:'i1', qty:-1}], inv, esGasto), []);
+  assert.deepEqual(cycleCountChanges([{ingId:'borrado', qty:3}], inv, esGasto), []);
+  // Un ítem de gasto nunca tuvo stock: se corrige, pero no es merma.
+  const ch = cycleCountChanges([{ingId:'i2', qty:0}], inv, esGasto);
+  assert.equal(ch[0].loss, null);
 });
 
 test('detectedQtyFromReading: conteo directo gana; porcentaje necesita capacidad', () => {

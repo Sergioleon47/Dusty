@@ -12,9 +12,12 @@
 // escaneo con foto. Se cuenta por período en users/{owner}/meta/billing
 // (agentUsed/agentPeriod), con el pase de dueño de siempre.
 const {
-  admin, isAllowedOrigin, verifyCallerInfo, isUnlimitedAccount,
-  currentBillingPeriod, callerCanUseAccount, checkIpRateLimit, getAccessState,
+  admin, isAllowedOrigin, verifyCallerInfo,
+  callerCanUseAccount, checkIpRateLimit, getAccessState,
   reserveScanQuota, refundScanUsage,
+  // El cupo del agente vive en patron-admin, al lado del de escaneos: los límites
+  // de un plan se leen juntos o terminan diciendo cosas distintas (2026-09-16).
+  AGENT_MAX_HOPS, reserveAgentTurn, reserveAgentHop, refundAgentTurn,
   upstreamSignal, isAbortError, upstreamTimeoutResponse,
   subscriptionRequiredResponse, withCors
 } = require('./lib/patron-admin');
@@ -24,8 +27,6 @@ const AGENT_MODEL = process.env.AGENT_MODEL || 'claude-haiku-4-5-20251001';
 // una pregunta compleja, que pueda responder con más calidad"). El mismo que
 // leen los recibos. Solo cuando needsBigModel lo decide: 3-4x el costo por pedido.
 const AGENT_MODEL_BIG = process.env.AGENT_MODEL_BIG || 'claude-sonnet-5';
-const AGENT_LIMIT_TRIAL = 60;        // vueltas de por vida en el trial anónimo
-const AGENT_LIMIT_MONTH = 600;       // vueltas por mes con cuenta
 const MAX_MESSAGES = 30;             // historial que se acepta por pedido
 const MAX_TEXT = 4000;               // chars por bloque de texto
 // Resultado de una herramienta: una consulta de 30 filas (inventario, recibos,
@@ -210,7 +211,6 @@ function nImagesReserved(res) { return (res && Number.isFinite(res.count)) ? res
    TOOLS; (2) no pasar de AGENT_MAX_HOPS saltos desde el último texto del usuario
    (mismo tope que el cliente); y además paga (3) su propio freno por IP y (4) un
    cupo de saltos por cuenta (AGENT_MAX_HOPS por cada pedido del cupo). */
-const AGENT_MAX_HOPS = 6;
 function toolTurnProblem(messages) {
   const last = messages[messages.length - 1];
   const prev = messages[messages.length - 2];
@@ -232,46 +232,6 @@ function toolTurnProblem(messages) {
   if (hops > AGENT_MAX_HOPS) return 'too many tool hops';
   return null;
 }
-async function reserveAgentHop(ownerUid, caller) {
-  if (await isUnlimitedAccount(ownerUid)) return true;
-  const db = admin.firestore();
-  const ref = db.doc(`users/${ownerUid}/meta/billing`);
-  const period = currentBillingPeriod();
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : {};
-    const limit = (caller.isAnonymous ? AGENT_LIMIT_TRIAL : AGENT_LIMIT_MONTH) * AGENT_MAX_HOPS;
-    const used = caller.isAnonymous ? (data.agentHopsTotal || 0) : (data.agentHopsPeriod === period ? (data.agentHops || 0) : 0);
-    if (used + 1 > limit) return false;
-    tx.set(ref, {
-      agentHops: (data.agentHopsPeriod === period ? (data.agentHops || 0) : 0) + 1,
-      agentHopsPeriod: period,
-      agentHopsTotal: (data.agentHopsTotal || 0) + 1
-    }, { merge: true });
-    return true;
-  });
-}
-async function reserveAgentTurn(ownerUid, caller) {
-  if (await isUnlimitedAccount(ownerUid)) return { allowed: true, limit: null, used: null };
-  const db = admin.firestore();
-  const ref = db.doc(`users/${ownerUid}/meta/billing`);
-  const period = currentBillingPeriod();
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : {};
-    let limit, used;
-    if (caller.isAnonymous) { limit = AGENT_LIMIT_TRIAL; used = data.agentTotal || 0; }
-    else { limit = AGENT_LIMIT_MONTH; used = data.agentPeriod === period ? (data.agentUsed || 0) : 0; }
-    if (used + 1 > limit) return { allowed: false, limit, used };
-    tx.set(ref, {
-      agentUsed: (data.agentPeriod === period ? (data.agentUsed || 0) : 0) + 1,
-      agentPeriod: period,
-      agentTotal: (data.agentTotal || 0) + 1
-    }, { merge: true });
-    return { allowed: true, limit, used: used + 1 };
-  });
-}
-
 /* ---------- limpieza del historial que manda el cliente ---------- */
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 function cleanMessages(raw) {
@@ -333,7 +293,7 @@ exports.handler = withCors(async (event) => {
   }
   if (!messages.length) return { statusCode: 400, body: JSON.stringify({ error: 'Sin mensaje', code: 'bad_request' }) };
 
-  let quota, scanReservation = null;
+  let quota, scanReservation = null, agentReservation = null;
   try {
     if (!(await callerCanUseAccount(callerUid, ownerUid))) return { statusCode: 403, body: JSON.stringify({ error: 'No tienes acceso a esa cuenta', code: 'no_access' }) };
     if ((await getAccessState(ownerUid, caller)).locked) return subscriptionRequiredResponse();
@@ -358,8 +318,10 @@ exports.handler = withCors(async (event) => {
       if (!scanReservation.allowed) return { statusCode: 429, body: JSON.stringify({ error: caller.isAnonymous ? 'Usaste los escaneos gratis de prueba. Guarda tu cuenta para seguir.' : 'Llegaste al límite de escaneos de tu plan este mes', quotaExceeded: true }) };
       quota = Number.isFinite(scanReservation.limit) ? { limit: scanReservation.limit, used: scanReservation.used } : null;
     } else if (!isToolTurn) {
-      quota = await reserveAgentTurn(ownerUid, caller);
-      if (!quota.allowed) return { statusCode: 429, body: JSON.stringify({ error: caller.isAnonymous ? 'Usaste los pedidos gratis de prueba. Guarda tu cuenta para seguir.' : 'Llegaste al límite de pedidos al asistente de este mes', quotaExceeded: true, quota }) };
+      agentReservation = await reserveAgentTurn(ownerUid, caller);
+      if (!agentReservation.allowed) return { statusCode: 429, body: JSON.stringify({ error: caller.isAnonymous ? 'Usaste los pedidos gratis de prueba. Guarda tu cuenta para seguir.' : 'Llegaste al límite de pedidos al asistente de este mes', quotaExceeded: true, quota: agentReservation }) };
+      // El pase del dueño devuelve limit:null — ahí no se muestra "quedan N".
+      quota = Number.isFinite(agentReservation.limit) ? { limit: agentReservation.limit, used: agentReservation.used } : null;
     }
   } catch (e) {
     console.error('[Dusty] agente: error verificando cupo:', e);
@@ -395,12 +357,14 @@ exports.handler = withCors(async (event) => {
     if (data.error) {
       console.error('[Dusty] agente: error de la API:', data.error);
       if (scanReservation && scanReservation.period) await refundScanUsage(ownerUid, nImagesReserved(scanReservation), scanReservation.period);
+      if (agentReservation && agentReservation.period) await refundAgentTurn(ownerUid, agentReservation.period);
       return { statusCode: 502, body: JSON.stringify({ error: data.error.message || 'Error del asistente', code: 'upstream_error' }) };
     }
     return { statusCode: 200, body: JSON.stringify({ content: data.content || [], stop_reason: data.stop_reason || null, quota: quota || null, model: deep ? 'deep' : 'fast' }) };
   } catch (err) {
     console.error('[Dusty] agente: fallo de red:', err);
     if (scanReservation && scanReservation.period) await refundScanUsage(ownerUid, nImagesReserved(scanReservation), scanReservation.period).catch(()=>{});
+    if (agentReservation && agentReservation.period) await refundAgentTurn(ownerUid, agentReservation.period).catch(()=>{});
     if (isAbortError(err)) return upstreamTimeoutResponse();
     return { statusCode: 500, body: JSON.stringify({ error: 'Error interno', code: 'internal' }) };
   }

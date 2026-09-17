@@ -1165,9 +1165,27 @@ function applyProduction(){
   const count = Math.max(1, Math.round(Number(produceCount)||1));
   const plan = productionPlan(rec.components, count, inventory);
   if(plan.length===0) return;
+  /* FABRICAR SIN INSUMO QUE LO RESPALDE (auditoría 2026-09-16). Con 2 lb de
+     harina se podían producir 5 panes de 1 lb: el descuento frena en 0 y las 5
+     piezas entran igual, valuadas a lo que de verdad salió del estante ($4 la
+     pieza en vez de $10). Esos $30 que faltaron no son costo en ningún lado, así
+     que el margen sale inflado cuando esas piezas se vendan.
+     No se bloquea a propósito: el conteo del estante casi siempre está atrasado
+     y frenar una producción real por un número viejo sería peor. Se pide
+     confirmación —el ⚠ de cada fila es fácil de pasar por alto— y el faltante
+     queda anotado renglón por renglón (short, abajo), que es lo que permite
+     encontrar después qué se fabricó sin respaldo. */
+  const faltantes = plan.filter(p=>p.short>0);
+  if(faltantes.length>0){
+    const lista = faltantes.map(p=>`${p.name}: ${p.short} ${unitLabel(p.unit)}`).join(', ');
+    if(!confirm(t('produce_short_confirm').replace('{n}', String(faltantes.length)).replace('{list}', lista))) return;
+  }
   const items = [];
   plan.forEach(p=>{
     if(p.missing) return;
+    // Componente sin cantidad usable (ver productionPlan): no descuenta nada, así
+    // que tampoco deja renglón en la salida ni sello de edición en el insumo.
+    if(!(p.deduct > 0)) return;
     const ing = inventory.find(i=>i.id===p.ingId);
     if(!ing) return;
     ing.qtyOnHand = p.after;
@@ -1176,7 +1194,11 @@ function applyProduction(){
     // costAt: snapshot del costo unitario de HOY — sin él, el P&L de meses viejos
     // se revaluaba a precios actuales y borrar un producto borraba su historia.
     items.push({ingId: p.ingId, ingName: p.name, qty: roundQty(p.deduct - p.short), unit: p.unit,
-      costAt: Number(ing.costPerUnit)||0});
+      costAt: Number(ing.costPerUnit)||0,
+      // Lo que la receta pedía y el estante NO tenía. Queda en la salida para que
+      // se pueda auditar después qué tanda se fabricó sin insumo que la respalde
+      // (qty es lo realmente descontado; short, el agujero).
+      short: p.short>0 ? p.short : 0});
   });
   // saleTotal/costTotal: el P&L de una producción se estima por el precio de la
   // PIEZA — el escrito en el modal para ESTA corrida (puede diferir del de la
@@ -1239,7 +1261,7 @@ function outflowsModal(){
             <strong style="flex:1;">${o.type==='production'
               ? `${t('outflow_production')} — ${escapeHtml(o.count)} × "${escapeHtml(o.recipeName)}"`
               : o.type==='service' ? `${t('outflow_service')} — ${escapeHtml(o.client||'')} · ${money(o.price||0)}`
-              : t('outflow_adjust')}</strong>
+              : o.byCount ? t('outflow_count') : t('outflow_adjust')}</strong>
             <span style="font-size:calc(11px * var(--fs, 1));color:var(--ink-soft);white-space:nowrap;">${timeAgo(o.createdAt)}</span>
           </div>
           <div style="font-size:calc(12px * var(--fs, 1));color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 12px;">
@@ -1555,6 +1577,9 @@ function shelfScanModal(){
 }
 
 function applyShelfAdjust(){
+  // Mismo candado que applyProduction/applyScanResults: abrir el escáner lo
+  // chequea, pero entre abrirlo y confirmar pasan fotos, IA y una revisión.
+  if(!requireWriteAccess()) return;
   const items = [];
   let touched = 0;
   let capSaved = false;
