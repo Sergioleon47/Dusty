@@ -376,3 +376,111 @@ fotografía, no se pega en un chat y no entra al repo — como el keystore.
 Cuando se active el cobro, iOS tiene que ir por StoreKit/IAP igual que Android
 por Play Billing. `PLAN-COBRO.md` hoy solo contempla Play + Stripe; falta esa
 tercera pata.
+
+---
+
+## 7. Ficha de App Store — textos listos para pegar
+
+La App Store no usa los mismos campos que Play: además de la descripción larga
+pide un **subtítulo** y **palabras clave**, y no existe el "texto corto" de
+Google. Lo de abajo está adaptado de la sección 3, respetando los límites de
+caracteres de Apple (contados, no estimados).
+
+### Datos básicos
+
+| Campo | Valor |
+|---|---|
+| Name (máx. 30) | `Dusty` |
+| Bundle ID | `com.dusty.inventory` |
+| Primary category | Business |
+| Secondary category | Productivity |
+| Price | Free (ver la nota de cobro de la sección 3 — en iOS será StoreKit, no Stripe) |
+| Support URL | https://patronsc.netlify.app |
+| Marketing URL | https://patronsc.netlify.app |
+| Privacy Policy URL | https://patronsc.netlify.app/privacy.html |
+| Idiomas | Español (principal) e inglés |
+
+### Subtitle (máx. 30 caracteres)
+
+Español — 30 caracteres:
+```
+Inventario y gastos sin tipear
+```
+
+English — 30 characters:
+```
+Scan receipts, track inventory
+```
+
+### Promotional text (máx. 170 caracteres, se puede cambiar sin nueva revisión)
+
+Español:
+```
+Sacale una foto al recibo y Dusty carga los productos, precios y cantidades
+solo. Tu inventario y tu presupuesto quedan al día sin que escribas nada.
+```
+
+English:
+```
+Snap a photo of the receipt and Dusty fills in the products, prices and
+quantities by itself. Your inventory and budget stay current without typing.
+```
+
+### Keywords (máx. 100 caracteres en total, separadas por coma, sin espacios)
+
+Apple cuenta los caracteres de todo el campo junto. No repitas palabras que ya
+estén en el nombre o el subtítulo — Apple ya indexa esas.
+
+Español — 96 caracteres:
+```
+recibos,facturas,escanear,stock,almacen,negocio,compras,proveedor,presupuesto,restaurante,tienda
+```
+
+English — 96 characters:
+```
+receipt,invoice,scanner,stock,warehouse,business,expenses,supplier,budget,restaurant,shop,retail
+```
+
+### Description
+
+Se reusa tal cual la descripción completa de la sección 3 (está dentro de los
+4000 caracteres de Apple). Un solo cambio: donde la versión de Play habla de
+"Android", no mencionar plataformas.
+
+### App Privacy (cuestionario de App Store Connect)
+
+Mismo contenido que el Data Safety de la sección 3, traducido a las categorías
+de Apple. Se responde en App Store Connect → tu app → App Privacy.
+
+| Categoría de Apple | ¿Se recolecta? | ¿Vinculada al usuario? | ¿Rastreo? | Propósito |
+|---|---|---|---|---|
+| Contact Info → Email Address | Sí | Sí | No | App Functionality |
+| Contact Info → Name | Sí (opcional, modo equipo) | Sí | No | App Functionality |
+| User Content → Photos or Videos | Sí (recibos y productos) | Sí | No | App Functionality |
+| User Content → Other User Content | Sí (inventario, notas) | Sí | No | App Functionality |
+| Financial Info → Other Financial Info | Sí (precios, costos, compras) | Sí | No | App Functionality |
+| Identifiers → User ID | Sí (UID de Firebase) | Sí | No | App Functionality |
+
+**Tracking: NO.** Dusty no hace seguimiento entre apps ni vende datos a nadie,
+así que la pregunta de App Tracking Transparency se responde que no y no hace
+falta el permiso de rastreo.
+
+**Lo que sí hay que declarar con cuidado**, igual que en Play: las fotos de
+recibos se mandan a la API de Anthropic para extraer los datos. En el
+cuestionario de Apple eso no es "compartir con terceros para publicidad" sino un
+proveedor que procesa datos en nombre de la app (Apple lo trata como uso propio
+si el tercero no los usa para lo suyo), pero **la política de privacidad tiene
+que decirlo explícitamente** — y `privacy.html` ya lo dice.
+
+### Age rating
+
+Sin violencia, sin contenido adulto, sin contenido de usuarios visible
+públicamente → 4+.
+
+### Capturas
+
+Apple pide tamaño de iPhone (1320x2868 o 1290x2796), mínimo 1 y hasta 10. Las de
+`store-screenshots/play/` NO sirven: son de otra relación de aspecto. Hay que
+sacarlas del iPhone real (botón lateral + volumen arriba) una vez que la app
+corra ahí. Mismas pantallas que en Play: dashboard, inventario, escaneo de
+recibo, reportes, producción.
