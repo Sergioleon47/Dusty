@@ -292,3 +292,70 @@ más baja sin problema.
 
 - Probar un escaneo de recibo real (con la cámara del celular, no el emulador)
 - El repo de GitHub y la app ya se llaman "Dusty" — la carpeta local sigue como `PATRON` por una limitación de esta sesión de Claude Code (no afecta nada real)
+
+---
+
+## 6. iOS / App Store — estado al 18/09/2026
+
+Primera sesión de iOS: se pasó de no tener Xcode a la app corriendo en un
+iPhone simulado. El proyecto de `ios/` ya estaba en el repo desde antes
+(Capacitor 8 en modo SPM, o sea que se abre `App.xcodeproj` directo, sin
+CocoaPods ni `.xcworkspace`).
+
+### Lo que ya está hecho
+
+- [x] Xcode 27 instalado en la Mac mini (solo el SDK de iOS, sin watchOS/tvOS/visionOS)
+- [x] Node 24.21.0 instalado (`sudo installer -pkg node-*.pkg -target /`)
+- [x] Repo clonado, `npm install` y `npm run cap:sync` corriendo bien
+- [x] La app compila y arranca en el simulador de iPhone — se ve y navega bien
+- [x] Apple Developer Program pagado y activado (Individual, orden W1675904247)
+- [x] Versión de iOS igualada a Android: `MARKETING_VERSION = 1.8.1`
+- [x] Botón "Continuar con Apple" escrito (regla 4.8, ver v189 en sw.js)
+- [x] App ID `com.dusty.inventory` con Sign In with Apple habilitado
+- [x] Services ID `com.dusty.inventory.web` con el dominio y el return URL de Firebase
+- [x] Clave de Sign In with Apple creada y el `.p8` descargado
+
+### Datos de la configuración de Sign In with Apple
+
+No son secretos (son identificadores); el único secreto es el `.p8`, que
+**nunca va al repo** — se pega directo en la consola de Firebase y se guarda
+aparte, igual que el keystore de Android.
+
+| Dato | Valor |
+|---|---|
+| Team ID | `595XUA4GA3` |
+| Services ID | `com.dusty.inventory.web` |
+| Key ID | `Z2264DTB64` |
+| Primary App ID | `com.dusty.inventory` |
+| Domain (en Apple) | `patron-inventory.firebaseapp.com` |
+| Return URL (en Apple) | `https://patron-inventory.firebaseapp.com/__/auth/handler` |
+
+### Lo que sigue, en orden
+
+1. **Terminar el proveedor de Apple en Firebase.** Consola → Authentication →
+   Sign-in method → Apple: cargar el Services ID arriba, y dentro de "OAuth code
+   flow configuration" el Team ID, el Key ID y el contenido del `.p8`. Guardar.
+   Quedó a medias: el proveedor está habilitado pero sin la clave, así que el
+   botón todavía no funciona. No rompe nada porque la rama con el botón no está
+   en producción.
+2. **Probar el login con Apple** en el simulador y anotar si el popup funciona
+   dentro del WebView.
+3. **Probar en un iPhone real** por cable: la cámara (escaneo de recibos) y el
+   login con Google, que son las dos cosas que el simulador no puede probar. Si
+   Google falla por el esquema `capacitor://localhost`, el arreglo candidato es
+   agregar `"server": { "iosScheme": "https" }` a `capacitor.config.json` para
+   igualar el origen con Android (el CORS del servidor ya acepta los dos, ver
+   ALLOWED_ORIGIN_PATTERNS en netlify/functions/lib/patron-admin.js).
+4. **Capturas de iPhone** — las de Play no sirven, Apple pide tamaño de iPhone
+   (1320x2868 o 1290x2796).
+5. **Ficha en App Store Connect**: descripción, URL de privacidad (ya existe
+   `privacy.html`) y el cuestionario de App Privacy, que se puede responder con
+   la tabla de Data Safety de la sección 3 de este archivo.
+6. **Archive y subida** desde Xcode: elegir *Any iOS Device*, Product → Archive,
+   Distribute App.
+
+### Para más adelante
+
+Cuando se active el cobro, iOS tiene que ir por StoreKit/IAP igual que Android
+por Play Billing. `PLAN-COBRO.md` hoy solo contempla Play + Stripe; falta esa
+tercera pata.
