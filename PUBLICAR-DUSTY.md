@@ -330,6 +330,23 @@ aparte, igual que el keystore de Android.
 | Domain (en Apple) | `patron-inventory.firebaseapp.com` |
 | Return URL (en Apple) | `https://patron-inventory.firebaseapp.com/__/auth/handler` |
 
+### PENDIENTE URGENTE: rotar la clave de Sign In with Apple
+
+La clave `Z2264DTB64` quedó expuesta (se fotografió la pantalla de Firebase con
+el contenido del `.p8` visible y legible). No da acceso a datos de nadie, pero
+permite firmar client secrets haciéndose pasar por la app ante Apple, así que
+hay que reemplazarla antes de publicar:
+
+1. developer.apple.com → Keys → `Dusty Apple Sign In` → **Revoke**
+2. Crear una clave nueva igual (✚ → nombre → Sign In with Apple → Configure →
+   `com.dusty.inventory` → Register) y bajar el `.p8`
+3. En Firebase → Authentication → Sign-in method → Apple, reemplazar **Key Id**
+   y **Private key** por los nuevos
+4. Actualizar el Key ID de la tabla de arriba
+
+El Team ID y el Services ID no cambian. Regla para la próxima: el `.p8` no se
+fotografía, no se pega en un chat y no entra al repo — como el keystore.
+
 ### Lo que sigue, en orden
 
 1. **Terminar el proveedor de Apple en Firebase.** Consola → Authentication →
