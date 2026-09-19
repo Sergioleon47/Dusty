@@ -330,19 +330,51 @@ function downloadMonthReport(key){
   const fileName = `${safeName}-${key}.pdf`;
   sharePdfBytes(bytes, fileName, t('rp_title') + ' · ' + reportPeriodLabel(key));
 }
-function downloadBlob(blob, fileName){
+function saveBlobToDisk(blob, fileName){
   try{
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = fileName; a.rel = 'noopener';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=> URL.revokeObjectURL(url), 4000);
-    showToast(t('rp_downloaded'), 'success');
     return true;
   }catch(e){
-    showToast(t('rp_failed'), 'error');
+    console.error('[Dusty] no se pudo descargar el archivo:', e);
     return false;
   }
+}
+function downloadBlob(blob, fileName){
+  const ok = saveBlobToDisk(blob, fileName);
+  showToast(ok ? t('rp_downloaded') : t('rp_failed'), ok ? 'success' : 'error');
+  return ok;
+}
+/* Compartir un Blob ya armado. Mismo agujero que tenían los PDF antes de
+   sharePdfBytes (auditoría 2026-09-12): adentro de la app nativa el <a download>
+   no baja NADA y navigator.share no existe, así que el respaldo y las fotos de
+   recibos no tenían forma de salir del teléfono — y encima la app avisaba que sí.
+   Va aparte de sharePdfBytes en vez de unificarse con él porque aquél se guarda
+   a propósito un camino síncrono (iOS solo abre la hoja nativa dentro del mismo
+   toque que la disparó), y estos dos casos ya perdieron el gesto igual: el
+   respaldo pasa por un setTimeout y la foto de un recibo por un fetch. Devuelve
+   true solo si el archivo de verdad salió; el aviso lo pone quien llama, que es
+   el que sabe si fue un respaldo o una foto. */
+async function shareBlobFile(blob, fileName, title){
+  const cap = window.Capacitor;
+  const isNative = !!(cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform());
+  const Share = isNative && cap.Plugins && cap.Plugins.Share;
+  const Filesystem = isNative && cap.Plugins && cap.Plugins.Filesystem;
+  if(Share && Filesystem){
+    try{
+      const buf = await blob.arrayBuffer();
+      const res = await Filesystem.writeFile({path: fileName, data: bytesToBase64(new Uint8Array(buf)), directory: 'CACHE'});
+      await Share.share({title, url: res.uri, dialogTitle: title});
+      return true;
+    }catch(e){
+      console.error('[Dusty] no se pudo compartir el archivo:', e);
+      return false;
+    }
+  }
+  return saveBlobToDisk(blob, fileName);
 }
 // Botón "Reports" (texto fijo: es el nombre que pidió el usuario en los dos
 // idiomas) — se dibuja en el Cierre de mes y en cada tarjeta de mes.

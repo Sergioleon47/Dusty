@@ -221,7 +221,9 @@ const I18N = {
     cloud_sync_signed_in:'✓ Sincronizado como {email}',
     cloud_sync_pending:'Sincronizando cambios con la nube — todavía puede faltar ver lo último de tu equipo',
     export_working:'Armando el respaldo…',
-    export_done:'Respaldo descargado',
+    export_done:'Respaldo listo',
+    export_failed:'No se pudo exportar el respaldo — intenta de nuevo.',
+    share_file_failed:'No se pudo compartir el archivo — intenta de nuevo.',
     btn_undo:'Deshacer',
     inv_restored_n:'{n} producto(s) restaurado(s)',
     inv_no_match_search:'Ningún producto coincide con “{q}”',
@@ -1032,7 +1034,9 @@ const I18N = {
     cloud_sync_signed_in:'✓ Synced as {email}',
     cloud_sync_pending:'Syncing changes with the cloud — you may not be seeing your team\'s latest yet',
     export_working:'Building the backup…',
-    export_done:'Backup downloaded',
+    export_done:'Backup ready',
+    export_failed:'Couldn’t export the backup — try again.',
+    share_file_failed:'Couldn’t share the file — try again.',
     btn_undo:'Undo',
     inv_restored_n:'{n} product(s) restored',
     inv_no_match_search:'No product matches “{q}”',
@@ -2068,12 +2072,16 @@ function exportDataNow(){
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `patron-backup-${localDateStr()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  showToast(t('export_done'), 'success');
-  URL.revokeObjectURL(url);
+  const fileName = `patron-backup-${localDateStr()}.json`;
+  /* El <a download> de antes no bajaba nada adentro de la app instalada (ni en
+     Android ni en iOS) pero el aviso decía "descargado" igual: el respaldo, que
+     es justo lo que salva de perder todo al cambiar de teléfono, no existía para
+     quien usa la app en vez de la web. shareBlobFile (app-14) abre la hoja nativa
+     para mandarlo a Drive, Archivos o donde sea, y en el navegador sigue bajando
+     como siempre. El aviso ahora espera a saber si de verdad salió. */
+  shareBlobFile(blob, fileName, t('export_done'))
+    .then(ok => showToast(ok ? t('export_done') : t('export_failed'), ok ? 'success' : 'error'))
+    .catch(() => showToast(t('export_failed'), 'error'));
 }
 /* Camino más simple para reportar un problema: abre el cliente de correo del
    usuario con un mail pre-armado. No manda nada solo ni guarda nada — el usuario

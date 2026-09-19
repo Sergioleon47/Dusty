@@ -4413,23 +4413,25 @@ async function receiptImageBlob(img){
   return res.blob();
 }
 
+/* Mismo arreglo que el respaldo (app-03): el <a download> no baja nada adentro
+   de la app instalada, así que la foto del recibo se iba por shareBlobFile, que
+   abre la hoja nativa ahí y sigue bajando el archivo en el navegador. Con varias
+   páginas se comparten de a una, esperando cada hoja antes de abrir la
+   siguiente — dispararlas todas juntas deja al sistema mostrando una sola. */
 async function downloadReceiptImage(r){
   const imgs = receiptImages(r);
+  let fallo = false;
   for(let idx=0; idx<imgs.length; idx++){
     const img = imgs[idx];
     const blob = await receiptImageBlob(img);
     if(!blob) continue;
     const ext = (img.mediaType||'image/jpeg').includes('png') ? 'png' : 'jpg';
     const suffix = imgs.length>1 ? `-p${idx+1}` : '';
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `receipt-${r.date||'sin-fecha'}${suffix}.${ext}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    const fileName = `receipt-${r.date||'sin-fecha'}${suffix}.${ext}`;
+    const ok = await shareBlobFile(blob, fileName, `${r.supplier||t('no_supplier_name')} — ${r.date||''}`.trim());
+    if(!ok) fallo = true;
   }
+  if(fallo) showToast(t('share_file_failed'), 'error');
 }
 
 async function shareReceipt(r){
