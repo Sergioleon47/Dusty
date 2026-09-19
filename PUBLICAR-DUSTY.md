@@ -401,7 +401,8 @@ solo se llega ahí si falla el PDF, y si devuelve `null` corta sin romper nada.
 Todo lo de arriba ya está. Esto es lo que falta para apretar "Submit for Review",
 en el orden en que hay que hacerlo — cada paso desbloquea al siguiente.
 
-**1. Capturas.** ✅ HECHO — están en `store-screenshots/ios/`, a 1290x2796.
+**1. Capturas.** ✅ HECHO — cuatro en `store-screenshots/ios/`, a 1290x2796:
+dashboard, recibos, inventario y el recap del mes.
 
 Se generan sin tocar la Mac. `scripts/capture-ios-screenshots.js` abre la app de
 verdad en Chromium con el tamaño lógico de un iPhone Pro Max (430x932) a densidad
