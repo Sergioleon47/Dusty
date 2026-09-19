@@ -21,6 +21,14 @@ public class ExampleInstrumentedTest {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
-        assertEquals("com.getcapacitor.app", appContext.getPackageName());
+        // El applicationId real es com.dusty.inventory (android/app/build.gradle).
+        // La plantilla de Capacitor deja acá "com.getcapacitor.app", su propio
+        // nombre de ejemplo, así que esta única prueba instrumentada del proyecto
+        // fallaba desde el día uno — no la corría nadie porque necesita un
+        // dispositivo/emulador y el CI solo corre Node. Es la comprobación de que
+        // el paquete que se instala es el mismo que Play Store tiene reservado:
+        // si alguien cambia el applicationId, la actualización deja de ser una
+        // actualización de esta ficha y esto lo avisa.
+        assertEquals("com.dusty.inventory", appContext.getPackageName());
     }
 }
