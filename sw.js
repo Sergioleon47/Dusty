@@ -598,7 +598,13 @@
 // pasan por shareBlobFile (app-14), que abre la hoja nativa cuando hay app y
 // sigue bajando el archivo en el navegador, y el aviso espera a saber si de
 // verdad salió — app-03, app-06, app-14.
-const CACHE_NAME = 'patron-shell-v190';
+// v191: en iOS el botón de Apple va arriba del de Google, en Android y en la web
+// al revés. No es gusto: las guías de Apple piden que "Iniciar sesión con Apple"
+// quede por encima de las demás opciones en sus plataformas, y al revés un botón
+// de Apple primero en un Android se lee fuera de lugar. Los dos botones pasan a
+// ser funciones (googleAuthButtonHtml / appleAuthButtonHtml) que socialAuthButtons
+// ordena según Capacitor.getPlatform() — app-06.
+const CACHE_NAME = 'patron-shell-v191';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

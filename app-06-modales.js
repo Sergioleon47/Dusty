@@ -1118,6 +1118,36 @@ function appleAuthProvider(){
 }
 function signInWithGoogle(){ return signInWithOAuth(googleAuthProvider); }
 function signInWithApple(){ return signInWithOAuth(appleAuthProvider); }
+/* Los dos botones de login social, en el orden que corresponde a cada plataforma.
+   En iOS va Apple primero: las guías de diseño de Apple piden que "Iniciar sesión
+   con Apple" quede arriba de las demás opciones, y es lo que espera alguien que
+   usa un iPhone. En Android y en la web va Google primero por la misma razón al
+   revés — ahí Apple arriba se lee raro. El margen de 8px va siempre en el segundo
+   para que no quede un hueco arriba del primero. */
+function googleAuthButtonHtml(extraStyle){
+  return `
+      <button type="button" class="btn btn-ghost" id="btn-google-auth" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;${extraStyle||''}" ${authLoading?'disabled':''}>
+        <svg viewBox="0 0 48 48" width="18" height="18"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h11.8c-.5 2.7-2.1 5-4.4 6.6v5.4h7.1c4.2-3.9 6.6-9.6 6.6-16.5z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.4c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.6C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.2c-.4-1.3-.7-2.7-.7-4.2s.2-2.9.7-4.2v-5.6H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8z"/><path fill="#EA4335" d="M24 10.7c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C34.9 4.2 30 2 24 2 15.4 2 7.9 6.9 4.3 14.2l7.3 5.6c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>
+        ${t('auth_continue_google')}
+      </button>`;
+}
+function appleAuthButtonHtml(extraStyle){
+  return `
+      <button type="button" class="btn btn-ghost" id="btn-apple-auth" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;${extraStyle||''}" ${authLoading?'disabled':''}>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16.37 12.72c-.02-2.22 1.81-3.29 1.9-3.34-1.04-1.52-2.654-1.73-3.226-1.752-1.373-.14-2.68.808-3.376.808-.695 0-1.77-.788-2.91-.766-1.497.022-2.877.87-3.646 2.21-1.554 2.694-.397 6.68 1.115 8.866.74 1.07 1.62 2.272 2.775 2.23 1.114-.045 1.534-.72 2.88-.72 1.345 0 1.725.72 2.902.697 1.198-.02 1.957-1.09 2.69-2.166.848-1.24 1.196-2.443 1.216-2.505-.027-.01-2.33-.894-2.354-3.552zM14.16 6.24c.615-.746 1.03-1.783.917-2.816-.886.036-1.96.59-2.596 1.335-.57.66-1.07 1.716-.936 2.73.99.076 2-.503 2.615-1.25z"/></svg>
+        ${t('auth_continue_apple')}
+      </button>`;
+}
+function socialAuthButtons(){
+  let esIOS = false;
+  try{
+    const cap = window.Capacitor;
+    esIOS = !!(cap && typeof cap.getPlatform === 'function' && cap.getPlatform() === 'ios');
+  }catch(e){}
+  return esIOS
+    ? appleAuthButtonHtml() + googleAuthButtonHtml('margin-top:8px;')
+    : googleAuthButtonHtml() + appleAuthButtonHtml('margin-top:8px;');
+}
 function authModal(){
   if(authMode==='upgrade'){
     return `
@@ -1167,14 +1197,7 @@ function authModal(){
     <div class="modal">
       <h3 class="navy">${authMode==='signup' ? t('auth_signup_title') : t('auth_signin_title')}</h3>
       ${authContextNote ? `<div class="helper-note" style="background:var(--navy-wash);color:var(--navy);border-radius:8px;padding:10px 12px;margin-bottom:12px;">${escapeHtml(authContextNote)}</div>` : ''}
-      <button type="button" class="btn btn-ghost" id="btn-google-auth" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" ${authLoading?'disabled':''}>
-        <svg viewBox="0 0 48 48" width="18" height="18"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h11.8c-.5 2.7-2.1 5-4.4 6.6v5.4h7.1c4.2-3.9 6.6-9.6 6.6-16.5z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.4c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.6C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.2c-.4-1.3-.7-2.7-.7-4.2s.2-2.9.7-4.2v-5.6H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8z"/><path fill="#EA4335" d="M24 10.7c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C34.9 4.2 30 2 24 2 15.4 2 7.9 6.9 4.3 14.2l7.3 5.6c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>
-        ${t('auth_continue_google')}
-      </button>
-      <button type="button" class="btn btn-ghost" id="btn-apple-auth" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;" ${authLoading?'disabled':''}>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16.37 12.72c-.02-2.22 1.81-3.29 1.9-3.34-1.04-1.52-2.654-1.73-3.226-1.752-1.373-.14-2.68.808-3.376.808-.695 0-1.77-.788-2.91-.766-1.497.022-2.877.87-3.646 2.21-1.554 2.694-.397 6.68 1.115 8.866.74 1.07 1.62 2.272 2.775 2.23 1.114-.045 1.534-.72 2.88-.72 1.345 0 1.725.72 2.902.697 1.198-.02 1.957-1.09 2.69-2.166.848-1.24 1.196-2.443 1.216-2.505-.027-.01-2.33-.894-2.354-3.552zM14.16 6.24c.615-.746 1.03-1.783.917-2.816-.886.036-1.96.59-2.596 1.335-.57.66-1.07 1.716-.936 2.73.99.076 2-.503 2.615-1.25z"/></svg>
-        ${t('auth_continue_apple')}
-      </button>
+      ${socialAuthButtons()}
       <div style="text-align:center;color:var(--ink-soft);font-size:calc(11.5px * var(--fs, 1));margin:12px 0;">${t('auth_or')}</div>
       ${authError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(authError)}</div>` : ''}
       <div class="field"><label>Email</label><input id="auth-email" type="email" value="${escapeHtml(authEmail)}" placeholder="tu@email.com" autocomplete="email"></div>
