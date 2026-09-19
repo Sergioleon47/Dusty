@@ -401,7 +401,33 @@ solo se llega ahí si falla el PDF, y si devuelve `null` corta sin romper nada.
 Todo lo de arriba ya está. Esto es lo que falta para apretar "Submit for Review",
 en el orden en que hay que hacerlo — cada paso desbloquea al siguiente.
 
-**1. Capturas.** Se pueden sacar del simulador, no hace falta un iPhone real.
+**1. Capturas.** ✅ HECHO — están en `store-screenshots/ios/`, a 1290x2796.
+
+Se generan sin tocar la Mac. `scripts/capture-ios-screenshots.js` abre la app de
+verdad en Chromium con el tamaño lógico de un iPhone Pro Max (430x932) a densidad
+3x, que da exactamente los 1290x2796 que Apple pide — renderizados a esa
+resolución, no escalados hasta ella. Los datos son de una panadería inventada que
+se inyecta en localStorage antes de que la app arranque: un inventario vacío no
+vende nada, y poner datos reales de alguien en la App Store no corresponde.
+Después `scripts/build-ios-screenshots.py` les monta la frase de arriba.
+
+```
+npm install --no-save playwright          # solo la primera vez
+npm run build
+(cd www && python3 -m http.server 8787 &)
+node scripts/capture-ios-screenshots.js   # store-screenshots/ios/raw/
+python3 scripts/build-ios-screenshots.py  # store-screenshots/ios/
+```
+
+Playwright queda fuera de `package.json` a propósito: pesa bastante y solo hace
+falta para esto, así que no tiene por qué estar en el `npm install` de todos.
+
+Las capturas de `raw/` también son válidas tal cual para Apple (miden justo
+1290x2796): si en algún momento se prefiere la app a pantalla completa sin frase
+arriba, se suben esas y listo.
+
+**Alternativa, desde el simulador.** Si se quiere la captura con la barra de
+estado de iOS de verdad:
 En Xcode elegir un modelo **Pro Max** (Apple pide el tamaño de pantalla grande;
 un iPhone Pro a secas da una medida que App Store Connect rechaza) y correr la
 app. Conviene entrar con una cuenta real: una app vacía se ve mal en la ficha.

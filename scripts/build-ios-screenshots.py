@@ -23,7 +23,7 @@ ANCHO, ALTO = 1290, 2796
 FONDO = (240, 242, 245)          # el mismo del splash nativo
 TINTA = (28, 34, 46)
 TINTA_SUAVE = (110, 120, 136)
-ORIGEN = 'store-screenshots/play'
+ORIGEN = 'store-screenshots/ios/raw'
 DESTINO = 'store-screenshots/ios'
 
 # Las frases van en inglés porque la UI de estas capturas está en inglés — una
@@ -31,11 +31,10 @@ DESTINO = 'store-screenshots/ios'
 # localización en español hay que sacar capturas con la app en español y volver
 # a correr esto con las frases traducidas.
 CAPTURAS = [
-    ('02-dashboard.png',            'Your month, at a glance',   'Budget, spending and stock in one screen'),
-    ('03-inventory.png',            'Stock that counts itself',  'Every receipt updates what you have'),
-    ('04-month-recap-reports.png',  'Know before it hurts',      'Price jumps and overspending, flagged early'),
-    ('05-production.png',           'From ingredients to plates','Recipes discount stock as you produce'),
-    ('01-welcome.png',              'Set up in seconds',         'No spreadsheets, no manual typing'),
+    ('dashboard.png',  'Your month, at a glance',  'Budget, spending and stock in one screen'),
+    ('inventory.png',  'Stock that counts itself', 'Every receipt updates what you have'),
+    ('reports.png',    'Know if you made money',   'Revenue, costs and margin, worked out for you'),
+    ('production.png', 'Recipes that discount stock', 'Log a batch, ingredients come off by themselves'),
 ]
 
 def fuente(tam, negrita=False):
@@ -60,17 +59,18 @@ def armar(nombre_origen, titulo, bajada, salida):
     draw = ImageDraw.Draw(lienzo)
 
 
-    # NUNCA se agranda la captura. El lienzo tiene 1290 de ancho y el original
-    # 1080, así que entra tal cual: estirarlo al ancho disponible sería un 11% de
-    # agrandamiento y perder nitidez por nada, cuando lo que sobra es lienzo, no
-    # imagen. Solo se achica si alguna vez entra una captura más ancha que el
-    # lienzo (por ejemplo, sacada de un simulador Pro Max).
-    margen_minimo = 45
-    ancho_maximo = ANCHO - margen_minimo * 2
-    if captura.width > ancho_maximo:
-        escala = ancho_maximo / captura.width
+    # NUNCA se agranda la captura: agrandar inventa píxeles y se nota. Las de
+    # capture-ios-screenshots.js ya vienen a 1290x2796, o sea el lienzo entero, así
+    # que hay que achicarlas para que entre el texto — achicar sí es seguro, cada
+    # píxel del resultado sale de varios del original. Una captura más chica que el
+    # ancho disponible se deja como está.
+    ALTO_TEXTO = 92 + 54 + 95
+    ancho_maximo = ANCHO - 45 * 2
+    alto_maximo = ALTO - ALTO_TEXTO - 60
+    escala = min(ancho_maximo / captura.width, alto_maximo / captura.height, 1.0)
+    if escala < 1.0:
         captura = captura.resize(
-            (ancho_maximo, int(captura.height * escala)), Image.LANCZOS)
+            (int(captura.width * escala), int(captura.height * escala)), Image.LANCZOS)
     ancho_captura, alto_captura = captura.size
     margen = (ANCHO - ancho_captura) // 2
     captura = esquinas_redondeadas(captura, 56)
@@ -103,6 +103,6 @@ for i, (archivo, titulo, bajada) in enumerate(CAPTURAS, start=1):
     if not os.path.exists(origen):
         print('falta %s — se saltea' % origen)
         continue
-    salida = os.path.join(DESTINO, '%02d-%s' % (i, archivo.split('-', 1)[-1]))
+    salida = os.path.join(DESTINO, '%02d-%s' % (i, archivo))
     medida = armar(archivo, titulo, bajada, salida)
     print('%s  %dx%d' % (salida, medida[0], medida[1]))
