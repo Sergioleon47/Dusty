@@ -238,6 +238,8 @@ function renderApp(){
     ${(typeof showQuotesSheet!=='undefined' && showQuotesSheet) ? quotesSheet() : ''}
     ${(typeof showClientsSheet!=='undefined' && showClientsSheet) ? clientsSheet() : ''}
     ${showCollectSheet ? collectSheet() : ''}
+    ${/* Tablero de ideas (app-18): hoja a pantalla completa, misma capa que las de Servicios. */''}
+    ${(typeof showIdeasSheet!=='undefined' && showIdeasSheet) ? ideasSheet() : ''}
     ${showServicesSheet ? servicesSheet() : ''}
     ${showExpenseCatsSheet ? expenseCatsSheet() : ''}
     ${showAgentSheet ? agentSheet() : ''}
@@ -282,6 +284,7 @@ function renderApp(){
     ${showJobModal ? jobModal() : ''}
     ${(typeof showQuoteModal!=='undefined' && showQuoteModal) ? quoteModal() : ''}
     ${(typeof showClientModal!=='undefined' && showClientModal) ? clientModal() : ''}
+    ${(typeof showIdeaModal!=='undefined' && showIdeaModal) ? ideaModal() : ''}
     ${showAssetModal ? assetModal() : ''}
     ${showMaintModal ? maintModal() : ''}
     ${showMaintLogModal ? maintLogModal() : ''}

@@ -36,6 +36,7 @@ const FILES = [
   'app-15-servicios.js',
   'app-16-agente.js',
   'app-17-cotizaciones.js',
+  'app-18-ideas.js',
   'manifest.json',
   // AUDITORÍA 2026-09-09: faltaban en el paquete. privacy.html y
   // delete-account.html se enlazan desde Ajustes › Cuenta y daban 404 DENTRO

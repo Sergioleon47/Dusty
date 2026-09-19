@@ -3011,3 +3011,58 @@
   .ag-thumbs{display:flex;gap:6px;margin-bottom:6px;}
   .ag-thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.35);}
   .ag-composer{border-top:0;}
+
+  /* ================= TABLERO DE IDEAS Y MEJORAS (app-18, 2026-09-19) =================
+     Tarjeta por idea: el 👍 grande a la izquierda (es el gesto principal, se toca con
+     el pulgar), y a la derecha etiquetas, título, texto, autor. La respuesta del
+     dueño va en un bloque aparte con el borde naranja de marca; los controles de
+     estado solo se dibujan para el dueño. Colores de estado: los mismos tokens que
+     las etiquetas de Servicios (svc-tag ok/warn), nada nuevo que tematizar. */
+  .idea-toolbar{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+  .idea-sort{display:inline-flex;align-self:flex-start;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px;}
+  .idea-sort button{border:0;background:transparent;color:var(--ink-mid);font:inherit;font-size:calc(12.5px * var(--fs, 1));font-weight:700;padding:7px 12px;border-radius:9px;cursor:pointer;transition:background .15s, color .15s;}
+  .idea-sort button.on{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-sm);}
+  .idea-filters, .idea-kinds, .idea-admin-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .idea-kinds{margin:2px 0 14px;}
+  .idea-chip{border:1.5px solid var(--line);background:var(--panel);border-radius:12px;padding:7px 11px;font:inherit;font-size:calc(12.5px * var(--fs, 1));font-weight:700;color:var(--ink-mid);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:border-color .2s, color .2s, transform .12s;}
+  .idea-chip span{background:var(--navy-wash);color:var(--navy-ink);border-radius:9px;min-width:18px;text-align:center;padding:1px 6px;font-size:calc(11px * var(--fs, 1));}
+  .idea-chip.on{border-color:var(--navy);color:var(--navy);box-shadow:0 0 0 3px color-mix(in srgb, var(--navy) 20%, transparent);}
+  .idea-chip.big{flex:1;justify-content:center;padding:11px 12px;font-size:calc(14px * var(--fs, 1));}
+  .idea-chip.ghost{margin-left:auto;}
+  .idea-chip:active{transform:scale(.96);}
+  .idea-list{display:flex;flex-direction:column;gap:10px;}
+  .idea-card{display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:var(--shadow-sm);}
+  .idea-card.is-done{border-color:color-mix(in srgb, var(--money-pos) 45%, var(--line));}
+  .idea-vote{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px;padding:8px 6px;border:1.5px solid var(--line);border-radius:12px;background:var(--raised);color:var(--ink-mid);font:inherit;cursor:pointer;transition:border-color .2s, background .2s, transform .12s;}
+  .idea-vote b{font-size:calc(14px * var(--fs, 1));color:var(--ink);}
+  .idea-vote-ic{font-size:calc(18px * var(--fs, 1));line-height:1;}
+  .idea-vote.on{border-color:var(--navy);background:var(--navy-wash);}
+  .idea-vote.on b{color:var(--navy-ink);}
+  .idea-vote:active{transform:scale(.93);}
+  .idea-vote:disabled{opacity:.6;cursor:default;}
+  .idea-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+  .idea-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .idea-tags .svc-tag{margin:0;}
+  .idea-kind{font-size:calc(10.5px * var(--fs, 1));font-weight:800;color:var(--ink-soft);letter-spacing:.02em;}
+  .idea-kind.bug{color:var(--tomato);}
+  /* Estados sin color propio (Recibida, No por ahora): la base de .dash-tile-badge
+     es blanca translúcida para las baldosas del Dashboard (regla html .dash-tile-badge)
+     — sobre la tarjeta blanca no se ve, así que se pisa con la misma especificidad. */
+  html .idea-st{background:var(--raised-2);color:var(--ink-mid);}
+  html .idea-st.off{background:var(--raised-2);color:var(--ink-soft);text-decoration:line-through;}
+  html .idea-st.ok{background:var(--money-pos-soft);color:var(--money-pos-ink);}
+  html .idea-st.warn{background:var(--money-warn-soft);color:var(--money-warn-ink);}
+  .idea-title{margin:0;font-size:calc(15px * var(--fs, 1));font-weight:800;line-height:1.25;color:var(--ink);overflow-wrap:anywhere;}
+  .idea-body{margin:0;font-size:calc(13px * var(--fs, 1));line-height:1.45;color:var(--ink-mid);overflow-wrap:anywhere;}
+  .idea-meta{font-size:calc(11.5px * var(--fs, 1));color:var(--ink-soft);}
+  .idea-link{background:none;border:0;padding:0;font:inherit;font-size:inherit;color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
+  .idea-reply{margin-top:4px;padding:9px 11px;border-left:3px solid var(--navy);background:var(--navy-wash);border-radius:0 10px 10px 0;display:flex;flex-direction:column;gap:3px;font-size:calc(13px * var(--fs, 1));line-height:1.45;color:var(--ink);overflow-wrap:anywhere;}
+  .idea-reply b{font-size:calc(11px * var(--fs, 1));color:var(--navy-ink);letter-spacing:.02em;text-transform:uppercase;}
+  .idea-admin{margin-top:6px;padding-top:8px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:8px;}
+  .idea-admin .idea-chip{padding:5px 9px;font-size:calc(11.5px * var(--fs, 1));border-radius:9px;}
+  .idea-admin textarea, #idea-body{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--inset);color:var(--ink);border-radius:9px;padding:9px 11px;font:inherit;font-size:calc(13.5px * var(--fs, 1));line-height:1.4;resize:vertical;}
+  .idea-admin-row .btn{margin-left:auto;}
+  .idea-admin-row .btn + .btn{margin-left:0;}
+  .idea-empty{text-align:center;padding:28px 12px;color:var(--ink-mid);font-size:calc(13.5px * var(--fs, 1));display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .idea-empty p{margin:0;max-width:34ch;}
+  .idea-empty-ic{font-size:calc(34px * var(--fs, 1));line-height:1;}

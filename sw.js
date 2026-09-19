@@ -583,7 +583,10 @@
 // escaneos ya tenían tapado) y devolución de la vuelta si la llamada se cae por
 // red. Y el cliente por fin muestra cuánto queda cuando queda poco, en vez de
 // avisar recién al chocarse con el tope — app-03, app-16.
-const CACHE_NAME = 'patron-shell-v188';
+// v189: tablero público de "Ideas y mejoras" (app-18 NUEVO en el precache, tarjeta
+// en el Dashboard): los testers proponen, votan y ven el estado; el dueño
+// responde. Colección ideas/ con reglas propias — app-03/04/05/07 + dusty.css.
+const CACHE_NAME = 'patron-shell-v189';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
@@ -614,6 +617,7 @@ const PRECACHE_URLS = [
   '/app-15-servicios.js',
   '/app-16-agente.js',
   '/app-17-cotizaciones.js',
+  '/app-18-ideas.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',

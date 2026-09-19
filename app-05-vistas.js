@@ -504,6 +504,11 @@ function dashboardView(){
       <span class="dash-tile-sub">${t('dash_team_sub')}</span>
       <span class="dash-tile-chev">›</span>
     </button>
+    ${/* IDEAS Y MEJORAS (2026-09-19): el tablero público de feedback (app-18).
+         Va en el Dashboard y no en Ajustes a propósito: es lo primero que un
+         tester tiene que ver para usarlo, y su uso es justamente lo que Google
+         pide para dar acceso a producción. */''}
+    ${typeof ideasTileHtml==='function' ? ideasTileHtml() : ''}
     ${(currentUser || hadCloudSessionBefore()) ? `
     <button type="button" class="dash-tile t6" id="btn-inventory-activity">
       <span class="dash-tile-icon" aria-hidden="true">📈</span>

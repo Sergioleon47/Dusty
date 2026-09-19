@@ -287,6 +287,7 @@ function attachEvents(){
   attachProductionEvents();
   attachServicesEvents();
   if(typeof attachQuotesEvents==='function') attachQuotesEvents(); // cotizaciones (app-17)
+  if(typeof attachIdeasEvents==='function') attachIdeasEvents(); // tablero de ideas (app-18)
   attachAgentEvents();
   // Calculadora de pedido (tarjeta + panel en Inventario) — app-05.
   attachOrderCalcEvents();

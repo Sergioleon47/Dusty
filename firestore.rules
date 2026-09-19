@@ -181,6 +181,77 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    // TABLERO PÚBLICO DE IDEAS Y MEJORAS (app-18-ideas.js, 2026-09-19). A
+    // diferencia de feedback/ (buzón ciego), acá TODOS los que tienen sesión leen
+    // todo: es un tablero. Por eso el doc no lleva email — solo `author`, el
+    // nombre que el propio cliente arma (displayName o lo de antes de la @).
+    //   - crear: cuenta REAL (la anónima de prueba no), campos acotados, uid = el
+    //     propio, estado 'new', y a lo sumo el voto propio de arranque;
+    //   - votar: cualquier cuenta real puede tocar SOLO `voters`, y solo para
+    //     agregarse o quitarse a SÍ MISMA (el cliente usa arrayUnion/arrayRemove);
+    //   - estado y respuesta: solo el dueño (ideasAdmin, por email de Auth — es
+    //     el mismo correo de contacto de la app, ya registrado, nadie más puede
+    //     crear una cuenta con él);
+    //   - borrar: el autor o el dueño.
+    function ideasAdmin() {
+      return request.auth != null
+        && 'email' in request.auth.token
+        && request.auth.token.email.lower() in ['sergioleon47@hotmail.com'];
+    }
+    function realAccount() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+    function ideaVoteChangeOnlySelf() {
+      // Un solo campo tocado (voters) y la diferencia entre antes y después es
+      // exactamente el uid del que escribe, en una dirección o en la otra.
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['voters'])
+        && request.resource.data.voters is list
+        && (
+          (request.resource.data.voters.size() == resource.data.voters.size() + 1
+            && request.resource.data.voters.toSet().difference(resource.data.voters.toSet()).size() == 1
+            && request.resource.data.voters.toSet().difference(resource.data.voters.toSet()).hasOnly([request.auth.uid])
+            && resource.data.voters.toSet().difference(request.resource.data.voters.toSet()).size() == 0)
+          ||
+          (request.resource.data.voters.size() == resource.data.voters.size() - 1
+            && resource.data.voters.toSet().difference(request.resource.data.voters.toSet()).size() == 1
+            && resource.data.voters.toSet().difference(request.resource.data.voters.toSet()).hasOnly([request.auth.uid])
+            && request.resource.data.voters.toSet().difference(resource.data.voters.toSet()).size() == 0)
+        );
+    }
+    function ideaAdminChangeOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reply','repliedAt','updatedAt'])
+        && request.resource.data.status in ['new','planned','done','declined']
+        && (!('reply' in request.resource.data) || (request.resource.data.reply is string && request.resource.data.reply.size() <= 1000))
+        && (!('repliedAt' in request.resource.data) || request.resource.data.repliedAt == null || (request.resource.data.repliedAt is string && request.resource.data.repliedAt.size() <= 40))
+        && (!('updatedAt' in request.resource.data) || (request.resource.data.updatedAt is string && request.resource.data.updatedAt.size() <= 40));
+    }
+    match /ideas/{id} {
+      allow read: if request.auth != null;
+      allow create: if realAccount()
+        && request.resource.data.keys().hasOnly(['kind','title','body','uid','author','lang','createdAt','voters','status'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.kind in ['idea','bug']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 3
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 1000
+        && request.resource.data.author is string
+        && request.resource.data.author.size() <= 60
+        && request.resource.data.lang in ['es','en']
+        && request.resource.data.createdAt is string
+        && request.resource.data.createdAt.size() <= 40
+        && request.resource.data.voters is list
+        && request.resource.data.voters.size() <= 1
+        && request.resource.data.voters.hasOnly([request.auth.uid])
+        && request.resource.data.status == 'new';
+      allow update: if (realAccount() && ideaVoteChangeOnlySelf())
+        || (ideasAdmin() && ideaAdminChangeOnly());
+      allow delete: if request.auth != null
+        && (resource.data.uid == request.auth.uid || ideasAdmin());
+    }
+
     // Reportes automáticos de errores del cliente (ver reportClientError() en
     // index.html) — mismo criterio que feedback: cualquier cuenta logueada puede
     // crear el suyo, nadie puede leer/editar/borrar por acá (el dueño los revisa
