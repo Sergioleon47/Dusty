@@ -2,6 +2,9 @@
   "appId": "com.dusty.inventory",
   "appName": "Dusty",
   "webDir": "www",
+  "server": {
+    "iosScheme": "https"
+  },
   "plugins": {
     "SplashScreen": {
       "launchAutoHide": false,

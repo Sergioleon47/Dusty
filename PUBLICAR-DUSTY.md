@@ -302,6 +302,25 @@ iPhone simulado. El proyecto de `ios/` ya estaba en el repo desde antes
 (Capacitor 8 en modo SPM, o sea que se abre `App.xcodeproj` directo, sin
 CocoaPods ni `.xcworkspace`).
 
+### Decisión: el origen de iOS se igualó al de Android
+
+`capacitor.config.json` ahora lleva `"server": { "iosScheme": "https" }`. Por
+defecto Capacitor sirve la app en iOS desde `capacitor://localhost`, mientras
+que en Android la sirve desde `https://localhost`. Esa diferencia es justo la
+que suele romper el login con Firebase: `signInWithRedirect` necesita volver al
+origen de la app, y un esquema propio como `capacitor://` no es un destino de
+redirect válido.
+
+Se eligió igualar el origen en vez de esperar a que falle, porque `https://localhost`
+es la configuración que ya funciona en producción en Android, y porque no hay
+ninguna instalación de iOS existente a la que este cambio le mueva el
+localStorage. El CORS del servidor ya aceptaba los dos orígenes
+(`ALLOWED_ORIGIN_PATTERNS` en netlify/functions/lib/patron-admin.js), así que no
+hubo que tocar nada del lado del servidor.
+
+**Igual hay que verificarlo en el dispositivo**, y si resultara contraproducente
+se vuelve atrás borrando esas tres líneas del config y corriendo `npm run cap:sync`.
+
 ### Lo que ya está hecho
 
 - [x] Xcode 27 instalado en la Mac mini (solo el SDK de iOS, sin watchOS/tvOS/visionOS)
@@ -314,6 +333,7 @@ CocoaPods ni `.xcworkspace`).
 - [x] App ID `com.dusty.inventory` con Sign In with Apple habilitado
 - [x] Services ID `com.dusty.inventory.web` con el dominio y el return URL de Firebase
 - [x] Clave de Sign In with Apple creada y el `.p8` descargado
+- [x] `UIRequiredDeviceCapabilities` corregido: `armv7` (32 bits) → `arm64`
 - [x] Proveedor de Apple configurado en Firebase (Services ID + Team ID + Key ID + `.p8`)
 - [x] App creada en App Store Connect: **Dusty Inventory**, estado "Prepare for Submission"
 
@@ -355,12 +375,25 @@ fotografía, no se pega en un chat y no entra al repo — como el keystore.
    Private key en Firebase.
 2. **Probar el login con Apple** en el simulador y anotar si el popup funciona
    dentro del WebView.
-3. **Probar en un iPhone real** por cable: la cámara (escaneo de recibos) y el
-   login con Google, que son las dos cosas que el simulador no puede probar. Si
-   Google falla por el esquema `capacitor://localhost`, el arreglo candidato es
-   agregar `"server": { "iosScheme": "https" }` a `capacitor.config.json` para
-   igualar el origen con Android (el CORS del servidor ya acepta los dos, ver
-   ALLOWED_ORIGIN_PATTERNS en netlify/functions/lib/patron-admin.js).
+3. **Probar en un iPhone real** por cable: la cámara (escaneo de recibos), que
+   es lo único que el simulador no puede probar de verdad.
+
+### Verificar en iOS: cuatro lugares que usan APIs de navegador
+
+Encontrados en un barrido del código, no probados todavía. La app ya resolvió
+este mismo problema una vez para los PDF (ver `sharePdfBytes` en app-14, que usa
+`@capacitor/share` cuando detecta app nativa), así que el patrón del arreglo ya
+existe en el repo si hace falta aplicarlo en alguno de estos.
+
+| Dónde | Qué hace | Riesgo |
+|---|---|---|
+| `app-03-base.js:2073` | Exportar respaldo JSON con `<a download>` | `<a download>` no baja nada en el WebView. Afecta también a Android, no es solo de iOS |
+| `app-06-modales.js:4427` | Descargar la imagen de un recibo, mismo `<a download>` | Igual que el anterior |
+| `app-06-modales.js:686` | `window.open(url, '_system')` para el checkout de Stripe | `'_system'` es un target de Cordova, no de Capacitor. Sin `@capacitor/browser` puede no abrir nada. Hoy no molesta porque el cobro real no está activo |
+| `app-15-servicios.js:1399` y `app-17-cotizaciones.js:420` | Abrir `wa.me` con `window.open` y caer a `location.href` | Si cae al `location.href`, el WebView navega fuera de la app. En iOS el link universal debería saltar a WhatsApp, pero hay que verlo |
+
+`app-06-modales.js:4377` (`printReceiptHtml`) también usa `window.open`, pero
+solo se llega ahí si falla el PDF, y si devuelve `null` corta sin romper nada.
 4. **Capturas de iPhone** — las de Play no sirven, Apple pide tamaño de iPhone
    (1320x2868 o 1290x2796).
 5. **Ficha en App Store Connect**: descripción, URL de privacidad (ya existe
