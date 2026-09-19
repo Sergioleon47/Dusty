@@ -59,22 +59,33 @@ def armar(nombre_origen, titulo, bajada, salida):
     lienzo = Image.new('RGB', (ANCHO, ALTO), FONDO)
     draw = ImageDraw.Draw(lienzo)
 
-    centrar_texto(draw, titulo, 150, fuente(76, negrita=True), TINTA)
-    centrar_texto(draw, bajada, 265, fuente(42), TINTA_SUAVE)
 
-    # La captura se lleva todo el ancho que permita el margen y se centra en lo
-    # que queda debajo del texto. Un margen chico importa: con 90px a cada lado
-    # sobraban casi 400px de fondo vacío abajo, que se lee como un error de
-    # maquetado y no como aire a propósito.
-    margen = 45
-    ancho_captura = ANCHO - margen * 2
-    escala = ancho_captura / captura.width
-    alto_captura = int(captura.height * escala)
-    captura = captura.resize((ancho_captura, alto_captura), Image.LANCZOS)
+    # NUNCA se agranda la captura. El lienzo tiene 1290 de ancho y el original
+    # 1080, así que entra tal cual: estirarlo al ancho disponible sería un 11% de
+    # agrandamiento y perder nitidez por nada, cuando lo que sobra es lienzo, no
+    # imagen. Solo se achica si alguna vez entra una captura más ancha que el
+    # lienzo (por ejemplo, sacada de un simulador Pro Max).
+    margen_minimo = 45
+    ancho_maximo = ANCHO - margen_minimo * 2
+    if captura.width > ancho_maximo:
+        escala = ancho_maximo / captura.width
+        captura = captura.resize(
+            (ancho_maximo, int(captura.height * escala)), Image.LANCZOS)
+    ancho_captura, alto_captura = captura.size
+    margen = (ANCHO - ancho_captura) // 2
     captura = esquinas_redondeadas(captura, 56)
 
-    tope_texto = 390
-    arriba = tope_texto + (ALTO - tope_texto - alto_captura) // 2
+    # Texto y captura se centran como un solo bloque en vez de repartirse el
+    # lienzo por separado: al no agrandar la captura sobra bastante alto, y
+    # anclando el texto arriba del todo quedaba un pozo entre la bajada y la
+    # imagen que se leía como un olvido.
+    ALTO_TITULO, ALTO_BAJADA, AIRE = 92, 54, 95
+    alto_bloque = ALTO_TITULO + ALTO_BAJADA + AIRE + alto_captura
+    y = (ALTO - alto_bloque) // 2
+
+    centrar_texto(draw, titulo, y, fuente(76, negrita=True), TINTA)
+    centrar_texto(draw, bajada, y + ALTO_TITULO, fuente(42), TINTA_SUAVE)
+    arriba = y + ALTO_TITULO + ALTO_BAJADA + AIRE
     # Sombra: un rectángulo oscuro apenas corrido, sin desenfoque para no sumar
     # dependencias. A este tamaño alcanza para despegar la captura del fondo.
     sombra = Image.new('RGBA', (ancho_captura, alto_captura), (0, 0, 0, 0))
