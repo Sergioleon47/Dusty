@@ -5,6 +5,7 @@
   "main": "patron-core.js",
   "scripts": {
     "test": "node --test",
+    "i18n:audit": "node scripts/i18n-audit.js",
     "build": "node scripts/build-www.js",
     "cap:sync": "npm run build && npx cap sync",
     "cap:open:android": "npx cap open android"

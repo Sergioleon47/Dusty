@@ -587,7 +587,8 @@
 // en el Dashboard): los testers proponen, votan y ven el estado; el dueño
 // responde. Colección ideas/ con reglas propias — app-03/04/05/07 + dusty.css.
 // v190: la hoja de Ideas ya no lleva el párrafo de introducción — app-18/03.
-const CACHE_NAME = 'patron-shell-v190';
+// v191: limpieza de 16 textos i18n muertos en app-03 (auditor nuevo: npm run i18n:audit).
+const CACHE_NAME = 'patron-shell-v191';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
