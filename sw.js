@@ -583,7 +583,14 @@
 // escaneos ya tenían tapado) y devolución de la vuelta si la llamada se cae por
 // red. Y el cliente por fin muestra cuánto queda cuando queda poco, en vez de
 // avisar recién al chocarse con el tope — app-03, app-16.
-const CACHE_NAME = 'patron-shell-v188';
+// v189: "Iniciar sesión con Apple" junto al de Google. No es una preferencia de
+// producto: la regla 4.8 de la App Store obliga a ofrecerlo en cualquier app que
+// ofrezca login social de terceros, así que sin esto la app de iOS no pasa la
+// revisión. Comparte con Google el mismo camino popup→redirect (signInWithOAuth
+// en app-06) y, como Apple tampoco tiene contraseña propia, el modal de borrar
+// cuenta reautentica contra el proveedor en vez de pedir una — app-03, app-06,
+// app-12.
+const CACHE_NAME = 'patron-shell-v189';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

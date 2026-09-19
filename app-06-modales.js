@@ -9,8 +9,8 @@ function closeDeleteAccountModal(){ showDeleteAccountModal=false; reopenSettings
 // (reauthenticateWith* falla con auth/requires-recent-login si no) — se rama por
 // proveedor real: 'password' cubre tanto una cuenta normal de email/contraseña
 // como las cuentas sintéticas de nombre+PIN del modo equipo (teamPinEmail()), que
-// también son 'password' por debajo. 'google.com' reusa el mismo patrón
-// popup-con-fallback-a-redirect que ya usa signInWithGoogle().
+// también son 'password' por debajo. 'google.com' y 'apple.com' reusan el mismo
+// patrón popup-con-fallback-a-redirect que ya usa signInWithOAuth().
 async function performAccountDeletion(){
   if(!currentUser) return;
   // El email se guarda ANTES de borrar: la despedida lo necesita para dejar la
@@ -19,9 +19,10 @@ async function performAccountDeletion(){
   deleteAccountLoading = true; deleteAccountError=''; render();
   try{
     const provider = (currentUser.providerData[0] && currentUser.providerData[0].providerId) || 'password';
-    if(provider==='google.com'){
+    if(provider==='google.com' || provider==='apple.com'){
+      const crearProveedor = provider==='apple.com' ? appleAuthProvider : googleAuthProvider;
       try{
-        await currentUser.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+        await currentUser.reauthenticateWithPopup(crearProveedor());
       }catch(err){
         const popupFailed = err && (err.code==='auth/popup-blocked' || err.code==='auth/operation-not-supported-in-this-environment' || err.code==='auth/cancelled-popup-request');
         if(popupFailed){
@@ -31,7 +32,7 @@ async function performAccountDeletion(){
           // redirect sin sumar bastante más estado — en la práctica alcanza con
           // que, al volver, la sesión ya cuenta como reciente y un segundo toque
           // en "Eliminar cuenta" complete el resto sin pedir reautenticar de nuevo.
-          await currentUser.reauthenticateWithRedirect(new firebase.auth.GoogleAuthProvider());
+          await currentUser.reauthenticateWithRedirect(crearProveedor());
           return;
         }
         throw err;
@@ -89,7 +90,10 @@ async function performAccountDeletion(){
 
 function deleteAccountModal(){
   const isOwner = teamMembers.length>0 && !joinedOwnerUid;
-  const isGoogle = !!(currentUser && currentUser.providerData[0] && currentUser.providerData[0].providerId==='google.com');
+  // Ni Google ni Apple tienen contraseña propia que pedir acá: se reautentica
+  // contra el proveedor, así que el campo de contraseña sobra en los dos casos.
+  const authProviderId = (currentUser && currentUser.providerData[0] && currentUser.providerData[0].providerId) || '';
+  const isOAuth = authProviderId==='google.com' || authProviderId==='apple.com';
   return `
   <div class="overlay" id="delete-account-overlay">
     <div class="modal">
@@ -104,12 +108,12 @@ function deleteAccountModal(){
       ` : `
         <div class="sub">${t('delete_account_reauth_sub')}</div>
         ${deleteAccountError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(deleteAccountError)}</div>` : ''}
-        ${isGoogle ? '' : `
+        ${isOAuth ? '' : `
         <div class="field"><label>${t('auth_password')}</label><input id="delete-account-password" type="password" value="${escapeHtml(deleteAccountPassword)}" placeholder="••••••••" autocomplete="current-password"></div>
         `}
         <div class="modal-actions">
           <button class="btn btn-ghost" id="btn-cancel-delete-account" ${deleteAccountLoading?'disabled':''}>${t('btn_cancel')}</button>
-          <button class="btn btn-primary" id="btn-confirm-delete-account" style="background:var(--tomato);color:var(--on-accent);" ${deleteAccountLoading?'disabled':''}>${deleteAccountLoading ? t('auth_loading') : (isGoogle ? t('delete_account_google_reauth_btn') : t('delete_account_confirm_btn'))}</button>
+          <button class="btn btn-primary" id="btn-confirm-delete-account" style="background:var(--tomato);color:var(--on-accent);" ${deleteAccountLoading?'disabled':''}>${deleteAccountLoading ? t('auth_loading') : (isOAuth ? (authProviderId==='apple.com' ? t('delete_account_apple_reauth_btn') : t('delete_account_google_reauth_btn')) : t('delete_account_confirm_btn'))}</button>
         </div>
       `}
     </div>
@@ -1079,15 +1083,17 @@ function authErrorMessage(code){
   return (code && map[code]) || t('auth_err_generic');
 }
 // La misma lógica popup->redirect que ya usaba el botón de la nube directamente,
-// ahora reusada tanto ahí (para cerrar sesión) como desde el botón de Google
-// dentro de este modal.
-function signInWithGoogle(){
+// ahora reusada tanto ahí (para cerrar sesión) como desde los botones de Google y
+// de Apple dentro de este modal. Recibe una FÁBRICA de proveedor, no un proveedor
+// ya construido: el reintento por redirect necesita uno propio, reusar la misma
+// instancia después de que el popup falló no está garantizado por el SDK.
+function signInWithOAuth(crearProveedor){
   authLoading = true; authError=''; render();
   return ensurePatronFirebaseReady().then(()=>{
-    return firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    return firebase.auth().signInWithPopup(crearProveedor());
   }).catch(err=>{
     const popupFailed = err && (err.code==='auth/popup-blocked' || err.code==='auth/operation-not-supported-in-this-environment' || err.code==='auth/cancelled-popup-request');
-    if(popupFailed) return firebase.auth().signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+    if(popupFailed) return firebase.auth().signInWithRedirect(crearProveedor());
     if(err && err.code!=='auth/popup-closed-by-user'){
       console.error('[Dusty] sign-in failed:', err);
       authError = authErrorMessage(err.code);
@@ -1098,6 +1104,20 @@ function signInWithGoogle(){
     authLoading = false; render();
   });
 }
+function googleAuthProvider(){ return new firebase.auth.GoogleAuthProvider(); }
+/* Apple obliga a ofrecer "Iniciar sesión con Apple" en cualquier app que ofrezca
+   login social de terceros (regla 4.8 de la App Store) — sin este botón, la app de
+   iOS no pasa la revisión, por más que el login con Google funcione perfecto. Se
+   piden los scopes email y name porque Apple los manda UNA sola vez, en el primer
+   login de cada persona: si no se piden ahí, después no hay forma de recuperarlos. */
+function appleAuthProvider(){
+  const provider = new firebase.auth.OAuthProvider('apple.com');
+  provider.addScope('email');
+  provider.addScope('name');
+  return provider;
+}
+function signInWithGoogle(){ return signInWithOAuth(googleAuthProvider); }
+function signInWithApple(){ return signInWithOAuth(appleAuthProvider); }
 function authModal(){
   if(authMode==='upgrade'){
     return `
@@ -1150,6 +1170,10 @@ function authModal(){
       <button type="button" class="btn btn-ghost" id="btn-google-auth" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;" ${authLoading?'disabled':''}>
         <svg viewBox="0 0 48 48" width="18" height="18"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h11.8c-.5 2.7-2.1 5-4.4 6.6v5.4h7.1c4.2-3.9 6.6-9.6 6.6-16.5z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.4c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.6C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.2c-.4-1.3-.7-2.7-.7-4.2s.2-2.9.7-4.2v-5.6H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8z"/><path fill="#EA4335" d="M24 10.7c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C34.9 4.2 30 2 24 2 15.4 2 7.9 6.9 4.3 14.2l7.3 5.6c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>
         ${t('auth_continue_google')}
+      </button>
+      <button type="button" class="btn btn-ghost" id="btn-apple-auth" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;" ${authLoading?'disabled':''}>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16.37 12.72c-.02-2.22 1.81-3.29 1.9-3.34-1.04-1.52-2.654-1.73-3.226-1.752-1.373-.14-2.68.808-3.376.808-.695 0-1.77-.788-2.91-.766-1.497.022-2.877.87-3.646 2.21-1.554 2.694-.397 6.68 1.115 8.866.74 1.07 1.62 2.272 2.775 2.23 1.114-.045 1.534-.72 2.88-.72 1.345 0 1.725.72 2.902.697 1.198-.02 1.957-1.09 2.69-2.166.848-1.24 1.196-2.443 1.216-2.505-.027-.01-2.33-.894-2.354-3.552zM14.16 6.24c.615-.746 1.03-1.783.917-2.816-.886.036-1.96.59-2.596 1.335-.57.66-1.07 1.716-.936 2.73.99.076 2-.503 2.615-1.25z"/></svg>
+        ${t('auth_continue_apple')}
       </button>
       <div style="text-align:center;color:var(--ink-soft);font-size:calc(11.5px * var(--fs, 1));margin:12px 0;">${t('auth_or')}</div>
       ${authError ? `<div class="scan-error" style="margin-bottom:12px;">${escapeHtml(authError)}</div>` : ''}
