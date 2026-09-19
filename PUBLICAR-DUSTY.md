@@ -334,6 +334,8 @@ se vuelve atrás borrando esas tres líneas del config y corriendo `npm run cap:
 - [x] Services ID `com.dusty.inventory.web` con el dominio y el return URL de Firebase
 - [x] Clave de Sign In with Apple creada y el `.p8` descargado
 - [x] `UIRequiredDeviceCapabilities` corregido: `armv7` (32 bits) → `arm64`
+- [x] Clave rotada y login con Apple probado en el simulador: entra bien
+- [x] El origen `https://localhost` no rompió nada: la app abre y navega igual
 - [x] Proveedor de Apple configurado en Firebase (Services ID + Team ID + Key ID + `.p8`)
 - [x] App creada en App Store Connect: **Dusty Inventory**, estado "Prepare for Submission"
 
@@ -352,28 +354,20 @@ aparte, igual que el keystore de Android.
 | Domain (en Apple) | `patron-inventory.firebaseapp.com` |
 | Return URL (en Apple) | `https://patron-inventory.firebaseapp.com/__/auth/handler` |
 
-### PENDIENTE URGENTE: rotar la clave de Sign In with Apple
+### Sign In with Apple: verificado de punta a punta (19/09/2026)
 
-La clave `Z2264DTB64` quedó expuesta (se fotografió la pantalla de Firebase con
-el contenido del `.p8` visible y legible). No da acceso a datos de nadie, pero
-permite firmar client secrets haciéndose pasar por la app ante Apple, así que
-hay que reemplazarla antes de publicar:
+La clave `Z2264DTB64` se revocó y se reemplazó por una nueva —había quedado
+expuesta al fotografiar la pantalla de Firebase con el `.p8` visible— y el
+proveedor se recargó en la consola con el Key ID y la clave nuevos. Probado en
+el simulador: el botón abre la pantalla de Apple y el login entra, así que el
+circuito Apple ID → Apple → Firebase → Dusty está completo.
 
-1. developer.apple.com → Keys → `Dusty Apple Sign In` → **Revoke**
-2. Crear una clave nueva igual (✚ → nombre → Sign In with Apple → Configure →
-   `com.dusty.inventory` → Register) y bajar el `.p8`
-3. En Firebase → Authentication → Sign-in method → Apple, reemplazar **Key Id**
-   y **Private key** por los nuevos
-4. Actualizar el Key ID de la tabla de arriba
-
-El Team ID y el Services ID no cambian. Regla para la próxima: el `.p8` no se
-fotografía, no se pega en un chat y no entra al repo — como el keystore.
+Regla que salió de eso: el `.p8` no se fotografía, no se pega en un chat y no
+entra al repo — como el keystore de Android.
 
 ### Lo que sigue, en orden
 
-1. **Rotar la clave** (ver el pendiente urgente de arriba) y actualizar Key ID y
-   Private key en Firebase.
-2. **Probar el login con Apple** en el simulador y anotar si el popup funciona
+1. **Probar el login con Apple** en el simulador y anotar si el popup funciona
    dentro del WebView.
 3. **Probar en un iPhone real** por cable: la cámara (escaneo de recibos), que
    es lo único que el simulador no puede probar de verdad.
