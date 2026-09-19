@@ -31,91 +31,139 @@ const hoy = new Date();
 const iso = (d) => d.toISOString().slice(0, 10);
 const diasAtras = (n) => iso(new Date(hoy.getTime() - n * 86400000));
 
-const CAT = { horno: 'cat_baking', cocina: 'cat_kitchen' };
+const CAT = { horno:'cat_baking', lacteos:'cat_dairy', cocina:'cat_kitchen', empaque:'cat_packaging' };
 
-const inventory = [
-  { id:'i1', name:'All-Purpose Flour', unit:'lb', costPerUnit:0.52, qtyOnHand:44, stockFullRef:50, salePrice:1.2, categoryId:CAT.horno,    supplier:'Sysco', sku:'FLR-50' },
-  { id:'i2', name:'Brown Sugar',       unit:'lb', costPerUnit:0.88, qtyOnHand:26, stockFullRef:30, salePrice:1.95, categoryId:CAT.horno,    supplier:'Sysco', sku:'SGR-30' },
-  { id:'i3', name:'Butter',            unit:'lb', costPerUnit:3.40, qtyOnHand:19, stockFullRef:24, salePrice:7.5, categoryId:CAT.horno,    supplier:'Dairy Co', sku:'BTR-24' },
-  { id:'i4', name:'Whole Milk',        unit:'gal',costPerUnit:3.95, qtyOnHand:9,  stockFullRef:12, salePrice:6.9, categoryId:CAT.cocina,   supplier:'Dairy Co', sku:'MLK-12' },
-  { id:'i5', name:'Chicken Breast',    unit:'lb', costPerUnit:2.85, qtyOnHand:40, stockFullRef:48, salePrice:6.4, categoryId:CAT.cocina,   supplier:'Restaurant Depot', sku:'CHK-48' },
-  { id:'i6', name:'Eggs',              unit:'unidad', costPerUnit:0.22, qtyOnHand:300, stockFullRef:360, salePrice:0.55, categoryId:CAT.horno,   supplier:'Dairy Co', sku:'EGG-360' },
-  { id:'i7', name:'Paper Towels 12pk', unit:'caja', costPerUnit:18.90, qtyOnHand:2, stockFullRef:8, salePrice:34.9, categoryId:CAT.cocina,   supplier:'Costco', sku:'PPR-12' },
-  { id:'i8', name:'Olive Oil',         unit:'gal',costPerUnit:22.50, qtyOnHand:5,  stockFullRef:6,  salePrice:44.0, categoryId:CAT.cocina,  supplier:'Sysco', sku:'OIL-6' },
+/* Los datos son de una panadería inventada, y son deliberadamente abundantes: con
+   ocho productos y tres recetas las pantallas se veían huecas —media grilla en
+   blanco, un "sin datos" donde va lo interesante— y una ficha así no convence a
+   nadie. Un negocio real tiene decenas de productos, compras todas las semanas y
+   producción registrada, y eso es lo que tiene que mostrar la captura.
+   Poner datos reales de alguien en la App Store no corresponde, de ahí el invento. */
+const PRODUCTOS = [
+  // [id, nombre, unidad, costo, precioVenta, enStock, stockLleno, categoría, proveedor]
+  ['i1','All-Purpose Flour','lb',0.52,1.20,44,50,CAT.horno,'Sysco'],
+  ['i2','Bread Flour','lb',0.61,1.40,38,45,CAT.horno,'Sysco'],
+  ['i3','Brown Sugar','lb',0.88,1.95,26,30,CAT.horno,'Sysco'],
+  ['i4','Granulated Sugar','lb',0.64,1.50,41,50,CAT.horno,'Sysco'],
+  ['i5','Active Dry Yeast','lb',4.20,9.00,6,8,CAT.horno,'Sysco'],
+  ['i6','Baking Powder','lb',2.15,4.80,7,9,CAT.horno,'Sysco'],
+  ['i7','Cocoa Powder','lb',5.40,11.50,9,12,CAT.horno,'Gourmet Supply'],
+  ['i8','Vanilla Extract','gal',48.00,98.00,2,3,CAT.horno,'Gourmet Supply'],
+  ['i9','Butter','lb',3.40,7.50,19,24,CAT.lacteos,'Dairy Co'],
+  ['i10','Whole Milk','gal',3.95,6.90,9,12,CAT.lacteos,'Dairy Co'],
+  ['i11','Heavy Cream','gal',6.80,12.40,5,8,CAT.lacteos,'Dairy Co'],
+  ['i12','Cream Cheese','lb',3.10,6.75,14,18,CAT.lacteos,'Dairy Co'],
+  ['i13','Eggs','unidad',0.22,0.55,300,360,CAT.lacteos,'Dairy Co'],
+  ['i14','Buttermilk','gal',4.40,8.20,4,6,CAT.lacteos,'Dairy Co'],
+  ['i15','Chicken Breast','lb',2.85,6.40,40,48,CAT.cocina,'Restaurant Depot'],
+  ['i16','Olive Oil','gal',22.50,44.00,5,6,CAT.cocina,'Sysco'],
+  ['i17','Sea Salt','lb',1.10,2.60,12,15,CAT.cocina,'Sysco'],
+  ['i18','Black Pepper','lb',7.80,16.00,3,4,CAT.cocina,'Gourmet Supply'],
+  ['i19','Yellow Onions','lb',0.74,1.80,28,35,CAT.cocina,'Produce Direct'],
+  ['i20','Fresh Spinach','lb',2.40,5.50,11,16,CAT.cocina,'Produce Direct'],
+  ['i21','Bakery Boxes 9in','caja',0.38,0.90,180,240,CAT.empaque,'Uline'],
+  ['i22','Parchment Paper','caja',24.90,48.00,4,6,CAT.empaque,'Uline'],
+  ['i23','Paper Towels 12pk','caja',18.90,34.90,2,8,CAT.empaque,'Costco'],
+  ['i24','Takeout Bags','caja',31.50,62.00,5,7,CAT.empaque,'Uline'],
 ];
+
+const inventory = PRODUCTOS.map(([id,name,unit,costPerUnit,salePrice,qtyOnHand,stockFullRef,categoryId,supplier]) => ({
+  id, name, unit, costPerUnit, salePrice, qtyOnHand, stockFullRef, categoryId, supplier,
+  updated:false, photo:null, sku:'',
+}));
 
 // Un precio que subió: es lo que dispara el aviso de cambio de precio, o sea una
 // de las cosas que la ficha quiere mostrar funcionando.
 inventory[0].lastPriceChangePct = 6.2;
 inventory[0].prevCostPerUnit = 0.49;
 
-const purchases = [
-  { id:'p1', ingId:'i1', qty:50, unit:'lb',  totalPrice:26.00, supplier:'Sysco',             date:diasAtras(2) },
-  { id:'p2', ingId:'i5', qty:48, unit:'lb',  totalPrice:136.80,supplier:'Restaurant Depot',  date:diasAtras(4) },
-  { id:'p3', ingId:'i3', qty:24, unit:'lb',  totalPrice:81.60, supplier:'Dairy Co',          date:diasAtras(9) },
-  { id:'p4', ingId:'i6', qty:360,unit:'unidad', totalPrice:79.20, supplier:'Dairy Co',       date:diasAtras(11) },
-  { id:'p5', ingId:'i8', qty:6,  unit:'gal', totalPrice:135.00,supplier:'Sysco',             date:diasAtras(17) },
-];
-
 const linea = (ingId, rawName, qty, unit, totalPrice) => ({ ingId, rawName, qty, unit, totalPrice });
+const porNombre = (n) => inventory.find(i => i.name === n);
+const compra = (n, qty, total) => { const i = porNombre(n); return linea(i.id, i.name, qty, i.unit, total); };
 
+/* El gasto del mes NO sale de purchases sino de los recibos (spendSplitForMonth en
+   app-03 recorre receipts): sin estos el dashboard mostraba $0.00 y el anillo en
+   0%, que es lo peor que puede mostrar una ficha de tienda. Van repartidos a lo
+   largo del mes para que el calendario de la tarjeta de recibos se vea poblado. */
 const receipts = [
-  { id:'rc1', date:diasAtras(2),  supplier:'Sysco',            total:26.00,  itemCount:1, createdAt:diasAtras(2),
-    appliedItems:[ linea('i1','All-Purpose Flour',50,'lb',26.00) ] },
-  { id:'rc2', date:diasAtras(4),  supplier:'Restaurant Depot', total:136.80, itemCount:1, createdAt:diasAtras(4),
-    appliedItems:[ linea('i5','Chicken Breast',48,'lb',136.80) ] },
-  { id:'rc3', date:diasAtras(6),  supplier:'City Power',       total:145.30, itemCount:1, createdAt:diasAtras(6),
+  { id:'rc1',  date:diasAtras(1),  supplier:'Sysco',            total:184.60, itemCount:4, createdAt:diasAtras(1),
+    appliedItems:[ compra('All-Purpose Flour',50,26.00), compra('Bread Flour',45,27.45), compra('Granulated Sugar',50,32.00), compra('Vanilla Extract',2,96.00) ] },
+  { id:'rc2',  date:diasAtras(2),  supplier:'Produce Direct',   total:64.30,  itemCount:2, createdAt:diasAtras(2),
+    appliedItems:[ compra('Yellow Onions',35,25.90), compra('Fresh Spinach',16,38.40) ] },
+  { id:'rc3',  date:diasAtras(4),  supplier:'Restaurant Depot', total:136.80, itemCount:1, createdAt:diasAtras(4),
+    appliedItems:[ compra('Chicken Breast',48,136.80) ] },
+  { id:'rc4',  date:diasAtras(5),  supplier:'City Power',       total:212.40, itemCount:1, createdAt:diasAtras(5),
     manual:true, manualKind:'expense', appliedItems:[] },
-  { id:'rc4', date:diasAtras(9),  supplier:'Dairy Co',         total:81.60,  itemCount:1, createdAt:diasAtras(9),
-    appliedItems:[ linea('i3','Butter',24,'lb',81.60) ] },
-  { id:'rc5', date:diasAtras(11), supplier:'Dairy Co',         total:79.20,  itemCount:1, createdAt:diasAtras(11),
-    appliedItems:[ linea('i6','Eggs',360,'unidad',79.20) ] },
+  { id:'rc5',  date:diasAtras(7),  supplier:'Dairy Co',         total:238.90, itemCount:4, createdAt:diasAtras(7),
+    appliedItems:[ compra('Butter',24,81.60), compra('Whole Milk',12,47.40), compra('Heavy Cream',8,54.40), compra('Cream Cheese',18,55.80) ] },
+  { id:'rc6',  date:diasAtras(9),  supplier:'Uline',            total:168.60, itemCount:3, createdAt:diasAtras(9),
+    appliedItems:[ compra('Bakery Boxes 9in',240,91.20), compra('Parchment Paper',2,49.80), compra('Takeout Bags',1,31.50) ] },
+  { id:'rc7',  date:diasAtras(11), supplier:'Dairy Co',         total:79.20,  itemCount:1, createdAt:diasAtras(11),
+    appliedItems:[ compra('Eggs',360,79.20) ] },
+  { id:'rc8',  date:diasAtras(13), supplier:'City Water',       total:88.15,  itemCount:1, createdAt:diasAtras(13),
+    manual:true, manualKind:'expense', appliedItems:[] },
+  { id:'rc9',  date:diasAtras(15), supplier:'Gourmet Supply',   total:112.00, itemCount:2, createdAt:diasAtras(15),
+    appliedItems:[ compra('Cocoa Powder',12,64.80), compra('Black Pepper',4,31.20) ] },
+  { id:'rc10', date:diasAtras(16), supplier:'Sysco',            total:96.70,  itemCount:3, createdAt:diasAtras(16),
+    appliedItems:[ compra('Olive Oil',3,67.50), compra('Sea Salt',15,16.50), compra('Active Dry Yeast',3,12.60) ] },
+  { id:'rc11', date:diasAtras(18), supplier:'Internet Co',      total:74.99,  itemCount:1, createdAt:diasAtras(18),
+    manual:true, manualKind:'expense', appliedItems:[] },
 ];
 
+const purchases = receipts.flatMap(r => (r.appliedItems||[]).map((it, n) => ({
+  id: r.id + '-p' + n, ingId: it.ingId, qty: it.qty, unit: it.unit,
+  totalPrice: it.totalPrice, supplier: r.supplier, date: r.date,
+})));
+
+const ing = (nombre, qty) => ({ ingId: porNombre(nombre).id, qty });
 const recipes = [
-  { id:'r1', name:'Croissant (dozen)', salePrice:42, components:[{ingId:'i1', qty:3},{ingId:'i3', qty:1.5},{ingId:'i6', qty:6}] },
-  { id:'r2', name:'Chicken Pot Pie',   salePrice:14, components:[{ingId:'i5', qty:0.6},{ingId:'i1', qty:0.4},{ingId:'i4', qty:0.2}] },
-  { id:'r3', name:'Banana Bread',      salePrice:9,  components:[{ingId:'i1', qty:1.2},{ingId:'i2', qty:0.5},{ingId:'i6', qty:2}] },
-  { id:'r4', name:'Butter Cookies (24)', salePrice:18, components:[{ingId:'i1', qty:2},{ingId:'i2', qty:0.8},{ingId:'i3', qty:1}] },
+  { id:'r1', name:'Croissant (dozen)',   salePrice:42, components:[ing('Bread Flour',3), ing('Butter',1.5), ing('Eggs',6)] },
+  { id:'r2', name:'Sourdough Loaf',      salePrice:11, components:[ing('Bread Flour',1.4), ing('Sea Salt',0.05), ing('Active Dry Yeast',0.02)] },
+  { id:'r3', name:'Banana Bread',        salePrice:9,  components:[ing('All-Purpose Flour',1.2), ing('Brown Sugar',0.5), ing('Eggs',2)] },
+  { id:'r4', name:'Butter Cookies (24)', salePrice:18, components:[ing('All-Purpose Flour',2), ing('Brown Sugar',0.8), ing('Butter',1)] },
+  { id:'r5', name:'Chocolate Cake',      salePrice:34, components:[ing('All-Purpose Flour',2.2), ing('Cocoa Powder',0.6), ing('Eggs',8), ing('Butter',1.2)] },
+  { id:'r6', name:'Cheesecake',          salePrice:38, components:[ing('Cream Cheese',3), ing('Heavy Cream',0.5), ing('Eggs',6), ing('Granulated Sugar',1)] },
+  { id:'r7', name:'Chicken Pot Pie',     salePrice:14, components:[ing('Chicken Breast',0.6), ing('All-Purpose Flour',0.4), ing('Whole Milk',0.2)] },
+  { id:'r8', name:'Spinach Quiche',      salePrice:26, components:[ing('Fresh Spinach',0.8), ing('Eggs',8), ing('Heavy Cream',0.4), ing('Bread Flour',1)] },
 ];
 
-// Producciones ya registradas. Sin esto el recap del mes muestra "No outflows
-// recorded in this period" donde deberían ir las ganancias estimadas: el
-// apartado más vendedor de esa pantalla quedaba vacío. Cada corrida descuenta
-// insumos y deja precio y costo del momento, que es de donde salen las
-// estimaciones (ver periodSpendSplit en app-03).
+/* Producciones ya registradas. Sin esto el recap del mes muestra "No outflows
+   recorded in this period" donde deberían ir las ganancias estimadas: el apartado
+   más vendedor de esa pantalla quedaba vacío. */
+const produccion = (id, rec, count, dias) => {
+  const r = recipes.find(x => x.id === rec);
+  const items = r.components.map(c => {
+    const i = inventory.find(x => x.id === c.ingId);
+    return { ingId:i.id, ingName:i.name, qty:+(c.qty * count).toFixed(2), unit:i.unit, costAt:i.costPerUnit };
+  });
+  const costTotal = +items.reduce((a, it) => a + it.qty * it.costAt, 0).toFixed(2);
+  return { id, type:'production', recipeId:r.id, recipeName:r.name, count, items,
+           saleTotal:+(r.salePrice * count).toFixed(2), costTotal,
+           date:diasAtras(dias), createdAt:diasAtras(dias) };
+};
 const outflows = [
-  { id:'o1', type:'production', recipeId:'r1', recipeName:'Croissant (dozen)', count:14,
-    items:[{ ingId:'i1', ingName:'All-Purpose Flour', qty:42, unit:'lb', costAt:0.52 },
-           { ingId:'i3', ingName:'Butter', qty:21, unit:'lb', costAt:3.40 },
-           { ingId:'i6', ingName:'Eggs', qty:84, unit:'unidad', costAt:0.22 }],
-    saleTotal:588, costTotal:112.32, date:diasAtras(3), createdAt:diasAtras(3) },
-  { id:'o2', type:'production', recipeId:'r3', recipeName:'Banana Bread', count:30,
-    items:[{ ingId:'i1', ingName:'All-Purpose Flour', qty:36, unit:'lb', costAt:0.52 },
-           { ingId:'i2', ingName:'Brown Sugar', qty:15, unit:'lb', costAt:0.88 },
-           { ingId:'i6', ingName:'Eggs', qty:60, unit:'unidad', costAt:0.22 }],
-    saleTotal:270, costTotal:45.12, date:diasAtras(6), createdAt:diasAtras(6) },
-  { id:'o3', type:'production', recipeId:'r4', recipeName:'Butter Cookies (24)', count:18,
-    items:[{ ingId:'i1', ingName:'All-Purpose Flour', qty:36, unit:'lb', costAt:0.52 },
-           { ingId:'i2', ingName:'Brown Sugar', qty:14.4, unit:'lb', costAt:0.88 },
-           { ingId:'i3', ingName:'Butter', qty:18, unit:'lb', costAt:3.40 }],
-    saleTotal:324, costTotal:92.59, date:diasAtras(10), createdAt:diasAtras(10) },
+  produccion('o1','r1',14,2),  produccion('o2','r2',40,3),
+  produccion('o3','r3',30,5),  produccion('o4','r5',9,6),
+  produccion('o5','r4',18,8),  produccion('o6','r6',7,10),
+  produccion('o7','r8',12,12), produccion('o8','r7',22,14),
 ];
 
 const ESTADO = {
-  inventory, purchases, recipes, receipts,
+  inventory, purchases, recipes, receipts, outflows,
   aliasMap: {}, priceAlertThreshold: 5,
   cycleCountEnabled: true, cycleCountPct: 20, cycleCountIntervalDays: 7,
   cycleCountLastDate: diasAtras(7), cycleCountCursor: 0,
   deletedInventoryIds: [], deletedReceiptIds: [], deletedPurchaseIds: [],
-  businessName: 'Bluebird Bakery', monthlyBudget: 800, budgetMeta: {},
+  businessName: 'Bluebird Bakery', monthlyBudget: 1800, budgetMeta: {},
   bizProfile: {}, profitsVisibleToMembers: true,
   categories: [
-    { id:CAT.horno,  name:'Baking' },
-    { id:CAT.cocina, name:'Kitchen' },
+    { id:CAT.horno,   name:'Baking' },
+    { id:CAT.lacteos, name:'Dairy' },
+    { id:CAT.cocina,  name:'Kitchen' },
+    { id:CAT.empaque, name:'Packaging' },
   ],
   expenseCategories: [], calNotes: [], deletedCalNoteIds: [],
-  outflows, outflowArchive: {}, deletedRecipeIds: [],
+  outflowArchive: {}, deletedRecipeIds: [],
   deletedAssetIds: [], deletedMaintIds: [], deletedCatalogIds: [],
   deletedClientIds: [], deletedMaintLogIds: [],
 };
@@ -129,7 +177,6 @@ const PANTALLAS = [
   { archivo: 'dashboard',  tab: 'dashboard' },
   { archivo: 'inventory',  tab: 'inventario', desplazar: 210 },
   { archivo: 'production', tab: 'produccion' },
-  { archivo: 'receipts',   tab: 'recibos' },
 ];
 
 (async () => {
@@ -145,6 +192,12 @@ const PANTALLAS = [
   await page.addInitScript((estado) => {
     localStorage.setItem('patron_lang', 'en');
     localStorage.setItem('patron_onboarded', '1');
+    // La grilla de inventario en dos columnas da tarjetas enormes: con 24
+    // productos entran seis por pantalla y se lee como una demo con poca carga.
+    // A tres columnas entran el doble y parece lo que es, un inventario de
+    // verdad. El valor sale de localStorage (ver invLayout en app-05), así que
+    // no hace falta ir a tocar el selector.
+    localStorage.setItem('patron_inv_layout', 'cols3');
     localStorage.setItem('patron_data_v1', JSON.stringify(estado));
   }, ESTADO);
 
@@ -170,12 +223,23 @@ const PANTALLAS = [
     console.log(salida);
   }
 
-  // Resumen del mes: no está en la barra de abajo, se entra por el enlace de la
-  // tarjeta de presupuesto en el dashboard.
-  const dash = page.locator('.bottom-nav-item[data-tab="dashboard"]');
-  if (await dash.count()) {
-    await dash.first().click();
-    await page.waitForTimeout(1000);
+  // Las dos pantallas que siguen no están en la barra de abajo. Se abren como
+  // hojas a pantalla completa que tapan esa barra, así que hay que cerrarlas con
+  // Escape antes de poder volver al dashboard: el orden acá no es cosmético.
+  const alDashboard = async () => {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(700);
+    const d = page.locator('.bottom-nav-item[data-tab="dashboard"]');
+    if (!(await d.count())) return false;
+    await d.first().click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    await page.evaluate(() => window.scrollTo({ top: 0 }));
+    await page.waitForTimeout(300);
+    return true;
+  };
+
+  // Resumen del mes: se entra por el enlace de la tarjeta de presupuesto.
+  if (await alDashboard()) {
     const verMeses = page.locator('text=See all months').first();
     if (await verMeses.count()) {
       await verMeses.click();
@@ -195,6 +259,22 @@ const PANTALLAS = [
       console.log(salida);
     } else {
       console.log('(no se encontró "See all months" — se saltea reportes)');
+    }
+  }
+
+  // Recibos a pantalla completa: la abre la tarjeta del calendario del dashboard
+  // (#dash-calendar-tile → openReceiptsSheet en app-07). No está en la barra de
+  // abajo cuando hay recetas, porque ese lugar se lo lleva Producción.
+  if (await alDashboard()) {
+    const calendario = page.locator('#dash-calendar-tile');
+    if (await calendario.count()) {
+      await calendario.first().click();
+      await page.waitForTimeout(1800);
+      const salida = path.join(DESTINO, 'receipts.png');
+      await page.screenshot({ path: salida });
+      console.log(salida);
+    } else {
+      console.log('(sin tarjeta de calendario — se saltea recibos)');
     }
   }
 

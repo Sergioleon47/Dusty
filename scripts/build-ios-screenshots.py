@@ -31,10 +31,10 @@ DESTINO = 'store-screenshots/ios'
 # localización en español hay que sacar capturas con la app en español y volver
 # a correr esto con las frases traducidas.
 CAPTURAS = [
-    ('dashboard.png',  'Your month, at a glance',  'Budget, spending and stock in one screen'),
-    ('inventory.png',  'Stock that counts itself', 'Every receipt updates what you have'),
-    ('reports.png',    'Know if you made money',   'Revenue, costs and margin, worked out for you'),
-    ('production.png', 'Recipes that discount stock', 'Log a batch, ingredients come off by themselves'),
+    ('dashboard.png', 'Your month, at a glance',  'Budget, spending and stock in one screen'),
+    ('receipts.png',  'Snap it. Dusty reads it.', 'Products, prices and quantities, filled in for you'),
+    ('inventory.png', 'Stock that counts itself', 'Every receipt updates what you have'),
+    ('reports.png',   'Know if you made money',   'Revenue, costs and margin, worked out for you'),
 ]
 
 def fuente(tam, negrita=False):
