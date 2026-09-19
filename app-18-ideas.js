@@ -314,8 +314,7 @@ function ideasSheet(){
   IDEA_STATUSES.forEach(s => { counts[s] = ideaList.filter(i => i.status === s).length; });
   const fchip = (k, label) => `<button type="button" class="idea-chip ${ideasStatusFilter === k ? 'on' : ''}" data-ideas-filter="${k}" aria-pressed="${ideasStatusFilter === k}">${label}${counts[k] ? ` <span>${counts[k]}</span>` : ''}</button>`;
   const body = `
-    <div class="sub svc-sub">${t('ideas_sub')}</div>
-    <button class="btn btn-primary" id="btn-idea-new" style="width:100%;margin-bottom:12px;">${t('ideas_new_btn')}</button>
+    <button class="btn btn-primary" id="btn-idea-new" style="width:100%;margin:4px 0 12px;">${t('ideas_new_btn')}</button>
     ${canRead ? `
     <div class="idea-toolbar">
       <div class="idea-sort" role="group" aria-label="${t('ideas_sort_aria')}">

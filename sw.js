@@ -586,7 +586,8 @@
 // v189: tablero público de "Ideas y mejoras" (app-18 NUEVO en el precache, tarjeta
 // en el Dashboard): los testers proponen, votan y ven el estado; el dueño
 // responde. Colección ideas/ con reglas propias — app-03/04/05/07 + dusty.css.
-const CACHE_NAME = 'patron-shell-v189';
+// v190: la hoja de Ideas ya no lleva el párrafo de introducción — app-18/03.
+const CACHE_NAME = 'patron-shell-v190';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';

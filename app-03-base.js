@@ -343,7 +343,6 @@ const I18N = {
     /* Tablero de ideas y mejoras (app-18) */
     ideas_title:'Ideas y mejoras', ideas_tile_sub:'Propón, vota y mira qué viene',
     ideas_tile_new:'{n} nuevas desde tu última visita', ideas_tile_counts:'{n} ideas · {done} listas',
-    ideas_sub:'Este tablero lo hacen quienes usan Dusty: propón una mejora o cuenta un problema, vota lo que te importa y mira qué está en camino.',
     ideas_new_btn:'+ Proponer una idea o reportar algo', ideas_new_title:'¿Qué mejoramos?',
     ideas_new_sub:'Lo van a ver los demás usuarios y podrán votarlo.',
     ideas_kind_idea:'Idea', ideas_kind_bug:'Problema',
@@ -1179,7 +1178,6 @@ const I18N = {
     /* Ideas & improvements board (app-18) */
     ideas_title:'Ideas & improvements', ideas_tile_sub:"Suggest, vote, see what's coming",
     ideas_tile_new:'{n} new since your last visit', ideas_tile_counts:'{n} ideas · {done} done',
-    ideas_sub:"This board is built by the people who use Dusty: suggest an improvement or report a problem, vote for what matters to you, and see what's on the way.",
     ideas_new_btn:'+ Suggest an idea or report something', ideas_new_title:'What should we improve?',
     ideas_new_sub:'Other users will see it and can vote for it.',
     ideas_kind_idea:'Idea', ideas_kind_bug:'Problem',
