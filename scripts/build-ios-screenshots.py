@@ -35,7 +35,7 @@ CAPTURAS = [
     ('03-inventory.png',            'Stock that counts itself',  'Every receipt updates what you have'),
     ('04-month-recap-reports.png',  'Know before it hurts',      'Price jumps and overspending, flagged early'),
     ('05-production.png',           'From ingredients to plates','Recipes discount stock as you produce'),
-    ('01-welcome.png',              'Set up in a minute',        'No spreadsheets, no manual typing'),
+    ('01-welcome.png',              'Set up in seconds',         'No spreadsheets, no manual typing'),
 ]
 
 def fuente(tam, negrita=False):
