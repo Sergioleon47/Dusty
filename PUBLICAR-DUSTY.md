@@ -314,6 +314,8 @@ CocoaPods ni `.xcworkspace`).
 - [x] App ID `com.dusty.inventory` con Sign In with Apple habilitado
 - [x] Services ID `com.dusty.inventory.web` con el dominio y el return URL de Firebase
 - [x] Clave de Sign In with Apple creada y el `.p8` descargado
+- [x] Proveedor de Apple configurado en Firebase (Services ID + Team ID + Key ID + `.p8`)
+- [x] App creada en App Store Connect: **Dusty Inventory**, estado "Prepare for Submission"
 
 ### Datos de la configuración de Sign In with Apple
 
@@ -349,12 +351,8 @@ fotografía, no se pega en un chat y no entra al repo — como el keystore.
 
 ### Lo que sigue, en orden
 
-1. **Terminar el proveedor de Apple en Firebase.** Consola → Authentication →
-   Sign-in method → Apple: cargar el Services ID arriba, y dentro de "OAuth code
-   flow configuration" el Team ID, el Key ID y el contenido del `.p8`. Guardar.
-   Quedó a medias: el proveedor está habilitado pero sin la clave, así que el
-   botón todavía no funciona. No rompe nada porque la rama con el botón no está
-   en producción.
+1. **Rotar la clave** (ver el pendiente urgente de arriba) y actualizar Key ID y
+   Private key en Firebase.
 2. **Probar el login con Apple** en el simulador y anotar si el popup funciona
    dentro del WebView.
 3. **Probar en un iPhone real** por cable: la cámara (escaneo de recibos) y el
@@ -390,7 +388,7 @@ caracteres de Apple (contados, no estimados).
 
 | Campo | Valor |
 |---|---|
-| Name (máx. 30) | `Dusty` |
+| Name (máx. 30) | `Dusty Inventory` — "Dusty" a secas estaba tomado en la App Store. El nombre debajo del ícono en el teléfono sigue siendo **Dusty** (viene de `CFBundleDisplayName` en el Info.plist), esto es solo el nombre de la ficha, y de paso la palabra "Inventory" ayuda en las búsquedas. |
 | Bundle ID | `com.dusty.inventory` |
 | Primary category | Business |
 | Secondary category | Productivity |
@@ -398,7 +396,7 @@ caracteres de Apple (contados, no estimados).
 | Support URL | https://patronsc.netlify.app |
 | Marketing URL | https://patronsc.netlify.app |
 | Privacy Policy URL | https://patronsc.netlify.app/privacy.html |
-| Idiomas | Español (principal) e inglés |
+| Idiomas | Quedó **English (U.S.)** como principal al crear la app. Si el mercado principal va a ser hispanohablante, conviene agregar español como localización y evaluar cambiar el principal. |
 
 ### Subtitle (máx. 30 caracteres)
 
