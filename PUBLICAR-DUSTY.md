@@ -396,6 +396,48 @@ solo se llega ahí si falla el PDF, y si devuelve `null` corta sin romper nada.
 6. **Archive y subida** desde Xcode: elegir *Any iOS Device*, Product → Archive,
    Distribute App.
 
+### Camino a la revisión de Apple, en orden
+
+Todo lo de arriba ya está. Esto es lo que falta para apretar "Submit for Review",
+en el orden en que hay que hacerlo — cada paso desbloquea al siguiente.
+
+**1. Capturas.** Se pueden sacar del simulador, no hace falta un iPhone real.
+En Xcode elegir un modelo **Pro Max** (Apple pide el tamaño de pantalla grande;
+un iPhone Pro a secas da una medida que App Store Connect rechaza) y correr la
+app. Conviene entrar con una cuenta real: una app vacía se ve mal en la ficha.
+Después, pantalla por pantalla:
+
+```
+scripts/ios-sim.sh reset          # desinstala: sin esto el service worker muestra lo viejo
+# ▶ en Xcode, entrar con la cuenta, navegar a cada pantalla
+scripts/ios-sim.sh shot dashboard
+scripts/ios-sim.sh shot inventario
+scripts/ios-sim.sh shot recibos
+scripts/ios-sim.sh shot reportes
+scripts/ios-sim.sh shot produccion
+```
+
+Cada captura imprime su tamaño en píxeles para no descubrir recién al subirlas
+que estaban mal. Quedan en `store-screenshots/ios/`.
+
+**2. La ficha en App Store Connect.** Todos los textos están en la sección 7 de
+este archivo, listos para pegar. Se completan:
+- *App Information*: categoría (Business / Productivity) y la URL de privacidad
+- *Pricing and Availability*: Free, y **destildar la Unión Europea** — vender ahí
+  exige declarar trader status bajo el Digital Services Act, un trámite que no
+  vale la pena para la primera versión y que se puede agregar después
+- *App Privacy*: la tabla de la sección 7, con Tracking en NO
+- *Age Rating*: 4+
+
+**3. El build.** En Xcode, elegir *Any iOS Device (arm64)* arriba (no el
+simulador), **Product → Archive**, y desde el Organizer *Distribute App → App
+Store Connect*. La primera subida tarda un rato en procesarse del lado de Apple:
+el build aparece en la ficha recién cuando termina.
+
+**4. Enviar.** Con la ficha completa y el build procesado, se elige ese build en
+la versión 1.8.2 y se manda a revisión. La primera revisión de una cuenta nueva
+suele tardar más que las siguientes.
+
 ### Para más adelante
 
 Cuando se active el cobro, iOS tiene que ir por StoreKit/IAP igual que Android
