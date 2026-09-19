@@ -292,3 +292,289 @@ más baja sin problema.
 
 - Probar un escaneo de recibo real (con la cámara del celular, no el emulador)
 - El repo de GitHub y la app ya se llaman "Dusty" — la carpeta local sigue como `PATRON` por una limitación de esta sesión de Claude Code (no afecta nada real)
+
+---
+
+## 6. iOS / App Store — estado al 18/09/2026
+
+Primera sesión de iOS: se pasó de no tener Xcode a la app corriendo en un
+iPhone simulado. El proyecto de `ios/` ya estaba en el repo desde antes
+(Capacitor 8 en modo SPM, o sea que se abre `App.xcodeproj` directo, sin
+CocoaPods ni `.xcworkspace`).
+
+### Decisión: el origen de iOS se igualó al de Android
+
+`capacitor.config.json` ahora lleva `"server": { "iosScheme": "https" }`. Por
+defecto Capacitor sirve la app en iOS desde `capacitor://localhost`, mientras
+que en Android la sirve desde `https://localhost`. Esa diferencia es justo la
+que suele romper el login con Firebase: `signInWithRedirect` necesita volver al
+origen de la app, y un esquema propio como `capacitor://` no es un destino de
+redirect válido.
+
+Se eligió igualar el origen en vez de esperar a que falle, porque `https://localhost`
+es la configuración que ya funciona en producción en Android, y porque no hay
+ninguna instalación de iOS existente a la que este cambio le mueva el
+localStorage. El CORS del servidor ya aceptaba los dos orígenes
+(`ALLOWED_ORIGIN_PATTERNS` en netlify/functions/lib/patron-admin.js), así que no
+hubo que tocar nada del lado del servidor.
+
+**Igual hay que verificarlo en el dispositivo**, y si resultara contraproducente
+se vuelve atrás borrando esas tres líneas del config y corriendo `npm run cap:sync`.
+
+### Lo que ya está hecho
+
+- [x] Xcode 27 instalado en la Mac mini (solo el SDK de iOS, sin watchOS/tvOS/visionOS)
+- [x] Node 24.21.0 instalado (`sudo installer -pkg node-*.pkg -target /`)
+- [x] Repo clonado, `npm install` y `npm run cap:sync` corriendo bien
+- [x] La app compila y arranca en el simulador de iPhone — se ve y navega bien
+- [x] Apple Developer Program pagado y activado (Individual, orden W1675904247)
+- [x] Versión de iOS igualada a Android: `MARKETING_VERSION = 1.8.1`
+- [x] Botón "Continuar con Apple" escrito (regla 4.8, ver v189 en sw.js)
+- [x] App ID `com.dusty.inventory` con Sign In with Apple habilitado
+- [x] Services ID `com.dusty.inventory.web` con el dominio y el return URL de Firebase
+- [x] Clave de Sign In with Apple creada y el `.p8` descargado
+- [x] `UIRequiredDeviceCapabilities` corregido: `armv7` (32 bits) → `arm64`
+- [x] Clave rotada y login con Apple probado en el simulador: entra bien
+- [x] El origen `https://localhost` no rompió nada: la app abre y navega igual
+- [x] Proveedor de Apple configurado en Firebase (Services ID + Team ID + Key ID + `.p8`)
+- [x] App creada en App Store Connect: **Dusty Inventory**, estado "Prepare for Submission"
+
+### Datos de la configuración de Sign In with Apple
+
+No son secretos (son identificadores); el único secreto es el `.p8`, que
+**nunca va al repo** — se pega directo en la consola de Firebase y se guarda
+aparte, igual que el keystore de Android.
+
+| Dato | Valor |
+|---|---|
+| Team ID | `595XUA4GA3` |
+| Services ID | `com.dusty.inventory.web` |
+| Key ID | `Z2264DTB64` |
+| Primary App ID | `com.dusty.inventory` |
+| Domain (en Apple) | `patron-inventory.firebaseapp.com` |
+| Return URL (en Apple) | `https://patron-inventory.firebaseapp.com/__/auth/handler` |
+
+### Sign In with Apple: verificado de punta a punta (19/09/2026)
+
+La clave `Z2264DTB64` se revocó y se reemplazó por una nueva —había quedado
+expuesta al fotografiar la pantalla de Firebase con el `.p8` visible— y el
+proveedor se recargó en la consola con el Key ID y la clave nuevos. Probado en
+el simulador: el botón abre la pantalla de Apple y el login entra, así que el
+circuito Apple ID → Apple → Firebase → Dusty está completo.
+
+Regla que salió de eso: el `.p8` no se fotografía, no se pega en un chat y no
+entra al repo — como el keystore de Android.
+
+### Lo que sigue, en orden
+
+1. **Probar el login con Apple** en el simulador y anotar si el popup funciona
+   dentro del WebView.
+3. **Probar en un iPhone real** por cable: la cámara (escaneo de recibos), que
+   es lo único que el simulador no puede probar de verdad.
+
+### Verificar en iOS: cuatro lugares que usan APIs de navegador
+
+Encontrados en un barrido del código, no probados todavía. La app ya resolvió
+este mismo problema una vez para los PDF (ver `sharePdfBytes` en app-14, que usa
+`@capacitor/share` cuando detecta app nativa), así que el patrón del arreglo ya
+existe en el repo si hace falta aplicarlo en alguno de estos.
+
+| Dónde | Qué hace | Riesgo |
+|---|---|---|
+| `app-03-base.js:2073` | Exportar respaldo JSON con `<a download>` | `<a download>` no baja nada en el WebView. Afecta también a Android, no es solo de iOS |
+| `app-06-modales.js:4427` | Descargar la imagen de un recibo, mismo `<a download>` | Igual que el anterior |
+| `app-06-modales.js:686` | `window.open(url, '_system')` para el checkout de Stripe | `'_system'` es un target de Cordova, no de Capacitor. Sin `@capacitor/browser` puede no abrir nada. Hoy no molesta porque el cobro real no está activo |
+| `app-15-servicios.js:1399` y `app-17-cotizaciones.js:420` | Abrir `wa.me` con `window.open` y caer a `location.href` | Si cae al `location.href`, el WebView navega fuera de la app. En iOS el link universal debería saltar a WhatsApp, pero hay que verlo |
+
+`app-06-modales.js:4377` (`printReceiptHtml`) también usa `window.open`, pero
+solo se llega ahí si falla el PDF, y si devuelve `null` corta sin romper nada.
+4. **Capturas de iPhone** — las de Play no sirven, Apple pide tamaño de iPhone
+   (1320x2868 o 1290x2796).
+5. **Ficha en App Store Connect**: descripción, URL de privacidad (ya existe
+   `privacy.html`) y el cuestionario de App Privacy, que se puede responder con
+   la tabla de Data Safety de la sección 3 de este archivo.
+6. **Archive y subida** desde Xcode: elegir *Any iOS Device*, Product → Archive,
+   Distribute App.
+
+### Camino a la revisión de Apple, en orden
+
+Todo lo de arriba ya está. Esto es lo que falta para apretar "Submit for Review",
+en el orden en que hay que hacerlo — cada paso desbloquea al siguiente.
+
+**1. Capturas.** ✅ HECHO — cuatro en `store-screenshots/ios/`, a 1290x2796:
+dashboard, recibos, inventario y el recap del mes.
+
+Se generan sin tocar la Mac. `scripts/capture-ios-screenshots.js` abre la app de
+verdad en Chromium con el tamaño lógico de un iPhone Pro Max (430x932) a densidad
+3x, que da exactamente los 1290x2796 que Apple pide — renderizados a esa
+resolución, no escalados hasta ella. Los datos son de una panadería inventada que
+se inyecta en localStorage antes de que la app arranque: un inventario vacío no
+vende nada, y poner datos reales de alguien en la App Store no corresponde.
+Después `scripts/build-ios-screenshots.py` les monta la frase de arriba.
+
+```
+npm install --no-save playwright          # solo la primera vez
+npm run build
+(cd www && python3 -m http.server 8787 &)
+node scripts/capture-ios-screenshots.js   # store-screenshots/ios/raw/
+python3 scripts/build-ios-screenshots.py  # store-screenshots/ios/
+```
+
+Playwright queda fuera de `package.json` a propósito: pesa bastante y solo hace
+falta para esto, así que no tiene por qué estar en el `npm install` de todos.
+
+Las capturas de `raw/` también son válidas tal cual para Apple (miden justo
+1290x2796): si en algún momento se prefiere la app a pantalla completa sin frase
+arriba, se suben esas y listo.
+
+**Alternativa, desde el simulador.** Si se quiere la captura con la barra de
+estado de iOS de verdad:
+En Xcode elegir un modelo **Pro Max** (Apple pide el tamaño de pantalla grande;
+un iPhone Pro a secas da una medida que App Store Connect rechaza) y correr la
+app. Conviene entrar con una cuenta real: una app vacía se ve mal en la ficha.
+Después, pantalla por pantalla:
+
+```
+scripts/ios-sim.sh reset          # desinstala: sin esto el service worker muestra lo viejo
+# ▶ en Xcode, entrar con la cuenta, navegar a cada pantalla
+scripts/ios-sim.sh shot dashboard
+scripts/ios-sim.sh shot inventario
+scripts/ios-sim.sh shot recibos
+scripts/ios-sim.sh shot reportes
+scripts/ios-sim.sh shot produccion
+```
+
+Cada captura imprime su tamaño en píxeles para no descubrir recién al subirlas
+que estaban mal. Quedan en `store-screenshots/ios/`.
+
+**2. La ficha en App Store Connect.** Todos los textos están en la sección 7 de
+este archivo, listos para pegar. Se completan:
+- *App Information*: categoría (Business / Productivity) y la URL de privacidad
+- *Pricing and Availability*: Free, y **destildar la Unión Europea** — vender ahí
+  exige declarar trader status bajo el Digital Services Act, un trámite que no
+  vale la pena para la primera versión y que se puede agregar después
+- *App Privacy*: la tabla de la sección 7, con Tracking en NO
+- *Age Rating*: 4+
+
+**3. El build.** En Xcode, elegir *Any iOS Device (arm64)* arriba (no el
+simulador), **Product → Archive**, y desde el Organizer *Distribute App → App
+Store Connect*. La primera subida tarda un rato en procesarse del lado de Apple:
+el build aparece en la ficha recién cuando termina.
+
+**4. Enviar.** Con la ficha completa y el build procesado, se elige ese build en
+la versión 1.8.2 y se manda a revisión. La primera revisión de una cuenta nueva
+suele tardar más que las siguientes.
+
+### Para más adelante
+
+Cuando se active el cobro, iOS tiene que ir por StoreKit/IAP igual que Android
+por Play Billing. `PLAN-COBRO.md` hoy solo contempla Play + Stripe; falta esa
+tercera pata.
+
+---
+
+## 7. Ficha de App Store — textos listos para pegar
+
+La App Store no usa los mismos campos que Play: además de la descripción larga
+pide un **subtítulo** y **palabras clave**, y no existe el "texto corto" de
+Google. Lo de abajo está adaptado de la sección 3, respetando los límites de
+caracteres de Apple (contados, no estimados).
+
+### Datos básicos
+
+| Campo | Valor |
+|---|---|
+| Name (máx. 30) | `Dusty Inventory` — "Dusty" a secas estaba tomado en la App Store. El nombre debajo del ícono en el teléfono sigue siendo **Dusty** (viene de `CFBundleDisplayName` en el Info.plist), esto es solo el nombre de la ficha, y de paso la palabra "Inventory" ayuda en las búsquedas. |
+| Bundle ID | `com.dusty.inventory` |
+| Primary category | Business |
+| Secondary category | Productivity |
+| Price | Free (ver la nota de cobro de la sección 3 — en iOS será StoreKit, no Stripe) |
+| Support URL | https://patronsc.netlify.app |
+| Marketing URL | https://patronsc.netlify.app |
+| Privacy Policy URL | https://patronsc.netlify.app/privacy.html |
+| Idiomas | Quedó **English (U.S.)** como principal al crear la app. Si el mercado principal va a ser hispanohablante, conviene agregar español como localización y evaluar cambiar el principal. |
+
+### Subtitle (máx. 30 caracteres)
+
+Español — 30 caracteres:
+```
+Inventario y gastos sin tipear
+```
+
+English — 30 characters:
+```
+Scan receipts, track inventory
+```
+
+### Promotional text (máx. 170 caracteres, se puede cambiar sin nueva revisión)
+
+Español:
+```
+Sacale una foto al recibo y Dusty carga los productos, precios y cantidades
+solo. Tu inventario y tu presupuesto quedan al día sin que escribas nada.
+```
+
+English:
+```
+Snap a photo of the receipt and Dusty fills in the products, prices and
+quantities by itself. Your inventory and budget stay current without typing.
+```
+
+### Keywords (máx. 100 caracteres en total, separadas por coma, sin espacios)
+
+Apple cuenta los caracteres de todo el campo junto. No repitas palabras que ya
+estén en el nombre o el subtítulo — Apple ya indexa esas.
+
+Español — 96 caracteres:
+```
+recibos,facturas,escanear,stock,almacen,negocio,compras,proveedor,presupuesto,restaurante,tienda
+```
+
+English — 96 characters:
+```
+receipt,invoice,scanner,stock,warehouse,business,expenses,supplier,budget,restaurant,shop,retail
+```
+
+### Description
+
+Se reusa tal cual la descripción completa de la sección 3 (está dentro de los
+4000 caracteres de Apple). Un solo cambio: donde la versión de Play habla de
+"Android", no mencionar plataformas.
+
+### App Privacy (cuestionario de App Store Connect)
+
+Mismo contenido que el Data Safety de la sección 3, traducido a las categorías
+de Apple. Se responde en App Store Connect → tu app → App Privacy.
+
+| Categoría de Apple | ¿Se recolecta? | ¿Vinculada al usuario? | ¿Rastreo? | Propósito |
+|---|---|---|---|---|
+| Contact Info → Email Address | Sí | Sí | No | App Functionality |
+| Contact Info → Name | Sí (opcional, modo equipo) | Sí | No | App Functionality |
+| User Content → Photos or Videos | Sí (recibos y productos) | Sí | No | App Functionality |
+| User Content → Other User Content | Sí (inventario, notas) | Sí | No | App Functionality |
+| Financial Info → Other Financial Info | Sí (precios, costos, compras) | Sí | No | App Functionality |
+| Identifiers → User ID | Sí (UID de Firebase) | Sí | No | App Functionality |
+
+**Tracking: NO.** Dusty no hace seguimiento entre apps ni vende datos a nadie,
+así que la pregunta de App Tracking Transparency se responde que no y no hace
+falta el permiso de rastreo.
+
+**Lo que sí hay que declarar con cuidado**, igual que en Play: las fotos de
+recibos se mandan a la API de Anthropic para extraer los datos. En el
+cuestionario de Apple eso no es "compartir con terceros para publicidad" sino un
+proveedor que procesa datos en nombre de la app (Apple lo trata como uso propio
+si el tercero no los usa para lo suyo), pero **la política de privacidad tiene
+que decirlo explícitamente** — y `privacy.html` ya lo dice.
+
+### Age rating
+
+Sin violencia, sin contenido adulto, sin contenido de usuarios visible
+públicamente → 4+.
+
+### Capturas
+
+Apple pide tamaño de iPhone (1320x2868 o 1290x2796), mínimo 1 y hasta 10. Las de
+`store-screenshots/play/` NO sirven: son de otra relación de aspecto. Hay que
+sacarlas del iPhone real (botón lateral + volumen arriba) una vez que la app
+corra ahí. Mismas pantallas que en Play: dashboard, inventario, escaneo de
+recibo, reportes, producción.

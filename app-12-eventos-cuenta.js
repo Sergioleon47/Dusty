@@ -104,6 +104,8 @@ function attachAccountEvents(){
     // join vs. pinlogin) — cada uno se cablea solo si el modo actual lo dibujó.
     const googleBtn=document.getElementById('btn-google-auth');
     if(googleBtn) googleBtn.onclick=signInWithGoogle;
+    const appleBtn=document.getElementById('btn-apple-auth');
+    if(appleBtn) appleBtn.onclick=signInWithApple;
     const emailInp=document.getElementById('auth-email');
     if(emailInp) emailInp.oninput=(e)=>{ authEmail=e.target.value; };
     const passwordInp=document.getElementById('auth-password');

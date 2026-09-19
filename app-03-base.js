@@ -221,7 +221,9 @@ const I18N = {
     cloud_sync_signed_in:'✓ Sincronizado como {email}',
     cloud_sync_pending:'Sincronizando cambios con la nube — todavía puede faltar ver lo último de tu equipo',
     export_working:'Armando el respaldo…',
-    export_done:'Respaldo descargado',
+    export_done:'Respaldo listo',
+    export_failed:'No se pudo exportar el respaldo — intenta de nuevo.',
+    share_file_failed:'No se pudo compartir el archivo — intenta de nuevo.',
     btn_undo:'Deshacer',
     inv_restored_n:'{n} producto(s) restaurado(s)',
     inv_no_match_search:'Ningún producto coincide con “{q}”',
@@ -259,7 +261,7 @@ const I18N = {
     ids_cost:'Costo',
     ids_scan_again:'Escanear otro',
     ids_open_item:'Ver producto',
-    auth_continue_google:'Continuar con Google', auth_or:'o', auth_password:'Contraseña',
+    auth_continue_google:'Continuar con Google', auth_continue_apple:'Continuar con Apple', auth_or:'o', auth_password:'Contraseña',
     auth_forgot_password:'¿Olvidaste tu contraseña?', auth_no_account:'¿No tienes cuenta?',
     auth_have_account:'¿Ya tienes cuenta?', auth_create_account:'Crear cuenta', auth_loading:'Un momento…',
     auth_err_email_in_use:'Ya existe una cuenta con ese email — prueba iniciar sesión en vez de crear una nueva.',
@@ -346,6 +348,7 @@ const I18N = {
     delete_account_reauth_sub:'Por seguridad, confirma que eres tú antes de borrar la cuenta.',
     delete_account_continue_btn:'Continuar', delete_account_confirm_btn:'Sí, eliminar mi cuenta',
     delete_account_google_reauth_btn:'Confirmar con Google',
+    delete_account_apple_reauth_btn:'Confirmar con Apple',
     delete_account_success:'Tu cuenta fue eliminada.',
     privacy_policy_link:'Política de privacidad',
     /* Introducción (startOnboarding, app-06). ob_head lleva {logo} (la marca
@@ -1031,7 +1034,9 @@ const I18N = {
     cloud_sync_signed_in:'✓ Synced as {email}',
     cloud_sync_pending:'Syncing changes with the cloud — you may not be seeing your team\'s latest yet',
     export_working:'Building the backup…',
-    export_done:'Backup downloaded',
+    export_done:'Backup ready',
+    export_failed:'Couldn’t export the backup — try again.',
+    share_file_failed:'Couldn’t share the file — try again.',
     btn_undo:'Undo',
     inv_restored_n:'{n} product(s) restored',
     inv_no_match_search:'No product matches “{q}”',
@@ -1069,7 +1074,7 @@ const I18N = {
     ids_cost:'Cost',
     ids_scan_again:'Scan another',
     ids_open_item:'View product',
-    auth_continue_google:'Continue with Google', auth_or:'or', auth_password:'Password',
+    auth_continue_google:'Continue with Google', auth_continue_apple:'Continue with Apple', auth_or:'or', auth_password:'Password',
     auth_forgot_password:'Forgot your password?', auth_no_account:"Don't have an account?",
     auth_have_account:'Already have an account?', auth_create_account:'Create account', auth_loading:'One moment…',
     auth_err_email_in_use:'An account with that email already exists — try logging in instead.',
@@ -1156,6 +1161,7 @@ const I18N = {
     delete_account_reauth_sub:"For your security, confirm it's really you before deleting the account.",
     delete_account_continue_btn:'Continue', delete_account_confirm_btn:'Yes, delete my account',
     delete_account_google_reauth_btn:'Confirm with Google',
+    delete_account_apple_reauth_btn:'Confirm with Apple',
     delete_account_success:'Your account has been deleted.',
     privacy_policy_link:'Privacy policy',
     ob_head:'Welcome to {logo}, your business runs <em>itself</em>.',
@@ -2066,12 +2072,16 @@ function exportDataNow(){
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `patron-backup-${localDateStr()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  showToast(t('export_done'), 'success');
-  URL.revokeObjectURL(url);
+  const fileName = `patron-backup-${localDateStr()}.json`;
+  /* El <a download> de antes no bajaba nada adentro de la app instalada (ni en
+     Android ni en iOS) pero el aviso decía "descargado" igual: el respaldo, que
+     es justo lo que salva de perder todo al cambiar de teléfono, no existía para
+     quien usa la app en vez de la web. shareBlobFile (app-14) abre la hoja nativa
+     para mandarlo a Drive, Archivos o donde sea, y en el navegador sigue bajando
+     como siempre. El aviso ahora espera a saber si de verdad salió. */
+  shareBlobFile(blob, fileName, t('export_done'))
+    .then(ok => showToast(ok ? t('export_done') : t('export_failed'), ok ? 'success' : 'error'))
+    .catch(() => showToast(t('export_failed'), 'error'));
 }
 /* Camino más simple para reportar un problema: abre el cliente de correo del
    usuario con un mail pre-armado. No manda nada solo ni guarda nada — el usuario

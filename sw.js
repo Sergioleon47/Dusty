@@ -583,7 +583,28 @@
 // escaneos ya tenían tapado) y devolución de la vuelta si la llamada se cae por
 // red. Y el cliente por fin muestra cuánto queda cuando queda poco, en vez de
 // avisar recién al chocarse con el tope — app-03, app-16.
-const CACHE_NAME = 'patron-shell-v188';
+// v189: "Iniciar sesión con Apple" junto al de Google. No es una preferencia de
+// producto: la regla 4.8 de la App Store obliga a ofrecerlo en cualquier app que
+// ofrezca login social de terceros, así que sin esto la app de iOS no pasa la
+// revisión. Comparte con Google el mismo camino popup→redirect (signInWithOAuth
+// en app-06) y, como Apple tampoco tiene contraseña propia, el modal de borrar
+// cuenta reautentica contra el proveedor en vez de pedir una — app-03, app-06,
+// app-12.
+// v190: el respaldo y las fotos de recibos por fin salen del teléfono. Los dos
+// usaban <a download>, que adentro de la app instalada no baja nada —el mismo
+// agujero que se tapó para los PDF en v181— pero avisaban "descargado" igual, o
+// sea que el respaldo, que es justo lo que salva de perder todo al cambiar de
+// teléfono, no existía para quien usa la app en vez de la web. Ahora los dos
+// pasan por shareBlobFile (app-14), que abre la hoja nativa cuando hay app y
+// sigue bajando el archivo en el navegador, y el aviso espera a saber si de
+// verdad salió — app-03, app-06, app-14.
+// v191: en iOS el botón de Apple va arriba del de Google, en Android y en la web
+// al revés. No es gusto: las guías de Apple piden que "Iniciar sesión con Apple"
+// quede por encima de las demás opciones en sus plataformas, y al revés un botón
+// de Apple primero en un Android se lee fuera de lugar. Los dos botones pasan a
+// ser funciones (googleAuthButtonHtml / appleAuthButtonHtml) que socialAuthButtons
+// ordena según Capacitor.getPlatform() — app-06.
+const CACHE_NAME = 'patron-shell-v191';
 // Fotos en Storage (versionadas por ?v=, inmutables): cache-first con tope —
 // la app las muestra sin volver a bajarlas.
 const PHOTO_CACHE = 'patron-photos-v1';
